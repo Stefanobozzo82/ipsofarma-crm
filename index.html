@@ -1491,8 +1491,12 @@ function detailView(){
   }else if(coll==='ordiniCliente'){
     const hasDDT=(item.ddtIds&&item.ddtIds.length)||item.ddtId;
     const fullyShip=item.righe.length>0&&item.righe.every(r=>(r.qtyEv||0)>=r.qty);
-    const hasOF=(item.ofIds&&item.ofIds.length)||item.ofId;
-    actions=`<button class="btn" onclick="openOCEdit('${item.id}')">✎ Modifica</button><button class="btn ${hasOF?'':'primary'}" ${hasOF?'disabled':''} onclick="genOF('${item.id}')">${hasOF?'✓ Ordine fornitore':'→ Genera ordine fornitore'}</button>
+    const ofNums=(item.ofIds&&item.ofIds.length?item.ofIds:(item.ofId?[item.ofId]:[]));
+    const ofCovered=new Set();ofNums.forEach(n=>{const of=DB.ordiniFornitore.find(o=>o.num===n);if(of)of.righe.forEach(r=>ofCovered.add(r.cod));});
+    const ofMissingN=item.righe.filter(r=>!ofCovered.has(r.cod)).length;
+    const ofBtnLabel=ofNums.length===0?'→ Genera ordine fornitore':(ofMissingN>0?('+ Ordina '+ofMissingN+(ofMissingN>1?' articoli mancanti':' articolo mancante')):'✓ Ordine fornitore');
+    const ofBtnDone=ofNums.length>0&&ofMissingN===0;
+    actions=`<button class="btn" onclick="openOCEdit('${item.id}')">✎ Modifica</button><button class="btn ${ofBtnDone?'':'primary'}" ${ofBtnDone?'disabled':''} onclick="genOF('${item.id}')">${ofBtnLabel}</button>
     <button class="btn ${fullyShip?'':'primary'}" ${fullyShip?'disabled':''} onclick="openDDTForm('${item.id}')">${fullyShip?'✓ Consegnato (DDT)':(hasDDT?'+ Registra altra consegna':'→ Genera DDT')}</button>`;
   }else if(coll==='ddt'){
     actions=`<button class="btn" onclick="openDDTEdit('${item.id}')">✎ Modifica righe</button><button class="btn ${item.ftId?'':'primary'}" ${item.ftId?'disabled':''} onclick="genFT('${item.id}')">${item.ftId?'✓ Fatturato':'→ Fattura immediata'}</button>`;
@@ -1594,10 +1598,17 @@ function openDoc(coll,id){SEL={coll,item:DB[coll].find(x=>x.id===id)};render();w
 function openByNum(num){const r=findByNum(num);if(r&&r.item){const mod=Object.keys(META).find(k=>META[k].coll===r.coll);MOD=mod;SEL={coll:r.coll,item:r.item};render();document.getElementById('content').scrollTo(0,0);}}
 
 /* ===== Trasformazioni ===== */
-// Raggruppa le righe di un ordine cliente per fornitore (fornitore indicato sulla scheda prodotto, altrimenti l'ultimo acquisto registrato per ciascun codice) e crea un ordine fornitore per ciascun gruppo
+// Individua le righe dell'ordine cliente non ancora presenti su nessun ordine fornitore collegato, le raggruppa per fornitore
+// (fornitore indicato sulla scheda prodotto, altrimenti l'ultimo acquisto registrato per ciascun codice) e crea/aggiorna gli ordini fornitore di conseguenza.
+// Può essere richiamata più volte sullo stesso ordine cliente: ogni volta elabora solo i codici ancora mancanti.
 function genOFFromOC(oc){
+  const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));
+  const existingOFs=ofNums.map(n=>DB.ordiniFornitore.find(o=>o.num===n)).filter(Boolean);
+  const covered=new Set();existingOFs.forEach(of=>of.righe.forEach(r=>covered.add(r.cod)));
+  const missing=oc.righe.filter(r=>!covered.has(r.cod));
+  if(!missing.length)return{created:[],updated:[]};
   const groups=new Map();
-  oc.righe.forEach(r=>{
+  missing.forEach(r=>{
     const prod=allProdotti().find(x=>x.codice===r.cod);
     const la=lastAcqPrice(r.cod);
     const fid=(prod&&prod.fornitoreId)||(la&&la.fornitoreId)||'f1';
@@ -1605,19 +1616,25 @@ function genOFFromOC(oc){
     if(!groups.has(fid))groups.set(fid,[]);
     groups.get(fid).push(line);
   });
-  const created=[];
+  const created=[],updated=[];
   for(const [fid,righe] of groups){
-    const of={id:uid('of'),num:nextNum('OF'),data:today(),fornitoreId:fid,righe,ocId:oc.num,ftfId:null,ftfIds:[]};
-    DB.ordiniFornitore.push(of);created.push(of);
+    const target=existingOFs.find(o=>o.fornitoreId===fid);
+    if(target){target.righe.push(...righe);updated.push(target);}
+    else{const of={id:uid('of'),num:nextNum('OF'),data:today(),fornitoreId:fid,righe,ocId:oc.num,ftfId:null,ftfIds:[]};DB.ordiniFornitore.push(of);created.push(of);}
   }
-  oc.ofIds=created.map(o=>o.num);oc.ofId=created[created.length-1].num;
-  return created;
+  if(created.length){oc.ofIds=[...(oc.ofIds||[]),...created.map(o=>o.num)];oc.ofId=oc.ofIds[oc.ofIds.length-1];}
+  return{created,updated};
 }
-async function genOF(id){const oc=DB.ordiniCliente.find(o=>o.id===id);if((oc.ofIds&&oc.ofIds.length)||oc.ofId)return;
-  const created=genOFFromOC(oc);
+async function genOF(id){const oc=DB.ordiniCliente.find(o=>o.id===id);if(!oc)return;
+  const {created,updated}=genOFFromOC(oc);
+  if(!created.length&&!updated.length){toast('Tutti gli articoli dell\'ordine sono già su un ordine fornitore');return;}
   await persist();
-  toast(created.length>1?('Creati '+created.length+' ordini fornitore: '+created.map(o=>fornitore(o.fornitoreId).nome+' '+o.num).join(', ')):('Ordine fornitore '+created[0].num+' generato'));
-  MOD='of';SEL={coll:'ordiniFornitore',item:created[0]};render();document.getElementById('content').scrollTo(0,0);openOFEdit(created[0].id);}
+  const parts=[];
+  if(created.length)parts.push(created.length>1?('creati '+created.length+' ordini fornitore: '+created.map(o=>fornitore(o.fornitoreId).nome+' '+o.num).join(', ')):('creato ordine fornitore '+created[0].num+' ('+fornitore(created[0].fornitoreId).nome+')'));
+  if(updated.length)parts.push('aggiornato/i con i nuovi articoli: '+updated.map(o=>o.num).join(', '));
+  toast(parts.join(' · '));
+  const first=created[0]||updated[0];
+  MOD='of';SEL={coll:'ordiniFornitore',item:first};render();document.getElementById('content').scrollTo(0,0);openOFEdit(first.id);}
 // Cerca lotto/scadenza per un codice prodotto tra le fatture fornitore collegate a un ordine fornitore
 function lotScadFromOF(ofNums,cod){
   if(!ofNums||!cod)return null;
@@ -3632,7 +3649,7 @@ function aiPeriodLabel(p){if(!p)return '';if(typeof p==='string'){const x=p.spli
 function aiFindOC(ref){ref=String(ref==null?'':ref).trim();if(!ref)return null;let o=DB.ordiniCliente.find(x=>x.num.toLowerCase()===ref.toLowerCase());if(o)return o;const dg=ref.replace(/\D/g,'');if(dg){const n=parseInt(dg);o=DB.ordiniCliente.find(x=>parseInt((x.num.split('/').pop()||'0'))===n);}return o||null;}
 function aiGenDDT(oc){const righe=oc.righe.map(r=>{const rest=Math.max(0,r.qty-(r.qtyEv||0));const ls=lotScadFromOF(oc.ofId,r.cod);return{cod:r.cod,descr:r.descr,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};}).filter(r=>r.qty>0);if(!righe.length)return null;const ddt={id:uid('ddt'),num:nextNum('DDT'),data:today(),clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null};DB.ddt.push(ddt);oc.righe.forEach(r=>{r.qtyEv=r.qty;});oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;updateOFfromOC(oc.num,righe);return ddt;}
 function aiGenFT(ddt){if(ddt.ftId)return null;const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId};DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;return ft;}
-function aiGenOF(oc){if((oc.ofIds&&oc.ofIds.length)||oc.ofId)return null;return genOFFromOC(oc);}
+function aiGenOF(oc){return genOFFromOC(oc);}
 function aiFindProd(q){
   if(!q)return null;const lc=String(q).trim().toLowerCase();const all=allProdotti();
   let p=all.find(x=>(x.codice||'').toLowerCase()===lc);if(p)return p;
@@ -3747,7 +3764,7 @@ function aiResolve(a){
   }
   if(t==='generate_ddt'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};const rest=oc.righe.some(r=>(r.qtyEv||0)<r.qty);return{desc:`Genera DDT dall'ordine ${oc.num}`+(rest?'':' (già tutto consegnato)'),apply:async()=>{const d=aiGenDDT(oc);return d?('DDT '+d.num+' generato'):'Niente da consegnare sull\'ordine '+oc.num;}};}
   if(t==='generate_invoice'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};return{desc:`Genera fattura dei DDT dell'ordine ${oc.num} non ancora fatturati`,apply:async()=>{const ds=(oc.ddtIds||[]).map(n=>DB.ddt.find(d=>d.num===n)).filter(d=>d&&!d.ftId);if(!ds.length)return 'Nessun DDT da fatturare per '+oc.num;const fts=ds.map(aiGenFT).filter(Boolean);return 'Fattura/e '+fts.map(f=>f.num).join(', ')+' generata/e';}};}
-  if(t==='generate_supplier_order'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};return{desc:`Genera ordine fornitore dall'ordine ${oc.num}`,apply:async()=>{if((oc.ofIds&&oc.ofIds.length)||oc.ofId)return 'Ordine fornitore già esistente ('+(oc.ofIds&&oc.ofIds.length?oc.ofIds.join(', '):oc.ofId)+')';const created=aiGenOF(oc);return created.length>1?('Ordini fornitore generati: '+created.map(o=>o.num+' ('+fornitore(o.fornitoreId).nome+')').join(', ')):('Ordine fornitore '+created[0].num+' generato');}};}
+  if(t==='generate_supplier_order'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};return{desc:`Genera ordine fornitore dall'ordine ${oc.num}`,apply:async()=>{const {created,updated}=aiGenOF(oc);if(!created.length&&!updated.length)return 'Tutti gli articoli dell\'ordine '+oc.num+' sono già su un ordine fornitore';const parts=[];if(created.length)parts.push('generato/i: '+created.map(o=>o.num+' ('+fornitore(o.fornitoreId).nome+')').join(', '));if(updated.length)parts.push('aggiornato/i con nuovi articoli: '+updated.map(o=>o.num).join(', '));return 'Ordine/i fornitore '+parts.join(' · ');}};}
   return{desc:'Azione non riconosciuta'+(t?': '+aiEsc(t):''),apply:null};
 }
 function aiShowPlan(plan){

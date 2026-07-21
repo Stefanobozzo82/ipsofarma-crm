@@ -881,7 +881,7 @@ function renderNav(){
   const c=counts();const od=overdueCount();
   document.getElementById('nav').innerHTML=NAV.map(g=>`
     ${g.grp?`<div class="nav-group"><div class="gl">${g.grp}</div>`:'<div class="nav-group" style="margin-top:6px">'}
-    ${g.items.map(it=>`<button class="nav-item ${MOD===it.id?'active':''}" onclick="nav('${it.id}')"><span class="ic">${it.ic}</span>${it.label}${it.coll?`<span class="cnt">${c[it.coll]||0}</span>`:''}${it.id==='scadenziario'&&od?`<span class="overdue-badge">${od}</span>`:''}${it.id==='oc'&&GS_NEW_COUNT?`<span class="overdue-badge" title="Nuovi ordini da Google Sheet">${GS_NEW_COUNT}</span>`:''}</button>`).join('')}
+    ${g.items.map(it=>`<button class="nav-item ${MOD===it.id?'active':''}" onclick="nav('${it.id}')"><span class="ic">${it.ic}</span>${it.label}${it.coll?`<span class="cnt">${c[it.coll]||0}</span>`:''}${it.id==='scadenziario'&&od?`<span class="overdue-badge">${od}</span>`:''}${it.id==='oc'&&GS_NEW_COUNT?`<span class="overdue-badge" title="Nuovi ordini da Google Sheet">${GS_NEW_COUNT}</span>`:''}${it.id==='ftf'&&GMAIL_NEW_COUNT?`<span class="overdue-badge" title="Nuove fatture trovate su Gmail">${GMAIL_NEW_COUNT}</span>`:''}</button>`).join('')}
     </div>`).join('');
   // Stato sidebar (non usato senza cloud)
   try{const el=document.getElementById('gdStatus');if(el)el.textContent='';}catch(e){}
@@ -920,7 +920,7 @@ function renderTop(){
   if(MOD==='prev'){h+=`<button class="btn primary" onclick="openPrevForm()">+ Nuovo preventivo</button>`;}
   if(MOD==='of'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn primary" onclick="openOFForm()">+ Nuovo ordine fornitore</button>`;}
   if(MOD==='ft'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn primary" onclick="openFTNew()">+ Nuova fattura</button>`;}
-  if(MOD==='ftf'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn primary" onclick="openFTFNew()">+ Nuova fattura fornitore</button>`;}
+  if(MOD==='ftf'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button><button class="btn primary" onclick="openFTFNew()">+ Nuova fattura fornitore</button>`;}
   if(MOD==='clienti'){h+=`<button class="btn primary" onclick="openClienteForm()">+ Nuovo cliente</button>`;}
   if(MOD==='fornitori'){h+=`<button class="btn primary" onclick="openFornitoreForm()">+ Nuovo fornitore</button>`;}
   if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button><button class="btn primary" onclick="openProdottoForm()">+ Nuovo prodotto</button>`;}
@@ -2942,7 +2942,148 @@ async function xmlImpImport(){
     DB.fattureFornitore.push(ff);add++;
     if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;markOFInvoiced(match,ff.righe);linked++;}
   }
-  await persist();closeModal();toast('Importate '+add+' fatture fornitore'+(linked?' · '+linked+' collegate a ordini':'')+(newp?' · '+newp+' fornitori nuovi':'')+(skip?' · '+skip+' già presenti':''));nav('ftf');
+  await persist();closeModal();toast('Importate '+add+' fatture fornitore'+(linked?' · '+linked+' collegate a ordini':'')+(newp?' · '+newp+' fornitori nuovi':'')+(skip?' · '+skip+' già presenti':''));
+  GMAIL_PENDING=null;GMAIL_NEW_COUNT=0;renderNav();
+  nav('ftf');
+}
+/* ===== Import automatico fatture fornitore da Gmail =====
+   Cerca le email "POSTA CERTIFICATA: Trasmissione Fattura", scarica l'allegato (di solito il PDF
+   della fattura, a volte XML/P7M) e lo fa passare per la stessa pipeline di riconoscimento usata
+   dall'import manuale: nulla viene scritto in archivio senza conferma dell'utente. */
+let GMAIL_TOKEN=null,GMAIL_TOKENCLIENT=null,GMAIL_TOKEN_RESOLVE=null,GMAIL_TIMER=null,GMAIL_PENDING=null,GMAIL_NEW_COUNT=0;
+const GMAIL_QUERY='subject:"POSTA CERTIFICATA: Trasmissione Fattura" has:attachment';
+function gmailLoadGIS(cb){
+  if(window.google&&google.accounts&&google.accounts.oauth2){cb();return;}
+  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;
+  s.onload=cb;s.onerror=()=>toast('Impossibile caricare Google Identity Services');document.head.appendChild(s);
+}
+function gmailEnsureTokenClient(){
+  const cid=((DB.azienda||{}).gmailClientId||'').trim();if(!cid)return null;
+  if(!GMAIL_TOKENCLIENT||GMAIL_TOKENCLIENT._cid!==cid){
+    GMAIL_TOKENCLIENT=google.accounts.oauth2.initTokenClient({
+      client_id:cid,
+      scope:'https://www.googleapis.com/auth/gmail.readonly',
+      callback:(resp)=>{
+        if(resp&&resp.access_token){
+          GMAIL_TOKEN={token:resp.access_token,exp:Date.now()+((resp.expires_in||3300)*1000)};
+          try{sessionStorage.setItem('gmail_token',JSON.stringify(GMAIL_TOKEN));}catch(e){}
+          const st=document.getElementById('gmailStatus');if(st)st.textContent='✅ connesso';
+        }
+        if(GMAIL_TOKEN_RESOLVE){const r=GMAIL_TOKEN_RESOLVE;GMAIL_TOKEN_RESOLVE=null;r(resp&&resp.access_token?resp.access_token:null);}
+      }
+    });
+    GMAIL_TOKENCLIENT._cid=cid;
+  }
+  return GMAIL_TOKENCLIENT;
+}
+function gmailConnect(){
+  gmailLoadGIS(()=>{
+    const tc=gmailEnsureTokenClient();
+    if(!tc){toast('Inserisci e salva prima il Client ID Google');return;}
+    tc.requestAccessToken({prompt:'consent'});
+  });
+}
+function gmailGetToken(interactive){
+  try{const raw=sessionStorage.getItem('gmail_token');if(raw){const t=JSON.parse(raw);if(t&&t.token&&t.exp>Date.now()+30000){GMAIL_TOKEN=t;return Promise.resolve(t.token);}}}catch(e){}
+  if(!interactive)return Promise.resolve(null);
+  return new Promise(resolve=>{
+    gmailLoadGIS(()=>{
+      const tc=gmailEnsureTokenClient();
+      if(!tc){resolve(null);return;}
+      GMAIL_TOKEN_RESOLVE=resolve;
+      tc.requestAccessToken({prompt:''});
+    });
+  });
+}
+async function gmailApi(path,token){
+  const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me'+path,{headers:{Authorization:'Bearer '+token}});
+  if(!res.ok)throw new Error('Gmail HTTP '+res.status);
+  return res.json();
+}
+function gmailB64UrlToBytes(b64url){
+  const b64=b64url.replace(/-/g,'+').replace(/_/g,'/');
+  const bin=atob(b64);const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return arr;
+}
+function gmailFlattenParts(payload){
+  const out=[];const walk=p=>{if(!p)return;if(p.filename)out.push(p);(p.parts||[]).forEach(walk);};walk(payload);return out;
+}
+async function gmailFetchCandidates(token){
+  const seen=new Set((DB.azienda&&DB.azienda.gmailSeenIds)||[]);
+  const data=await gmailApi('/messages?q='+encodeURIComponent(GMAIL_QUERY)+'&maxResults=25',token);
+  const msgs=(data.messages||[]).filter(m=>!seen.has(m.id));
+  const out=[];
+  for(const m of msgs){
+    try{
+      const full=await gmailApi('/messages/'+m.id+'?format=full',token);
+      const parts=gmailFlattenParts(full.payload);
+      const cand=parts.find(p=>p.filename&&p.body&&p.body.attachmentId&&!/^daticert\.xml$/i.test(p.filename)&&!/smime\.p7[sm]$/i.test(p.filename)&&!/^postacert\.eml$/i.test(p.filename));
+      if(!cand){out.push({id:m.id,error:'Allegato fattura non trovato nel messaggio'});continue;}
+      const att=await gmailApi('/messages/'+m.id+'/attachments/'+cand.body.attachmentId,token);
+      const bytes=gmailB64UrlToBytes(att.data);
+      const type=/\.pdf$/i.test(cand.filename)?'application/pdf':(/\.p7m$/i.test(cand.filename)?'application/pkcs7-mime':'application/xml');
+      out.push({id:m.id,file:new File([bytes],cand.filename,{type})});
+    }catch(e){out.push({id:m.id,error:e.message||'errore lettura email'});}
+  }
+  return out;
+}
+async function gmailSync(interactive){
+  if(!interactive&&GMAIL_PENDING&&GMAIL_PENDING.length)return;
+  const cid=((DB.azienda||{}).gmailClientId||'').trim();
+  if(!cid){if(interactive)toast('Configura prima il Client ID Google nelle Impostazioni');return;}
+  const token=await gmailGetToken(interactive);
+  if(!token){if(interactive)toast('Autorizzazione Gmail non riuscita o annullata');return;}
+  let cands;
+  try{cands=await gmailFetchCandidates(token);}catch(e){if(interactive)toast('Errore Gmail: '+(e.message||''));return;}
+  const seen=new Set((DB.azienda.gmailSeenIds)||[]);
+  const items=[];
+  for(const c of cands){
+    seen.add(c.id);
+    if(c.error){items.push({file:'(email non letta)',error:c.error});continue;}
+    const f=c.file;const isPdf=/\.pdf$/i.test(f.name);
+    try{
+      if(isPdf){const p=await pdfExtractSupplierInvoice(f);if(!p||!p.number){items.push({file:f.name,error:'PDF non riconosciuto come fattura'});continue;}items.push({file:f.name,p,src:'Gmail'});}
+      else{const xml=await xmlReadFile(f);if(!xml){items.push({file:f.name,error:'XML non estraibile'});continue;}const p=parseFatturaXML(xml);if(!p||!p.number){items.push({file:f.name,error:'Non è una FatturaPA valida'});continue;}items.push({file:f.name,p,src:'Gmail'});}
+    }catch(e){items.push({file:f.name,error:e.message||'errore lettura'});}
+  }
+  DB.azienda.gmailSeenIds=[...seen].slice(-500);
+  await persist();
+  if(!items.length){GMAIL_PENDING=null;GMAIL_NEW_COUNT=0;renderNav();if(interactive)toast('Nessuna nuova fattura trovata su Gmail');return;}
+  GMAIL_PENDING=items;
+  GMAIL_NEW_COUNT=items.filter(it=>it.p&&it.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(it.p.number))).length;
+  renderNav();
+  if(interactive){XMLIMP={items};openGmailReview();}
+  else if(GMAIL_NEW_COUNT>0){gsPlayAlert();toast('📥 '+GMAIL_NEW_COUNT+' nuova/e fattura/e trovata/e su Gmail — apri "Fatture fornitore" per importarle');}
+}
+function gmailSyncButton(){
+  if(GMAIL_PENDING&&GMAIL_PENDING.length){XMLIMP={items:GMAIL_PENDING};openGmailReview();}
+  else gmailSync(true);
+}
+function openGmailReview(){
+  document.getElementById('modal').innerHTML=`
+   <div class="modal-head"><h3>📧 Fatture trovate su Gmail</h3><button class="x" onclick="closeModal()">×</button></div>
+   <div class="modal-body" id="xml-body" style="max-height:66vh;overflow-y:auto">
+     <p class="ai-intro">Trovate nelle email "POSTA CERTIFICATA: Trasmissione Fattura". Controlla i dati prima di importare — non viene salvato nulla senza conferma.</p>
+     <div id="xml-step"></div>
+   </div>
+   <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Chiudi</button></div>`;
+  document.getElementById('overlay').classList.add('show');
+  xmlImpRender();
+}
+async function gmailSaveSettings(){
+  DB.azienda=DB.azienda||{};
+  DB.azienda.gmailClientId=(document.getElementById('gmail-cid-inp').value||'').trim();
+  DB.azienda.gmailPollMin=Math.max(3,parseInt((document.getElementById('gmail-min-inp')||{}).value)||10);
+  await persist();toast('Impostazioni Gmail salvate');
+  gmailStartTimer();
+}
+function gmailStartTimer(){
+  if(GMAIL_TIMER)clearInterval(GMAIL_TIMER);
+  if(!((DB.azienda||{}).gmailClientId))return;
+  const min=Math.max(3,parseInt((DB.azienda||{}).gmailPollMin)||10);
+  gmailSync(false);
+  GMAIL_TIMER=setInterval(()=>gmailSync(false),min*60*1000);
 }
 /* ===== Import ordini da Google Sheet ===== */
 function gsExtractId(v){v=String(v||'').trim();const m=v.match(/\/d\/([a-zA-Z0-9-_]+)/);return m?m[1]:v;}
@@ -3310,6 +3451,29 @@ function aziendaView(){
         <button class="btn primary" onclick="ghSave().then(()=>nav('azienda'))">☁ Salva ora su GitHub</button>
         <button class="btn" onclick="ghLoad().then(ok=>{if(ok){ensureSchema();render();toast('Caricato da GitHub ✅');}else toast('Errore: '+FB_STATUS);})">⭱ Carica da GitHub</button>
         <span style="font-size:12px;color:var(--muted)">Stato: <b id="ghStatusSettings">${FB_STATUS}</b></span>
+      </div>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:18px">
+    <div class="panel-h">📧 Import automatico fatture fornitore da Gmail</div>
+    <div style="padding:18px">
+      <p class="ai-intro" style="margin:0 0 14px">
+        Il gestionale controlla periodicamente la posta con oggetto <b>"POSTA CERTIFICATA: Trasmissione Fattura"</b>, scarica l'allegato e propone l'importazione con la stessa schermata di conferma dell'import manuale: <b>non viene salvato nulla senza il tuo ok</b>.
+        Per attivarlo, su <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a> crea gratuitamente un <b>ID client OAuth</b> (tipo "Applicazione web", aggiungi come origine autorizzata l'indirizzo con cui apri questo gestionale) e abilita la <b>Gmail API</b>. Il controllo automatico funziona finché tieni la scheda aperta e l'autorizzazione è valida (circa un'ora): se scade basta ricliccare "Connetti Gmail".
+      </p>
+      <div class="field" style="margin-bottom:12px">
+        <label>Client ID Google OAuth</label>
+        <input id="gmail-cid-inp" value="${(DB.azienda||{}).gmailClientId||''}" placeholder="xxxxxxxx.apps.googleusercontent.com" style="font-family:monospace">
+      </div>
+      <div class="field" style="margin-bottom:12px;max-width:220px">
+        <label>Controlla ogni (minuti)</label>
+        <input id="gmail-min-inp" type="number" min="3" value="${(DB.azienda||{}).gmailPollMin||10}">
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn primary" onclick="gmailSaveSettings()">Salva</button>
+        <button class="btn" onclick="gmailConnect()">🔌 Connetti Gmail</button>
+        <button class="btn" onclick="gmailSyncButton()">🔍 Controlla ora</button>
+        <span style="font-size:12px;color:var(--muted)">Stato: <b id="gmailStatus">${GMAIL_TOKEN?'✅ connesso':'⚠️ non connesso'}</b></span>
       </div>
     </div>
   </div>
@@ -4682,6 +4846,7 @@ if('serviceWorker' in navigator){
   // Controlla se ci sono nuovi ordini in arrivo dal Google Sheet collegato
   gsCheckNew();
   setInterval(gsCheckNew,5*60*1000);
+  gmailStartTimer();
 })();
 </script>
 </body>

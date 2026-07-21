@@ -2817,10 +2817,10 @@ async function xmlImpOnFiles(inp){
 async function pdfExtractSupplierInvoice(file){
   const sys=aiSystemPrompt(aiContext());
   const instr="Nel documento allegato c'è una FATTURA di un FORNITORE (es. B.Braun). Restituisci SOLO un oggetto JSON dell'azione create_supplier_invoice (nient'altro), con: supplier (ragione sociale fornitore), number (numero fattura), date (AAAA-MM-GG), order_ref (il numero d'ordine cliente scritto come 'Rif.cliente Vs.ord. NNN', se presente), e lines: per ogni riga code = codice articolo alfanumerico del prodotto (es. 'B0068598', NON la posizione a 4 cifre come '0010' né suffissi come 'HR37S'), descr, qty = quantità fatturata, price = PREZZO UNITARIO PIENO prima di eventuali sconti, sconto = percentuali di sconto a cascata unite da '+' (es. '50+15') se presenti altrimenti '0', iva = aliquota, lotto = numero di lotto/partita se indicato vicino alla riga (altrimenti stringa vuota), scad = data di scadenza del lotto in AAAA-MM-GG se indicata (altrimenti stringa vuota).";
-  const plan=await aiComplete(sys,instr,file,2500);
+  const plan=await aiComplete(sys,instr,file,8000);
   let a=null;
   if(plan){if(plan.type==='create_supplier_invoice')a=plan;else if(Array.isArray(plan.actions))a=plan.actions.find(x=>x.type==='create_supplier_invoice');}
-  if(!a)return null;
+  if(!a)throw new Error('l\'AI non ha restituito una fattura fornitore — risposta: '+JSON.stringify(plan).slice(0,300));
   const lines=(a.lines||[]).map(l=>({cod:String(l.code||l.product||'').trim(),descr:String(l.descr||l.description||'').trim(),qty:Math.max(1,parseInt(l.qty||1)),prezzo:(l.price!=null&&l.price!=='')?parseFloat(l.price):0,sconto:String(l.sconto||l.discount||'').replace(/\s/g,'')||0,iva:(l.iva!=null&&l.iva!=='')?parseFloat(l.iva):22,lotto:String(l.lotto||'').trim(),scad:String(l.scad||'').trim()}));
   return {dir:'acquisto',ced:{nome:String(a.supplier||'').trim(),piva:'',cf:''},ces:{},number:String(a.number||'').trim(),date:a.date||'',order_ref:a.order_ref||'',lines,totale:lines.reduce((s,l)=>s+lineNet(l)*(1+(l.iva||0)/100),0)};
 }
@@ -2833,7 +2833,7 @@ async function aiComplete(sys,userText,file,maxTok){
     const base=(az.aiBase||'').trim().replace(/\/+$/,'');if(!base)throw new Error("Imposta l'indirizzo (Base URL) nelle Impostazioni AI");
     const model=(az.aiModel||'').trim()||'llama3.1';const headers={"Content-Type":"application/json"};if(az.aiOkey)headers["Authorization"]="Bearer "+az.aiOkey;
     let content=userText;
-    if(file){if(mt==='application/pdf'){const imgs=await aiPdfToImages(file,4);if(!imgs.length)throw new Error('PDF vuoto o non leggibile');content=[{type:"text",text:userText}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u}})));}else content=[{type:"text",text:userText},{type:"image_url",image_url:{url:"data:"+mt+";base64,"+b64}}];}
+    if(file){if(mt==='application/pdf'){const imgs=await aiPdfToImages(file,12);if(!imgs.length)throw new Error('PDF vuoto o non leggibile');content=[{type:"text",text:userText}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u}})));}else content=[{type:"text",text:userText},{type:"image_url",image_url:{url:"data:"+mt+";base64,"+b64}}];}
     const res=await fetch(base+"/chat/completions",{method:"POST",headers,body:JSON.stringify({model,temperature:0,max_tokens:maxTok||2500,messages:[{role:"system",content:sys},{role:"user",content}]})});
     if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();txt=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
   }else{
@@ -2841,11 +2841,14 @@ async function aiComplete(sys,userText,file,maxTok){
     if(key){headers["x-api-key"]=key;headers["anthropic-version"]="2023-06-01";headers["anthropic-dangerous-direct-browser-access"]="true";}
     let content;
     if(file){const blk=mt==='application/pdf'?{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}}:{type:"image",source:{type:"base64",media_type:mt,data:b64}};content=[blk,{type:"text",text:userText}];}else content=userText;
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok||2500,system:sys,messages:[{role:"user",content}]})});
-    const data=await res.json();txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify({model:"claude-sonnet-4-5-20250929",max_tokens:maxTok||2500,system:sys,messages:[{role:"user",content}]})});
+    const data=await res.json();
+    if(!res.ok)throw new Error((data&&data.error&&data.error.message)||('HTTP '+res.status));
+    txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
   }
   txt=String(txt).replace(/```json|```/g,'').trim();
   let plan;try{plan=JSON.parse(txt);}catch(_){let src=txt;const m=txt.match(/[\[\{][\s\S]*[\]\}]/);if(m)src=m[0];try{plan=JSON.parse(src);}catch(_2){src=src.replace(/,\s*([\]\}])/g,'$1');try{plan=JSON.parse(src);}catch(_3){plan=null;}}}
+  if(!plan)throw new Error('risposta non interpretabile'+(txt?' — ricevuto: '+txt.slice(0,300):' (risposta vuota, controlla chiave/modello nelle Impostazioni AI)'));
   return plan;
 }
 function xmlImpRender(){
@@ -3506,7 +3509,7 @@ Ordini cliente: ${ctx.ordiniCliente.map(o=>o.num+' ('+o.cliente+')').join('; ')|
 }
 async function aiCallOnce(sys,userText,file){
   const az=DB.azienda||{};const prov=az.aiProvider||'claude';
-  let txt='',maxTok=file?2500:1000;
+  let txt='',maxTok=file?8000:1000;
   let b64=null,mt=null;
   if(file){b64=await aiFileB64(file);mt=file.type||(/\.pdf$/i.test(file.name)?'application/pdf':'image/jpeg');}
   if(prov==='openai'){
@@ -3517,7 +3520,7 @@ async function aiCallOnce(sys,userText,file){
     let content=userText;
     if(file){
       if(mt==='application/pdf'){
-        const imgs=await aiPdfToImages(file,4);
+        const imgs=await aiPdfToImages(file,12);
         if(!imgs.length)throw new Error('PDF vuoto o non leggibile');
         content=[{type:"text",text:userText}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u}})));
       }else{
@@ -3534,12 +3537,14 @@ async function aiCallOnce(sys,userText,file){
     let content;
     if(file){const blk=mt==='application/pdf'?{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}}:{type:"image",source:{type:"base64",media_type:mt,data:b64}};content=[blk,{type:"text",text:userText}];}
     else content=userText;
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,system:sys,messages:[{role:"user",content}]})});
-    const data=await res.json();txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify({model:"claude-sonnet-4-5-20250929",max_tokens:maxTok,system:sys,messages:[{role:"user",content}]})});
+    const data=await res.json();
+    if(!res.ok)throw new Error((data&&data.error&&data.error.message)||('HTTP '+res.status));
+    txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
   }
   txt=String(txt).replace(/```json|```/g,'').trim();
   let plan;try{plan=JSON.parse(txt);}catch(_){let src=txt;const m=txt.match(/[\[\{][\s\S]*[\]\}]/);if(m)src=m[0];try{plan=JSON.parse(src);}catch(_2){src=src.replace(/,\s*([\]\}])/g,'$1');try{plan=JSON.parse(src);}catch(_3){plan=null;}}}
-  if(!plan)throw new Error('risposta non interpretabile');
+  if(!plan)throw new Error('risposta non interpretabile'+(txt?' — ricevuto: '+txt.slice(0,300):' (risposta vuota, controlla chiave/modello nelle Impostazioni AI)'));
   return plan;
 }
 async function aiRun(){

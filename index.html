@@ -2943,118 +2943,53 @@ async function xmlImpImport(){
     if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;markOFInvoiced(match,ff.righe);linked++;}
   }
   await persist();closeModal();toast('Importate '+add+' fatture fornitore'+(linked?' · '+linked+' collegate a ordini':'')+(newp?' · '+newp+' fornitori nuovi':'')+(skip?' · '+skip+' già presenti':''));
-  GMAIL_PENDING=null;GMAIL_NEW_COUNT=0;renderNav();
+  await gmailClearPending();
   nav('ftf');
 }
 /* ===== Import automatico fatture fornitore da Gmail =====
-   Cerca le email "POSTA CERTIFICATA: Trasmissione Fattura", scarica l'allegato (di solito il PDF
-   della fattura, a volte XML/P7M) e lo fa passare per la stessa pipeline di riconoscimento usata
-   dall'import manuale: nulla viene scritto in archivio senza conferma dell'utente. */
-let GMAIL_TOKEN=null,GMAIL_TOKENCLIENT=null,GMAIL_TOKEN_RESOLVE=null,GMAIL_TIMER=null,GMAIL_PENDING=null,GMAIL_NEW_COUNT=0;
-const GMAIL_QUERY='subject:"POSTA CERTIFICATA: Trasmissione Fattura" has:attachment';
-function gmailLoadGIS(cb){
-  if(window.google&&google.accounts&&google.accounts.oauth2){cb();return;}
-  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;
-  s.onload=cb;s.onerror=()=>toast('Impossibile caricare Google Identity Services');document.head.appendChild(s);
+   Un Google Apps Script separato (vedi apps-script/gmail-import.gs) legge periodicamente la posta
+   con oggetto "POSTA CERTIFICATA: Trasmissione Fattura", estrae i dati con l'AI e li scrive "in attesa"
+   nel file gmail-pending.json di questo repository. Qui il gestionale si limita a leggere quel file
+   (con lo stesso token GitHub già usato per il backup) e a proporre l'importazione con la stessa
+   schermata di conferma dell'import manuale: nulla viene scritto in archivio senza conferma dell'utente.
+   Il file gmail-pending.json è volutamente separato da backup.json per non rischiare di sovrascrivere
+   i tuoi dati veri durante il salvataggio automatico del gestionale. */
+const GMAIL_PENDING_FILE='gmail-pending.json';
+let GMAIL_TIMER=null,GMAIL_PENDING=null,GMAIL_PENDING_SHA=null,GMAIL_NEW_COUNT=0;
+async function ghContentsGet(path){
+  const tok=ghToken();if(!tok)return null;
+  if(!GH_USER){const ok=await ghInit();if(!ok)return null;}
+  try{
+    const r=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${path}`,
+      {headers:{Authorization:'token '+tok,'User-Agent':'Ipsofarma-CRM'}});
+    if(r.status===404)return{sha:null,data:null};
+    if(!r.ok)return null;
+    const d=await r.json();
+    return{sha:d.sha,data:JSON.parse(fromB64(d.content))};
+  }catch(e){return null;}
 }
-function gmailEnsureTokenClient(){
-  const cid=((DB.azienda||{}).gmailClientId||'').trim();if(!cid)return null;
-  if(!GMAIL_TOKENCLIENT||GMAIL_TOKENCLIENT._cid!==cid){
-    GMAIL_TOKENCLIENT=google.accounts.oauth2.initTokenClient({
-      client_id:cid,
-      scope:'https://www.googleapis.com/auth/gmail.readonly',
-      callback:(resp)=>{
-        if(resp&&resp.access_token){
-          GMAIL_TOKEN={token:resp.access_token,exp:Date.now()+((resp.expires_in||3300)*1000)};
-          try{sessionStorage.setItem('gmail_token',JSON.stringify(GMAIL_TOKEN));}catch(e){}
-          const st=document.getElementById('gmailStatus');if(st)st.textContent='✅ connesso';
-        }
-        if(GMAIL_TOKEN_RESOLVE){const r=GMAIL_TOKEN_RESOLVE;GMAIL_TOKEN_RESOLVE=null;r(resp&&resp.access_token?resp.access_token:null);}
-      }
-    });
-    GMAIL_TOKENCLIENT._cid=cid;
-  }
-  return GMAIL_TOKENCLIENT;
-}
-function gmailConnect(){
-  gmailLoadGIS(()=>{
-    const tc=gmailEnsureTokenClient();
-    if(!tc){toast('Inserisci e salva prima il Client ID Google');return;}
-    tc.requestAccessToken({prompt:'consent'});
-  });
-}
-function gmailGetToken(interactive){
-  try{const raw=sessionStorage.getItem('gmail_token');if(raw){const t=JSON.parse(raw);if(t&&t.token&&t.exp>Date.now()+30000){GMAIL_TOKEN=t;return Promise.resolve(t.token);}}}catch(e){}
-  if(!interactive)return Promise.resolve(null);
-  return new Promise(resolve=>{
-    gmailLoadGIS(()=>{
-      const tc=gmailEnsureTokenClient();
-      if(!tc){resolve(null);return;}
-      GMAIL_TOKEN_RESOLVE=resolve;
-      tc.requestAccessToken({prompt:''});
-    });
-  });
-}
-async function gmailApi(path,token){
-  const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me'+path,{headers:{Authorization:'Bearer '+token}});
-  if(!res.ok)throw new Error('Gmail HTTP '+res.status);
-  return res.json();
-}
-function gmailB64UrlToBytes(b64url){
-  const b64=b64url.replace(/-/g,'+').replace(/_/g,'/');
-  const bin=atob(b64);const arr=new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
-  return arr;
-}
-function gmailFlattenParts(payload){
-  const out=[];const walk=p=>{if(!p)return;if(p.filename)out.push(p);(p.parts||[]).forEach(walk);};walk(payload);return out;
-}
-async function gmailFetchCandidates(token){
-  const seen=new Set((DB.azienda&&DB.azienda.gmailSeenIds)||[]);
-  const data=await gmailApi('/messages?q='+encodeURIComponent(GMAIL_QUERY)+'&maxResults=25',token);
-  const msgs=(data.messages||[]).filter(m=>!seen.has(m.id));
-  const out=[];
-  for(const m of msgs){
-    try{
-      const full=await gmailApi('/messages/'+m.id+'?format=full',token);
-      const parts=gmailFlattenParts(full.payload);
-      const cand=parts.find(p=>p.filename&&p.body&&p.body.attachmentId&&!/^daticert\.xml$/i.test(p.filename)&&!/smime\.p7[sm]$/i.test(p.filename)&&!/^postacert\.eml$/i.test(p.filename));
-      if(!cand){out.push({id:m.id,error:'Allegato fattura non trovato nel messaggio'});continue;}
-      const att=await gmailApi('/messages/'+m.id+'/attachments/'+cand.body.attachmentId,token);
-      const bytes=gmailB64UrlToBytes(att.data);
-      const type=/\.pdf$/i.test(cand.filename)?'application/pdf':(/\.p7m$/i.test(cand.filename)?'application/pkcs7-mime':'application/xml');
-      out.push({id:m.id,file:new File([bytes],cand.filename,{type})});
-    }catch(e){out.push({id:m.id,error:e.message||'errore lettura email'});}
-  }
-  return out;
+async function ghContentsPut(path,obj,sha){
+  const tok=ghToken();if(!tok)return false;
+  const body={message:'Aggiorna '+path,content:toB64(JSON.stringify(obj,null,2)),branch:'main'};
+  if(sha)body.sha=sha;
+  try{
+    const r=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${path}`,
+      {method:'PUT',headers:{Authorization:'token '+tok,'User-Agent':'Ipsofarma-CRM','Content-Type':'application/json'},body:JSON.stringify(body)});
+    return r.ok;
+  }catch(e){return false;}
 }
 async function gmailSync(interactive){
   if(!interactive&&GMAIL_PENDING&&GMAIL_PENDING.length)return;
-  const cid=((DB.azienda||{}).gmailClientId||'').trim();
-  if(!cid){if(interactive)toast('Configura prima il Client ID Google nelle Impostazioni');return;}
-  const token=await gmailGetToken(interactive);
-  if(!token){if(interactive)toast('Autorizzazione Gmail non riuscita o annullata');return;}
-  let cands;
-  try{cands=await gmailFetchCandidates(token);}catch(e){if(interactive)toast('Errore Gmail: '+(e.message||''));return;}
-  const seen=new Set((DB.azienda.gmailSeenIds)||[]);
-  const items=[];
-  for(const c of cands){
-    seen.add(c.id);
-    if(c.error){items.push({file:'(email non letta)',error:c.error});continue;}
-    const f=c.file;const isPdf=/\.pdf$/i.test(f.name);
-    try{
-      if(isPdf){const p=await pdfExtractSupplierInvoice(f);if(!p||!p.number){items.push({file:f.name,error:'PDF non riconosciuto come fattura'});continue;}items.push({file:f.name,p,src:'Gmail'});}
-      else{const xml=await xmlReadFile(f);if(!xml){items.push({file:f.name,error:'XML non estraibile'});continue;}const p=parseFatturaXML(xml);if(!p||!p.number){items.push({file:f.name,error:'Non è una FatturaPA valida'});continue;}items.push({file:f.name,p,src:'Gmail'});}
-    }catch(e){items.push({file:f.name,error:e.message||'errore lettura'});}
-  }
-  DB.azienda.gmailSeenIds=[...seen].slice(-500);
-  await persist();
-  if(!items.length){GMAIL_PENDING=null;GMAIL_NEW_COUNT=0;renderNav();if(interactive)toast('Nessuna nuova fattura trovata su Gmail');return;}
-  GMAIL_PENDING=items;
+  if(!ghToken()){if(interactive)toast('Configura prima il token GitHub nelle Impostazioni (serve anche per Gmail)');return;}
+  const res=await ghContentsGet(GMAIL_PENDING_FILE);
+  if(!res){if(interactive)toast('Errore nel controllo delle fatture in attesa da Gmail');return;}
+  const items=(res.data&&res.data.items)||[];
+  if(!items.length){GMAIL_PENDING=null;GMAIL_PENDING_SHA=null;GMAIL_NEW_COUNT=0;renderNav();if(interactive)toast('Nessuna fattura in attesa da Gmail');return;}
+  GMAIL_PENDING=items;GMAIL_PENDING_SHA=res.sha;
   GMAIL_NEW_COUNT=items.filter(it=>it.p&&it.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(it.p.number))).length;
   renderNav();
   if(interactive){XMLIMP={items};openGmailReview();}
-  else if(GMAIL_NEW_COUNT>0){gsPlayAlert();toast('📥 '+GMAIL_NEW_COUNT+' nuova/e fattura/e trovata/e su Gmail — apri "Fatture fornitore" per importarle');}
+  else if(GMAIL_NEW_COUNT>0){gsPlayAlert();toast('📥 '+GMAIL_NEW_COUNT+' fattura/e in attesa da Gmail — apri "Fatture fornitore" per importarle');}
 }
 function gmailSyncButton(){
   if(GMAIL_PENDING&&GMAIL_PENDING.length){XMLIMP={items:GMAIL_PENDING};openGmailReview();}
@@ -3071,16 +3006,26 @@ function openGmailReview(){
   document.getElementById('overlay').classList.add('show');
   xmlImpRender();
 }
+async function gmailClearPending(){
+  if(!GMAIL_PENDING||!GMAIL_PENDING.length)return;
+  const ids=new Set(GMAIL_PENDING.map(it=>it.msgId).filter(Boolean));
+  try{
+    const res=await ghContentsGet(GMAIL_PENDING_FILE);
+    if(res&&res.data){
+      const remaining=(res.data.items||[]).filter(it=>!ids.has(it.msgId));
+      await ghContentsPut(GMAIL_PENDING_FILE,{items:remaining},res.sha);
+    }
+  }catch(e){/* silenzioso: si ritenterà al prossimo giro */}
+  GMAIL_PENDING=null;GMAIL_PENDING_SHA=null;GMAIL_NEW_COUNT=0;renderNav();
+}
 async function gmailSaveSettings(){
   DB.azienda=DB.azienda||{};
-  DB.azienda.gmailClientId=(document.getElementById('gmail-cid-inp').value||'').trim();
   DB.azienda.gmailPollMin=Math.max(3,parseInt((document.getElementById('gmail-min-inp')||{}).value)||10);
-  await persist();toast('Impostazioni Gmail salvate');
+  await persist();toast('Impostazioni salvate');
   gmailStartTimer();
 }
 function gmailStartTimer(){
   if(GMAIL_TIMER)clearInterval(GMAIL_TIMER);
-  if(!((DB.azienda||{}).gmailClientId))return;
   const min=Math.max(3,parseInt((DB.azienda||{}).gmailPollMin)||10);
   gmailSync(false);
   GMAIL_TIMER=setInterval(()=>gmailSync(false),min*60*1000);
@@ -3458,22 +3403,16 @@ function aziendaView(){
     <div class="panel-h">📧 Import automatico fatture fornitore da Gmail</div>
     <div style="padding:18px">
       <p class="ai-intro" style="margin:0 0 14px">
-        Il gestionale controlla periodicamente la posta con oggetto <b>"POSTA CERTIFICATA: Trasmissione Fattura"</b>, scarica l'allegato e propone l'importazione con la stessa schermata di conferma dell'import manuale: <b>non viene salvato nulla senza il tuo ok</b>.
-        Per attivarlo, su <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a> crea gratuitamente un <b>ID client OAuth</b> (tipo "Applicazione web", aggiungi come origine autorizzata l'indirizzo con cui apri questo gestionale) e abilita la <b>Gmail API</b>. Il controllo automatico funziona finché tieni la scheda aperta e l'autorizzazione è valida (circa un'ora): se scade basta ricliccare "Connetti Gmail".
+        Un piccolo script Google (Apps Script, gratuito — vedi <code>apps-script/gmail-import.gs</code> nel repository) legge la posta con oggetto <b>"POSTA CERTIFICATA: Trasmissione Fattura"</b> anche ad app chiusa, ne estrae i dati con l'AI e li mette "in attesa" in questo repository GitHub, nel file <code>gmail-pending.json</code>. Qui sotto il gestionale controlla periodicamente quella lista (con lo stesso token GitHub già inserito qui sopra per il backup) e la propone con la stessa schermata di conferma dell'import manuale: <b>non viene salvato nulla senza il tuo ok</b>.
       </p>
-      <div class="field" style="margin-bottom:12px">
-        <label>Client ID Google OAuth</label>
-        <input id="gmail-cid-inp" value="${(DB.azienda||{}).gmailClientId||''}" placeholder="xxxxxxxx.apps.googleusercontent.com" style="font-family:monospace">
-      </div>
       <div class="field" style="margin-bottom:12px;max-width:220px">
         <label>Controlla ogni (minuti)</label>
         <input id="gmail-min-inp" type="number" min="3" value="${(DB.azienda||{}).gmailPollMin||10}">
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn primary" onclick="gmailSaveSettings()">Salva</button>
-        <button class="btn" onclick="gmailConnect()">🔌 Connetti Gmail</button>
         <button class="btn" onclick="gmailSyncButton()">🔍 Controlla ora</button>
-        <span style="font-size:12px;color:var(--muted)">Stato: <b id="gmailStatus">${GMAIL_TOKEN?'✅ connesso':'⚠️ non connesso'}</b></span>
+        <span style="font-size:12px;color:var(--muted)">Stato: <b id="gmailStatus">${ghToken()?'✅ token GitHub configurato':'⚠️ configura il token GitHub qui sopra'}</b></span>
       </div>
     </div>
   </div>

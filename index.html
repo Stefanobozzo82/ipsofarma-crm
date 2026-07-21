@@ -812,7 +812,7 @@ function lastLinePrice(colls,cod,filter){
   colls.forEach(coll=>{(DB[coll]||[]).forEach(d=>{
     if(filter&&!filter(d))return;
     const r=(d.righe||[]).find(x=>x.cod===cod);
-    if(r&&r.prezzo!=null){if(!best||String(d.data)>String(best.data))best={data:d.data,prezzo:r.prezzo,sconto:r.sconto||0};}
+    if(r&&r.prezzo!=null){if(!best||String(d.data)>String(best.data))best={data:d.data,prezzo:r.prezzo,sconto:r.sconto||0,fornitoreId:d.fornitoreId};}
   });});
   return best;
 }
@@ -1401,7 +1401,7 @@ function pipeline(){
       <div class="pcol-b">${list.length?list.map(o=>`<div class="pcard" onclick="openDoc('ordiniCliente','${o.id}')">
         <div class="pn">${o.num}</div><div class="pp">${cliente(o.clienteId).nome}</div>
         <div class="pf"><span class="t-mut">${fdate(o.data)}</span><span class="pa">${eur(tot(o.righe))}</span></div>
-        <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap">${(()=>{const e=evasione(o);return e.state!=='aperto'?`<span class="pill ${e.state==='completo'?'p-green':'p-blue'}">${e.state==='completo'?'evaso':e.pct+'% evaso'}</span>`:'';})()}${o.ofId?`<span class="pill p-violet">OF ${o.ofId.split('/')[2]}</span>`:''}</div>
+        <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap">${(()=>{const e=evasione(o);return e.state!=='aperto'?`<span class="pill ${e.state==='completo'?'p-green':'p-blue'}">${e.state==='completo'?'evaso':e.pct+'% evaso'}</span>`:'';})()}${(o.ofIds&&o.ofIds.length?o.ofIds:(o.ofId?[o.ofId]:[])).map(n=>`<span class="pill p-violet">OF ${n.split('/')[2]}</span>`).join('')}</div>
       </div>`).join(''):'<div class="pcol-empty">vuoto</div>'}</div></div>`;
   }).join('')}</div>`;
 }
@@ -1491,7 +1491,8 @@ function detailView(){
   }else if(coll==='ordiniCliente'){
     const hasDDT=(item.ddtIds&&item.ddtIds.length)||item.ddtId;
     const fullyShip=item.righe.length>0&&item.righe.every(r=>(r.qtyEv||0)>=r.qty);
-    actions=`<button class="btn" onclick="openOCEdit('${item.id}')">✎ Modifica</button><button class="btn ${item.ofId?'':'primary'}" ${item.ofId?'disabled':''} onclick="genOF('${item.id}')">${item.ofId?'✓ Ordine fornitore':'→ Genera ordine fornitore'}</button>
+    const hasOF=(item.ofIds&&item.ofIds.length)||item.ofId;
+    actions=`<button class="btn" onclick="openOCEdit('${item.id}')">✎ Modifica</button><button class="btn ${hasOF?'':'primary'}" ${hasOF?'disabled':''} onclick="genOF('${item.id}')">${hasOF?'✓ Ordine fornitore':'→ Genera ordine fornitore'}</button>
     <button class="btn ${fullyShip?'':'primary'}" ${fullyShip?'disabled':''} onclick="openDDTForm('${item.id}')">${fullyShip?'✓ Consegnato (DDT)':(hasDDT?'+ Registra altra consegna':'→ Genera DDT')}</button>`;
   }else if(coll==='ddt'){
     actions=`<button class="btn" onclick="openDDTEdit('${item.id}')">✎ Modifica righe</button><button class="btn ${item.ftId?'':'primary'}" ${item.ftId?'disabled':''} onclick="genFT('${item.id}')">${item.ftId?'✓ Fatturato':'→ Fattura immediata'}</button>`;
@@ -1548,15 +1549,20 @@ function lineage(item,coll){
   else if(t==='FTF'){const of=fOF(item.ofId);ocNum=of&&of.ocId;}
   const oc=fOC(ocNum);
   if(oc){
-    const of=fOF(oc.ofId),ftfList=of?((of.ftfIds&&of.ftfIds.length?of.ftfIds:(of.ftfId?[of.ftfId]:[])).map(n=>fFTF(n)).filter(Boolean)):[];
+    const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));
+    const ofList=ofNums.map(fOF).filter(Boolean);
     const ddtList=(oc.ddtIds&&oc.ddtIds.length?oc.ddtIds:(oc.ddtId?[oc.ddtId]:[])).map(n=>fDDT(n)).filter(Boolean);
     const g=(label,obj)=>obj?node(label,obj):`<div class="fnode ghost"><span class="fl">${label}</span><span class="fv">— non generato</span></div>`;
-    const ftfNodes=ftfList.length?ftfList.map((f,i)=>node('Fattura fornitore'+(ftfList.length>1?' '+(i+1):''),f)).join(arrow):g('Fattura fornitore',null);
+    const ofRows=ofList.length?ofList.map((of,i)=>{
+      const ftfList=(of.ftfIds&&of.ftfIds.length?of.ftfIds:(of.ftfId?[of.ftfId]:[])).map(n=>fFTF(n)).filter(Boolean);
+      const ftfNodes=ftfList.length?ftfList.map((f,j)=>node('Fattura fornitore'+(ftfList.length>1?' '+(j+1):''),f)).join(arrow):g('Fattura fornitore',null);
+      return `<div class="flow-row">${node('Ordine fornitore'+(ofList.length>1?' '+(i+1):''),of)}${arrow}${ftfNodes}</div>`;
+    }).join(''):`<div class="flow-row">${g('Ordine fornitore',null)}${arrow}${g('Fattura fornitore',null)}</div>`;
     const ddtRows=ddtList.length?ddtList.map((d,i)=>`<div class="flow-row">${node('DDT'+(ddtList.length>1?' '+(i+1):''),d)}${arrow}${d.ftId?node('Fattura cliente',fFT(d.ftId)):g('Fattura cliente',null)}</div>`).join(''):`<div class="flow-row">${g('DDT',null)}${arrow}${g('Fattura cliente',null)}</div>`;
     return `<div class="flow"><div class="flow-row">
       ${node('Ordine cliente',oc)}${arrow}
       <div class="fbranch">
-        <div class="flow-row">${g('Ordine fornitore',of)}${arrow}${ftfNodes}</div>
+        ${ofRows}
         ${ddtRows}
       </div>
     </div></div>`;
@@ -1588,27 +1594,50 @@ function openDoc(coll,id){SEL={coll,item:DB[coll].find(x=>x.id===id)};render();w
 function openByNum(num){const r=findByNum(num);if(r&&r.item){const mod=Object.keys(META).find(k=>META[k].coll===r.coll);MOD=mod;SEL={coll:r.coll,item:r.item};render();document.getElementById('content').scrollTo(0,0);}}
 
 /* ===== Trasformazioni ===== */
-async function genOF(id){const oc=DB.ordiniCliente.find(o=>o.id===id);if(oc.ofId)return;
-  const righe=oc.righe.map(r=>{const la=lastAcqPrice(r.cod);return la?{cod:r.cod,descr:r.descr,qty:r.qty,prezzo:la.prezzo,sconto:la.sconto||0,iva:r.iva}:{cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva};});
-  const of={id:uid('of'),num:nextNum('OF'),data:today(),fornitoreId:'f1',righe,ocId:oc.num,ftfId:null};
-  DB.ordiniFornitore.push(of);oc.ofId=of.num;await persist();toast('Ordine fornitore '+of.num+' generato');MOD='of';SEL={coll:'ordiniFornitore',item:of};render();document.getElementById('content').scrollTo(0,0);openOFEdit(of.id);}
+// Raggruppa le righe di un ordine cliente per fornitore (in base all'ultimo acquisto registrato per ciascun codice) e crea un ordine fornitore per ciascun gruppo
+function genOFFromOC(oc){
+  const groups=new Map();
+  oc.righe.forEach(r=>{
+    const la=lastAcqPrice(r.cod);
+    const fid=(la&&la.fornitoreId)||'f1';
+    const line=la?{cod:r.cod,descr:r.descr,qty:r.qty,prezzo:la.prezzo,sconto:la.sconto||0,iva:r.iva}:{cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva};
+    if(!groups.has(fid))groups.set(fid,[]);
+    groups.get(fid).push(line);
+  });
+  const created=[];
+  for(const [fid,righe] of groups){
+    const of={id:uid('of'),num:nextNum('OF'),data:today(),fornitoreId:fid,righe,ocId:oc.num,ftfId:null,ftfIds:[]};
+    DB.ordiniFornitore.push(of);created.push(of);
+  }
+  oc.ofIds=created.map(o=>o.num);oc.ofId=created[created.length-1].num;
+  return created;
+}
+async function genOF(id){const oc=DB.ordiniCliente.find(o=>o.id===id);if((oc.ofIds&&oc.ofIds.length)||oc.ofId)return;
+  const created=genOFFromOC(oc);
+  await persist();
+  toast(created.length>1?('Creati '+created.length+' ordini fornitore: '+created.map(o=>fornitore(o.fornitoreId).nome+' '+o.num).join(', ')):('Ordine fornitore '+created[0].num+' generato'));
+  MOD='of';SEL={coll:'ordiniFornitore',item:created[0]};render();document.getElementById('content').scrollTo(0,0);openOFEdit(created[0].id);}
 // Cerca lotto/scadenza per un codice prodotto tra le fatture fornitore collegate a un ordine fornitore
-function lotScadFromOF(ofNum,cod){
-  if(!ofNum||!cod)return null;
-  const of=DB.ordiniFornitore.find(o=>o.num===ofNum);if(!of)return null;
-  const nums=(of.ftfIds&&of.ftfIds.length)?of.ftfIds:(of.ftfId?[of.ftfId]:[]);
-  if(!nums.length)return null;
-  const ftfs=nums.map(n=>DB.fattureFornitore.find(f=>f.num===n)).filter(Boolean).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-  for(const ftf of ftfs){
-    const line=ftf.righe.find(r=>r.cod===cod&&(r.lotto||r.scad));
-    if(line)return{lotto:line.lotto||'',scad:line.scad||''};
+function lotScadFromOF(ofNums,cod){
+  if(!ofNums||!cod)return null;
+  const list=Array.isArray(ofNums)?ofNums:[ofNums];
+  for(const ofNum of list){
+    const of=DB.ordiniFornitore.find(o=>o.num===ofNum);if(!of)continue;
+    const nums=(of.ftfIds&&of.ftfIds.length)?of.ftfIds:(of.ftfId?[of.ftfId]:[]);
+    if(!nums.length)continue;
+    const ftfs=nums.map(n=>DB.fattureFornitore.find(f=>f.num===n)).filter(Boolean).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+    for(const ftf of ftfs){
+      const line=ftf.righe.find(r=>r.cod===cod&&(r.lotto||r.scad));
+      if(line)return{lotto:line.lotto||'',scad:line.scad||''};
+    }
   }
   return null;
 }
 let DDTR=[];
 function openDDTForm(id){
   const oc=DB.ordiniCliente.find(o=>o.id===id);if(!oc)return;
-  DDTR=oc.righe.map((r,i)=>{const sped=r.qtyEv||0,rest=Math.max(0,r.qty-sped);const ls=lotScadFromOF(oc.ofId,r.cod);return{i,cod:r.cod,descr:r.descr,qtyOrd:r.qty,sped,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};});
+  const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));
+  DDTR=oc.righe.map((r,i)=>{const sped=r.qtyEv||0,rest=Math.max(0,r.qty-sped);const ls=lotScadFromOF(ofNums,r.cod);return{i,cod:r.cod,descr:r.descr,qtyOrd:r.qty,sped,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};});
   const cli=cliente(oc.clienteId);
   document.getElementById('modal').innerHTML=`
     <div class="modal-head"><h3>Consegna (DDT) — ordine ${oc.num}</h3><button class="x" onclick="closeModal()">×</button></div>
@@ -1659,20 +1688,25 @@ function markOFInvoiced(of,righe){
 }
 // Scala le quantità sull'ordine fornitore collegato all'OC
 function updateOFfromOC(ocNum,righeConsegnate){
-  const oc=DB.ordiniCliente.find(o=>o.num===ocNum);if(!oc||!oc.ofId)return;
-  const of=DB.ordiniFornitore.find(o=>o.num===oc.ofId);if(!of)return;
+  const oc=DB.ordiniCliente.find(o=>o.num===ocNum);if(!oc)return;
+  const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));
+  const ofs=ofNums.map(n=>DB.ordiniFornitore.find(o=>o.num===n)).filter(Boolean);
+  if(!ofs.length)return;
   let added=false;
   righeConsegnate.forEach(dr=>{
-    let ofr=of.righe.find(r=>r.cod===dr.cod);
+    let target=null,ofr=null;
+    for(const of of ofs){const r=of.righe.find(x=>x.cod===dr.cod);if(r){target=of;ofr=r;break;}}
     if(!ofr){
-      // Prodotto non presente sull'ordine fornitore (es. aggiunto sull'OC dopo aver generato l'OF): lo aggiungiamo
+      // Prodotto non presente su nessun ordine fornitore collegato (es. aggiunto sull'OC dopo aver generato gli OF): lo aggiungiamo al fornitore giusto (o al primo OF se ignoto)
       const la=lastAcqPrice(dr.cod);
+      const fid=la&&la.fornitoreId;
+      target=(fid&&ofs.find(o=>o.fornitoreId===fid))||ofs[0];
       ofr={cod:dr.cod,descr:dr.descr,qty:dr.qty,prezzo:la?la.prezzo:dr.prezzo,sconto:la?(la.sconto||0):0,iva:dr.iva,qtyEv:0};
-      of.righe.push(ofr);added=true;
+      target.righe.push(ofr);added=true;
     }
     ofr.qtyEv=Math.min(ofr.qty,(ofr.qtyEv||0)+dr.qty);
   });
-  if(added)toast('Ordine fornitore '+of.num+' aggiornato con nuovi prodotti dall\'ordine cliente');
+  if(added)toast('Ordine fornitore aggiornato con nuovi prodotti dall\'ordine cliente');
 }
 
 async function saveDDT(id){
@@ -1773,7 +1807,7 @@ function doConfirm(){const fn=PENDING;PENDING=null;closeModal();if(fn)fn();}
 
 function removeDoc(coll,id){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
-  if(coll==='ordiniCliente'&&(it.ofId||(it.ddtIds&&it.ddtIds.length)||it.ddtId||it.ftId)){toast('Elimina prima i documenti collegati (OF / DDT / Fattura)');return;}
+  if(coll==='ordiniCliente'&&((it.ofIds&&it.ofIds.length)||it.ofId||(it.ddtIds&&it.ddtIds.length)||it.ddtId||it.ftId)){toast('Elimina prima i documenti collegati (OF / DDT / Fattura)');return;}
   if(coll==='ordiniFornitore'&&((it.ftfIds&&it.ftfIds.length)||it.ftfId)){toast('Elimina prima le fatture fornitore collegate');return;}
   if(coll==='ddt'&&it.ftId){toast('Elimina prima la fattura collegata');return;}
   const tipo={ordiniCliente:'l\'ordine cliente',ordiniFornitore:'l\'ordine fornitore',ddt:'il DDT',fattureCliente:'la fattura',fattureFornitore:'la fattura fornitore'}[coll];
@@ -1782,7 +1816,7 @@ function removeDoc(coll,id){
 async function doRemove(coll,id){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
   // azzera il riferimento sul documento padre
-  if(coll==='ordiniFornitore'){const oc=DB.ordiniCliente.find(o=>o.num===it.ocId);if(oc)oc.ofId=null;}
+  if(coll==='ordiniFornitore'){const oc=DB.ordiniCliente.find(o=>o.num===it.ocId);if(oc){oc.ofIds=(oc.ofIds||[]).filter(n=>n!==it.num);if(oc.ofId===it.num)oc.ofId=oc.ofIds.length?oc.ofIds[oc.ofIds.length-1]:null;}}
   if(coll==='ddt'){const oc=DB.ordiniCliente.find(o=>o.num===it.ocId);if(oc){
     it.righe.forEach(dr=>{const ln=oc.righe.find(x=>x.cod===dr.cod);if(ln)ln.qtyEv=Math.max(0,(ln.qtyEv||0)-dr.qty);});
     oc.ddtIds=(oc.ddtIds||[]).filter(n=>n!==it.num);
@@ -2034,7 +2068,7 @@ function openOCEdit(id){
   const oc=DB.ordiniCliente.find(o=>o.id===id);if(!oc)return;
   FR=oc.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyEv:r.qtyEv||0,_man:true}));
   FRMODE='cliente';OFEDIT=null;
-  const hasDown=oc.ofId||(oc.ddtIds&&oc.ddtIds.length)||oc.ddtId||oc.ftId;
+  const hasDown=(oc.ofIds&&oc.ofIds.length)||oc.ofId||(oc.ddtIds&&oc.ddtIds.length)||oc.ddtId||oc.ftId;
   const opts=[...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>`<option value="${c.id}" ${c.id===oc.clienteId?'selected':''}>${c.nome}</option>`).join('');
   document.getElementById('modal').innerHTML=`
     <div class="modal-head"><h3>Modifica ordine cliente ${oc.num}</h3><button class="x" onclick="closeModal()">×</button></div>
@@ -2287,7 +2321,7 @@ async function saveOFEdit(id){
   if(!righe.length){toast('Aggiungi almeno una riga');return;}
   of.fornitoreId=fornitoreId;of.data=data;of.righe=righe;
   const newnum=((document.getElementById('f-num')||{}).value||'').trim();
-  if(newnum&&newnum!==of.num){const m=newnum.match(/^OF\/(\d{4})\/(\d+)$/);if(m){const n=parseInt(m[2]);if(DB.counters.OF<=n)DB.counters.OF=n+1;}const oc=DB.ordiniCliente.find(o=>o.ofId===of.num);if(oc)oc.ofId=newnum;of.num=newnum;}
+  if(newnum&&newnum!==of.num){const m=newnum.match(/^OF\/(\d{4})\/(\d+)$/);if(m){const n=parseInt(m[2]);if(DB.counters.OF<=n)DB.counters.OF=n+1;}const oc=DB.ordiniCliente.find(o=>(o.ofIds&&o.ofIds.includes(of.num))||o.ofId===of.num);if(oc){if(oc.ofIds)oc.ofIds=oc.ofIds.map(n2=>n2===of.num?newnum:n2);if(oc.ofId===of.num)oc.ofId=newnum;}of.num=newnum;}
   await persist();closeModal();toast('Ordine fornitore '+of.num+' aggiornato');SEL={coll:'ordiniFornitore',item:of};render();
 }
 async function saveOC(){
@@ -2884,7 +2918,7 @@ async function xmlImpImport(){
     let f=DB.fornitori.find(x=>(x.piva&&p.ced.piva&&x.piva.replace(/\D/g,'')===p.ced.piva.replace(/\D/g,''))||(p.ced.nome&&aiNorm(x.nome).includes(aiNorm((p.ced.nome||'').split(' ')[0]))));
     if(!f){f={id:uid('f'),nome:p.ced.nome||'Fornitore',piva:p.ced.piva||'',cf:p.ced.cf||'',sdi:'',pec:'',via:'',cap:'',citta:'',prov:'',pag:'',iban:'',tel:'',email:'',note:'Creato da import fattura'};DB.fornitori.push(f);newp++;}
     let match=null;
-    if(p.order_ref){const on=String(p.order_ref).replace(/\D/g,'');if(on){const oc='OC/2026/'+on.padStart(4,'0');match=DB.ordiniFornitore.find(o=>o.ocId===oc)||null;if(!match){const o=DB.ordiniCliente.find(x=>x.num===oc);if(o&&o.ofId)match=DB.ordiniFornitore.find(x=>x.num===o.ofId)||null;}}}
+    if(p.order_ref){const on=String(p.order_ref).replace(/\D/g,'');if(on){const oc='OC/2026/'+on.padStart(4,'0');const cands=DB.ordiniFornitore.filter(o=>o.ocId===oc);match=cands.find(o=>o.fornitoreId===f.id)||cands[0]||null;if(!match){const o=DB.ordiniCliente.find(x=>x.num===oc);if(o){const ofNums=(o.ofIds&&o.ofIds.length?o.ofIds:(o.ofId?[o.ofId]:[]));const cands2=ofNums.map(n=>DB.ordiniFornitore.find(x=>x.num===n)).filter(Boolean);match=cands2.find(x=>x.fornitoreId===f.id)||cands2[0]||null;}}}}
     const ff={id:uid('ftf'),num:p.number,data:p.date||today(),fornitoreId:f.id,righe:p.lines.map(l=>({cod:l.cod,descr:l.descr,qty:l.qty,prezzo:l.prezzo,sconto:l.sconto||0,iva:l.iva,lotto:l.lotto||'',scad:l.scad||''})),ofId:match?match.num:null,paid:false,paidDate:null};
     DB.fattureFornitore.push(ff);add++;
     if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;markOFInvoiced(match,ff.righe);linked++;}
@@ -3595,7 +3629,7 @@ function aiPeriodLabel(p){if(!p)return '';if(typeof p==='string'){const x=p.spli
 function aiFindOC(ref){ref=String(ref==null?'':ref).trim();if(!ref)return null;let o=DB.ordiniCliente.find(x=>x.num.toLowerCase()===ref.toLowerCase());if(o)return o;const dg=ref.replace(/\D/g,'');if(dg){const n=parseInt(dg);o=DB.ordiniCliente.find(x=>parseInt((x.num.split('/').pop()||'0'))===n);}return o||null;}
 function aiGenDDT(oc){const righe=oc.righe.map(r=>{const rest=Math.max(0,r.qty-(r.qtyEv||0));const ls=lotScadFromOF(oc.ofId,r.cod);return{cod:r.cod,descr:r.descr,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};}).filter(r=>r.qty>0);if(!righe.length)return null;const ddt={id:uid('ddt'),num:nextNum('DDT'),data:today(),clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null};DB.ddt.push(ddt);oc.righe.forEach(r=>{r.qtyEv=r.qty;});oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;updateOFfromOC(oc.num,righe);return ddt;}
 function aiGenFT(ddt){if(ddt.ftId)return null;const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId};DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;return ft;}
-function aiGenOF(oc){if(oc.ofId)return null;const righe=oc.righe.map(r=>{const la=lastAcqPrice(r.cod);return{cod:r.cod,descr:r.descr,qty:r.qty,prezzo:la?la.prezzo:r.prezzo,sconto:la?(la.sconto||0):(r.sconto||0),iva:r.iva};});const of={id:uid('of'),num:nextNum('OF'),data:today(),fornitoreId:'f1',righe,ocId:oc.num,ftfId:null,ftfIds:[]};DB.ordiniFornitore.push(of);oc.ofId=of.num;return of;}
+function aiGenOF(oc){if((oc.ofIds&&oc.ofIds.length)||oc.ofId)return null;return genOFFromOC(oc);}
 function aiFindProd(q){
   if(!q)return null;const lc=String(q).trim().toLowerCase();const all=allProdotti();
   let p=all.find(x=>(x.codice||'').toLowerCase()===lc);if(p)return p;
@@ -3685,8 +3719,9 @@ function aiResolve(a){
       const on=String(a.order_ref).replace(/\D/g,'');
       if(on){
         const ocNum='OC/2026/'+on.padStart(4,'0');
-        match=DB.ordiniFornitore.find(o=>o.ocId===ocNum)||null;
-        if(!match){const oc=DB.ordiniCliente.find(o=>o.num===ocNum);if(oc&&oc.ofId)match=DB.ordiniFornitore.find(o=>o.num===oc.ofId)||null;}
+        const cands=DB.ordiniFornitore.filter(o=>o.ocId===ocNum);
+        match=(existing&&cands.find(o=>o.fornitoreId===existing.id))||cands[0]||null;
+        if(!match){const oc=DB.ordiniCliente.find(o=>o.num===ocNum);if(oc){const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));const cands2=ofNums.map(n=>DB.ordiniFornitore.find(o=>o.num===n)).filter(Boolean);match=(existing&&cands2.find(o=>o.fornitoreId===existing.id))||cands2[0]||null;}}
         if(match)matchWhy=' (rif. ordine '+on+')';
       }
     }
@@ -3709,7 +3744,7 @@ function aiResolve(a){
   }
   if(t==='generate_ddt'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};const rest=oc.righe.some(r=>(r.qtyEv||0)<r.qty);return{desc:`Genera DDT dall'ordine ${oc.num}`+(rest?'':' (già tutto consegnato)'),apply:async()=>{const d=aiGenDDT(oc);return d?('DDT '+d.num+' generato'):'Niente da consegnare sull\'ordine '+oc.num;}};}
   if(t==='generate_invoice'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};return{desc:`Genera fattura dei DDT dell'ordine ${oc.num} non ancora fatturati`,apply:async()=>{const ds=(oc.ddtIds||[]).map(n=>DB.ddt.find(d=>d.num===n)).filter(d=>d&&!d.ftId);if(!ds.length)return 'Nessun DDT da fatturare per '+oc.num;const fts=ds.map(aiGenFT).filter(Boolean);return 'Fattura/e '+fts.map(f=>f.num).join(', ')+' generata/e';}};}
-  if(t==='generate_supplier_order'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};return{desc:`Genera ordine fornitore dall'ordine ${oc.num}`,apply:async()=>{if(oc.ofId)return 'Ordine fornitore già esistente ('+oc.ofId+')';const of=aiGenOF(oc);return 'Ordine fornitore '+of.num+' generato';}};}
+  if(t==='generate_supplier_order'){const oc=aiFindOC(a.order);if(!oc)return{desc:'Ordine non trovato: '+aiEsc(a.order),apply:null};return{desc:`Genera ordine fornitore dall'ordine ${oc.num}`,apply:async()=>{if((oc.ofIds&&oc.ofIds.length)||oc.ofId)return 'Ordine fornitore già esistente ('+(oc.ofIds&&oc.ofIds.length?oc.ofIds.join(', '):oc.ofId)+')';const created=aiGenOF(oc);return created.length>1?('Ordini fornitore generati: '+created.map(o=>o.num+' ('+fornitore(o.fornitoreId).nome+')').join(', ')):('Ordine fornitore '+created[0].num+' generato');}};}
   return{desc:'Azione non riconosciuta'+(t?': '+aiEsc(t):''),apply:null};
 }
 function aiShowPlan(plan){

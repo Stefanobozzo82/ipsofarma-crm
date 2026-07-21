@@ -1461,7 +1461,7 @@ function anagrafica(){
     const bar=`<div class="prod-bar">${list.length.toLocaleString('it-IT')} prodotti${Q?' trovati':''}${list.length>cap?` · visualizzati ${cap.toLocaleString('it-IT')}, scorri per caricarne altri`:''}</div>`;
     const th=(k,l,cls)=>{const on=PSORT.key===k,ar=on?(PSORT.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${cls||''} ${on?'on':''}" onclick="setPSort('${k}')">${l}${ar}</th>`;};
     return phead+bar+`<div class="tablecard"><table class="tbl"><thead><tr>${th('codice','Codice')}${th('descrizione','Descrizione')}${th('ven','Listino','right')}${th('acq','Acquisto','right')}${th('conf','Pz./Conf.','right')}${th('iva','IVA','right')}</tr></thead><tbody>
-    ${shown.map(p=>{const la=lastFattAcqPrice(p.codice);return `<tr onclick="openProdottoForm('${(p.codice||'').replace(/'/g,"\\'")}')"><td class="code">${p.codice}${p.id?'':' <span class="pill p-gray">listino</span>'}</td><td class="t-party">${p.descrizione}</td><td class="t-amt">${eur(p.ven)}</td><td class="t-amt">${la?eur(la.prezzo):'—'}</td><td class="t-mut right">${p.conf||'—'}</td><td class="t-mut right">${p.iva}%</td></tr>`;}).join('')}
+    ${shown.map(p=>{const la=lastFattAcqPrice(p.codice);return `<tr onclick="openProdottoForm('${(p.codice||'').replace(/'/g,"\\'")}')"><td class="code">${p.codice}</td><td class="t-party">${p.descrizione}</td><td class="t-amt">${eur(p.ven)}</td><td class="t-amt">${la?eur(la.prezzo):'—'}</td><td class="t-mut right">${p.conf||'—'}</td><td class="t-mut right">${p.iva}%</td></tr>`;}).join('')}
     </tbody></table></div>`;
   }
   const arr=DB[m.coll];
@@ -1594,12 +1594,13 @@ function openDoc(coll,id){SEL={coll,item:DB[coll].find(x=>x.id===id)};render();w
 function openByNum(num){const r=findByNum(num);if(r&&r.item){const mod=Object.keys(META).find(k=>META[k].coll===r.coll);MOD=mod;SEL={coll:r.coll,item:r.item};render();document.getElementById('content').scrollTo(0,0);}}
 
 /* ===== Trasformazioni ===== */
-// Raggruppa le righe di un ordine cliente per fornitore (in base all'ultimo acquisto registrato per ciascun codice) e crea un ordine fornitore per ciascun gruppo
+// Raggruppa le righe di un ordine cliente per fornitore (fornitore indicato sulla scheda prodotto, altrimenti l'ultimo acquisto registrato per ciascun codice) e crea un ordine fornitore per ciascun gruppo
 function genOFFromOC(oc){
   const groups=new Map();
   oc.righe.forEach(r=>{
+    const prod=allProdotti().find(x=>x.codice===r.cod);
     const la=lastAcqPrice(r.cod);
-    const fid=(la&&la.fornitoreId)||'f1';
+    const fid=(prod&&prod.fornitoreId)||(la&&la.fornitoreId)||'f1';
     const line=la?{cod:r.cod,descr:r.descr,qty:r.qty,prezzo:la.prezzo,sconto:la.sconto||0,iva:r.iva}:{cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva};
     if(!groups.has(fid))groups.set(fid,[]);
     groups.get(fid).push(line);
@@ -1698,8 +1699,9 @@ function updateOFfromOC(ocNum,righeConsegnate){
     for(const of of ofs){const r=of.righe.find(x=>x.cod===dr.cod);if(r){target=of;ofr=r;break;}}
     if(!ofr){
       // Prodotto non presente su nessun ordine fornitore collegato (es. aggiunto sull'OC dopo aver generato gli OF): lo aggiungiamo al fornitore giusto (o al primo OF se ignoto)
+      const prod=allProdotti().find(x=>x.codice===dr.cod);
       const la=lastAcqPrice(dr.cod);
-      const fid=la&&la.fornitoreId;
+      const fid=(prod&&prod.fornitoreId)||(la&&la.fornitoreId);
       target=(fid&&ofs.find(o=>o.fornitoreId===fid))||ofs[0];
       ofr={cod:dr.cod,descr:dr.descr,qty:dr.qty,prezzo:la?la.prezzo:dr.prezzo,sconto:la?(la.sconto||0):0,iva:dr.iva,qtyEv:0};
       target.righe.push(ofr);added=true;
@@ -3198,6 +3200,7 @@ function openProdottoForm(codice){
        <div class="field"><label>Tipologia</label><input id="pf-tipologia" value="${v('tipologia')}" placeholder="Es. Strumentario / Sutura"></div>
      </div>
      <div class="field"><label>Descrizione</label><input id="pf-descrizione" value="${v('descrizione')}"></div>
+     <div class="field"><label>Fornitore</label><select id="pf-fornitore"><option value="">— non specificato (dedotto dallo storico acquisti) —</option>${[...DB.fornitori].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>`<option value="${f.id}" ${p.fornitoreId===f.id?'selected':''}>${f.nome}</option>`).join('')}</select></div>
      <div class="form-sec">Prezzi</div>
      <div class="row3">
        <div class="field"><label>Prezzo di listino €</label><input id="pf-ven" type="number" step="0.01" value="${p.ven?p.ven:''}"></div>
@@ -3229,7 +3232,7 @@ async function saveProdotto(origCodice){
   let ex=(origCodice&&DB.prodotti.find(p=>p.codice===origCodice))||DB.prodotti.find(p=>p.codice===codice);
   const acqInput=document.getElementById('pf-acq');
   const acq=acqInput?(parseFloat(acqInput.value)||0):(ex?(ex.acq||0):0);
-  const obj={codice,descrizione,tipologia:g('tipologia'),acq,ven:parseFloat(g('ven'))||0,iva:parseInt(g('iva'))||0,cnd:g('cnd'),rdm:g('rdm'),conf:g('conf'),note:g('note')};
+  const obj={codice,descrizione,tipologia:g('tipologia'),fornitoreId:g('fornitore')||null,acq,ven:parseFloat(g('ven'))||0,iva:parseInt(g('iva'))||0,cnd:g('cnd'),rdm:g('rdm'),conf:g('conf'),note:g('note')};
   if(ex)Object.assign(ex,obj);else DB.prodotti.push({id:uid('p'),...obj});
   _allProd=null;await persist();closeModal();toast('Prodotto salvato');render();
 }

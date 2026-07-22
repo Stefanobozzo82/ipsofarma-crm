@@ -805,8 +805,8 @@ function seed(){
 
 /* ===== Utility ===== */
 const uid=p=>p+Math.random().toString(36).slice(2,8);
-const eur=n=>'€ '+(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
-const eur0=n=>'€ '+Math.round(n||0).toLocaleString('it-IT',{maximumFractionDigits:0});
+const eur=n=>'€ '+(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+const eur0=n=>'€ '+Math.round(n||0).toLocaleString('it-IT',{maximumFractionDigits:0});
 const fdate=s=>{const[y,m,d]=s.split('-');return `${d}/${m}/${y}`;};
 const today=()=>new Date().toISOString().slice(0,10);
 const COLL_BY_T={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi'};
@@ -818,7 +818,7 @@ function consumeNum(t,val){val=(val||'').trim();const peek=peekNum(t);if(!val||v
 function scParts(s){return String(s==null?'':s).split('+').map(x=>parseFloat(String(x).trim())||0);}
 const scFactor=s=>scParts(s).reduce((f,p)=>f*(1-p/100),1);
 const scEff=s=>+(((1-scFactor(s))*100).toFixed(2));
-const scLabel=s=>{const e=scEff(s);if(e<=0)return '—';return String(s).includes('+')?String(s).replace(/\s/g,'')+' %':e+'%';};
+const scLabel=s=>{const e=scEff(s);if(e<=0)return '—';return String(s).includes('+')?String(s).replace(/\s/g,'')+' %':e+'%';};
 const lineNet=x=>x.qty*x.prezzo*scFactor(x.sconto);
 const imp=r=>r.reduce((s,x)=>s+lineNet(x),0);
 const ivaT=r=>r.reduce((s,x)=>s+lineNet(x)*x.iva/100,0);

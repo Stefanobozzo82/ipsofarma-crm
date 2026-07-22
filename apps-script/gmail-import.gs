@@ -75,7 +75,7 @@ function checkFatture() {
 }
 
 function isTransientError_(msg) {
-  return /Gemini HTTP 5\d\d/.test(msg) || /GitHub (GET|PUT)/.test(msg) || /timeout|Timeout|Address unavailable|DNS|Errore imprevisto/i.test(msg);
+  return /Gemini HTTP (429|5\d\d)/.test(msg) || /GitHub (GET|PUT)/.test(msg) || /timeout|Timeout|Address unavailable|DNS|Errore imprevisto/i.test(msg);
 }
 
 /** Numeri delle fatture fornitore già presenti in backup.json, per evitare doppioni. */
@@ -142,10 +142,18 @@ function extractViaGemini_(attachment) {
     contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: 'application/pdf', data: b64 } }] }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json' }
   };
-  const res = UrlFetchApp.fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/' + CFG.GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(key),
-    { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true }
-  );
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + CFG.GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(key);
+  const opts = { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true };
+  // Il piano gratuito di Gemini ha un limite di richieste al minuto: se lo superiamo (HTTP 429,
+  // o un errore temporaneo 5xx) ritentiamo un paio di volte con attesa crescente prima di arrenderci.
+  const backoffs = [0, 5000, 15000];
+  let res;
+  for (let i = 0; i < backoffs.length; i++) {
+    if (backoffs[i]) Utilities.sleep(backoffs[i]);
+    res = UrlFetchApp.fetch(url, opts);
+    const code = res.getResponseCode();
+    if (code < 300 || !(code === 429 || code >= 500) || i === backoffs.length - 1) break;
+  }
   if (res.getResponseCode() >= 300) throw new Error('Gemini HTTP ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
   const data = JSON.parse(res.getContentText());
   const parts = ((((data.candidates || [])[0] || {}).content || {}).parts || []);

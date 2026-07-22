@@ -2905,10 +2905,11 @@ async function aiComplete(sys,userText,file,maxTok){
   return plan;
 }
 function xmlImpRender(){
+  const scartaBtn=i=>`<button class="btn ghost" style="padding:2px 8px;font-size:11px;border:1px solid var(--border2)" type="button" onclick="xmlImpDiscard(${i})" title="Scarta: non verrà più riproposta">✕ Scarta</button>`;
   const rows=XMLIMP.items.map((it,i)=>{
-    if(it.error)return `<tr><td></td><td>${aiEsc(it.file)}</td><td colspan="4" class="ai-x">${aiEsc(it.error)}</td></tr>`;
+    if(it.error)return `<tr><td></td><td>${aiEsc(it.file)}</td><td colspan="4" class="ai-x">${aiEsc(it.error)}</td><td>${scartaBtn(i)}</td></tr>`;
     const p=it.p;
-    if(p.dir==='vendita')return `<tr><td></td><td>${aiEsc(it.file)}</td><td colspan="4" class="t-mut">Fattura di vendita: ignorata (qui si importano solo fatture fornitore)</td></tr>`;
+    if(p.dir==='vendita')return `<tr><td></td><td>${aiEsc(it.file)}</td><td colspan="4" class="t-mut">Fattura di vendita: ignorata (qui si importano solo fatture fornitore)</td><td>${scartaBtn(i)}</td></tr>`;
     const imp=p.lines.reduce((s,l)=>s+l.qty*l.prezzo,0);
     let mnote='';let of=null;
     if(p.order_ref){const on=String(p.order_ref).replace(/\D/g,'');const oc='OC/2026/'+on.padStart(4,'0');of=DB.ordiniFornitore.find(o=>o.ocId===oc);mnote=of?`<span class="pill p-green">→ ${of.num}</span>`:`<span class="t-mut">rif. ${aiEsc(p.order_ref)}</span>`;}
@@ -2921,18 +2922,21 @@ function xmlImpRender(){
       return `<tr><td class="code">${aiEsc(l.cod||'—')}</td><td>${nome}</td><td class="right">${l.qty}</td><td class="right">${eur(l.prezzo)}</td><td>${cmp}</td></tr>`;
     }).join('');
     const chk=dupe?'':`<input type="checkbox" class="xi-chk" data-i="${i}" checked onchange="xmlImpUpdateCount()">`;
-    return `<tr><td>${chk}</td><td>${aiEsc(p.ced.nome||'?')}</td><td class="code">${aiEsc(p.number)}</td><td>${fdate(p.date)}</td><td style="text-align:right">${eur(p.totale||imp)}</td><td>${it.src||''} ${mnote}${dupe?' <span class="ai-x">già presente</span>':''}</td></tr>
-    <tr><td></td><td colspan="5" style="padding:6px 8px 14px;background:var(--surface2)"><table class="lst-prev" style="margin:0"><thead><tr><th>Codice</th><th>Prodotto</th><th class="right">Q.tà</th><th class="right">Prezzo fatt.</th><th>Confronto ordine</th></tr></thead><tbody>${lineRows}</tbody></table></td></tr>`;
+    return `<tr><td>${chk}</td><td>${aiEsc(p.ced.nome||'?')}</td><td class="code">${aiEsc(p.number)}</td><td>${fdate(p.date)}</td><td style="text-align:right">${eur(p.totale||imp)}</td><td>${it.src||''} ${mnote}${dupe?' <span class="ai-x">già presente</span>':''}</td><td>${scartaBtn(i)}</td></tr>
+    <tr><td></td><td colspan="6" style="padding:6px 8px 14px;background:var(--surface2)"><table class="lst-prev" style="margin:0"><thead><tr><th>Codice</th><th>Prodotto</th><th class="right">Q.tà</th><th class="right">Prezzo fatt.</th><th>Confronto ordine</th></tr></thead><tbody>${lineRows}</tbody></table></td></tr>`;
   }).join('');
   const ok=XMLIMP.items.filter(it=>it.p&&it.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(it.p.number))).length;
   document.getElementById('xml-step').innerHTML=`
-    <div class="note" style="margin:8px 0">${ok} fattura/e fornitore riconosciute su ${XMLIMP.items.length} file. Deseleziona quelle che non vuoi importare:</div>
-    <table class="lst-prev"><thead><tr><th></th><th>Fornitore</th><th>Numero</th><th>Data</th><th>Totale</th><th>Origine / Ordine</th></tr></thead><tbody>${rows}</tbody></table>
-    ${ok?`<div style="display:flex;justify-content:flex-end;margin-top:12px;gap:10px;align-items:center">
-      <button class="btn ghost" style="border:1px solid var(--border2)" type="button" onclick="xmlImpToggleAll(true)">Seleziona tutte</button>
-      <button class="btn ghost" style="border:1px solid var(--border2)" type="button" onclick="xmlImpToggleAll(false)">Deseleziona tutte</button>
-      <button class="btn primary" id="xml-imp-btn" onclick="xmlImpImport()">Importa ${ok} fattura/e</button>
-    </div>`:''}`;
+    <div class="note" style="margin:8px 0">${ok} fattura/e fornitore riconosciute su ${XMLIMP.items.length} file. Deseleziona quelle che non vuoi importare, o scartale per non vederle più:</div>
+    <table class="lst-prev"><thead><tr><th></th><th>Fornitore</th><th>Numero</th><th>Data</th><th>Totale</th><th>Origine / Ordine</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    <div style="display:flex;justify-content:space-between;margin-top:12px;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn ghost" style="border:1px solid var(--border2);color:var(--red)" type="button" onclick="xmlImpDiscardAll()">🗑 Scarta tutte quelle in elenco</button>
+      ${ok?`<div style="display:flex;gap:10px;align-items:center">
+        <button class="btn ghost" style="border:1px solid var(--border2)" type="button" onclick="xmlImpToggleAll(true)">Seleziona tutte</button>
+        <button class="btn ghost" style="border:1px solid var(--border2)" type="button" onclick="xmlImpToggleAll(false)">Deseleziona tutte</button>
+        <button class="btn primary" id="xml-imp-btn" onclick="xmlImpImport()">Importa ${ok} fattura/e</button>
+      </div>`:''}
+    </div>`;
 }
 function xmlImpToggleAll(state){
   document.querySelectorAll('.xi-chk').forEach(c=>{c.checked=state;});
@@ -2942,6 +2946,30 @@ function xmlImpUpdateCount(){
   const n=document.querySelectorAll('.xi-chk:checked').length;
   const btn=document.getElementById('xml-imp-btn');
   if(btn)btn.textContent='Importa '+n+' fattura/e';
+}
+async function xmlImpDiscard(i){
+  const it=XMLIMP.items[i];if(!it)return;
+  XMLIMP.items=XMLIMP.items.filter((_,idx)=>idx!==i);
+  if(it.msgId)await gmailDiscardMsgIds_([it.msgId]);
+  if(XMLIMP.items.length)xmlImpRender();else closeModal();
+}
+async function xmlImpDiscardAll(){
+  if(!confirm('Scartare tutte le fatture in elenco senza importarle? Non verranno più riproposte.'))return;
+  const ids=XMLIMP.items.map(it=>it.msgId).filter(Boolean);
+  XMLIMP.items=[];
+  if(ids.length)await gmailDiscardMsgIds_(ids);
+  closeModal();toast('Fatture scartate');
+}
+/** Rimuove definitivamente delle voci dalla lista Gmail in attesa (scarto esplicito, non un import). */
+async function gmailDiscardMsgIds_(msgIds){
+  await gmailClearPending(msgIds);
+  if(GMAIL_PENDING){
+    const ids=new Set(msgIds);
+    GMAIL_PENDING=GMAIL_PENDING.filter(p=>!ids.has(p.msgId));
+    if(!GMAIL_PENDING.length)GMAIL_PENDING=null;
+    GMAIL_NEW_COUNT=GMAIL_PENDING?GMAIL_PENDING.filter(p2=>p2.p&&p2.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(p2.p.number))).length:0;
+    renderNav();
+  }
 }
 async function xmlImpImport(){
   const checked=new Set([...document.querySelectorAll('.xi-chk:checked')].map(c=>parseInt(c.dataset.i,10)));

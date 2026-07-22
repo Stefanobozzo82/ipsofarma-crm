@@ -1052,9 +1052,13 @@ function chartTip(e,i){
   tip.classList.add('show');
   // Misura la larghezza reale (varia con la lunghezza degli importi): un margine fisso
   // non basta su schermi stretti o vicino ai bordi del grafico, tagliando il popup.
+  // Il popup è ancorato al suo bordo inferiore (transform:translate(-50%,-100%)):
+  // se "top" è più basso della sua altezza reale, il bordo superiore (dove sta il
+  // mese) finisce sopra al contenitore e viene tagliato dall'overflow:hidden del
+  // grafico. Misuriamo larghezza e altezza reali invece di usare margini fissi.
   const half=tip.offsetWidth/2+8;
   tip.style.left=Math.max(half,Math.min(px,r.width-half))+'px';
-  tip.style.top=Math.max(58,py-16)+'px';
+  tip.style.top=Math.max(tip.offsetHeight+8,py-16)+'px';
   document.querySelectorAll('.hit.act').forEach(h=>h.classList.remove('act'));
   const hit=document.getElementById('hit'+i);if(hit)hit.classList.add('act');
 }

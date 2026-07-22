@@ -68,6 +68,12 @@ button{font-family:inherit;cursor:pointer}
 .crumb .back{background:none;border:none;color:var(--muted);font-size:13px;margin-right:4px;padding:4px 8px;border-radius:6px}
 .crumb .back:hover{background:var(--bg);color:var(--txt)}
 .topbar .sp{flex:1}
+@media(max-width:760px){
+  .topbar{height:auto;min-height:56px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;row-gap:8px}
+  .topbar .sp{flex-basis:100%;height:0}
+  #topActions{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px}
+  #topActions .btn{flex:1 1 auto;justify-content:center;white-space:nowrap}
+}
 .search{position:relative}
 .search input{width:230px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 11px 7px 30px;font-size:13px;color:var(--txt)}
 .search input:focus{outline:none;border-color:var(--accent);background:#fff}
@@ -151,6 +157,8 @@ table.tbl tbody tr:hover{background:var(--surface2)}
   .dr-check{grid-area:chk;align-self:start;padding-top:2px}
   .tablecard{overflow-x:auto}
 }
+.tbl-scroll-hint{display:none}
+@media(max-width:700px){.tbl-scroll-hint{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--muted);padding:0 0 6px}}
 
 /* pills */
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;font-family:var(--sans)}
@@ -230,12 +238,12 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .panel-h{padding:13px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
 table.lines{width:100%;border-collapse:collapse;font-size:12.5px}
 .lines-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative}
+.lines-scroll-hint{display:none}
 @media(max-width:700px){
   .lines-scroll{margin:0 -1px}
   .lines-scroll table.lines{min-width:640px}
   .lines-scroll-hint{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--muted);padding:6px 0 2px;background:var(--surface2);border-bottom:1px solid var(--border)}
 }
-.lines-scroll-hint{display:none}
 table.lines th{text-align:left;padding:9px 18px;color:var(--faint);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--surface2)}
 table.lines th.right{text-align:right}
 table.lines td{padding:10px 18px;border-bottom:1px solid var(--border)}
@@ -339,6 +347,7 @@ table.lines tr:last-child td{border-bottom:none}
 .ai-list{margin:0 0 14px;padding-left:18px;font-size:13.5px;line-height:1.7}
 .ai-act{display:flex;gap:10px;justify-content:flex-end}
 .ai-sub{margin:6px 0 2px;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.6}
+.lst-prev-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .lst-prev{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
 .lst-prev th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);font-weight:700;padding:4px 6px;border-bottom:1px solid var(--border)}
 .lst-prev th.right{text-align:right}
@@ -1440,7 +1449,7 @@ function anagrafica(){
     const s=ASORT.clienti;const dir=s.dir==='asc'?1:-1;
     const list=[...DB.clienti].sort((a,b)=>{const va=aSortVal('clienti',a,s.key),vb=aSortVal('clienti',b,s.key);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dir;return String(va).localeCompare(String(vb),'it',{numeric:true})*dir;});
     const ath=(key,label)=>{const on=s.key===key,ar=on?(s.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${on?'on':''}" onclick="setASort('clienti','${key}')">${label}${ar}</th>`;};
-    return head+`<div class="tablecard"><table class="tbl"><thead><tr>${ath('nome','Ragione sociale')}${ath('piva','P.IVA / C.F.')}${ath('sede','Sede')}${ath('dest','Consegne')}${ath('term','Pagam.')}${ath('sdi','Fatt. elettronica')}</tr></thead><tbody>
+    return head+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${ath('nome','Ragione sociale')}${ath('piva','P.IVA / C.F.')}${ath('sede','Sede')}${ath('dest','Consegne')}${ath('term','Pagam.')}${ath('sdi','Fatt. elettronica')}</tr></thead><tbody>
     ${list.map(c=>`<tr onclick="openClienteForm('${c.id}')">
       <td class="t-party">${c.nome}${c.tipo==='PA'?' <span class="pill p-violet">PA</span>':''}${c.split==='si'?' <span class="pill p-amber">split</span>':''}</td>
       <td class="t-mut">${c.piva||c.cf||'—'}</td>
@@ -1460,7 +1469,7 @@ function anagrafica(){
     const phead=`<div class="page-head"><div class="page-title" style="margin:0">Prodotti</div><div class="search prod-search"><span class="si">⌕</span><input id="psearch" value="${QRAW.replace(/"/g,'&quot;')}" placeholder="Cerca per codice, descrizione o CND…" oninput="onSearch(this.value)"></div></div>`;
     const bar=`<div class="prod-bar">${list.length.toLocaleString('it-IT')} prodotti${Q?' trovati':''}${list.length>cap?` · visualizzati ${cap.toLocaleString('it-IT')}, scorri per caricarne altri`:''}</div>`;
     const th=(k,l,cls)=>{const on=PSORT.key===k,ar=on?(PSORT.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${cls||''} ${on?'on':''}" onclick="setPSort('${k}')">${l}${ar}</th>`;};
-    return phead+bar+`<div class="tablecard"><table class="tbl"><thead><tr>${th('codice','Codice')}${th('descrizione','Descrizione')}${th('ven','Listino','right')}${th('acq','Acquisto','right')}${th('conf','Pz./Conf.','right')}${th('iva','IVA','right')}</tr></thead><tbody>
+    return phead+bar+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${th('codice','Codice')}${th('descrizione','Descrizione')}${th('ven','Listino','right')}${th('acq','Acquisto','right')}${th('conf','Pz./Conf.','right')}${th('iva','IVA','right')}</tr></thead><tbody>
     ${shown.map(p=>{const la=lastFattAcqPrice(p.codice);return `<tr onclick="openProdottoForm('${(p.codice||'').replace(/'/g,"\\'")}')"><td class="code">${p.codice}</td><td class="t-party">${p.descrizione}</td><td class="t-amt">${eur(p.ven)}</td><td class="t-amt">${la?eur(la.prezzo):'—'}</td><td class="t-mut right">${p.conf||'—'}</td><td class="t-mut right">${p.iva}%</td></tr>`;}).join('')}
     </tbody></table></div>`;
   }
@@ -1468,7 +1477,7 @@ function anagrafica(){
   const sF=ASORT.fornitori;const dirF=sF.dir==='asc'?1:-1;
   const listF=[...DB.fornitori].sort((a,b)=>{const va=aSortVal('fornitori',a,sF.key),vb=aSortVal('fornitori',b,sF.key);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dirF;return String(va).localeCompare(String(vb),'it',{numeric:true})*dirF;});
   const athF=(key,label)=>{const on=sF.key===key,ar=on?(sF.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${on?'on':''}" onclick="setASort('fornitori','${key}')">${label}${ar}</th>`;};
-  return head+`<div class="tablecard"><table class="tbl"><thead><tr>${athF('nome','Ragione sociale')}${athF('piva','P.IVA / C.F.')}${athF('sede','Sede')}${athF('term','Pagam.')}${athF('contatti','Contatti')}</tr></thead><tbody>
+  return head+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${athF('nome','Ragione sociale')}${athF('piva','P.IVA / C.F.')}${athF('sede','Sede')}${athF('term','Pagam.')}${athF('contatti','Contatti')}</tr></thead><tbody>
   ${listF.map(f=>`<tr onclick="openFornitoreForm('${f.id}')">
     <td class="t-party">${f.nome}</td>
     <td class="t-mut">${f.piva||f.cf||'—'}</td>
@@ -2669,7 +2678,7 @@ function listinoPreview(){
   if(m.codice==null){prev.innerHTML='<div class="ai-x" style="margin-top:8px">Seleziona almeno la colonna del Codice.</div>';return;}
   const valid=LISTINO.rows.filter(r=>listinoValid(r,m));
   const sample=valid.slice(0,4).map(r=>`<tr><td>${aiEsc(r[m.codice]||'')}</td><td>${aiEsc(m.descrizione!=null?r[m.descrizione]:'')||''}</td><td style="text-align:right">${m.ven!=null?eur(listinoNum(r[m.ven])):''}</td><td style="text-align:right">${m.acq!=null?eur(listinoNum(r[m.acq])):''}</td></tr>`).join('');
-  prev.innerHTML=`<div class="note" style="margin:10px 0 4px">Anteprima · verranno importati <b>${valid.length}</b> prodotti:</div><table class="lst-prev"><thead><tr><th>Codice</th><th>Descrizione</th><th>Listino</th><th>Acquisto</th></tr></thead><tbody>${sample}</tbody></table>`;
+  prev.innerHTML=`<div class="note" style="margin:10px 0 4px">Anteprima · verranno importati <b>${valid.length}</b> prodotti:</div><div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="lst-prev-wrap"><table class="lst-prev"><thead><tr><th>Codice</th><th>Descrizione</th><th>Listino</th><th>Acquisto</th></tr></thead><tbody>${sample}</tbody></table></div>`;
 }
 async function listinoImport(){
   const m=listinoMapGet();if(m.codice==null){toast('Seleziona la colonna Codice');return;}
@@ -2749,7 +2758,7 @@ function ordImpPreview(){
   let nuovi=0;const seen=new Set();
   groups.forEach(gp=>{if(!ordFindClient(gp.cliente)&&!seen.has(ordNorm(gp.cliente))){nuovi++;seen.add(ordNorm(gp.cliente));}});
   const sample=groups.slice(0,5).map(gp=>{const c=ordFindClient(gp.cliente);return `<tr><td>${aiEsc(gp.numero||'—')}</td><td>${aiEsc(gp.cliente)}${c?'':' <span class="ai-x">(nuovo)</span>'}</td><td>${fdate(gp.data)}</td><td style="text-align:right">${gp.lines.length}</td></tr>`;}).join('');
-  prev.innerHTML=`<div class="note" style="margin:10px 0 4px">Verranno importati <b>${groups.length}</b> ordini${nuovi?` · <b>${nuovi}</b> clienti nuovi`:''}:</div><table class="lst-prev"><thead><tr><th>N° Ordine</th><th>Cliente</th><th>Data</th><th>Righe</th></tr></thead><tbody>${sample}</tbody></table>`;
+  prev.innerHTML=`<div class="note" style="margin:10px 0 4px">Verranno importati <b>${groups.length}</b> ordini${nuovi?` · <b>${nuovi}</b> clienti nuovi`:''}:</div><div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="lst-prev-wrap"><table class="lst-prev"><thead><tr><th>N° Ordine</th><th>Cliente</th><th>Data</th><th>Righe</th></tr></thead><tbody>${sample}</tbody></table></div>`;
 }
 async function ordImpImport(){
   const m=ordImpMapGet();if(m.codice==null||m.numero==null){toast('Seleziona N° Ordine e Codice');return;}
@@ -2923,12 +2932,13 @@ function xmlImpRender(){
     }).join('');
     const chk=dupe?'':`<input type="checkbox" class="xi-chk" data-i="${i}" checked onchange="xmlImpUpdateCount()">`;
     return `<tr><td>${chk}</td><td>${aiEsc(p.ced.nome||'?')}</td><td class="code">${aiEsc(p.number)}</td><td>${fdate(p.date)}</td><td style="text-align:right">${eur(p.totale||imp)}</td><td>${it.src||''} ${mnote}${dupe?' <span class="ai-x">già presente</span>':''}</td><td>${scartaBtn(i)}</td></tr>
-    <tr><td></td><td colspan="6" style="padding:6px 8px 14px;background:var(--surface2)"><table class="lst-prev" style="margin:0"><thead><tr><th>Codice</th><th>Prodotto</th><th class="right">Q.tà</th><th class="right">Prezzo fatt.</th><th>Confronto ordine</th></tr></thead><tbody>${lineRows}</tbody></table></td></tr>`;
+    <tr><td></td><td colspan="6" style="padding:6px 8px 14px;background:var(--surface2)"><div class="lst-prev-wrap"><table class="lst-prev" style="margin:0"><thead><tr><th>Codice</th><th>Prodotto</th><th class="right">Q.tà</th><th class="right">Prezzo fatt.</th><th>Confronto ordine</th></tr></thead><tbody>${lineRows}</tbody></table></div></td></tr>`;
   }).join('');
   const ok=XMLIMP.items.filter(it=>it.p&&it.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(it.p.number))).length;
   document.getElementById('xml-step').innerHTML=`
     <div class="note" style="margin:8px 0">${ok} fattura/e fornitore riconosciute su ${XMLIMP.items.length} file. Deseleziona quelle che non vuoi importare, o scartale per non vederle più:</div>
-    <table class="lst-prev"><thead><tr><th></th><th>Fornitore</th><th>Numero</th><th>Data</th><th>Totale</th><th>Origine / Ordine</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div>
+    <div class="lst-prev-wrap"><table class="lst-prev"><thead><tr><th></th><th>Fornitore</th><th>Numero</th><th>Data</th><th>Totale</th><th>Origine / Ordine</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div style="display:flex;justify-content:space-between;margin-top:12px;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn ghost" style="border:1px solid var(--border2);color:var(--red)" type="button" onclick="xmlImpDiscardAll()">🗑 Scarta tutte quelle in elenco</button>
       ${ok?`<div style="display:flex;gap:10px;align-items:center">
@@ -4577,7 +4587,7 @@ function scadenziarioView(){
   const totOverdue=rows.filter(r=>r.over).reduce((s,r)=>s+r.totale,0);
   const totInScad=rows.filter(r=>!r.over&&r.days<=30).reduce((s,r)=>s+r.totale,0);
   const week=rows.filter(r=>!r.over&&r.days<=7).reduce((s,r)=>s+r.totale,0);
-  const statsHtml=`<div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+  const statsHtml=`<div class="stats" style="margin-bottom:16px">
       ${stat('Scadute',eur0(totOverdue),rows.filter(r=>r.over).length+' fatture','var(--red)','')}
       ${stat('Scadono in 7 gg',eur0(week),rows.filter(r=>!r.over&&r.days<=7).length+' fatture','var(--amber)','')}
       ${stat('Scadono in 30 gg',eur0(totInScad),rows.filter(r=>!r.over&&r.days<=30).length+' fatture','var(--blue)','')}
@@ -4602,7 +4612,7 @@ function scadenziarioView(){
       <button class="btn" style="margin-bottom:14px" onclick="SCAD_CLI='';document.getElementById('content').innerHTML=scadenziarioView()">← Tutti i clienti</button>
       <div class="page-title" style="font-size:16px;margin-bottom:2px">${aiEsc(c.nome||'?')}</div>
       <p class="t-mut" style="margin:0 0 14px">${detRows.length} fattur${detRows.length===1?'a scaduta':'e scadute'} · Totale ${eur(totC)}</p>
-      <div class="tablecard"><table class="tbl"><thead><tr><th>Fattura</th><th>Emessa</th><th>Scadenza</th><th>Totale</th><th>Stato</th></tr></thead><tbody>${trs||'<tr><td colspan="5" class="t-mut" style="text-align:center;padding:24px">Nessuna fattura scaduta per questo cliente</td></tr>'}</tbody></table></div>`;
+      <div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr><th>Fattura</th><th>Emessa</th><th>Scadenza</th><th>Totale</th><th>Stato</th></tr></thead><tbody>${trs||'<tr><td colspan="5" class="t-mut" style="text-align:center;padding:24px">Nessuna fattura scaduta per questo cliente</td></tr>'}</tbody></table></div>`;
   }
 
   // Vista principale: un rigo per cliente, con il totale scaduto
@@ -4623,7 +4633,7 @@ function scadenziarioView(){
   return `<div class="page-head"><div class="page-title">Scadenziario</div>
     <button class="btn" onclick="exportScadenziarioXLS()">⬇ Excel</button></div>
     ${statsHtml}
-    <div class="tablecard"><table class="tbl"><thead><tr><th>Cliente</th><th>Fatture scadute</th><th>Scaduto da</th><th>Totale scaduto</th><th></th></tr></thead><tbody>${trs2||'<tr><td colspan="5" class="t-mut" style="text-align:center;padding:24px">Nessuna fattura scaduta 🎉</td></tr>'}</tbody></table></div>`;
+    <div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr><th>Cliente</th><th>Fatture scadute</th><th>Scaduto da</th><th>Totale scaduto</th><th></th></tr></thead><tbody>${trs2||'<tr><td colspan="5" class="t-mut" style="text-align:center;padding:24px">Nessuna fattura scaduta 🎉</td></tr>'}</tbody></table></div>`;
 }
 function exportScadenziarioXLS(){
   const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));

@@ -1049,9 +1049,12 @@ function chartTip(e,i){
     <div class="ct-r"><span><i style="background:#0ea371"></i>Fatturato</span><b>${eur(d.vend)}</b></div>
     <div class="ct-r"><span><i style="background:#7c5cd6"></i>Acquisti</span><b>${eur(d.acq)}</b></div>
     <div class="ct-r ct-mg"><span>Margine</span><b style="color:${mg>=0?'#5fe3ad':'#ff9a9a'}">${eur(mg)}</b></div>`;
-  tip.style.left=Math.max(80,Math.min(px,r.width-80))+'px';
-  tip.style.top=Math.max(58,py-16)+'px';
   tip.classList.add('show');
+  // Misura la larghezza reale (varia con la lunghezza degli importi): un margine fisso
+  // non basta su schermi stretti o vicino ai bordi del grafico, tagliando il popup.
+  const half=tip.offsetWidth/2+8;
+  tip.style.left=Math.max(half,Math.min(px,r.width-half))+'px';
+  tip.style.top=Math.max(58,py-16)+'px';
   document.querySelectorAll('.hit.act').forEach(h=>h.classList.remove('act'));
   const hit=document.getElementById('hit'+i);if(hit)hit.classList.add('act');
 }

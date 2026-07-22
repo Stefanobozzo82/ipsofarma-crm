@@ -3210,6 +3210,7 @@ function gsMatchDest(cliente,destText){
 async function openGSheetImport(){
   const id=(DB.azienda||{}).gsheetId;
   if(!id){toast('Prima collega un Google Sheet nelle Impostazioni');nav('azienda');return;}
+  GS_SHOW_DONE=false;
   document.getElementById('modal').innerHTML=`
    <div class="modal-head"><h3>Importa ordini da Google Sheet</h3><button class="x" onclick="closeModal()">×</button></div>
    <div class="modal-body" id="gs-body" style="max-height:70vh;overflow-y:auto">
@@ -3240,10 +3241,16 @@ async function openGSheetImport(){
     document.getElementById('gs-body').innerHTML=`<div class="ai-err">${aiEsc(e.message||'Errore di caricamento')}</div>`;
   }
 }
+let GS_SHOW_DONE=false;
+function gsToggleShowDone(){GS_SHOW_DONE=!GS_SHOW_DONE;gsRender();}
 function gsRender(){
   const body=document.getElementById('gs-body');if(!body)return;
   if(!GSIMP.items.length){body.innerHTML='<p class="ai-intro">Nessuna riga trovata nel foglio.</p>';return;}
-  body.innerHTML=GSIMP.items.map((it,idx)=>{
+  const doneCount=GSIMP.items.filter(it=>it.already).length;
+  const toggle=doneCount?`<p class="t-mut" style="font-size:12px;margin:0 0 10px"><a href="#" onclick="gsToggleShowDone();return false">${GS_SHOW_DONE?'Nascondi':'Mostra anche'} i ${doneCount} già gestiti</a></p>`:'';
+  const visible=GSIMP.items.map((it,idx)=>({it,idx})).filter(({it})=>GS_SHOW_DONE||!it.already);
+  if(!visible.length){body.innerHTML=toggle+'<p class="ai-intro">✓ Tutti gli ordini del foglio sono già stati gestiti (importati o ignorati).</p>';return;}
+  body.innerHTML=toggle+visible.map(({it,idx})=>{
     if(it.already)return `<div class="gs-card gs-done"><div class="gs-head"><b>${aiEsc(it.clienteRaw||'?')}</b><span class="pill ${it.dismissed?'p-gray':'p-green'}">${it.dismissed?'✕ ignorato':'✓ già importato'}</span></div></div>`;
     const cliOpts='<option value="">— seleziona cliente —</option>'+DB.clienti.map(c=>`<option value="${c.id}" ${it.clienteId===c.id?'selected':''}>${aiEsc(c.nome)}</option>`).join('');
     const linee=it.linee.map((l,li)=>l.p

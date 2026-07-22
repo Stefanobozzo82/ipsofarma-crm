@@ -1572,7 +1572,7 @@ function detailView(){
           <button class="btn" onclick="togglePrintMenu(event)">🖨 Stampa ▾</button>
           <div class="print-menu" id="printMenu">
             <button onclick="closePrintMenu();printDoc('${coll}','${item.id}')">🖨 Stampa qui</button>
-            <button onclick="closePrintMenu();printRemote('${coll}','${item.id}')">🖨️ Stampa in ufficio <small>(anche da lontano)</small></button>
+            <button onclick="closePrintMenu();printRemote('${coll}','${item.id}')">🖨️ Stampa in ufficio</button>
           </div>
         </div>
         ${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>

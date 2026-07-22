@@ -1,3 +1,61 @@
 {
-  "items": []
+  "items": [
+    {
+      "addedAt": "2026-07-22T10:36:34.611Z",
+      "msgId": "19f893e0596170fc",
+      "file": "5718105297.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718105297",
+        "date": "2026-07-21",
+        "order_ref": "Rif.cliente Vs.ord. 172",
+        "lines": [
+          {
+            "cod": "C3090042",
+            "descr": "OPTILENE 2/0 (3) 75CM HR26 CV",
+            "qty": 5,
+            "prezzo": 90,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626064",
+            "scad": "2031-02-05"
+          },
+          {
+            "cod": "C3090042",
+            "descr": "OPTILENE 2/0 (3) 75CM HR26 CV",
+            "qty": 1,
+            "prezzo": 90,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "626064",
+            "scad": "2031-02-05"
+          },
+          {
+            "cod": "C0068062N1",
+            "descr": "NOVOSYN VIOLA 1 (4) 70CM HR48",
+            "qty": 6,
+            "prezzo": 70.92,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36198L",
+            "scad": "2031-05-09"
+          }
+        ],
+        "totale": 1177.9343999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T10:36:34.615Z",
+      "msgId": "19f893de34dfec08",
+      "file": "5718105296.pdf",
+      "error": "Gemini HTTP 429: {\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota ex"
+    }
+  ]
 }

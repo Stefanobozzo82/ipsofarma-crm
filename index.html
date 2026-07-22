@@ -537,7 +537,7 @@ const GH_FILE='backup.json';
  * avvisiamo l'utente (vero conflitto, raro). I documenti nuovi o cancellati
  * su un solo lato vengono aggiunti/rimossi correttamente su entrambi.
  */
-const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore'];
+const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','clienti','fornitori','preventivi'];
 let GH_BASE=null;
 function snapshotMergeColls(db){
   const s={};MERGE_COLLS.forEach(c=>{s[c]=JSON.parse(JSON.stringify((db&&db[c])||[]));});return s;
@@ -700,9 +700,12 @@ async function ghSave(isRetry,hadMergeConflict){
   try{
     // Merge intelligente: confronta la nostra base di riferimento con lo stato
     // remoto attuale, e unisce eventuali modifiche fatte da un altro dispositivo
-    // nel frattempo (invece di sovrascriverle). Solo al primo tentativo: se
-    // dobbiamo riprovare per un conflitto di scrittura, il merge è già avvenuto.
-    if(!isRetry){
+    // nel frattempo (invece di sovrascriverle). Rifatto anche al retry: se il
+    // primo tentativo di scrittura fallisce per conflitto (qualcun altro ha
+    // salvato nel frattempo), dobbiamo riprendere lo sha più recente e
+    // rifare il merge contro l'ultimissima versione remota, non riprovare
+    // con lo sha ormai superato.
+    {
       const fetched=await ghFetchRemote();
       if(fetched){
         GH_SHA=fetched.sha;localStorage.setItem('gh_sha',GH_SHA);

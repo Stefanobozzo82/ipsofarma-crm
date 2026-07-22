@@ -245,6 +245,13 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .d-tot .v{font-family:var(--mono);font-size:22px;font-weight:700}
 .d-tot .l{font-size:11px;color:var(--faint)}
 .d-actions{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
+.print-menu-wrap{position:relative}
+.print-menu{display:none;position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px #0002;z-index:60;min-width:230px;overflow:hidden}
+.print-menu.show{display:block}
+.print-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:13px;font-weight:600;color:var(--txt);cursor:pointer}
+.print-menu button small{font-weight:400;color:var(--muted);font-size:11px}
+.print-menu button:hover{background:var(--surface2)}
+.print-menu button:not(:last-child){border-bottom:1px solid var(--border)}
 
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);margin-bottom:16px;overflow:hidden}
 .panel-h{padding:13px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
@@ -1560,7 +1567,15 @@ function detailView(){
         <div class="sp"></div>
         <div class="d-tot"><div class="v">${eur(tot(item.righe))}</div><div class="l">imponibile ${eur(imp(item.righe))} + IVA ${eur(ivaT(item.righe))}</div></div>
       </div>
-      <div class="d-actions">${isAdmin()?actions:'<span style="font-size:12px;color:var(--muted)">👁 Sola lettura</span>'}<div style="flex:1"></div><button class="btn" onclick="printDoc('${coll}','${item.id}')">🖨 Stampa</button><button class="btn" onclick="printRemote('${coll}','${item.id}')" title="Invia alla stampante d'ufficio anche da lontano">🖨️ Stampa in ufficio</button>${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>
+      <div class="d-actions">${isAdmin()?actions:'<span style="font-size:12px;color:var(--muted)">👁 Sola lettura</span>'}<div style="flex:1"></div>
+        <div class="print-menu-wrap">
+          <button class="btn" onclick="togglePrintMenu(event)">🖨 Stampa ▾</button>
+          <div class="print-menu" id="printMenu">
+            <button onclick="closePrintMenu();printDoc('${coll}','${item.id}')">🖨 Stampa qui</button>
+            <button onclick="closePrintMenu();printRemote('${coll}','${item.id}')">🖨️ Stampa in ufficio <small>(anche da lontano)</small></button>
+          </div>
+        </div>
+        ${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>
     </div>
     <div class="panel"><div class="panel-h">Righe documento${isOrder?`<span style="margin-left:auto;font-size:12px;color:var(--muted)">${ev.evQ}/${ev.totQ} pz · ${ev.pct}% ${isF?'ricevuto':'consegnato'}</span>`:''}</div>
       ${isOrder?`<div style="padding:12px 18px 2px"><div class="evbar"><div class="evbar-fill" style="width:${ev.pct}%;background:${barCol}"></div></div></div>`:''}
@@ -3611,6 +3626,23 @@ async function saveAzienda(){
 }
 
 /* ===== Stampa documento ===== */
+function togglePrintMenu(ev){
+  ev.stopPropagation();
+  const m=document.getElementById('printMenu');if(!m)return;
+  if(m.classList.contains('show')){m.classList.remove('show');return;}
+  // Posizionato via JS (invece che ancorato col solo CSS) perché il pulsante può trovarsi
+  // vicino al bordo destro o sinistro a seconda dello schermo: così il menu resta sempre visibile.
+  const btn=ev.currentTarget.getBoundingClientRect();
+  const mw=230,mh=90;
+  let left=Math.max(8,Math.min(btn.right-mw,window.innerWidth-mw-8));
+  let top=btn.bottom+6;
+  if(top+mh>window.innerHeight-8)top=Math.max(8,btn.top-mh-6);
+  m.style.left=left+'px';
+  m.style.top=top+'px';
+  m.classList.add('show');
+}
+function closePrintMenu(){const m=document.getElementById('printMenu');if(m)m.classList.remove('show');}
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('.print-menu-wrap'))closePrintMenu();},true);
 function printDoc(coll,id){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
   document.getElementById('printArea').innerHTML=buildPrintHTML(coll,it);

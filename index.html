@@ -2906,9 +2906,9 @@ async function aiComplete(sys,userText,file,maxTok){
 }
 function xmlImpRender(){
   const rows=XMLIMP.items.map((it,i)=>{
-    if(it.error)return `<tr><td>${aiEsc(it.file)}</td><td colspan="4" class="ai-x">${aiEsc(it.error)}</td></tr>`;
+    if(it.error)return `<tr><td></td><td>${aiEsc(it.file)}</td><td colspan="4" class="ai-x">${aiEsc(it.error)}</td></tr>`;
     const p=it.p;
-    if(p.dir==='vendita')return `<tr><td>${aiEsc(it.file)}</td><td colspan="4" class="t-mut">Fattura di vendita: ignorata (qui si importano solo fatture fornitore)</td></tr>`;
+    if(p.dir==='vendita')return `<tr><td></td><td>${aiEsc(it.file)}</td><td colspan="4" class="t-mut">Fattura di vendita: ignorata (qui si importano solo fatture fornitore)</td></tr>`;
     const imp=p.lines.reduce((s,l)=>s+l.qty*l.prezzo,0);
     let mnote='';let of=null;
     if(p.order_ref){const on=String(p.order_ref).replace(/\D/g,'');const oc='OC/2026/'+on.padStart(4,'0');of=DB.ordiniFornitore.find(o=>o.ocId===oc);mnote=of?`<span class="pill p-green">→ ${of.num}</span>`:`<span class="t-mut">rif. ${aiEsc(p.order_ref)}</span>`;}
@@ -2920,20 +2920,38 @@ function xmlImpRender(){
       if(of){const ol=of.righe.find(x=>x.cod===l.cod);if(ol)cmp=Math.abs((ol.prezzo||0)-(l.prezzo||0))<0.005?`<span class="pill p-green">= ordine (${eur(ol.prezzo)})</span>`:`<span class="pill p-red">ordine ${eur(ol.prezzo)}</span>`;else cmp='<span class="t-mut">non in ordine</span>';}
       return `<tr><td class="code">${aiEsc(l.cod||'—')}</td><td>${nome}</td><td class="right">${l.qty}</td><td class="right">${eur(l.prezzo)}</td><td>${cmp}</td></tr>`;
     }).join('');
-    return `<tr><td>${aiEsc(p.ced.nome||'?')}</td><td class="code">${aiEsc(p.number)}</td><td>${fdate(p.date)}</td><td style="text-align:right">${eur(p.totale||imp)}</td><td>${it.src||''} ${mnote}${dupe?' <span class="ai-x">già presente</span>':''}</td></tr>
-    <tr><td colspan="5" style="padding:6px 8px 14px;background:var(--surface2)"><table class="lst-prev" style="margin:0"><thead><tr><th>Codice</th><th>Prodotto</th><th class="right">Q.tà</th><th class="right">Prezzo fatt.</th><th>Confronto ordine</th></tr></thead><tbody>${lineRows}</tbody></table></td></tr>`;
+    const chk=dupe?'':`<input type="checkbox" class="xi-chk" data-i="${i}" checked onchange="xmlImpUpdateCount()">`;
+    return `<tr><td>${chk}</td><td>${aiEsc(p.ced.nome||'?')}</td><td class="code">${aiEsc(p.number)}</td><td>${fdate(p.date)}</td><td style="text-align:right">${eur(p.totale||imp)}</td><td>${it.src||''} ${mnote}${dupe?' <span class="ai-x">già presente</span>':''}</td></tr>
+    <tr><td></td><td colspan="5" style="padding:6px 8px 14px;background:var(--surface2)"><table class="lst-prev" style="margin:0"><thead><tr><th>Codice</th><th>Prodotto</th><th class="right">Q.tà</th><th class="right">Prezzo fatt.</th><th>Confronto ordine</th></tr></thead><tbody>${lineRows}</tbody></table></td></tr>`;
   }).join('');
-  const ok=XMLIMP.items.filter(it=>it.p&&it.p.dir==='acquisto').length;
+  const ok=XMLIMP.items.filter(it=>it.p&&it.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(it.p.number))).length;
   document.getElementById('xml-step').innerHTML=`
-    <div class="note" style="margin:8px 0">${ok} fattura/e fornitore riconosciute su ${XMLIMP.items.length} file:</div>
-    <table class="lst-prev"><thead><tr><th>Fornitore</th><th>Numero</th><th>Data</th><th>Totale</th><th>Origine / Ordine</th></tr></thead><tbody>${rows}</tbody></table>
-    ${ok?`<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" onclick="xmlImpImport()">Importa ${ok} fattura/e</button></div>`:''}`;
+    <div class="note" style="margin:8px 0">${ok} fattura/e fornitore riconosciute su ${XMLIMP.items.length} file. Deseleziona quelle che non vuoi importare:</div>
+    <table class="lst-prev"><thead><tr><th></th><th>Fornitore</th><th>Numero</th><th>Data</th><th>Totale</th><th>Origine / Ordine</th></tr></thead><tbody>${rows}</tbody></table>
+    ${ok?`<div style="display:flex;justify-content:flex-end;margin-top:12px;gap:10px;align-items:center">
+      <button class="btn ghost" style="border:1px solid var(--border2)" type="button" onclick="xmlImpToggleAll(true)">Seleziona tutte</button>
+      <button class="btn ghost" style="border:1px solid var(--border2)" type="button" onclick="xmlImpToggleAll(false)">Deseleziona tutte</button>
+      <button class="btn primary" id="xml-imp-btn" onclick="xmlImpImport()">Importa ${ok} fattura/e</button>
+    </div>`:''}`;
+}
+function xmlImpToggleAll(state){
+  document.querySelectorAll('.xi-chk').forEach(c=>{c.checked=state;});
+  xmlImpUpdateCount();
+}
+function xmlImpUpdateCount(){
+  const n=document.querySelectorAll('.xi-chk:checked').length;
+  const btn=document.getElementById('xml-imp-btn');
+  if(btn)btn.textContent='Importa '+n+' fattura/e';
 }
 async function xmlImpImport(){
+  const checked=new Set([...document.querySelectorAll('.xi-chk:checked')].map(c=>parseInt(c.dataset.i,10)));
   let add=0,skip=0,linked=0,newp=0;
-  for(const it of XMLIMP.items){
+  const consumedMsgIds=[];
+  for(let i=0;i<XMLIMP.items.length;i++){
+    const it=XMLIMP.items[i];
     if(!it.p||it.p.dir!=='acquisto')continue;const p=it.p;
-    if(DB.fattureFornitore.some(f=>String(f.num)===String(p.number))){skip++;continue;}
+    if(DB.fattureFornitore.some(f=>String(f.num)===String(p.number))){skip++;if(it.msgId)consumedMsgIds.push(it.msgId);continue;}
+    if(!checked.has(i))continue; // lasciata deselezionata: resta in attesa per la prossima volta
     let f=DB.fornitori.find(x=>(x.piva&&p.ced.piva&&x.piva.replace(/\D/g,'')===p.ced.piva.replace(/\D/g,''))||(p.ced.nome&&aiNorm(x.nome).includes(aiNorm((p.ced.nome||'').split(' ')[0]))));
     if(!f){f={id:uid('f'),nome:p.ced.nome||'Fornitore',piva:p.ced.piva||'',cf:p.ced.cf||'',sdi:'',pec:'',via:'',cap:'',citta:'',prov:'',pag:'',iban:'',tel:'',email:'',note:'Creato da import fattura'};DB.fornitori.push(f);newp++;}
     let match=null;
@@ -2941,9 +2959,17 @@ async function xmlImpImport(){
     const ff={id:uid('ftf'),num:p.number,data:p.date||today(),fornitoreId:f.id,righe:p.lines.map(l=>({cod:l.cod,descr:l.descr,qty:l.qty,prezzo:l.prezzo,sconto:l.sconto||0,iva:l.iva,lotto:l.lotto||'',scad:l.scad||''})),ofId:match?match.num:null,paid:false,paidDate:null};
     DB.fattureFornitore.push(ff);add++;
     if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;markOFInvoiced(match,ff.righe);linked++;}
+    if(it.msgId)consumedMsgIds.push(it.msgId);
   }
   await persist();closeModal();toast('Importate '+add+' fatture fornitore'+(linked?' · '+linked+' collegate a ordini':'')+(newp?' · '+newp+' fornitori nuovi':'')+(skip?' · '+skip+' già presenti':''));
-  await gmailClearPending();
+  if(consumedMsgIds.length)await gmailClearPending(consumedMsgIds);
+  if(GMAIL_PENDING){
+    const consumedSet=new Set(consumedMsgIds);
+    GMAIL_PENDING=GMAIL_PENDING.filter(it2=>!consumedSet.has(it2.msgId));
+    if(!GMAIL_PENDING.length)GMAIL_PENDING=null;
+    GMAIL_NEW_COUNT=GMAIL_PENDING?GMAIL_PENDING.filter(it2=>it2.p&&it2.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(it2.p.number))).length:0;
+    renderNav();
+  }
   nav('ftf');
 }
 /* ===== Import automatico fatture fornitore da Gmail =====
@@ -3006,9 +3032,9 @@ function openGmailReview(){
   document.getElementById('overlay').classList.add('show');
   xmlImpRender();
 }
-async function gmailClearPending(){
-  if(!GMAIL_PENDING||!GMAIL_PENDING.length)return;
-  const ids=new Set(GMAIL_PENDING.map(it=>it.msgId).filter(Boolean));
+async function gmailClearPending(msgIds){
+  if(!msgIds||!msgIds.length)return;
+  const ids=new Set(msgIds);
   try{
     const res=await ghContentsGet(GMAIL_PENDING_FILE);
     if(res&&res.data){
@@ -3016,7 +3042,6 @@ async function gmailClearPending(){
       await ghContentsPut(GMAIL_PENDING_FILE,{items:remaining},res.sha);
     }
   }catch(e){/* silenzioso: si ritenterà al prossimo giro */}
-  GMAIL_PENDING=null;GMAIL_PENDING_SHA=null;GMAIL_NEW_COUNT=0;renderNav();
 }
 async function gmailSaveSettings(){
   DB.azienda=DB.azienda||{};

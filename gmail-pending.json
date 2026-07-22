@@ -30,6 +30,57 @@
         "totale": 35.135999999999996
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:59:42.134Z",
+      "msgId": "157d2308b8fa513c",
+      "file": "5300465170.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5300465170",
+        "date": "2016-10-14",
+        "order_ref": "Rif.cliente Vs.ord. 94",
+        "lines": [
+          {
+            "cod": "C0022024",
+            "descr": "MONOSYN VIOLA 4/0 (1.5) 70CM H",
+            "qty": 3,
+            "prezzo": 4.71972,
+            "sconto": "65",
+            "iva": 22,
+            "lotto": "116372V007",
+            "scad": "2021-09-01"
+          },
+          {
+            "cod": "C1048053",
+            "descr": "SAFIL VIOLA 1 (4) 70CM HR37 M",
+            "qty": 3,
+            "prezzo": 4.55111,
+            "sconto": "65",
+            "iva": 22,
+            "lotto": "116253V007",
+            "scad": "2021-06-01"
+          },
+          {
+            "cod": "G1038716",
+            "descr": "SAFIL VIOLA 2/0 (3) 250CM ARO",
+            "qty": 3,
+            "prezzo": 5.585,
+            "sconto": "65",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 54.3723378
+      },
+      "src": "Gmail"
     }
   ]
 }

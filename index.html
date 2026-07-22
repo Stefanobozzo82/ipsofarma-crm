@@ -429,6 +429,9 @@ table.lines tr:last-child td{border-bottom:none}
   #printArea *{visibility:visible}
   .toast,.overlay{display:none!important}
   @page{size:A4;margin:12mm}
+  /* Documenti con molte righe vanno su più pagine: evita che una riga o un riquadro
+     venga tagliato a metà tra una pagina e l'altra. */
+  .pa-lines tr,.pa-party,.pa-tot{break-inside:avoid}
 }
 .pa-doc{font-family:system-ui,-apple-system,sans-serif;color:#1b2531;font-size:12px;line-height:1.5;max-width:780px;margin:0 auto;padding:20px}
 .pa-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0ea371;padding-bottom:14px;margin-bottom:18px}
@@ -440,6 +443,7 @@ table.lines tr:last-child td{border-bottom:none}
 .pa-n{font-family:monospace;font-size:18px;font-weight:700;margin-top:3px}
 .pa-d{color:#777;font-size:11px}
 .pa-party{border:1px solid #d6dce3;border-radius:8px;padding:12px 14px;margin-bottom:16px;width:58%}
+.pa-ship{border-color:#0ea371;background:#f4fbf8}
 .pa-pl{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:#999;font-weight:700}
 .pa-pn{font-weight:700;font-size:13px;margin:2px 0 4px}
 .pa-pa{color:#444}
@@ -3599,13 +3603,16 @@ function buildPrintHTML(coll,it){
   const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore');
   const p=isForn?fornitore(it.fornitoreId):cliente(it.clienteId);
   const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE A FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO'};
-  const partyLabel=isForn?'Spettabile fornitore':(coll==='ddt'?'Destinatario / luogo di consegna':'Spettabile cliente');
   const azLine=[az.via,`${az.cap||''} ${az.citta||''}${az.prov?' ('+az.prov+')':''}`.trim()].filter(Boolean).join('<br>');
   const azMeta=[az.piva?'P.IVA '+az.piva:'',az.cf&&az.cf!==az.piva?'C.F. '+az.cf:'',az.tel?'Tel '+az.tel:'',az.email||'',az.pec?'PEC '+az.pec:'',az.web||''].filter(Boolean).join(' · ');
   const pAddr=[p.via,`${p.cap||''} ${p.citta||''}${p.prov?' ('+p.prov+')':''}`.trim()].filter(Boolean).join('<br>');
   const _dst=docDest(it,p);
   const _dstAddr=_dst?[_dst.via,`${_dst.cap||''} ${_dst.citta||''}${_dst.prov?' ('+_dst.prov+')':''}`.trim()].filter(Boolean).join('<br>'):'';
   const shipBlock=_dst?`<div class="pa-party pa-ship"><div class="pa-pl">Luogo di consegna</div><div class="pa-pn">${_dst.nome||p.nome}</div><div class="pa-pa">${_dstAddr}</div></div>`:'';
+  // Se c'è un riquadro separato con la destinazione di consegna, il riquadro del cliente
+  // deve indicare solo il destinatario (altrimenti i due riquadri si contraddicono, entrambi
+  // etichettati "luogo di consegna" ma con indirizzi diversi).
+  const partyLabel=isForn?'Spettabile fornitore':(coll==='ddt'?(_dst?'Destinatario':'Destinatario / luogo di consegna'):'Spettabile cliente');
   const pMeta=[p.piva?'P.IVA '+p.piva:'',p.cf&&p.cf!==p.piva?'C.F. '+p.cf:'',p.sdi?'Cod. SDI '+p.sdi:'',p.pec?'PEC '+p.pec:''].filter(Boolean).join('<br>');
   const hasSc=it.righe.some(r=>scEff(r.sconto)>0);
   const hasLot=['ddt','fattureCliente','fattureFornitore'].includes(coll)&&it.righe.some(r=>r.lotto||r.scad);

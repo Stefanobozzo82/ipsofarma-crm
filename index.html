@@ -231,7 +231,7 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .chart-empty{padding:42px 18px;text-align:center;color:var(--faint);font-size:12.5px}
 .search-sum{background:#eef6f2;border:1px solid #d4e7dd;color:#1d6b4e;border-radius:9px;padding:10px 14px;font-size:12.5px;margin-bottom:14px}
 .search-sum b{font-family:var(--mono);font-weight:700}
-@media(max-width:760px){.stats{grid-template-columns:1fr}.report-grid{grid-template-columns:1fr!important}}
+@media(max-width:760px){.stats{grid-template-columns:1fr}.report-grid{grid-template-columns:1fr!important}.pwd-grid{grid-template-columns:1fr!important}}
 
 /* ---------- Detail ---------- */
 .detail{max-width:1060px}
@@ -245,6 +245,7 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .d-tot .v{font-family:var(--mono);font-size:22px;font-weight:700}
 .d-tot .l{font-size:11px;color:var(--faint)}
 .d-actions{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
+.d-note{background:var(--surface2);border-left:3px solid var(--accent);padding:9px 13px;font-size:12.5px;color:var(--txt);margin-top:14px;border-radius:0 8px 8px 0;white-space:pre-wrap}
 .print-menu-wrap{position:relative}
 .print-menu{display:none;position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px #0002;z-index:60;min-width:230px;overflow:hidden}
 .print-menu.show{display:block}
@@ -480,6 +481,7 @@ table.lines tr:last-child td{border-bottom:none}
 .pa-tot td{padding:5px 10px}
 .pa-tot tr.g td{border-top:2px solid #1b2531;font-weight:700;font-size:14px}
 .pa-note{background:#f4f6f8;border-left:3px solid #0ea371;padding:8px 12px;font-size:10.5px;margin-bottom:8px;border-radius:0 6px 6px 0}
+.pa-usernote{white-space:pre-wrap}
 .pa-foot-note{font-size:10px;color:#999;margin-top:6px}
 .pa-footer{margin-top:26px;padding-top:10px;border-top:1px solid #e5e9ee;font-size:9.5px;color:#aaa;text-align:center}
 </style>
@@ -1576,6 +1578,7 @@ function detailView(){
           </div>
         </div>
         ${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>
+      ${item.note?`<div class="d-note">📝 ${aiEsc(item.note)}</div>`:''}
     </div>
     <div class="panel"><div class="panel-h">Righe documento${isOrder?`<span style="margin-left:auto;font-size:12px;color:var(--muted)">${ev.evQ}/${ev.totQ} pz · ${ev.pct}% ${isF?'ricevuto':'consegnato'}</span>`:''}</div>
       ${isOrder?`<div style="padding:12px 18px 2px"><div class="evbar"><div class="evbar-fill" style="width:${ev.pct}%;background:${barCol}"></div></div></div>`:''}
@@ -1789,7 +1792,7 @@ async function saveDDT(id){
   const data=document.getElementById('f-data').value;
   const righe=DDTR.filter(r=>r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
   if(!righe.length){toast('Indica almeno un prodotto da consegnare');return;}
-  const ddt={id:uid('ddt'),num:nextNum('DDT'),data,clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null};
+  const ddt={id:uid('ddt'),num:nextNum('DDT'),data,clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null,note:oc.note||''};
   DB.ddt.push(ddt);
   DDTR.forEach(r=>{const ln=oc.righe[r.i];if(ln&&r.qty>0)ln.qtyEv=Math.min((ln.qtyEv||0)+r.qty,ln.qty);});
   oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;
@@ -1798,7 +1801,7 @@ async function saveDDT(id){
   await persist();closeModal();toast('DDT '+ddt.num+' generato');MOD='ddt';SEL={coll:'ddt',item:ddt};render();document.getElementById('content').scrollTo(0,0);
 }
 async function genFT(id){const ddt=DB.ddt.find(d=>d.id===id);if(ddt.ftId)return;
-  const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId};
+  const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId,note:ddt.note||''};
   DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;
   await persist();toast('Fattura '+ft.num+' emessa');SEL={coll:'ddt',item:ddt};render();}
 let FTFR=[];
@@ -2045,6 +2048,7 @@ function openOCForm(){
           <div class="prod-sugg" id="prodsugg"></div>
         </div></div>
       <div class="field"><label>Righe ordine</label><div id="le"></div></div>
+      <div class="field"><label>Note <small style="color:var(--muted);font-weight:400">(riportate anche su DDT e fattura generati da questo ordine)</small></label><textarea id="f-note" rows="2" style="resize:vertical;border:1px solid var(--border2);border-radius:10px;padding:11px 13px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--txt);width:100%"></textarea></div>
     </div>
     <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
       <span class="tot" id="f-tot"><small>Totale</small> ${eur(0)}</span>
@@ -2159,6 +2163,7 @@ function openOCEdit(id){
           <div class="prod-sugg" id="prodsugg"></div>
         </div></div>
       <div class="field"><label>Righe ordine</label><div id="le"></div></div>
+      <div class="field"><label>Note <small style="color:var(--muted);font-weight:400">(riportate anche su DDT e fattura generati da questo ordine)</small></label><textarea id="f-note" rows="2" style="resize:vertical;border:1px solid var(--border2);border-radius:10px;padding:11px 13px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--txt);width:100%">${oc.note?oc.note.replace(/</g,'&lt;'):''}</textarea></div>
     </div>
     <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
       <span class="tot" id="f-tot"><small>Totale</small> ${eur(tot(FR))}</span>
@@ -2171,6 +2176,7 @@ async function saveOCEdit(id){
   const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyEv:Math.min(r.qtyEv||0,r.qty)}));
   if(!righe.length){toast('Aggiungi almeno una riga');return;}
   oc.clienteId=clienteId;oc.data=data;oc.destId=(document.getElementById('f-dest')||{}).value||null;oc.righe=righe;
+  oc.note=(document.getElementById('f-note')||{}).value.trim();
   const newnum=((document.getElementById('f-num')||{}).value||'').trim();if(newnum&&newnum!==oc.num){const m=newnum.match(/^OC\/(\d{4})\/(\d+)$/);if(m){const n=parseInt(m[2]);if(DB.counters.OC<=n)DB.counters.OC=n+1;}oc.num=newnum;}
   await persist();closeModal();toast('Ordine '+oc.num+' aggiornato');SEL={coll:'ordiniCliente',item:oc};render();
 }
@@ -2402,7 +2408,8 @@ async function saveOFEdit(id){
 async function saveOC(){
   const clienteId=document.getElementById('f-cli').value,data=document.getElementById('f-data').value;
   const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva}));if(!righe.length){toast('Aggiungi almeno una riga');return;}
-  const oc={id:uid('oc'),num:consumeNum('OC',(document.getElementById('f-num')||{}).value),data,clienteId,destId:(document.getElementById('f-dest')||{}).value||null,righe,ofId:null,ddtId:null,ftId:null};
+  const note=(document.getElementById('f-note')||{}).value.trim();
+  const oc={id:uid('oc'),num:consumeNum('OC',(document.getElementById('f-num')||{}).value),data,clienteId,destId:(document.getElementById('f-dest')||{}).value||null,righe,ofId:null,ddtId:null,ftId:null,note};
   DB.ordiniCliente.push(oc);await persist();closeModal();toast('Ordine '+oc.num+' creato');MOD='oc';VIEW='list';SEL=null;render();
 }
 function openPrevForm(){
@@ -3478,7 +3485,7 @@ function aziendaView(){
     <p style="font-size:13px;color:var(--muted);line-height:1.6;margin:0 0 14px">
       Imposta due password distinte: una per te (modifica tutto) e una per i colleghi (solo lettura — possono consultare e stampare ma non modificare nulla).
     </p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+    <div class="pwd-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
       <div style="background:var(--surface2);border-radius:10px;padding:14px">
         <div style="font-weight:700;font-size:13px;margin-bottom:6px">🔑 Amministratore <small style="color:var(--muted)">(modifica tutto)</small></div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${localStorage.getItem('app_pwd_hash')?'✅ Password impostata':'⚠️ Nessuna password'}</div>
@@ -3669,6 +3676,7 @@ function buildPrintHTML(coll,it){
   const rows=it.righe.map(r=>`<tr><td>${r.cod}</td><td>${r.descr}</td>${hasLot?`<td>${r.lotto||'—'}</td><td class="r">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="r">${r.qty}</td><td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc?`<td class="r">${scLabel(r.sconto)}</td>`:''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td></tr>`).join('');
   let ddtBlock='';
   if(coll==='ddt')ddtBlock=`<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ____</td></tr></table>`;
+  const userNote=it.note?`<div class="pa-note pa-usernote"><b>Note:</b> ${aiEsc(it.note)}</div>`:'';
   let note='';
   if(coll==='fattureCliente'){
     if(p.split==='si')note+='<div class="pa-note">Operazione soggetta a scissione dei pagamenti — art. 17‑ter DPR 633/72. IVA versata dall\'ente acquirente.</div>';
@@ -3691,6 +3699,7 @@ function buildPrintHTML(coll,it){
       <tr><td>IVA</td><td class="r">${eur(ivaT(it.righe))}</td></tr>
       <tr class="g"><td>Totale documento</td><td class="r">${eur(tot(it.righe))}</td></tr>
     </table></div>
+    ${userNote}
     ${note}
     <div class="pa-footer">${az.iso?az.iso+' · ':''}Documento generato con Ipsofarma Gestionale</div>
   </div>`;
@@ -3732,6 +3741,7 @@ body{margin:0}
 .pa-tot td{padding:5px 10px}
 .pa-tot tr.g td{border-top:2px solid #1b2531;font-weight:700;font-size:14px}
 .pa-note{background:#f4f6f8;border-left:3px solid #0ea371;padding:8px 12px;font-size:10.5px;margin-bottom:8px;border-radius:0 6px 6px 0}
+.pa-usernote{white-space:pre-wrap}
 .pa-foot-note{font-size:10px;color:#999;margin-top:6px}
 .pa-footer{margin-top:26px;padding-top:10px;border-top:1px solid #e5e9ee;font-size:9.5px;color:#aaa;text-align:center}`;
 function buildStandalonePrintDoc(coll,it){
@@ -3946,8 +3956,8 @@ function aiNorm(s){return (s||'').toLowerCase();}
 function aiInPeriod(d,p){if(!p)return true;d=d||'';if(typeof p==='string')return d.startsWith(p);if(p.month&&p.year)return d.startsWith(p.year+'-'+String(p.month).padStart(2,'0'));if(p.from&&d<p.from)return false;if(p.to&&d>p.to)return false;return true;}
 function aiPeriodLabel(p){if(!p)return '';if(typeof p==='string'){const x=p.split('-');const nm=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];return x[1]?(nm[parseInt(x[1])-1]||'')+' '+x[0]:x[0];}return (p.from||'')+'–'+(p.to||'');}
 function aiFindOC(ref){ref=String(ref==null?'':ref).trim();if(!ref)return null;let o=DB.ordiniCliente.find(x=>x.num.toLowerCase()===ref.toLowerCase());if(o)return o;const dg=ref.replace(/\D/g,'');if(dg){const n=parseInt(dg);o=DB.ordiniCliente.find(x=>parseInt((x.num.split('/').pop()||'0'))===n);}return o||null;}
-function aiGenDDT(oc){const righe=oc.righe.map(r=>{const rest=Math.max(0,r.qty-(r.qtyEv||0));const ls=lotScadFromOF(oc.ofId,r.cod);return{cod:r.cod,descr:r.descr,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};}).filter(r=>r.qty>0);if(!righe.length)return null;const ddt={id:uid('ddt'),num:nextNum('DDT'),data:today(),clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null};DB.ddt.push(ddt);oc.righe.forEach(r=>{r.qtyEv=r.qty;});oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;updateOFfromOC(oc.num,righe);return ddt;}
-function aiGenFT(ddt){if(ddt.ftId)return null;const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId};DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;return ft;}
+function aiGenDDT(oc){const righe=oc.righe.map(r=>{const rest=Math.max(0,r.qty-(r.qtyEv||0));const ls=lotScadFromOF(oc.ofId,r.cod);return{cod:r.cod,descr:r.descr,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};}).filter(r=>r.qty>0);if(!righe.length)return null;const ddt={id:uid('ddt'),num:nextNum('DDT'),data:today(),clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null,note:oc.note||''};DB.ddt.push(ddt);oc.righe.forEach(r=>{r.qtyEv=r.qty;});oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;updateOFfromOC(oc.num,righe);return ddt;}
+function aiGenFT(ddt){if(ddt.ftId)return null;const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId,note:ddt.note||''};DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;return ft;}
 function aiGenOF(oc){return genOFFromOC(oc);}
 function aiFindProd(q){
   if(!q)return null;const lc=String(q).trim().toLowerCase();const all=allProdotti();

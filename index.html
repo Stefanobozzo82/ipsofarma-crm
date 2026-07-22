@@ -4383,7 +4383,11 @@ let MODALSIZE=null;try{MODALSIZE=JSON.parse(localStorage.getItem('modalSize')||'
 let MODALRO=null;
 function applyModalSize(){
   const m=document.getElementById('modal');if(!m)return;
-  if(MODALSIZE&&MODALSIZE.w&&MODALSIZE.h){m.style.width=MODALSIZE.w+'px';m.style.height=MODALSIZE.h+'px';}
+  // La dimensione ridimensionata a mano viene ricordata per tutte le finestre, ma solo se non
+  // è più piccola della misura di base: altrimenti una finestra rimpicciolita per errore (es. un
+  // semplice conferma) resterebbe minuscola anche per moduli più ricchi come "Nuovo ordine cliente".
+  if(MODALSIZE&&MODALSIZE.w>=640&&MODALSIZE.h>=420){m.style.width=MODALSIZE.w+'px';m.style.height=MODALSIZE.h+'px';}
+  else{m.style.width='';m.style.height='';}
   if(MODALRO)MODALRO.disconnect();
   if(window.ResizeObserver){
     MODALRO=new ResizeObserver(entries=>{

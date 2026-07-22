@@ -56,14 +56,37 @@ function checkFatture() {
   const label = getOrCreateLabel_(LABEL_NAME);
   const threads = GmailApp.search(GMAIL_QUERY, 0, 50);
   if (!threads.length) return;
+  // Fatture già presenti nel gestionale: non le riproponiamo (evita doppioni e chiamate AI inutili).
+  const existingNums = getExistingInvoiceNumbers_();
   const newItems = [];
   threads.forEach(function (thread) {
+    let transient = false;
     thread.getMessages().forEach(function (msg) {
-      newItems.push(processMessage_(msg));
+      const item = processMessage_(msg);
+      if (item.error && isTransientError_(item.error)) { transient = true; return; } // riprova al prossimo giro
+      if (item.p && item.p.number && existingNums.has(String(item.p.number))) return; // già in archivio: ignora
+      newItems.push(item);
     });
-    thread.addLabel(label);
+    // Se anche un solo messaggio del thread ha avuto un errore temporaneo (es. Gemini sovraccarico),
+    // non etichettiamo il thread come importato: verrà ritentato al prossimo controllo.
+    if (!transient) thread.addLabel(label);
   });
   if (newItems.length) appendPending_(newItems);
+}
+
+function isTransientError_(msg) {
+  return /Gemini HTTP 5\d\d/.test(msg) || /GitHub (GET|PUT)/.test(msg) || /timeout|Timeout|Address unavailable|DNS|Errore imprevisto/i.test(msg);
+}
+
+/** Numeri delle fatture fornitore già presenti in backup.json, per evitare doppioni. */
+function getExistingInvoiceNumbers_() {
+  try {
+    const existing = ghGet_('backup.json');
+    const arr = (existing && existing.data && existing.data.fattureFornitore) || [];
+    return new Set(arr.map(function (f) { return String(f.num); }));
+  } catch (e) {
+    return new Set(); // se backup.json non è leggibile, non blocchiamo l'import: verrà comunque scartato dal gestionale come doppione, se lo è
+  }
 }
 
 function processMessage_(msg) {

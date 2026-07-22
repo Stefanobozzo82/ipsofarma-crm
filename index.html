@@ -916,8 +916,13 @@ function renderNav(){
   try{const el=document.getElementById('gdStatus');if(el)el.textContent='';}catch(e){}
 }
 function defSort(id){return (id==='ddt'||id==='ft')?{key:'num',dir:'desc'}:{key:'data',dir:'desc'};}
-function nav(id){MOD=id;SEL=null;Q='';QRAW='';SORT=defSort(id);PICK.clear();PLIMIT=300;FFILT={forn:'',paid:'',from:'',to:'',dest:''};const _s=document.getElementById('search');if(_s)_s.value='';document.getElementById('sidebar').classList.remove('open');render();}
-function backList(){SEL=null;render();}
+function animateContentIn(){
+  const el=document.getElementById('content');
+  if(!el||!el.animate)return;
+  el.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease'});
+}
+function nav(id){MOD=id;SEL=null;Q='';QRAW='';SORT=defSort(id);PICK.clear();PLIMIT=300;FFILT={forn:'',paid:'',from:'',to:'',dest:''};const _s=document.getElementById('search');if(_s)_s.value='';document.getElementById('sidebar').classList.remove('open');render();animateContentIn();}
+function backList(){SEL=null;render();animateContentIn();}
 function onSearch(v){QRAW=v;Q=v.toLowerCase();PLIMIT=300;PICK.clear();renderContent();const si=document.getElementById('psearch');if(si){si.focus();const L=si.value.length;try{si.setSelectionRange(L,L);}catch(e){}}}
 
 /* ===== Render ===== */

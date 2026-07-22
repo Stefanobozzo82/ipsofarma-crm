@@ -1542,7 +1542,7 @@ function detailView(){
         <div class="sp"></div>
         <div class="d-tot"><div class="v">${eur(tot(item.righe))}</div><div class="l">imponibile ${eur(imp(item.righe))} + IVA ${eur(ivaT(item.righe))}</div></div>
       </div>
-      <div class="d-actions">${isAdmin()?actions:'<span style="font-size:12px;color:var(--muted)">👁 Sola lettura</span>'}<div style="flex:1"></div><button class="btn" onclick="printDoc('${coll}','${item.id}')">🖨 Stampa</button>${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>
+      <div class="d-actions">${isAdmin()?actions:'<span style="font-size:12px;color:var(--muted)">👁 Sola lettura</span>'}<div style="flex:1"></div><button class="btn" onclick="printDoc('${coll}','${item.id}')">🖨 Stampa</button><button class="btn" onclick="printRemote('${coll}','${item.id}')" title="Invia alla stampante d'ufficio anche da lontano">🖨️ Stampa in ufficio</button>${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>
     </div>
     <div class="panel"><div class="panel-h">Righe documento${isOrder?`<span style="margin-left:auto;font-size:12px;color:var(--muted)">${ev.evQ}/${ev.totQ} pz · ${ev.pct}% ${isF?'ricevuto':'consegnato'}</span>`:''}</div>
       ${isOrder?`<div style="padding:12px 18px 2px"><div class="evbar"><div class="evbar-fill" style="width:${ev.pct}%;background:${barCol}"></div></div></div>`:''}
@@ -3644,6 +3644,65 @@ function buildPrintHTML(coll,it){
     ${note}
     <div class="pa-footer">${az.iso?az.iso+' · ':''}Documento generato con Ipsofarma Gestionale</div>
   </div>`;
+}
+/* ===== Stampa remota (coda su GitHub, letta da un agente PowerShell in ufficio) =====
+   "Stampa" apre la finestra di stampa del dispositivo corrente. "Stampa in ufficio" invece
+   accoda il documento (come pagina HTML autonoma, con lo stesso CSS di stampa) nel file
+   print-queue.json di questo repository, usando lo stesso token GitHub già configurato per
+   il backup. Un agente (vedi windows-agent/print-agent.ps1) in esecuzione sul PC dell'ufficio
+   controlla periodicamente quel file e stampa in automatico sulla stampante predefinita. */
+const PRINT_QUEUE_FILE='print-queue.json';
+const PA_PRINT_CSS=`@page{size:A4;margin:12mm}
+body{margin:0}
+.pa-lines tr,.pa-party,.pa-tot{break-inside:avoid}
+.pa-doc{font-family:system-ui,-apple-system,sans-serif;color:#1b2531;font-size:12px;line-height:1.5;max-width:780px;margin:0 auto;padding:20px}
+.pa-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0ea371;padding-bottom:14px;margin-bottom:18px}
+.pa-az{font-size:20px;font-weight:800;color:#0b855d}
+.pa-azl{margin-top:4px;color:#444}
+.pa-azm{margin-top:5px;color:#777;font-size:10.5px}
+.pa-docbox{text-align:right}
+.pa-t{font-size:13px;font-weight:700;letter-spacing:1px}
+.pa-n{font-family:monospace;font-size:18px;font-weight:700;margin-top:3px}
+.pa-d{color:#777;font-size:11px}
+.pa-party{border:1px solid #d6dce3;border-radius:8px;padding:12px 14px;margin-bottom:16px;width:58%}
+.pa-ship{border-color:#0ea371;background:#f4fbf8}
+.pa-pl{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:#999;font-weight:700}
+.pa-pn{font-weight:700;font-size:13px;margin:2px 0 4px}
+.pa-pa{color:#444}
+.pa-pm{color:#777;font-size:10.5px;margin-top:5px}
+.pa-info{width:100%;border-collapse:collapse;margin-bottom:16px}
+.pa-info td{border:1px solid #d6dce3;padding:8px 10px;width:25%;vertical-align:top;font-size:11px}
+.pa-info b{font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;color:#999;font-weight:700}
+.pa-lines{width:100%;border-collapse:collapse;margin-bottom:14px}
+.pa-lines th{background:#f4f6f8;text-align:left;padding:8px 10px;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:#666;border-bottom:1px solid #d6dce3}
+.pa-lines td{padding:8px 10px;border-bottom:1px solid #eceff2}
+.pa-lines .r,.pa-tot .r{text-align:right;font-family:monospace}
+.pa-tot{display:flex;justify-content:flex-end;margin-bottom:12px}
+.pa-tot table{min-width:260px;border-collapse:collapse}
+.pa-tot td{padding:5px 10px}
+.pa-tot tr.g td{border-top:2px solid #1b2531;font-weight:700;font-size:14px}
+.pa-note{background:#f4f6f8;border-left:3px solid #0ea371;padding:8px 12px;font-size:10.5px;margin-bottom:8px;border-radius:0 6px 6px 0}
+.pa-foot-note{font-size:10px;color:#999;margin-top:6px}
+.pa-footer{margin-top:26px;padding-top:10px;border-top:1px solid #e5e9ee;font-size:9.5px;color:#aaa;text-align:center}`;
+function buildStandalonePrintDoc(coll,it){
+  // window.print() all'apertura: l'agente Windows apre questa pagina con Edge in modalità
+  // --kiosk-printing, che sopprime la finestra di dialogo ma non stampa da sola — serve
+  // che la pagina stessa richieda la stampa. onafterprint chiude la scheda per pulizia.
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${aiEsc(it.num)}</title><style>${PA_PRINT_CSS}</style></head><body onload="window.print()" onafterprint="window.close()">${buildPrintHTML(coll,it)}</body></html>`;
+}
+async function printRemote(coll,id){
+  const it=DB[coll].find(x=>x.id===id);if(!it)return;
+  if(!ghToken()){toast('Configura prima il token GitHub nelle Impostazioni (serve anche per questo)');return;}
+  const doc=buildStandalonePrintDoc(coll,it);
+  try{
+    const res=await ghContentsGet(PRINT_QUEUE_FILE);
+    const data=(res&&res.data)||{items:[]};
+    data.items=data.items||[];
+    data.items.push({id:uid('pq'),addedAt:new Date().toISOString(),title:it.num,html:doc});
+    if(data.items.length>50)data.items=data.items.slice(-50);
+    const ok=await ghContentsPut(PRINT_QUEUE_FILE,data,res&&res.sha);
+    toast(ok?'🖨️ Inviato alla stampante d\'ufficio: '+it.num:'Errore nell\'invio alla stampante');
+  }catch(e){toast('Errore nell\'invio alla stampante');}
 }
 
 /* ===== Schema / migrazioni ===== */

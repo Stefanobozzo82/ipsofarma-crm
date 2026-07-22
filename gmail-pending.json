@@ -1,0 +1,969 @@
+{
+  "items": [
+    {
+      "addedAt": "2026-07-22T07:36:58.733Z",
+      "msgId": "19f83acc29fec6f2",
+      "file": "5718105008.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718105008",
+        "date": "2026-07-20",
+        "order_ref": "186",
+        "lines": [
+          {
+            "cod": "G0058715",
+            "descr": "NOVOSYN VIOLA 3/0 (2) 250CM AR",
+            "qty": 120,
+            "prezzo": 1.98,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126204",
+            "scad": "2031-05-14"
+          },
+          {
+            "cod": "C0068030N1",
+            "descr": "NOVOSYN VIOLET 3/0 (2) 70CM HR",
+            "qty": 360,
+            "prezzo": 1.65,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624MT",
+            "scad": "2031-06-13"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLET 2/0 (3) 70CM HR",
+            "qty": 180,
+            "prezzo": 1.45,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36198P",
+            "scad": "2031-05-09"
+          },
+          {
+            "cod": "C0068052N1",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 70CM HR3",
+            "qty": 216,
+            "prezzo": 1.65,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3622EF",
+            "scad": "2031-05-28"
+          },
+          {
+            "cod": "C3090435",
+            "descr": "OPTILENE 3/0 (2) 45CM DS24 (M)",
+            "qty": 216,
+            "prezzo": 1.7,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626091",
+            "scad": "2031-02-23"
+          },
+          {
+            "cod": "C3090256",
+            "descr": "OPTILENE 0 (3,5) 75CM DS39 (M)",
+            "qty": 108,
+            "prezzo": 2.5,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626056",
+            "scad": "2031-01-31"
+          },
+          {
+            "cod": "C0762482",
+            "descr": "SILKAM NERO 0 (3.5) 75CM DS30",
+            "qty": 180,
+            "prezzo": 0.81,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626135",
+            "scad": "2031-03-27"
+          }
+        ],
+        "totale": 2723.0400000000004
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f83ac7f4eb651e",
+      "file": "5718105007.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718105007",
+        "date": "2026-07-20",
+        "order_ref": "Rif.cliente Vs.ord. 187",
+        "lines": [
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 1,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "25N22H8B06",
+            "scad": "2030-12-01"
+          }
+        ],
+        "totale": 103.7
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f7eae6dc151462",
+      "file": "5718104778.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104778",
+        "date": "2026-07-17",
+        "order_ref": "Rif.cliente Vs.ord. 186",
+        "lines": [
+          {
+            "cod": "PL579T",
+            "descr": "CHALLENGER TI-P CLIP LIGAT.ML",
+            "qty": 2,
+            "prezzo": 24.75167,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "53081074",
+            "scad": "2031-06-14"
+          }
+        ],
+        "totale": 60.3940748
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f7eae3df399bd9",
+      "file": "5718104777.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104777",
+        "date": "2026-07-17",
+        "order_ref": "Rif.cliente Vs.ord. 187",
+        "lines": [
+          {
+            "cod": "C0069221N1",
+            "descr": "NOVOSYN INC 3/0 (2) 45CM DS19",
+            "qty": 1,
+            "prezzo": 53.28,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3610LR",
+            "scad": "2031-03-06"
+          }
+        ],
+        "totale": 65.0016
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f7eae0ac045ce2",
+      "file": "5718104776.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104776",
+        "date": "2026-07-17",
+        "order_ref": "Rif.cliente Vs.ord. 185",
+        "lines": [
+          {
+            "cod": "FM613B",
+            "descr": "NOIR SUPREME MIC.FORBICI 45°AC",
+            "qty": 1,
+            "prezzo": 2068.8,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 2523.936
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f6ef6300722a92",
+      "file": "5718104560.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104560",
+        "date": "2026-07-16",
+        "order_ref": "Rif.cliente Vs.ord. 185",
+        "lines": [
+          {
+            "cod": "BC277R",
+            "descr": "DUROTIP FORBICI SOTTILE CRV.23",
+            "qty": 1,
+            "prezzo": 220.15,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "FL406NR",
+            "descr": "OSTEOTOMO CON IMPUGNATURA 20MM",
+            "qty": 1,
+            "prezzo": 246.88,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "F0521NR",
+            "descr": "BONE RONGEUR CURVO FORTE 240MM",
+            "qty": 1,
+            "prezzo": 668.08,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JM021",
+            "descr": "VASCHETTA PERF.CONTAINER OTTIC",
+            "qty": 1,
+            "prezzo": 232.48,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JM020",
+            "descr": "COPERCH.ARGENTO CONTAINER OTTI",
+            "qty": 1,
+            "prezzo": 411.26,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JF167",
+            "descr": "FILTRO MONOUSO STERRAD CONTAIN",
+            "qty": 200,
+            "prezzo": 0.2901,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JK098",
+            "descr": "SPINGIFILTRO PER MINI-CONTAINE",
+            "qty": 1,
+            "prezzo": 44.84,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JJ410",
+            "descr": "1/1 AESCULAP AICON COPERCHIO C",
+            "qty": 1,
+            "prezzo": 558.4,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JJ121",
+            "descr": "1/1 AESCULAP AICON EDS FONDO 1",
+            "qty": 1,
+            "prezzo": 750.05,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JJ164R",
+            "descr": "1/1 AESCULAP AICON CESTELLO 10",
+            "qty": 1,
+            "prezzo": 317.83,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JJ615",
+            "descr": "AESCULAP AICON FILTRO RIUTILIZ",
+            "qty": 10,
+            "prezzo": 63,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JJ710",
+            "descr": "AESCULAP AICON SIGILLO ARANCIO",
+            "qty": 1000,
+            "prezzo": 0.35676,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "4516738825",
+            "scad": "2029-01-22"
+          },
+          {
+            "cod": "JJ500",
+            "descr": "AESCULAP AICON FRONTALINO ROSS",
+            "qty": 2,
+            "prezzo": 64.06,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JJ600",
+            "descr": "AESCULAP AICON REGGIFILTRO",
+            "qty": 1,
+            "prezzo": 67.22,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JN188",
+            "descr": "VASCHETTA PERFOR.P.CONTAINER M",
+            "qty": 1,
+            "prezzo": 123.84,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JK170",
+            "descr": "COPERCHIO SOLO PERF.P.MINI-CON",
+            "qty": 1,
+            "prezzo": 158.83,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JK091",
+            "descr": "FILTRO PERMANENTE MINI CONTAIN",
+            "qty": 2,
+            "prezzo": 22.365,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "1131",
+            "scad": ""
+          }
+        ],
+        "totale": 6121.3378
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f6ef5ef3c81904",
+      "file": "5718104559.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104559",
+        "date": "2026-07-16",
+        "order_ref": "Rif.cliente Vs.ord. 184",
+        "lines": [
+          {
+            "cod": "8722960",
+            "descr": "SET PERFUSOR PVC 150 CM",
+            "qty": 100,
+            "prezzo": 0.82,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26E06E8SB4",
+            "scad": "2031-05-01"
+          },
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 25,
+            "prezzo": 3.4,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "25M11H8B08",
+            "scad": "2030-11-01"
+          }
+        ],
+        "totale": 203.74
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f6447c08602669",
+      "file": "5718104020.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104020",
+        "date": "2026-07-14",
+        "order_ref": "Rif.cliente Vs.ord. 110",
+        "lines": [
+          {
+            "cod": "BL104N",
+            "descr": "AGHI SUT.+4 CERCHIO PUNTA TRI",
+            "qty": 3,
+            "prezzo": 1.00083,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 3.6630378
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f64479aa7386b6",
+      "file": "5718104019.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104019",
+        "date": "2026-07-14",
+        "order_ref": "Rif.cliente Vs.ord. 180",
+        "lines": [
+          {
+            "cod": "PER-11-14-S",
+            "descr": "PERF. CRAN. ST. M-USO Ø IN 11/",
+            "qty": 10,
+            "prezzo": 226.6,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "00501973",
+            "scad": "2030-09-29"
+          }
+        ],
+        "totale": 2764.52
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f64476be5b063b",
+      "file": "5718104018.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718104018",
+        "date": "2026-07-14",
+        "order_ref": "Rif.cliente Vs.ord. 180",
+        "lines": [
+          {
+            "cod": "JP112",
+            "descr": "COPERCHIO PRIMELINE PRO 3/4 BL",
+            "qty": 5,
+            "prezzo": 287.25,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "FF490T",
+            "descr": "CRANIOFIX 2 D:11MM 12 PUNTI ST",
+            "qty": 3,
+            "prezzo": 87.89333,
+            "sconto": "50+15",
+            "iva": 4,
+            "lotto": "53075058",
+            "scad": "2031-05-12"
+          }
+        ],
+        "totale": 2026.4521895999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f5f21c21da9d30",
+      "file": "5718103701.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718103701",
+        "date": "2026-07-13",
+        "order_ref": "Rif.cliente Vs.ord. 182",
+        "lines": [
+          {
+            "cod": "C0068029N1",
+            "descr": "NOVOSYN VIOLA 4/0 (1,5)70CM HR",
+            "qty": 3,
+            "prezzo": 59.4,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3622FE",
+            "scad": "2031-05-30"
+          },
+          {
+            "cod": "B0068463",
+            "descr": "NOVOSYN VIOLA 2 (5) 90CM HS48(",
+            "qty": 10,
+            "prezzo": 59.04,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726064",
+            "scad": "2031-02-05"
+          },
+          {
+            "cod": "C0762610",
+            "descr": "SILKAM NERO 1 (4) 75CM D$39",
+            "qty": 6,
+            "prezzo": 33.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626151",
+            "scad": "2031-04-06"
+          }
+        ],
+        "totale": 1182.7656
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f5f2195e24bacb",
+      "file": "5718103700.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718103700",
+        "date": "2026-07-13",
+        "order_ref": "Rif.cliente Vs.ord. 183",
+        "lines": [
+          {
+            "cod": "B0068598",
+            "descr": "NOVOSYN VIOLA 2 (5) 90CM HR37S",
+            "qty": 10,
+            "prezzo": 54.96,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726052",
+            "scad": "2031-01-27"
+          }
+        ],
+        "totale": 670.5120000000001
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f59fb62298b446",
+      "file": "5718103400.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718103400",
+        "date": "2026-07-10",
+        "order_ref": "Rif.cliente Vs.ord. 175",
+        "lines": [
+          {
+            "cod": "BC559R",
+            "descr": "DUROTIP FORBICI MAYO CRV.230MM",
+            "qty": 2,
+            "prezzo": 291.78,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 711.9431999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f59fb424de8c9b",
+      "file": "5718103399.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718103399",
+        "date": "2026-07-10",
+        "order_ref": "Rif.cliente Vs.ord. 179",
+        "lines": [
+          {
+            "cod": "C0760021",
+            "descr": "SILKAM NERO 6/0 (0.7) 45CM HR1",
+            "qty": 1,
+            "prezzo": 265.9,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "626134",
+            "scad": "2031-03-26"
+          },
+          {
+            "cod": "C0760030",
+            "descr": "SILKAM NERO 5/0 (1) 45CM HR10",
+            "qty": 1,
+            "prezzo": 265.9,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "626205",
+            "scad": "2031-05-15"
+          },
+          {
+            "cod": "C0762067",
+            "descr": "SILKAM NERO 6/0 (0.7) 45CM D$1",
+            "qty": 1,
+            "prezzo": 64.08,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626175",
+            "scad": "2031-04-24"
+          },
+          {
+            "cod": "C0765074",
+            "descr": "SILKAM NERO 5/0 (1) 75CM DS12",
+            "qty": 1,
+            "prezzo": 225.2,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "626175",
+            "scad": "2031-04-24"
+          },
+          {
+            "cod": "G0068463",
+            "descr": "NOVOSYN VIOLA 2 (5) 90CM HS48",
+            "qty": 7,
+            "prezzo": 119.3,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "726064",
+            "scad": "2031-02-05"
+          },
+          {
+            "cod": "C0068583N1",
+            "descr": "NOVOSYN VIOLET 1 (4) 90CM HS37",
+            "qty": 5,
+            "prezzo": 89.28,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3548UX",
+            "scad": "2030-11-27"
+          }
+        ],
+        "totale": 2565.1476000000002
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f59fb25860672b",
+      "file": "5718103398.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718103398",
+        "date": "2026-07-10",
+        "order_ref": "Rif.cliente Vs.ord. 181",
+        "lines": [
+          {
+            "cod": "FF280R",
+            "descr": "SUPPORTO TAVOLA C.SNODO SFERIC",
+            "qty": 1,
+            "prezzo": 1634.27,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 1993.8093999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f59fb042fe40ea",
+      "file": "5718103397.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718103397",
+        "date": "2026-07-10",
+        "order_ref": "Rif.cliente Vs.ord. 178",
+        "lines": [
+          {
+            "cod": "5208505",
+            "descr": "INTRADYN AGO",
+            "qty": 2,
+            "prezzo": 50,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26D17844",
+            "scad": "2029-04-15"
+          }
+        ],
+        "totale": 122
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f41c977782005a",
+      "file": "5718102644.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718102644",
+        "date": "2026-07-07",
+        "order_ref": "Rif.cliente Vs.ord. 177",
+        "lines": [
+          {
+            "cod": "G1118765",
+            "descr": "DAFILON NERO 10/0 (0.2) 30CM",
+            "qty": 6,
+            "prezzo": 162.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626023",
+            "scad": "2031-01-07"
+          },
+          {
+            "cod": "G1118765",
+            "descr": "DAFILON NERO 10/0 (0.2) 30CM",
+            "qty": 1,
+            "prezzo": 162.72,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "626023",
+            "scad": "2031-01-07"
+          }
+        ],
+        "totale": 1389.6287999999997
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "19f41c95349909d4",
+      "file": "5718102643.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718102643",
+        "date": "2026-07-07",
+        "order_ref": "Rif.cliente Vs.ord. 175",
+        "lines": [
+          {
+            "cod": "BC195R",
+            "descr": "FORBICI P.TENDINI STEVENS 125M",
+            "qty": 1,
+            "prezzo": 125.08,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BC243R",
+            "descr": "DUROTIP FORBICI MAYO CRV.170MM",
+            "qty": 2,
+            "prezzo": 209.08,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BD511R",
+            "descr": "PINZETTA DISSEZ.ADSON FINE 1X2",
+            "qty": 1,
+            "prezzo": 28.01,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BD222R",
+            "descr": "PINZETTA ADSON SCANALATURA TRA",
+            "qty": 1,
+            "prezzo": 23.65,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BM238R",
+            "descr": "PORTAGHI MAYO-HEGAR 235MM",
+            "qty": 2,
+            "prezzo": 57.91,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BM236R",
+            "descr": "PORTAGHI MAYO-HEGAR 185MM",
+            "qty": 2,
+            "prezzo": 34.07,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 950.2091999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "1709ab490d5d0ed0",
+      "file": "5300662136.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5300662136",
+        "date": "2020-02-28",
+        "order_ref": "Rif.cliente Vs.ord. 19",
+        "lines": [
+          {
+            "cod": "783106",
+            "descr": "SKIN STAPLER 35W",
+            "qty": 6,
+            "prezzo": 4.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "191109",
+            "scad": "2024-11-30"
+          }
+        ],
+        "totale": 35.135999999999996
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-22T07:36:58.734Z",
+      "msgId": "157d2308b8fa513c",
+      "file": "5300465170.pdf",
+      "error": "Gemini HTTP 503: {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    }
+  ]
+}

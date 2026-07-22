@@ -4645,15 +4645,15 @@ function scadenziarioView(){
   const ths=(key,label)=>{const on=ss.key===key,ar=on?(ss.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${on?'on':''}" onclick="setScadSort('${key}')">${label}${ar}</th>`;};
   const trs2=clientRows.map(([id,g])=>`<tr onclick="SCAD_CLI='${id}';document.getElementById('content').innerHTML=scadenziarioView()" style="cursor:pointer">
       <td><b>${aiEsc(g.c.nome||'?')}</b></td>
+      <td style="text-align:right"><b>${eur(g.tot)}</b></td>
       <td>${g.n}</td>
       <td>fino a ${g.maxDays} gg</td>
-      <td style="text-align:right"><b>${eur(g.tot)}</b></td>
       <td><button class="btn sm" onclick="event.stopPropagation();openSollecito('${id}')">✉</button></td>
     </tr>`).join('');
   return `<div class="page-head"><div class="page-title">Scadenziario</div>
     <button class="btn" onclick="exportScadenziarioXLS()">⬇ Excel</button></div>
     ${statsHtml}
-    <div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${ths('nome','Cliente')}${ths('n','Fatture scadute')}${ths('maxDays','Scaduto da')}${ths('tot','Totale scaduto')}<th></th></tr></thead><tbody>${trs2||'<tr><td colspan="5" class="t-mut" style="text-align:center;padding:24px">Nessuna fattura scaduta 🎉</td></tr>'}</tbody></table></div>`;
+    <div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${ths('nome','Cliente')}${ths('tot','Totale scaduto')}${ths('n','Fatture scadute')}${ths('maxDays','Scaduto da')}<th></th></tr></thead><tbody>${trs2||'<tr><td colspan="5" class="t-mut" style="text-align:center;padding:24px">Nessuna fattura scaduta 🎉</td></tr>'}</tbody></table></div>`;
 }
 function exportScadenziarioXLS(){
   const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));

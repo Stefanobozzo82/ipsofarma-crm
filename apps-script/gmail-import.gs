@@ -27,6 +27,17 @@
  *    subito uno. Da qui in poi lo script gira da solo, anche ad app chiusa.
  *
  * Per cambiare l'intervallo, modifica il numero in setup() e rilancia setup().
+ *
+ * ---- NOTIFICA PUSH SUL TELEFONO (opzionale) ----
+ * Per ricevere una notifica sul telefono ogni volta che viene trovata una nuova
+ * fattura, usa il servizio gratuito ntfy.sh (nessuna registrazione richiesta):
+ * 1. Installa l'app "ntfy" (Play Store / App Store), oppure apri https://ntfy.sh sul telefono.
+ * 2. Nell'app premi "+" e scrivi un nome-argomento segreto e difficile da indovinare,
+ *    es. "ipsofarma-<qualcosa-a-caso>" (chiunque conosca il nome può leggere le notifiche,
+ *    quindi non usare un nome ovvio).
+ * 3. In "Proprietà script" aggiungi la proprietà NTFY_TOPIC con quello stesso nome.
+ * 4. Fatto: da questo momento ogni nuova fattura trovata manda una notifica.
+ * Se non imposti NTFY_TOPIC, l'invio della notifica viene semplicemente saltato.
  */
 
 const CFG = {
@@ -34,7 +45,8 @@ const CFG = {
   get GITHUB_REPO()   { return PropertiesService.getScriptProperties().getProperty('GITHUB_REPO') || 'Stefanobozzo82/ipsofarma-crm'; },
   get GITHUB_BRANCH() { return PropertiesService.getScriptProperties().getProperty('GITHUB_BRANCH') || 'main'; },
   get GEMINI_API_KEY(){ return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY'); },
-  get GEMINI_MODEL()  { return PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-2.5-flash'; }
+  get GEMINI_MODEL()  { return PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-2.5-flash'; },
+  get NTFY_TOPIC()    { return PropertiesService.getScriptProperties().getProperty('NTFY_TOPIC'); }
 };
 const PENDING_PATH = 'gmail-pending.json';
 const LABEL_NAME = 'crm-importata';
@@ -290,14 +302,36 @@ function appendPending_(newItems) {
   const data = (existing && existing.data) || { items: [] };
   const seenIds = {};
   data.items.forEach(function (i) { seenIds[i.msgId] = true; });
+  const addedNow = [];
   newItems.forEach(function (it) {
     if (!seenIds[it.msgId]) {
       data.items.push(Object.assign({ addedAt: new Date().toISOString() }, it));
       seenIds[it.msgId] = true;
+      addedNow.push(it);
     }
   });
   if (data.items.length > 300) data.items = data.items.slice(-300);
   ghPut_(PENDING_PATH, data, existing && existing.sha);
+  addedNow.forEach(notifyNewInvoice_);
+}
+
+/** Manda una notifica push (via ntfy.sh) per una fattura appena trovata. Non blocca
+ *  l'import se fallisce o se NTFY_TOPIC non è configurato. */
+function notifyNewInvoice_(item) {
+  if (!CFG.NTFY_TOPIC) return;
+  try {
+    const p = item.p || {};
+    const fornitore = (p.ced && p.ced.nome) || 'Fornitore sconosciuto';
+    const importo = p.totale ? (' — € ' + p.totale.toFixed(2)) : '';
+    const title = 'Nuova fattura fornitore';
+    const message = fornitore + (p.number ? ' · n. ' + p.number : '') + importo;
+    UrlFetchApp.fetch('https://ntfy.sh/' + encodeURIComponent(CFG.NTFY_TOPIC), {
+      method: 'post',
+      payload: message,
+      headers: { Title: title, Tags: 'email', Priority: 'default' },
+      muteHttpExceptions: true
+    });
+  } catch (e) { /* la notifica è solo un di più: non deve mai far fallire l'import */ }
 }
 
 /** Utile per verificare la configurazione dall'editor prima di aspettare il trigger. */
@@ -305,6 +339,15 @@ function testConfig() {
   Logger.log('GITHUB_REPO: ' + CFG.GITHUB_REPO);
   Logger.log('GITHUB_TOKEN presente: ' + !!CFG.GITHUB_TOKEN);
   Logger.log('GEMINI_API_KEY presente: ' + !!CFG.GEMINI_API_KEY);
+  Logger.log('NTFY_TOPIC presente: ' + !!CFG.NTFY_TOPIC);
   const existing = ghGet_(PENDING_PATH);
   Logger.log('gmail-pending.json attuale: ' + (existing ? JSON.stringify(existing.data).slice(0, 500) : '(non esiste ancora, verrà creato al primo import)'));
+}
+
+/** Esegui questa funzione dall'editor per verificare che la notifica push arrivi
+ *  davvero sul telefono, senza dover aspettare una fattura vera. */
+function testNotifica() {
+  if (!CFG.NTFY_TOPIC) { Logger.log('Imposta prima la proprietà script NTFY_TOPIC'); return; }
+  notifyNewInvoice_({ p: { ced: { nome: 'Fornitore di prova' }, number: '0000', totale: 12.34 } });
+  Logger.log('Notifica di prova inviata al topic ' + CFG.NTFY_TOPIC + ' — controlla il telefono.');
 }

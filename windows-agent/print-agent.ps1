@@ -43,6 +43,11 @@ $POLL_SECONDS  = 30
 
 $QUEUE_PATH = "print-queue.json"
 $headers = @{ Authorization = "token $GITHUB_TOKEN"; "User-Agent" = "Ipsofarma-Print-Agent" }
+# Profilo Edge dedicato: se Edge è già aperto con il profilo normale dell'utente, i nuovi
+# processi avviati con --kiosk-printing vengono ignorati (Edge apre solo una scheda nella
+# finestra già in esecuzione, senza applicare gli switch). Usando un profilo separato si
+# forza sempre un processo Edge indipendente, dove --kiosk-printing viene rispettato.
+$EDGE_PROFILE_DIR = Join-Path $env:TEMP "IpsofarmaPrintAgentProfile"
 
 function Get-EdgePath {
     $candidates = @(
@@ -104,7 +109,14 @@ function Print-Job($item) {
     Set-Content -Path $tmpFile -Value $item.html -Encoding UTF8
     $uri = "file:///" + ($tmpFile -replace '\\', '/')
     try {
-        $proc = Start-Process -FilePath $edge -ArgumentList "--kiosk-printing", $uri -PassThru
+        $edgeArgs = @(
+            "--kiosk-printing",
+            "--user-data-dir=$EDGE_PROFILE_DIR",
+            "--no-first-run",
+            "--no-default-browser-check",
+            $uri
+        )
+        $proc = Start-Process -FilePath $edge -ArgumentList $edgeArgs -PassThru
         Start-Sleep -Seconds 8
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
         return $true

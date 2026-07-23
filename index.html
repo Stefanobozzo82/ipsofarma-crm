@@ -449,12 +449,12 @@ table.lines tr:last-child td{border-bottom:none}
   #printArea{display:block!important;visibility:visible;position:absolute;left:0;top:0;width:100%}
   #printArea *{visibility:visible}
   .toast,.overlay{display:none!important}
-  @page{size:A4;margin:12mm}
+  @page{size:A4;margin:0}
   /* Documenti con molte righe vanno su più pagine: evita che una riga o un riquadro
      venga tagliato a metà tra una pagina e l'altra. */
   .pa-lines tr,.pa-party,.pa-tot{break-inside:avoid}
 }
-.pa-doc{font-family:system-ui,-apple-system,sans-serif;color:#1b2531;font-size:12px;line-height:1.5;max-width:780px;margin:0 auto;padding:20px}
+.pa-doc{font-family:system-ui,-apple-system,sans-serif;color:#1b2531;font-size:12px;line-height:1.5;max-width:780px;margin:0 auto;padding:12mm}
 .pa-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0ea371;padding-bottom:14px;margin-bottom:18px}
 .pa-az{font-size:20px;font-weight:800;color:#0b855d}
 .pa-azl{margin-top:4px;color:#444}
@@ -3711,10 +3711,10 @@ function buildPrintHTML(coll,it){
    il backup. Un agente (vedi windows-agent/print-agent.ps1) in esecuzione sul PC dell'ufficio
    controlla periodicamente quel file e stampa in automatico sulla stampante predefinita. */
 const PRINT_QUEUE_FILE='print-queue.json';
-const PA_PRINT_CSS=`@page{size:A4;margin:12mm}
+const PA_PRINT_CSS=`@page{size:A4;margin:0}
 body{margin:0}
 .pa-lines tr,.pa-party,.pa-tot{break-inside:avoid}
-.pa-doc{font-family:system-ui,-apple-system,sans-serif;color:#1b2531;font-size:12px;line-height:1.5;max-width:780px;margin:0 auto;padding:20px}
+.pa-doc{font-family:system-ui,-apple-system,sans-serif;color:#1b2531;font-size:12px;line-height:1.5;max-width:780px;margin:0 auto;padding:12mm}
 .pa-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0ea371;padding-bottom:14px;margin-bottom:18px}
 .pa-az{font-size:20px;font-weight:800;color:#0b855d}
 .pa-azl{margin-top:4px;color:#444}

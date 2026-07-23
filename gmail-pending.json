@@ -1,3 +1,35 @@
 {
-  "items": []
+  "items": [
+    {
+      "addedAt": "2026-07-23T10:21:27.634Z",
+      "msgId": "19f8e429de07ec0e",
+      "file": "5718105580.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718105580",
+        "date": "2026-07-22",
+        "order_ref": "Rif.cliente Vs.ord. 185",
+        "lines": [
+          {
+            "cod": "BD727R",
+            "descr": "PINZETTA DISS.STILLE-BARRAYA 4",
+            "qty": 1,
+            "prezzo": 72.22,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 88.1084
+      },
+      "src": "Gmail"
+    }
+  ]
 }

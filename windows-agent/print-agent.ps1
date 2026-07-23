@@ -126,7 +126,12 @@ function Print-Job($item) {
             $uri
         )
         $proc = Start-Process -FilePath $edge -ArgumentList $edgeArgs -PassThru
-        Start-Sleep -Seconds 8
+        # Aspetta che la finestra si chiuda da sola (onafterprint, a stampa completata),
+        # fino a un massimo di 25s: il primo avvio col profilo dedicato è più lento
+        # delle volte successive, quindi un'attesa fissa troppo corta rischia di
+        # uccidere il processo prima che la stampa parta davvero.
+        $waited = 0
+        while (-not $proc.HasExited -and $waited -lt 25) { Start-Sleep -Seconds 1; $waited++ }
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
         return $true
     } catch {

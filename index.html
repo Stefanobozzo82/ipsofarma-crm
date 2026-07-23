@@ -1539,7 +1539,7 @@ function detailView(){
   const[pc,pl]=statusOf(mod,item);
   let actions='';
   if(coll==='preventivi'){
-    actions=`${item.ocId?'':`<button class="btn" onclick="openPrevEdit('${item.id}')">✎ Modifica</button>`}<button class="btn ${item.ocId?'':'primary'}" ${item.ocId?'disabled':''} onclick="genOCfromPrev('${item.id}')">${item.ocId?'✓ Convertito in '+item.ocId:'→ Trasforma in ordine cliente'}</button>`;
+    actions=`${item.ocId?'':`<button class="btn" onclick="openPrevEdit('${item.id}')">✎ Modifica</button>`}<button class="btn" onclick="openPrevEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${item.ocId?'':'primary'}" ${item.ocId?'disabled':''} onclick="genOCfromPrev('${item.id}')">${item.ocId?'✓ Convertito in '+item.ocId:'→ Trasforma in ordine cliente'}</button>`;
   }else if(coll==='ordiniCliente'){
     const hasDDT=(item.ddtIds&&item.ddtIds.length)||item.ddtId;
     const fullyShip=item.righe.length>0&&item.righe.every(r=>(r.qtyEv||0)>=r.qty);
@@ -2259,6 +2259,85 @@ async function ofEmailSend(id,btn){
       body:JSON.stringify({action:'ordine_fornitore',to,subject:su,body,pdfBase64,filename})});
     of.emailSent=new Date().toISOString();await persist();
     closeModal();toast('Ordine inviato a '+to);MOD='of';SEL={coll:'ordiniFornitore',item:of};render();
+  }catch(e){
+    toast('Invio non riuscito: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='✉ Invia ora';}
+  }
+}
+async function prevBuildPDF(pv){
+  const JsPDF=await loadJsPDF();const az=DB.azienda||{};const cli=cliente(pv.clienteId);
+  const doc=new JsPDF({unit:'mm',format:'a4'});const W=210,M=15;let y=18;
+  doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text(az.nome||'Ipsofarma S.r.l.',M,y);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);y+=5;
+  const azl=[az.via,`${az.cap||''} ${az.citta||''}${az.prov?' ('+az.prov+')':''}`.trim()].filter(Boolean).join('  ·  ');if(azl){doc.text(azl,M,y);y+=4;}
+  const azm=[az.piva?'P.IVA '+az.piva:'',az.tel?'Tel '+az.tel:'',az.email||'',az.web||''].filter(Boolean).join('  ·  ');if(azm){doc.text(azm,M,y);y+=4;}
+  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('PREVENTIVO',W-M,18,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(pv.num+'   ·   del '+fdate(pv.data),W-M,24,{align:'right'});
+  y=Math.max(y,30)+4;doc.setDrawColor(210);doc.line(M,y,W-M,y);y+=7;
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(120);doc.text('SPETTABILE CLIENTE',M,y);doc.setTextColor(20);y+=5;
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text(cli.nome||'',M,y);y+=5;doc.setFont('helvetica','normal');doc.setFontSize(9);
+  const ca=[cli.via,`${cli.cap||''} ${cli.citta||''}${cli.prov?' ('+cli.prov+')':''}`.trim()].filter(Boolean).join('  ·  ');if(ca){doc.text(ca,M,y);y+=4;}
+  if(cli.piva){doc.text('P.IVA '+cli.piva,M,y);y+=4;}
+  y+=5;
+  const cw={cod:M+1,descr:M+26,qty:M+118,prz:M+142,iva:M+156,imp:W-M};
+  const drawHead=()=>{doc.setFillColor(244);doc.rect(M,y,W-2*M,7,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(90);
+    doc.text('Codice',cw.cod,y+5);doc.text('Descrizione',cw.descr,y+5);doc.text('Q.tà',cw.qty,y+5,{align:'right'});doc.text('Prezzo',cw.prz,y+5,{align:'right'});doc.text('IVA',cw.iva,y+5,{align:'right'});doc.text('Importo',cw.imp,y+5,{align:'right'});doc.setTextColor(20);y+=9;};
+  drawHead();doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+  pv.righe.forEach(r=>{
+    if(y>270){doc.addPage();y=18;drawHead();doc.setFont('helvetica','normal');doc.setFontSize(8.5);}
+    const desc=doc.splitTextToSize(String(r.descr||''),74);
+    doc.text(String(r.cod||''),cw.cod,y+3);doc.text(desc,cw.descr,y+3);
+    doc.text(String(r.qty),cw.qty,y+3,{align:'right'});doc.text(eur(r.prezzo),cw.prz,y+3,{align:'right'});
+    doc.text(r.iva+'%',cw.iva,y+3,{align:'right'});doc.text(eur(lineNet(r)),cw.imp,y+3,{align:'right'});
+    const hh=Math.max(desc.length*3.6,5);y+=hh+2;doc.setDrawColor(234);doc.line(M,y-1,W-M,y-1);
+  });
+  y+=5;const tx=W-M-60;doc.setFontSize(9);
+  doc.text('Imponibile',tx,y);doc.text(eur(imp(pv.righe)),W-M,y,{align:'right'});y+=5;
+  doc.text('IVA',tx,y);doc.text(eur(ivaT(pv.righe)),W-M,y,{align:'right'});y+=6;
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('Totale preventivo',tx,y);doc.text(eur(tot(pv.righe)),W-M,y,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(150);doc.text((az.iso?az.iso+'  ·  ':'')+'Documento generato con Ipsofarma Gestionale',M,290);
+  return doc;
+}
+function prevEmailBody(pv,cli,az){
+  const lines=pv.righe.map(r=>`- ${r.descr}  —  ${eur(r.prezzo)}`).join('\n');
+  return `Spett.le ${cli.nome},\n\ncon la presente trasmettiamo il nostro preventivo n. ${pv.num} del ${fdate(pv.data)}:\n\n${lines}\n\nTotale preventivo (IVA inclusa): ${eur(tot(pv.righe))}\n\nRestiamo a disposizione per qualsiasi chiarimento.\n\nCordiali saluti,\n${az.nome||'Ipsofarma S.r.l.'}${az.tel?'\nTel '+az.tel:''}${az.email?'\n'+az.email:''}${az.web?'\n'+az.web:''}`;
+}
+function openPrevEmail(id){
+  const pv=DB.preventivi.find(o=>o.id===id);if(!pv)return;
+  const cli=cliente(pv.clienteId),az=DB.azienda||{};
+  const subj=`Preventivo ${pv.num} - ${az.nome||'Ipsofarma S.r.l.'}`;
+  document.getElementById('modal').innerHTML=`
+   <div class="modal-head"><h3>Invia preventivo ${pv.num} per email</h3><button class="x" onclick="closeModal()">×</button></div>
+   <div class="modal-body">
+     <div class="field"><label>Destinatario (email cliente)</label><input id="em-to" value="${(cli.email||'').replace(/"/g,'&quot;')}" placeholder="email@cliente.it"></div>
+     <div class="field"><label>Oggetto</label><input id="em-su" value="${subj.replace(/"/g,'&quot;')}"></div>
+     <div class="field"><label>Messaggio</label><textarea id="em-body" rows="10" style="resize:vertical;border:1px solid var(--border2);border-radius:10px;padding:11px 13px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--txt);width:100%">${prevEmailBody(pv,cli,az)}</textarea></div>
+     <p class="ai-intro">L'email parte subito con il PDF già allegato, senza passaggi manuali, e resta nella tua Posta inviata.</p>
+   </div>
+   <div class="modal-foot">
+     <button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
+     <button class="btn primary" onclick="prevEmailSend('${id}',this)">✉ Invia ora</button>
+   </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+async function prevEmailSend(id,btn){
+  const pv=DB.preventivi.find(o=>o.id===id);if(!pv)return;
+  const url=(DB.azienda||{}).gsScriptUrl;
+  if(!url){toast('Prima collega lo script Google nelle Impostazioni');return;}
+  const to=(document.getElementById('em-to').value||'').trim();
+  const su=document.getElementById('em-su').value||'';
+  const body=document.getElementById('em-body').value||'';
+  if(!to||to.indexOf('@')<0){toast('Inserisci un\'email valida');return;}
+  if(btn){btn.disabled=true;btn.textContent='Invio in corso…';}
+  try{
+    const doc=await prevBuildPDF(pv);
+    const durl=doc.output('datauristring');
+    const pdfBase64=durl.split(',')[1];
+    const filename='Preventivo_'+String(pv.num).replace(/\//g,'-')+'.pdf';
+    await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'preventivo',to,subject:su,body,pdfBase64,filename})});
+    pv.emailSent=new Date().toISOString();await persist();
+    closeModal();toast('Preventivo inviato a '+to);SEL={coll:'preventivi',item:pv};render();
   }catch(e){
     toast('Invio non riuscito: '+(e.message||e));
     if(btn){btn.disabled=false;btn.textContent='✉ Invia ora';}

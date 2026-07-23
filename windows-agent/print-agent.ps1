@@ -32,6 +32,15 @@ predefinita di Windows, senza aprire finestre o chiedere conferme.
      "Tenta di riavviare fino a" -> un numero alto (es. 999).
    - Salva. Da ora in poi parte da solo a ogni accesso, senza finestre visibili,
      e si riavvia da solo se si blocca.
+
+   NOTA: con -WindowStyle Hidden la finestra di PowerShell viene comunque creata
+   e poi nascosta, quindi a volte si vede lampeggiare per un istante l'icona
+   nella barra delle applicazioni. Per evitarlo del tutto, copia anche il file
+   run-hidden.vbs in C:\IpsofarmaPrintAgent\ e nella scheda Azioni usa invece:
+     Programma/script: wscript.exe
+     Aggiungi argomenti: "C:\IpsofarmaPrintAgent\run-hidden.vbs"
+   Questo avvia PowerShell senza mai creare finestra, quindi nessuna icona
+   compare mai, nemmeno per un istante.
 #>
 
 # ============ CONFIGURAZIONE — compila questi tre valori ============

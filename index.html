@@ -246,6 +246,7 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .d-tot .l{font-size:11px;color:var(--faint)}
 .d-actions{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
 .d-note{background:var(--surface2);border-left:3px solid var(--accent);padding:9px 13px;font-size:12.5px;color:var(--txt);margin-top:14px;border-radius:0 8px 8px 0;white-space:pre-wrap}
+.d-dest{background:var(--blue-s);border-left:3px solid var(--blue);padding:9px 13px;font-size:12.5px;color:var(--txt);margin-top:14px;border-radius:0 8px 8px 0}
 .print-menu-wrap{position:relative}
 .print-menu{display:none;position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px #0002;z-index:60;min-width:230px;overflow:hidden}
 .print-menu.show{display:block}
@@ -1534,6 +1535,7 @@ function detailView(){
   const {coll,item}=SEL;const mod=Object.keys(META).find(k=>META[k].coll===coll);
   const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore');
   const party=isForn?fornitore(item.fornitoreId):cliente(item.clienteId);
+  const dst=coll==='ddt'?docDest(item,party):null;
   const[pc,pl]=statusOf(mod,item);
   let actions='';
   if(coll==='preventivi'){
@@ -1578,6 +1580,7 @@ function detailView(){
           </div>
         </div>
         ${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>
+      ${dst?`<div class="d-dest">📍 <b>Consegna presso:</b> ${aiEsc(dst.nome||party.nome)} — ${aiEsc([dst.via,[dst.cap,dst.citta,dst.prov&&'('+dst.prov+')'].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</div>`:''}
       ${item.note?`<div class="d-note">📝 ${aiEsc(item.note)}</div>`:''}
     </div>
     <div class="panel"><div class="panel-h">Righe documento${isOrder?`<span style="margin-left:auto;font-size:12px;color:var(--muted)">${ev.evQ}/${ev.totQ} pz · ${ev.pct}% ${isF?'ricevuto':'consegnato'}</span>`:''}</div>
@@ -1803,7 +1806,7 @@ async function saveDDT(id){
 async function genFT(id){const ddt=DB.ddt.find(d=>d.id===id);if(ddt.ftId)return;
   const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId,note:ddt.note||''};
   DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;
-  await persist();toast('Fattura '+ft.num+' emessa');SEL={coll:'ddt',item:ddt};render();}
+  await persist();toast('Fattura '+ft.num+' emessa');MOD='ft';SEL={coll:'fattureCliente',item:ft};render();document.getElementById('content').scrollTo(0,0);}
 let FTFR=[];
 function openFTFForm(id){
   const of=DB.ordiniFornitore.find(o=>o.id===id);if(!of)return;

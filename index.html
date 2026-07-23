@@ -246,7 +246,7 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .d-tot .l{font-size:11px;color:var(--faint)}
 .d-actions{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
 .d-note{background:var(--surface2);border-left:3px solid var(--accent);padding:9px 13px;font-size:12.5px;color:var(--txt);margin-top:14px;border-radius:0 8px 8px 0;white-space:pre-wrap}
-.d-dest{background:var(--blue-s);border-left:3px solid var(--blue);padding:9px 13px;font-size:12.5px;color:var(--txt);margin-top:14px;border-radius:0 8px 8px 0}
+.d-dest{background:var(--blue-s);border-left:3px solid var(--blue);padding:6px 11px;font-size:12px;color:var(--txt);margin-top:8px;border-radius:0 8px 8px 0;display:inline-block}
 .print-menu-wrap{position:relative}
 .print-menu{display:none;position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px #0002;z-index:60;min-width:230px;overflow:hidden}
 .print-menu.show{display:block}
@@ -1535,7 +1535,7 @@ function detailView(){
   const {coll,item}=SEL;const mod=Object.keys(META).find(k=>META[k].coll===coll);
   const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore');
   const party=isForn?fornitore(item.fornitoreId):cliente(item.clienteId);
-  const dst=coll==='ddt'?docDest(item,party):null;
+  const dst=(coll==='ddt'||coll==='ordiniCliente')?docDest(item,party):null;
   const[pc,pl]=statusOf(mod,item);
   let actions='';
   if(coll==='preventivi'){
@@ -1567,6 +1567,7 @@ function detailView(){
       <div class="d-top">
         <div><div class="d-num">${item.num}</div>
           <div class="d-meta"><b>${party.nome}</b> · ${party.piva||''} · emesso il ${fdate(item.data)}${(coll==='fattureCliente'||coll==='fattureFornitore')&&item.paid&&item.paidDate?` · <b>${coll==='fattureCliente'?'incassata':'pagata'} il ${fdate(item.paidDate)}</b>`:''}${coll==='ordiniFornitore'&&item.emailSent?` · <b>✉ inviato il ${fdate(item.emailSent.slice(0,10))}</b>`:''}</div>
+          ${dst?`<div class="d-dest">📍 <b>Consegna presso:</b> ${aiEsc(dst.nome||party.nome)} — ${aiEsc([dst.via,[dst.cap,dst.citta,dst.prov&&'('+dst.prov+')'].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</div>`:''}
           <div style="margin-top:9px"><span class="pill ${pc}">${pl}</span></div></div>
         <div class="sp"></div>
         <div class="d-tot"><div class="v">${eur(tot(item.righe))}</div><div class="l">imponibile ${eur(imp(item.righe))} + IVA ${eur(ivaT(item.righe))}</div></div>
@@ -1580,7 +1581,6 @@ function detailView(){
           </div>
         </div>
         ${isAdmin()?`<button class="btn btn-del" onclick="removeDoc('${coll}','${item.id}')">Elimina documento</button>`:''}</div>
-      ${dst?`<div class="d-dest">📍 <b>Consegna presso:</b> ${aiEsc(dst.nome||party.nome)} — ${aiEsc([dst.via,[dst.cap,dst.citta,dst.prov&&'('+dst.prov+')'].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</div>`:''}
       ${item.note?`<div class="d-note">📝 ${aiEsc(item.note)}</div>`:''}
     </div>
     <div class="panel"><div class="panel-h">Righe documento${isOrder?`<span style="margin-left:auto;font-size:12px;color:var(--muted)">${ev.evQ}/${ev.totQ} pz · ${ev.pct}% ${isF?'ricevuto':'consegnato'}</span>`:''}</div>

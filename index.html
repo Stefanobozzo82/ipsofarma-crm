@@ -244,7 +244,20 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 @media(max-width:760px){.stats{grid-template-columns:1fr}.report-grid{grid-template-columns:1fr!important}.pwd-grid{grid-template-columns:1fr!important}}
 
 /* ---------- Detail ---------- */
-.detail{max-width:1060px}
+.detail{max-width:100%}
+/* Su schermi molto larghi il dettaglio riempie tutto lo spazio invece di lasciare
+   un vuoto a destra, e il testo si ingrandisce leggermente per sfruttarlo meglio. */
+@media(min-width:1500px){
+  .d-num{font-size:23px}
+  .d-meta{font-size:13.5px}
+  .d-tot .v{font-size:25px}
+  .d-note,.d-dest{font-size:13.5px}
+  .panel-h{font-size:14.5px}
+  table.lines{font-size:14px}
+  table.lines th{font-size:11px}
+  .lines-foot .it{font-size:13px}
+  .lines-foot .grand{font-size:17px}
+}
 .d-hero{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);padding:20px 22px;margin-bottom:16px}
 .d-top{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
 .d-num{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--txt)}

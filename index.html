@@ -108,6 +108,8 @@ button{font-family:inherit;cursor:pointer}
 .dash-layout .chart-wrap svg{display:block;width:100%;height:100%}
 @media(max-width:760px){.content.dash-view{overflow-y:auto!important}.dash-layout .panel{flex:none}.dash-layout .chart-wrap svg{height:auto}}
 .page-title{font-size:18px;font-weight:700;margin-bottom:16px}
+.primary-action{margin:-6px 0 16px}
+.primary-action .btn{font-size:14px;padding:11px 18px}
 .page-sub{color:var(--faint);font-size:12.5px;margin-top:-13px;margin-bottom:18px}
 
 /* ---------- Table ---------- */
@@ -980,15 +982,12 @@ function renderTop(){
   if(SEL){ta.innerHTML='';return;}
   let h='';
   if(!isAdmin()){ta.innerHTML='';return;}
-  if(MOD==='oc'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button><button class="btn primary" onclick="openOCForm()">+ Nuovo ordine</button>`;}
-  if(MOD==='ddt'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn primary" onclick="openDDTNew()">+ Nuovo DDT</button>`;}
-  if(MOD==='prev'){h+=`<button class="btn primary" onclick="openPrevForm()">+ Nuovo preventivo</button>`;}
-  if(MOD==='of'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn primary" onclick="openOFForm()">+ Nuovo ordine fornitore</button>`;}
-  if(MOD==='ft'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn primary" onclick="openFTNew()">+ Nuova fattura</button>`;}
-  if(MOD==='ftf'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button><button class="btn primary" onclick="openFTFNew()">+ Nuova fattura fornitore</button>`;}
-  if(MOD==='clienti'){h+=`<button class="btn primary" onclick="openClienteForm()">+ Nuovo cliente</button>`;}
-  if(MOD==='fornitori'){h+=`<button class="btn primary" onclick="openFornitoreForm()">+ Nuovo fornitore</button>`;}
-  if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button><button class="btn primary" onclick="openProdottoForm()">+ Nuovo prodotto</button>`;}
+  if(MOD==='oc'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
+  if(MOD==='ddt'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button>`;}
+  if(MOD==='of'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button>`;}
+  if(MOD==='ft'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button>`;}
+  if(MOD==='ftf'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button>`;}
+  if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button>`;}
   ta.innerHTML=h;
 }
 function setView(v){VIEW=v;render();}
@@ -1376,6 +1375,22 @@ async function togglePaid(coll,id){
   it.pagamenti=it.paid?[{data:today(),importo:tot(it.righe)}]:[];
   await persist();SEL={coll,item:it};toast(it.paid?'Segnata come pagata':'Segnata da pagare');render();
 }
+function primaryActionBtn(){
+  if(!isAdmin())return '';
+  const map={
+    oc:['openOCForm()','+ Nuovo ordine'],
+    ddt:['openDDTNew()','+ Nuovo DDT'],
+    prev:['openPrevForm()','+ Nuovo preventivo'],
+    of:['openOFForm()','+ Nuovo ordine fornitore'],
+    ft:['openFTNew()','+ Nuova fattura'],
+    ftf:['openFTFNew()','+ Nuova fattura fornitore'],
+    clienti:['openClienteForm()','+ Nuovo cliente'],
+    fornitori:['openFornitoreForm()','+ Nuovo fornitore'],
+    prodotti:['openProdottoForm()','+ Nuovo prodotto']
+  };
+  const a=map[MOD];if(!a)return '';
+  return `<div class="primary-action"><button class="btn primary" onclick="${a[0]}">${a[1]}</button></div>`;
+}
 function listView(){
   const m=META[MOD];
   const isForn=(MOD==='of'||MOD==='ftf');
@@ -1388,7 +1403,7 @@ function listView(){
     else c=String(va).localeCompare(String(vb),'it',{numeric:true})*dir;
     if(c!==0)return c;
     return String(a.it.num).localeCompare(String(b.it.num),'it',{numeric:true})*dir;});
-  let head=`<div class="page-title">${m.title}</div>`;
+  let head=`<div class="page-title">${m.title}</div>${primaryActionBtn()}`;
   const ffActive=FMODS.includes(MOD)&&(FFILT.forn||FFILT.paid||FFILT.from||FFILT.to||FFILT.dest);
   if(FMODS.includes(MOD)){
     const isF=(MOD==='of'||MOD==='ftf');const list=isF?DB.fornitori:DB.clienti;
@@ -1507,7 +1522,7 @@ function setASort(mod,key){
 }
 function anagrafica(){
   const m=META[MOD];
-  let head=`<div class="page-title">${m.title}</div>`;
+  let head=`<div class="page-title">${m.title}</div>${primaryActionBtn()}`;
   if(MOD==='clienti'){
     const s=ASORT.clienti;const dir=s.dir==='asc'?1:-1;
     const list=[...DB.clienti].sort((a,b)=>{const va=aSortVal('clienti',a,s.key),vb=aSortVal('clienti',b,s.key);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dir;return String(va).localeCompare(String(vb),'it',{numeric:true})*dir;});
@@ -1529,7 +1544,7 @@ function anagrafica(){
     const pdir=PSORT.dir==='asc'?1:-1;
     list.sort((a,b)=>{const va=psortVal(PSORT.key,a),vb=psortVal(PSORT.key,b);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*pdir;return String(va).localeCompare(String(vb),'it',{numeric:true})*pdir;});
     const cap=PLIMIT,shown=list.slice(0,cap);PRODTOTAL=list.length;
-    const phead=`<div class="page-head"><div class="page-title" style="margin:0">Prodotti</div><div class="search prod-search"><span class="si">⌕</span><input id="psearch" value="${QRAW.replace(/"/g,'&quot;')}" placeholder="Cerca per codice, descrizione o CND…" oninput="onSearch(this.value)"></div></div>`;
+    const phead=`<div class="page-head"><div class="page-title" style="margin:0">Prodotti</div><div class="search prod-search"><span class="si">⌕</span><input id="psearch" value="${QRAW.replace(/"/g,'&quot;')}" placeholder="Cerca per codice, descrizione o CND…" oninput="onSearch(this.value)"></div></div>${primaryActionBtn()}`;
     const bar=`<div class="prod-bar">${list.length.toLocaleString('it-IT')} prodotti${Q?' trovati':''}${list.length>cap?` · visualizzati ${cap.toLocaleString('it-IT')}, scorri per caricarne altri`:''}</div>`;
     const th=(k,l,cls)=>{const on=PSORT.key===k,ar=on?(PSORT.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${cls||''} ${on?'on':''}" onclick="setPSort('${k}')">${l}${ar}</th>`;};
     return phead+bar+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${th('codice','Codice')}${th('descrizione','Descrizione')}${th('ven','Listino','right')}${th('acq','Acquisto','right')}${th('conf','Pz./Conf.','right')}${th('iva','IVA','right')}</tr></thead><tbody>

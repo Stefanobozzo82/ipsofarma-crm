@@ -2111,7 +2111,7 @@ function prodSearch(q){
   q=(q||'').trim();
   if(!q){el.innerHTML='';return;}
   const m=prodMatches(q,12);
-  el.innerHTML=m.length?m.map((p,i)=>`<div class="sugg-item" data-i="${i}" data-cod="${p.codice}" onmousedown="event.preventDefault();addProdToOrder('${p.codice}')" onmouseenter="priceHistTipShow(event,'${p.codice}')" onmouseleave="priceHistTipHide()"><span class="code">${p.codice}</span><span class="sugg-d">${p.descrizione}</span><span class="sugg-pr">${eur(p.ven)}</span></div>`).join(''):'<div class="sugg-empty">Nessun prodotto trovato</div>';
+  el.innerHTML=m.length?m.map((p,i)=>`<div class="sugg-item" data-i="${i}" data-cod="${p.codice}" onmousedown="event.preventDefault();addProdToOrder('${p.codice}')"><span class="code" onmouseenter="priceHistTipShow(event,'${p.codice}')" onmouseleave="priceHistTipHide()">${p.codice}</span><span class="sugg-d">${p.descrizione}</span><span class="sugg-pr">${eur(p.ven)}</span></div>`).join(''):'<div class="sugg-empty">Nessun prodotto trovato</div>';
 }
 let PROD_IDX=-1;
 function prodKeyNav(e){
@@ -2150,6 +2150,7 @@ function addProdToOrder(cod){
   const q=document.getElementById('prodq');if(q){q.value='';q.focus();}
   const s=document.getElementById('prodsugg');if(s)s.innerHTML='';
   PROD_IDX=-1;
+  priceHistTipHide();
   renderLE();
 }
 function repriceForClient(){
@@ -2180,7 +2181,7 @@ function renderLE(){
   if(!FR.length){el.innerHTML='<div class="le-empty">Nessuna riga. Cerca un prodotto qui sopra per aggiungerlo all\'ordine.</div>';document.getElementById('f-tot').innerHTML=`<small>Totale</small> ${eur(0)}`;return;}
   el.innerHTML=`<div class="le"><div class="le-head"><div>Prodotto</div><div style="text-align:right">Q.tà</div><div style="text-align:right">Prezzo</div><div style="text-align:right">Sconto %</div><div style="text-align:right">IVA</div><div style="text-align:right">Totale</div><div></div></div>
     ${FR.map((r,i)=>`<div class="le-row">
-      <div class="le-prod" ${r.cod?`onmouseenter="priceHistTipShow(event,'${r.cod}')" onmouseleave="priceHistTipHide()"`:''}><span class="code">${r.cod}</span> ${r.descr}${r._last?'<span class="lastp">ultimo prezzo</span>':''}</div>
+      <div class="le-prod"><span class="code" ${r.cod?`onmouseenter="priceHistTipShow(event,'${r.cod}')" onmouseleave="priceHistTipHide()"`:''}>${r.cod}</span> ${r.descr}${r._last?'<span class="lastp">ultimo prezzo</span>':''}</div>
       <div class="num" data-l="Q.tà"><input type="number" min="1" value="${r.qty}" oninput="updR(${i},'qty',this.value)"></div>
       <div class="num" data-l="Prezzo €"><input type="number" step="0.01" value="${r.prezzo}" oninput="updR(${i},'prezzo',this.value)"></div>
       <div class="num" data-l="Sconto %"><input type="text" inputmode="text" value="${(r.sconto&&r.sconto!=0)?r.sconto:''}" placeholder="0" oninput="updR(${i},'sconto',this.value)"></div>

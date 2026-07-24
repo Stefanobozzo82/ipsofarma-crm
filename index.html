@@ -1787,7 +1787,6 @@ function openDDTForm(id){
     <div class="modal-body">
       <div class="row2"><div class="field"><label>Cliente</label><input value="${cli.nome}" disabled></div>
         <div class="field"><label>Data DDT</label><input type="date" id="f-data" value="${today()}"></div></div>
-      <p class="ric-hint">Indica le quantità <b>effettivamente spedite</b>. Le righe a 0 non entrano nel DDT; l'ordine resta <b>parziale</b> per ciò che manca e potrai consegnare il resto con un altro DDT.</p>
       <div id="ddt-rows"></div>
     </div>
     <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>

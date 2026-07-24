@@ -264,6 +264,13 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .print-menu button small{font-weight:400;color:var(--muted);font-size:11px}
 .print-menu button:hover{background:var(--surface2)}
 .print-menu button:not(:last-child){border-bottom:1px solid var(--border)}
+.export-menu-wrap{position:relative}
+.export-menu{display:none;position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px #0002;z-index:60;min-width:210px;overflow:hidden}
+.export-menu.show{display:block}
+.export-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;padding:10px 14px;border:none;background:none;font-size:13px;font-weight:600;color:var(--txt);cursor:pointer}
+.export-menu button small{font-weight:400;color:var(--muted);font-size:11px}
+.export-menu button:hover{background:var(--surface2)}
+.export-menu button:not(:last-child){border-bottom:1px solid var(--border)}
 
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);margin-bottom:16px;overflow:hidden}
 .panel-h{padding:13px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
@@ -986,12 +993,16 @@ function renderTop(){
   if(SEL){ta.innerHTML='';return;}
   let h='';
   if(!isAdmin()){ta.innerHTML='';return;}
-  if(MOD==='oc'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
-  if(MOD==='ddt'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button>`;}
-  if(MOD==='of'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button>`;}
-  if(MOD==='ft'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button>`;}
-  if(MOD==='ftf'){h+=`<button class="btn" onclick="exportListXLS()">⬇ Excel</button><button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button>`;}
-  if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button>`;}
+  const exportBtn=`<div class="export-menu-wrap"><button class="btn" onclick="toggleExportMenu(event)">⬇ Esporta ▾</button><div class="export-menu" id="exportMenu"><button onclick="closeExportMenu();exportListXLS()">📊 Excel</button><button onclick="closeExportMenu();exportListPDF()">📄 PDF</button></div></div>`;
+  if(MOD==='oc'){h+=exportBtn+`<button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
+  if(MOD==='ddt'){h+=exportBtn;}
+  if(MOD==='of'){h+=exportBtn;}
+  if(MOD==='ft'){h+=exportBtn;}
+  if(MOD==='ftf'){h+=exportBtn+`<button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button>`;}
+  if(MOD==='prev'){h+=exportBtn;}
+  if(MOD==='clienti'){h+=exportBtn;}
+  if(MOD==='fornitori'){h+=exportBtn;}
+  if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button>`+exportBtn;}
   ta.innerHTML=h;
 }
 function setView(v){VIEW=v;render();}
@@ -3852,6 +3863,21 @@ function togglePrintMenu(ev){
 }
 function closePrintMenu(){const m=document.getElementById('printMenu');if(m)m.classList.remove('show');}
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('.print-menu-wrap'))closePrintMenu();},true);
+function toggleExportMenu(ev){
+  ev.stopPropagation();
+  const m=document.getElementById('exportMenu');if(!m)return;
+  if(m.classList.contains('show')){m.classList.remove('show');return;}
+  const btn=ev.currentTarget.getBoundingClientRect();
+  const mw=210,mh=90;
+  let left=Math.max(8,Math.min(btn.right-mw,window.innerWidth-mw-8));
+  let top=btn.bottom+6;
+  if(top+mh>window.innerHeight-8)top=Math.max(8,btn.top-mh-6);
+  m.style.left=left+'px';
+  m.style.top=top+'px';
+  m.classList.add('show');
+}
+function closeExportMenu(){const m=document.getElementById('exportMenu');if(m)m.classList.remove('show');}
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('.export-menu-wrap'))closeExportMenu();},true);
 function printDoc(coll,id){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
   document.getElementById('printArea').innerHTML=buildPrintHTML(coll,it);
@@ -5043,28 +5069,104 @@ function exportCliXLS(){
   DB.fattureCliente.forEach(f=>{const k=f.clienteId;if(!cliStats[k])cliStats[k]={Cliente:(cl[k]||{}).nome||'?','Imponibile €':0};cliStats[k]['Imponibile €']=parseFloat((cliStats[k]['Imponibile €']+imp(f.righe)).toFixed(2));});
   xlsDownload(Object.values(cliStats).sort((a,b)=>b['Imponibile €']-a['Imponibile €']),'Fatturato_clienti_'+today()+'.xlsx','Clienti');
 }
+/* Righe da esportare per la sezione corrente, in formato generico {Colonna:valore}. */
+function buildExportRows(){
+  if(FMODS.includes(MOD)||MOD==='prev'){
+    const rows=filteredDocRows();if(!rows.length)return [];
+    const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
+    const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f.nome]));
+    const isForn=MOD==='ftf'||MOD==='of';
+    return rows.map(r=>{
+      const it=r.it;
+      const partyObj=isForn?null:cl[it.clienteId];
+      const party=isForn?fo[it.fornitoreId]||'':(partyObj?partyObj.nome:'');
+      const destObj=(!isForn&&it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
+      const row={Numero:it.num,Data:it.data,Controparte:party};
+      if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
+      row['Totale €']=parseFloat(tot(it.righe||[]).toFixed(2));
+      if(MOD!=='prev')row.Stato=it.paid?'Pagata':'Aperta';
+      return row;
+    });
+  }
+  if(MOD==='clienti'){
+    return [...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>({
+      'Ragione sociale':c.nome||'','P.IVA/CF':c.piva||c.cf||'','Città':c.citta||'','Prov.':c.prov||'',
+      'Consegne':c.dest&&c.dest.length?c.dest.length+' sedi':'sede legale','Pagamento gg':c.term||'','SDI/PEC':c.sdi||c.pec||''
+    }));
+  }
+  if(MOD==='fornitori'){
+    return [...DB.fornitori].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>({
+      'Ragione sociale':f.nome||'','P.IVA/CF':f.piva||f.cf||'','Città':f.citta||'','Prov.':f.prov||'',
+      'Pagamento gg':f.term||'','Contatti':f.email||f.tel||f.pec||''
+    }));
+  }
+  if(MOD==='prodotti'){
+    const all=allProdotti();
+    const list=Q?all.filter(p=>p.codice.toLowerCase().includes(Q)||(p.descrizione||'').toLowerCase().includes(Q)||(p.cnd||'').toLowerCase().includes(Q)):all;
+    return list.map(p=>({Codice:p.codice,Descrizione:p.descrizione||'','Listino €':p.ven||0,'Acquisto €':p.acq||0,'Pz/Conf':p.conf||'','IVA %':p.iva}));
+  }
+  return [];
+}
+/* Nome file: aggiunge un suffisso col cliente/fornitore filtrato, se presente. */
+function exportFilenameBase(){
+  const m=META[MOD];
+  if(FMODS.includes(MOD)&&FFILT.forn){
+    const isForn=MOD==='ftf'||MOD==='of';
+    const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
+    const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f.nome]));
+    const cl2=Object.fromEntries(DB.clienti.map(c=>[c.id,c.nome]));
+    const partyName=isForn?fo[FFILT.forn]:cl2[FFILT.forn];
+    let suffix=partyName?'_'+partyName.replace(/[^a-z0-9]/gi,'_'):'';
+    if(FFILT.dest){const selCli=cl[FFILT.forn];const dn=FFILT.dest==='__sede__'?'SedeLegale':(selCli&&selCli.dest?(selCli.dest.find(d=>d.id===FFILT.dest)||{}).nome||'Sede':'Sede');suffix+='_'+String(dn).replace(/[^a-z0-9]/gi,'_');}
+    return (m.title||MOD)+suffix;
+  }
+  return m.title||MOD;
+}
 function exportListXLS(){
-  const m=META[MOD];if(!m||!m.coll)return;
-  const rows=filteredDocRows();if(!rows.length){toast('Nessun dato da esportare');return;}
-  const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
-  const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f.nome]));
-  const isForn=MOD==='ftf'||MOD==='of';
-  const data=rows.map(r=>{
-    const it=r.it;
-    const partyObj=isForn?null:cl[it.clienteId];
-    const party=isForn?fo[it.fornitoreId]||'':(partyObj?partyObj.nome:'');
-    const destObj=(!isForn&&it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
-    const row={Numero:it.num,Data:it.data,Controparte:party};
-    if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
-    row['Totale €']=parseFloat(tot(it.righe||[]).toFixed(2));
-    row.Stato=it.paid?'Pagata':'Aperta';
-    return row;
-  });
-  const cl2=Object.fromEntries(DB.clienti.map(c=>[c.id,c.nome]));
-  const partyName=FFILT.forn?(isForn?fo[FFILT.forn]:cl2[FFILT.forn]):'';
-  let suffix=partyName?'_'+partyName.replace(/[^a-z0-9]/gi,'_'):'';
-  if(FFILT.dest){const selCli=cl[FFILT.forn];const dn=FFILT.dest==='__sede__'?'SedeLegale':(selCli&&selCli.dest?(selCli.dest.find(d=>d.id===FFILT.dest)||{}).nome||'Sede':'Sede');suffix+='_'+String(dn).replace(/[^a-z0-9]/gi,'_');}
-  xlsDownload(data,(m.title||MOD)+suffix+'_'+today()+'.xlsx',m.title||MOD);
+  const rows=buildExportRows();if(!rows.length){toast('Nessun dato da esportare');return;}
+  xlsDownload(rows,exportFilenameBase()+'_'+today()+'.xlsx',META[MOD].title||MOD);
+}
+async function exportListPDF(){
+  const rows=buildExportRows();if(!rows.length){toast('Nessun dato da esportare');return;}
+  try{
+    const JsPDF=await loadJsPDF();
+    const cols=Object.keys(rows[0]);
+    const landscape=cols.length>5;
+    const doc=new JsPDF({unit:'mm',format:'a4',orientation:landscape?'landscape':'portrait'});
+    const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=12;
+    let y=16;
+    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.text(META[MOD].title||MOD,M,y);y+=6;
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(120);doc.text(rows.length+' righe · '+fdate(today()),M,y);doc.setTextColor(20);y+=8;
+    const usableW=W-2*M;
+    const maxLens=cols.map(c=>Math.max(String(c).length,...rows.map(r=>String(r[c]==null?'':r[c]).length)));
+    const totalLen=maxLens.reduce((a,b)=>a+b,0)||1;
+    const widths=maxLens.map(l=>Math.max(usableW*0.08,usableW*l/totalLen));
+    const wsum=widths.reduce((a,b)=>a+b,0);
+    const finalW=widths.map(w=>w*usableW/wsum);
+    const xs=[];let xacc=M;finalW.forEach(w=>{xs.push(xacc);xacc+=w;});
+    const rowH=7;
+    const drawHead=()=>{
+      doc.setFillColor(244);doc.rect(M,y,usableW,rowH,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(90);
+      cols.forEach((c,i)=>doc.text(String(c),xs[i]+1.5,y+5));
+      doc.setTextColor(20);y+=rowH+1;
+    };
+    drawHead();doc.setFont('helvetica','normal');doc.setFontSize(8);
+    rows.forEach(r=>{
+      if(y>H-16){doc.addPage();y=16;drawHead();doc.setFont('helvetica','normal');doc.setFontSize(8);}
+      cols.forEach((c,i)=>{
+        let val=r[c]==null?'':String(r[c]);
+        const maxChars=Math.max(3,Math.floor(finalW[i]/1.7));
+        if(val.length>maxChars)val=val.slice(0,maxChars-1)+'…';
+        doc.text(val,xs[i]+1.5,y+4.5);
+      });
+      y+=rowH;doc.setDrawColor(234);doc.line(M,y-1,M+usableW,y-1);
+    });
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(150);doc.text('Documento generato con Ipsofarma Gestionale',M,H-6);
+    const filename=exportFilenameBase()+'_'+today()+'.pdf';
+    doc.save(filename);
+    toast('✅ PDF scaricato: '+filename);
+  }catch(e){toast('Errore export PDF: '+(e.message||e));}
 }
 async function xlsDownload(rows,filename,sheetName){
   if(!rows||!rows.length){toast('Nessun dato da esportare');return;}

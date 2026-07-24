@@ -1043,9 +1043,7 @@ function dashboard(){
   const fc=DB.fattureCliente.filter(inY),ff=DB.fattureFornitore.filter(inY);
   const vendTot=fc.reduce((s,f)=>s+tot(f.righe),0);
   const acqTot=ff.reduce((s,f)=>s+tot(f.righe),0);
-  const vendImp=fc.reduce((s,f)=>s+imp(f.righe),0);
-  const acqImp=ff.reduce((s,f)=>s+imp(f.righe),0);
-  const margine=vendImp-acqImp;
+  const margine=vendTot-acqTot;
   const ftOpen=fc.filter(f=>payState(f).state!=='completo');
   const ftfOpen=ff.filter(f=>payState(f).state!=='completo');
   const daInc=ftOpen.reduce((s,f)=>s+payState(f).residuo,0);
@@ -1060,7 +1058,7 @@ function dashboard(){
   <div class="stats">
     ${stat('Totale fatturato',eur0(vendTot),fc.length+' fatture cliente · IVA incl.','var(--accent-d)','ft')}
     ${stat('Totale acquisti',eur0(acqTot),ff.length+' fatture fornitore · IVA incl.','var(--violet)','ftf')}
-    ${stat('Totale margine',eur0(margine),'Fatturato − acquisti · imponibile',margine>=0?'var(--accent-d)':'var(--red)')}
+    ${stat('Totale margine',eur0(margine),'Fatturato − acquisti · IVA incl.',margine>=0?'var(--accent-d)':'var(--red)')}
   </div>
   <div class="stats" style="grid-template-columns:repeat(2,1fr)">
     ${stat('Da incassare dai clienti',eur0(daInc),ftOpen.length+' fatture cliente aperte','var(--amber)','ft')}

@@ -1060,6 +1060,7 @@ function dashboard(){
   <div class="stats">
     ${stat('Totale fatturato',eur0(vendTot),fc.length+' fatture cliente · IVA incl.','var(--accent-d)','ft')}
     ${stat('Totale acquisti',eur0(acqTot),ff.length+' fatture fornitore · IVA incl.','var(--violet)','ftf')}
+    ${stat('Totale margine',eur0(margine),'Fatturato − acquisti · imponibile',margine>=0?'var(--accent-d)':'var(--red)')}
   </div>
   <div class="stats" style="grid-template-columns:repeat(2,1fr)">
     ${stat('Da incassare dai clienti',eur0(daInc),ftOpen.length+' fatture cliente aperte','var(--amber)','ft')}

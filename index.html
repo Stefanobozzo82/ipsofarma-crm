@@ -1592,7 +1592,6 @@ function detailView(){
   if(coll==='preventivi'){
     actions=`${item.ocId?'':`<button class="btn" onclick="openPrevEdit('${item.id}')">✎ Modifica</button>`}<button class="btn" onclick="openPrevEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${item.ocId?'':'primary'}" ${item.ocId?'disabled':''} onclick="genOCfromPrev('${item.id}')">${item.ocId?'✓ Convertito in '+item.ocId:'→ Trasforma in ordine cliente'}</button>`;
   }else if(coll==='ordiniCliente'){
-    const hasDDT=(item.ddtIds&&item.ddtIds.length)||item.ddtId;
     const fullyShip=item.righe.length>0&&item.righe.every(r=>(r.qtyEv||0)>=r.qty);
     const ofNums=(item.ofIds&&item.ofIds.length?item.ofIds:(item.ofId?[item.ofId]:[]));
     const ofCovered=new Set();ofNums.forEach(n=>{const of=DB.ordiniFornitore.find(o=>o.num===n);if(of)of.righe.forEach(r=>ofCovered.add(r.cod));});
@@ -1600,7 +1599,7 @@ function detailView(){
     const ofBtnLabel=ofNums.length===0?'→ Genera ordine fornitore':(ofMissingN>0?('+ Ordina '+ofMissingN+(ofMissingN>1?' articoli mancanti':' articolo mancante')):'✓ Ordine fornitore');
     const ofBtnDone=ofNums.length>0&&ofMissingN===0;
     actions=`<button class="btn" onclick="openOCEdit('${item.id}')">✎ Modifica</button><button class="btn ${ofBtnDone?'':'primary'}" ${ofBtnDone?'disabled':''} onclick="genOF('${item.id}')">${ofBtnLabel}</button>
-    <button class="btn ${fullyShip?'':'primary'}" ${fullyShip?'disabled':''} onclick="openDDTForm('${item.id}')">${fullyShip?'✓ Consegnato (DDT)':(hasDDT?'+ Registra altra consegna':'→ Genera DDT')}</button>`;
+    <button class="btn ${fullyShip?'':'primary'}" ${fullyShip?'disabled':''} onclick="openDDTForm('${item.id}')">${fullyShip?'✓ Consegnato (DDT)':'→ Genera DDT'}</button>`;
   }else if(coll==='ddt'){
     actions=`<button class="btn" onclick="openDDTEdit('${item.id}')">✎ Modifica righe</button><button class="btn ${item.ftId?'':'primary'}" ${item.ftId?'disabled':''} onclick="genFT('${item.id}')">${item.ftId?'✓ Fatturato':'→ Fattura immediata'}</button>`;
   }else if(coll==='ordiniFornitore'){

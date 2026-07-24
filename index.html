@@ -1453,7 +1453,7 @@ function listView(){
       ${ffActive?`<button class="ffclear" onclick="clearFFilt()">✕ Azzera filtri</button>`:''}
     </div>`;
   }
-  if((Q||ffActive||MOD==='of')&&rows.length){
+  if((Q||ffActive||MOD==='of'||MOD==='oc')&&rows.length){
     let sImp,sTot;
     // Per OC/OF con filtro inevaso: mostra il valore RESIDUO non ancora evaso/ricevuto
     const isOCResidue=(MOD==='oc'||MOD==='of')&&(FFILT.paid==='parziale'||FFILT.paid==='aperto'||FFILT.paid==='inevaso');

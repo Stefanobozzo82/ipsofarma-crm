@@ -935,7 +935,7 @@ function findByNum(num){
 }
 
 /* ===== Stato UI ===== */
-let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'data',dir:'desc'},PICK=new Set(),PSORT={key:'codice',dir:'asc'},MONTHLY=[],PLIMIT=300,PRODTOTAL=0,FFILT={forn:'',paid:'',from:'',to:'',dest:''},DASHY='',LOTE=false;
+let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'data',dir:'desc'},PICK=new Set(),PSORT={key:'codice',dir:'asc'},MONTHLY=[],PLIMIT=300,PRODTOTAL=0,FFILT={forn:'',paid:'',from:'',to:'',dest:''},DASHY=today().slice(0,4),LOTE=false;
 const NAV=[
   {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'}]},
   {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'}]},

@@ -38,6 +38,18 @@
  * 3. In "Proprietà script" aggiungi la proprietà NTFY_TOPIC con quello stesso nome.
  * 4. Fatto: da questo momento ogni nuova fattura trovata manda una notifica.
  * Se non imposti NTFY_TOPIC, l'invio della notifica viene semplicemente saltato.
+ *
+ * ---- GARE MEPA (opzionale) ----
+ * Lo script cerca anche le comunicazioni di nuove gare/RDO che arrivano da
+ * comunicazioni@acquistinretepa.it (formato con Categoria/ID Gara/Nome Gara/date,
+ * letto automaticamente) e le "Richiesta di Offerta" ricevute via PEC da singole
+ * stazioni appaltanti (di queste viene letta solo la busta — mittente, oggetto,
+ * data — perché il contenuto vero è nell'allegato, in formato libero, da aprire
+ * a mano). Le scrive in mepa-gare.json, lette dalla sezione "Gare MEPA" del
+ * gestionale. Nessuna proprietà da configurare: funziona già con GITHUB_TOKEN.
+ * Se non sei sicuro che le comunicazioni MEPA arrivino su questa stessa casella
+ * Gmail, non importa: lo script controlla comunque, e se non trova nulla non fa
+ * nulla di male — verifica solo aprendo il gestionale se compaiono gare nuove.
  */
 
 const CFG = {
@@ -51,6 +63,10 @@ const CFG = {
 const PENDING_PATH = 'gmail-pending.json';
 const LABEL_NAME = 'crm-importata';
 const GMAIL_QUERY = 'subject:"POSTA CERTIFICATA: Trasmissione Fattura" has:attachment -label:' + LABEL_NAME;
+
+const GARE_PATH = 'mepa-gare.json';
+const GARE_LABEL_NAME = 'crm-gara-importata';
+const GARE_QUERY = '(from:comunicazioni@acquistinretepa.it OR subject:"POSTA CERTIFICATA: Richiesta di Offerta") -label:' + GARE_LABEL_NAME;
 
 /** Esegui questa funzione UNA VOLTA sola dall'editor per autorizzare lo script
  *  e installare il controllo periodico. */
@@ -84,6 +100,59 @@ function checkFatture() {
     if (!transient) thread.addLabel(label);
   });
   if (newItems.length) appendPending_(newItems);
+  try { checkGareMepa(); } catch (e) { Logger.log('Errore controllo gare MEPA: ' + (e && e.message || e)); }
+}
+
+/** Cerca nuove comunicazioni di gare/RDO MEPA e le scrive in mepa-gare.json. */
+function checkGareMepa() {
+  if (!CFG.GITHUB_TOKEN) return;
+  const label = getOrCreateLabel_(GARE_LABEL_NAME);
+  const threads = GmailApp.search(GARE_QUERY, 0, 50);
+  if (!threads.length) return;
+  const newItems = [];
+  threads.forEach(function (thread) {
+    thread.getMessages().forEach(function (msg) {
+      const item = parseGaraMessage_(msg);
+      if (item) newItems.push(item);
+    });
+    thread.addLabel(label);
+  });
+  if (newItems.length) appendGare_(newItems);
+}
+
+function parseGaraMessage_(msg) {
+  const msgId = msg.getId();
+  const subject = msg.getSubject() || '';
+  const body = msg.getPlainBody() || '';
+  const sender = msg.getFrom() || '';
+
+  if (sender.indexOf('acquistinretepa.it') >= 0) {
+    const m = function (re) { const r = body.match(re); return r ? r[1].trim() : ''; };
+    const idGara = m(/Identificativo Numerico Gara:\s*([0-9]+)/i);
+    const nomeGara = m(/Nome Gara:\s*([^\n]+)/i);
+    const categoria = m(/Categorie di riferimento:\s*([^\n]+)/i);
+    const dataPubblicazione = m(/Data pubblicazione:\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}(?:\s+[0-9]{2}:[0-9]{2})?)/i);
+    const dataScadenza = m(/Data ultima per la presentazione delle offerte:\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}(?:\s+[0-9]{2}:[0-9]{2})?)/i);
+    const dataChiarimenti = m(/Data termine richiesta chiarimenti:\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}(?:\s+[0-9]{2}:[0-9]{2})?)/i);
+    const ente = m(/da parte di\s+([^\n]+?)\s+relativa alla Gara/i);
+    if (!idGara && !nomeGara) return null; // formato non riconosciuto: meglio saltare che inserire un record vuoto
+    return {
+      msgId: msgId, source: 'acquistinretepa', subject: subject,
+      idGara: idGara, nomeGara: nomeGara, categoria: categoria, ente: ente,
+      dataPubblicazione: dataPubblicazione, dataScadenza: dataScadenza, dataChiarimenti: dataChiarimenti
+    };
+  }
+
+  // Canale PEC diretto da una stazione appaltante: leggiamo solo la busta (mittente/oggetto/data),
+  // il contenuto vero è nell'allegato in formato libero (capitolato, lettera d'invito, ecc.) da aprire a mano.
+  const envelope = body.match(/il messaggio con oggetto\s+"([^"]+)"\s+è stato inviato da\s+"([^"]+)"/i);
+  const attNames = msg.getAttachments({ includeInlineImages: false }).map(function (a) { return a.getName(); })
+    .filter(function (n) { return !/daticert\.xml|smime\.p7[sm]$|postacert\.eml/i.test(n); });
+  return {
+    msgId: msgId, source: 'pec', subject: subject,
+    oggettoReale: envelope ? envelope[1] : '', mittente: envelope ? envelope[2] : '',
+    allegati: attNames, data: msg.getDate().toISOString().slice(0, 10)
+  };
 }
 
 function isTransientError_(msg) {
@@ -282,10 +351,10 @@ function ghGet_(path) {
   const json = Utilities.newBlob(Utilities.base64Decode(d.content.replace(/\n/g, ''))).getDataAsString('UTF-8');
   return { sha: d.sha, data: JSON.parse(json) };
 }
-function ghPut_(path, obj, sha) {
+function ghPut_(path, obj, sha, message) {
   const url = 'https://api.github.com/repos/' + CFG.GITHUB_REPO + '/contents/' + path;
   const body = {
-    message: 'Gmail import: aggiornamento fatture in attesa',
+    message: message || 'Gmail import: aggiornamento fatture in attesa',
     content: Utilities.base64Encode(Utilities.newBlob(JSON.stringify(obj, null, 2)).getBytes()),
     branch: CFG.GITHUB_BRANCH
   };
@@ -315,6 +384,41 @@ function appendPending_(newItems) {
   addedNow.forEach(notifyNewInvoice_);
 }
 
+function appendGare_(newItems) {
+  const existing = ghGet_(GARE_PATH);
+  const data = (existing && existing.data) || { items: [] };
+  const seenIds = {};
+  data.items.forEach(function (i) { seenIds[i.msgId] = true; });
+  const addedNow = [];
+  newItems.forEach(function (it) {
+    if (!seenIds[it.msgId]) {
+      data.items.push(Object.assign({ addedAt: new Date().toISOString() }, it));
+      seenIds[it.msgId] = true;
+      addedNow.push(it);
+    }
+  });
+  if (data.items.length > 300) data.items = data.items.slice(-300);
+  ghPut_(GARE_PATH, data, existing && existing.sha, 'Gmail import: aggiornamento gare MEPA');
+  addedNow.forEach(notifyNewGara_);
+}
+
+/** Manda una notifica push (via ntfy.sh) per una gara MEPA appena trovata. */
+function notifyNewGara_(item) {
+  if (!CFG.NTFY_TOPIC) return;
+  try {
+    const title = 'Nuova gara MEPA';
+    const message = item.source === 'acquistinretepa'
+      ? (item.nomeGara || item.subject) + (item.ente ? ' — ' + item.ente : '') + (item.dataScadenza ? ' · scad. ' + item.dataScadenza : '')
+      : 'Richiesta di offerta via PEC da ' + (item.mittente || 'ente sconosciuto') + ' — apri l\'email per i dettagli';
+    UrlFetchApp.fetch('https://ntfy.sh/' + encodeURIComponent(CFG.NTFY_TOPIC), {
+      method: 'post',
+      payload: message,
+      headers: { Title: title, Tags: 'moneybag', Priority: 'default' },
+      muteHttpExceptions: true
+    });
+  } catch (e) { /* la notifica è solo un di più: non deve mai far fallire l'import */ }
+}
+
 /** Manda una notifica push (via ntfy.sh) per una fattura appena trovata. Non blocca
  *  l'import se fallisce o se NTFY_TOPIC non è configurato. */
 function notifyNewInvoice_(item) {
@@ -342,6 +446,8 @@ function testConfig() {
   Logger.log('NTFY_TOPIC presente: ' + !!CFG.NTFY_TOPIC);
   const existing = ghGet_(PENDING_PATH);
   Logger.log('gmail-pending.json attuale: ' + (existing ? JSON.stringify(existing.data).slice(0, 500) : '(non esiste ancora, verrà creato al primo import)'));
+  const existingGare = ghGet_(GARE_PATH);
+  Logger.log('mepa-gare.json attuale: ' + (existingGare ? JSON.stringify(existingGare.data).slice(0, 500) : '(non esiste ancora, verrà creato al primo import)'));
 }
 
 /** Esegui questa funzione dall'editor per verificare che la notifica push arrivi

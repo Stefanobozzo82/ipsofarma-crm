@@ -5471,16 +5471,18 @@ if('serviceWorker' in navigator){
   await load(); // carica localStorage (immediato)
   if(!DB)DB=seed();
   await ensureSchema();
-  // Mostra subito l'app con dati locali
-  if(!isAuthenticated()){showAppLogin(()=>render());}
-  else render();
-  // Poi sincronizza con GitHub in background
+  // Se è configurato un token GitHub, sincronizza SUBITO: la password vera (sincronizzata
+  // su tutti i dispositivi tramite _security nel backup) va conosciuta PRIMA di decidere se
+  // mostrare il gestionale, altrimenti su un dispositivo che non l'ha ancora in locale il
+  // controllo sotto la troverebbe assente e lascerebbe entrare senza chiederla.
   if(ghToken()){
     try{
       const loaded=await ghLoad();
-      if(loaded){await ensureSchema();render();}
+      if(loaded)await ensureSchema();
     }catch(e){console.warn('GitHub boot sync:',e);}
   }
+  if(!isAuthenticated()){showAppLogin(()=>render());}
+  else render();
   // Controlla se ci sono nuovi ordini in arrivo dal Google Sheet collegato
   gsCheckNew();
   setInterval(gsCheckNew,5*60*1000);

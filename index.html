@@ -1619,7 +1619,7 @@ function detailView(){
   }else if(coll==='ordiniFornitore'){
     const hasInv=(item.ftfIds&&item.ftfIds.length)||item.ftfId;
     const fullyInv=item.righe.length>0&&item.righe.every(r=>(r.qtyFatt||0)>=r.qty);
-    actions=`${hasInv?'':`<button class="btn" onclick="openOFEdit('${item.id}')">✎ Modifica ordine</button>`}<button class="btn" onclick="openOFEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${fullyInv?'':'primary'}" ${fullyInv?'disabled':''} onclick="openFTFForm('${item.id}')">${fullyInv?'✓ Fatturato':(hasInv?'+ Registra altra fattura':'→ Registra fattura fornitore')}</button>`;
+    actions=`<button class="btn" onclick="openOFEdit('${item.id}')">✎ Modifica ordine</button><button class="btn" onclick="openOFEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${fullyInv?'':'primary'}" ${fullyInv?'disabled':''} onclick="openFTFForm('${item.id}')">${fullyInv?'✓ Fatturato':(hasInv?'+ Registra altra fattura':'→ Registra fattura fornitore')}</button>`;
   }else if(coll==='fattureCliente'){
     actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureCliente','${item.id}')">↺ Riapri (segna da incassare)</button>`:''}<button class="btn" onclick="openFTEdit('${item.id}')">✎ Modifica righe</button>`;
   }else if(coll==='fattureFornitore'){
@@ -2599,7 +2599,7 @@ async function saveOFNew(){
 }
 function openOFEdit(id){
   const of=DB.ordiniFornitore.find(o=>o.id===id);if(!of)return;
-  FR=of.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyEv:r.qtyEv||0,_man:true}));
+  FR=of.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyEv:r.qtyEv||0,qtyFatt:r.qtyFatt||0,_man:true}));
   FRMODE='fornitore';OFEDIT=id;
   const opts=[...DB.fornitori].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>`<option value="${f.id}" ${f.id===of.fornitoreId?'selected':''}>${f.nome}</option>`).join('');
   document.getElementById('modal').innerHTML=`
@@ -2623,7 +2623,7 @@ function openOFEdit(id){
 async function saveOFEdit(id){
   const of=DB.ordiniFornitore.find(o=>o.id===id);if(!of)return;
   const fornitoreId=document.getElementById('f-forn').value,data=document.getElementById('f-data').value;
-  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyEv:Math.min(r.qtyEv||0,r.qty)}));
+  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyEv:Math.min(r.qtyEv||0,r.qty),qtyFatt:Math.min(r.qtyFatt||0,r.qty)}));
   if(!righe.length){toast('Aggiungi almeno una riga');return;}
   of.fornitoreId=fornitoreId;of.data=data;of.righe=righe;
   const newnum=((document.getElementById('f-num')||{}).value||'').trim();

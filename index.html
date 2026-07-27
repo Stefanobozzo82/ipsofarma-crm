@@ -2040,7 +2040,7 @@ async function saveDDTEdit(id){
   let ftSync='';
   if(d.ftId){
     const ft=DB.fattureCliente.find(f=>f.num===d.ftId);
-    if(ft){ft.clienteId=d.clienteId;ft.destId=d.destId;ftSync=' · aggiornata anche la fattura '+ft.num;}
+    if(ft){ft.clienteId=d.clienteId;ft.destId=d.destId;ft.data=d.data;ftSync=' · aggiornata anche la fattura '+ft.num;}
   }
   await persist();closeModal();toast('DDT '+d.num+' aggiornato'+ftSync);SEL={coll:'ddt',item:d};render();
 }

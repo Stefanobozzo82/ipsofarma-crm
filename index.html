@@ -1279,7 +1279,7 @@ function psortVal(key,p){
 }
 function docMatchStatus(mod,it,val){
   if(!val)return true;
-  if(mod==='ft'||mod==='ftf')return val==='paid'?!!it.paid:!it.paid;
+  if(mod==='ft'||mod==='ftf'){const completo=payState(it).state==='completo';return val==='paid'?completo:!completo;}
   if(mod==='oc'){
     if(val==='inevaso')return evasione(it).state!=='completo';
     if(val==='nofatt')return !it.ftId;

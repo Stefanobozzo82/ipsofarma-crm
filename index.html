@@ -867,7 +867,7 @@ const eur=n=>'€ '+(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maxi
 const eur0=n=>'€ '+Math.round(n||0).toLocaleString('it-IT',{maximumFractionDigits:0});
 const fdate=s=>{const[y,m,d]=s.split('-');return `${d}/${m}/${y}`;};
 const today=()=>new Date().toISOString().slice(0,10);
-const COLL_BY_T={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi'};
+const COLL_BY_T={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito'};
 function maxDocNum(t){const coll=COLL_BY_T[t];if(!coll||!DB[coll])return 0;let mx=0;const re=new RegExp('^'+t+'\\/\\d{4}\\/(\\d+)$');DB[coll].forEach(d=>{const m=String(d.num||'').match(re);if(m){const n=parseInt(m[1]);if(n>mx)mx=n;}});return mx;}
 function syncCounter(t){DB.counters[t]=maxDocNum(t)+1;return DB.counters[t];}
 function nextNum(t){syncCounter(t);const n=DB.counters[t]++;return `${t}/${DB.year}/${String(n).padStart(4,'0')}`;}
@@ -926,9 +926,9 @@ function toast(m){const t=document.getElementById('toast');document.getElementBy
 function findByNum(num){
   if(!num)return null;
   const t=num.split('/')[0];
-  const coll={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi'}[t];
+  const coll={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito'}[t];
   if(coll){const item=(DB[coll]||[]).find(x=>x.num===num);if(item)return{coll,item};}
-  for(const c of ['fattureFornitore','ordiniFornitore','ordiniCliente','ddt','fattureCliente','preventivi']){
+  for(const c of ['fattureFornitore','ordiniFornitore','ordiniCliente','ddt','fattureCliente','preventivi','noteCredito']){
     const item=(DB[c]||[]).find(x=>String(x.num)===String(num));if(item)return{coll:c,item};
   }
   return null;
@@ -938,7 +938,7 @@ function findByNum(num){
 let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'data',dir:'desc'},PICK=new Set(),PSORT={key:'codice',dir:'asc'},MONTHLY=[],PLIMIT=300,PRODTOTAL=0,FFILT={forn:'',paid:'',from:'',to:'',dest:''},DASHY=today().slice(0,4),LOTE=false;
 const NAV=[
   {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'},{id:'gare',ic:'🏛',label:'Gare MEPA'}]},
-  {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'}]},
+  {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'},{id:'nc',ic:'↩',label:'Note di credito',coll:'noteCredito'}]},
   {grp:'Acquisti',items:[{id:'of',ic:'📦',label:'Ordini fornitore',coll:'ordiniFornitore'},{id:'ftf',ic:'📑',label:'Fatture fornitore',coll:'fattureFornitore'}]},
   {grp:'Anagrafiche',items:[{id:'clienti',ic:'🏥',label:'Clienti',coll:'clienti'},{id:'fornitori',ic:'🏢',label:'Fornitori',coll:'fornitori'},{id:'prodotti',ic:'⊞',label:'Prodotti',coll:'prodotti'}]},
   {grp:'Impostazioni',items:[{id:'azienda',ic:'⚙',label:'Impostazioni'}]},
@@ -955,6 +955,7 @@ const META={
   oc:{title:'Ordini cliente',sub:'Inserisci ordini e trasformali nei documenti collegati.',coll:'ordiniCliente'},
   ddt:{title:'Documenti di trasporto',sub:'Generati dagli ordini. Trasformali in fattura immediata (1‑a‑1).',coll:'ddt'},
   ft:{title:'Fatture cliente',sub:'Fatture attive da trasmettere allo SDI via Danea Easyfatt.',coll:'fattureCliente'},
+  nc:{title:'Note di credito',sub:'Storni verso i clienti, anche parziali, con riferimento alla fattura originale.',coll:'noteCredito'},
   of:{title:'Ordini fornitore',sub:'Generati dagli ordini cliente. Registra la fattura alla ricezione.',coll:'ordiniFornitore'},
   ftf:{title:'Fatture fornitore',sub:'Fatture passive registrate dagli ordini fornitore.',coll:'fattureFornitore'},
   clienti:{title:'Clienti',sub:'Anagrafica clienti.',coll:'clienti'},
@@ -962,7 +963,7 @@ const META={
   prodotti:{title:'Prodotti',sub:'Listino Aesculap + i tuoi articoli. Cerca per codice o descrizione.',coll:'prodotti'},
   azienda:{title:'Impostazioni',sub:'Intestazione azienda, impostazioni AI, backup e sicurezza.'},
 };
-function counts(){if(!DB)return{preventivi:0,ordiniCliente:0,ddt:0,fattureCliente:0,ordiniFornitore:0,fattureFornitore:0,clienti:0,fornitori:0,prodotti:0};return{preventivi:(DB.preventivi||[]).length,ordiniCliente:(DB.ordiniCliente||[]).length,ddt:(DB.ddt||[]).length,fattureCliente:(DB.fattureCliente||[]).length,ordiniFornitore:(DB.ordiniFornitore||[]).length,fattureFornitore:(DB.fattureFornitore||[]).length,clienti:(DB.clienti||[]).length,fornitori:(DB.fornitori||[]).length,prodotti:allProdotti().length};}
+function counts(){if(!DB)return{preventivi:0,ordiniCliente:0,ddt:0,fattureCliente:0,noteCredito:0,ordiniFornitore:0,fattureFornitore:0,clienti:0,fornitori:0,prodotti:0};return{preventivi:(DB.preventivi||[]).length,ordiniCliente:(DB.ordiniCliente||[]).length,ddt:(DB.ddt||[]).length,fattureCliente:(DB.fattureCliente||[]).length,noteCredito:(DB.noteCredito||[]).length,ordiniFornitore:(DB.ordiniFornitore||[]).length,fattureFornitore:(DB.fattureFornitore||[]).length,clienti:(DB.clienti||[]).length,fornitori:(DB.fornitori||[]).length,prodotti:allProdotti().length};}
 
 function renderNav(){
   const c=counts();const od=overdueCount();
@@ -973,7 +974,7 @@ function renderNav(){
   // Stato sidebar (non usato senza cloud)
   try{const el=document.getElementById('gdStatus');if(el)el.textContent='';}catch(e){}
 }
-function defSort(id){return (id==='ddt'||id==='ft')?{key:'num',dir:'desc'}:{key:'data',dir:'desc'};}
+function defSort(id){return (id==='ddt'||id==='ft'||id==='nc')?{key:'num',dir:'desc'}:{key:'data',dir:'desc'};}
 function animateContentIn(){
   const el=document.getElementById('content');
   if(!el||!el.animate)return;
@@ -1012,6 +1013,7 @@ function renderTop(){
   if(MOD==='ddt'){h+=exportBtn;}
   if(MOD==='of'){h+=exportBtn;}
   if(MOD==='ft'){h+=exportBtn;}
+  if(MOD==='nc'){h+=exportBtn;}
   if(MOD==='ftf'){h+=exportBtn+`<button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button>`;}
   if(MOD==='prev'){h+=exportBtn;}
   if(MOD==='clienti'){h+=exportBtn;}
@@ -1042,8 +1044,9 @@ function renderContent(){
 function dashboard(){
   const years=[...new Set([...DB.fattureCliente,...DB.fattureFornitore].map(f=>(f.data||'').slice(0,4)).filter(Boolean))].sort();
   const inY=f=>!DASHY||(f.data||'').startsWith(DASHY);
-  const fc=DB.fattureCliente.filter(inY),ff=DB.fattureFornitore.filter(inY);
-  const vendTot=fc.reduce((s,f)=>s+tot(f.righe),0);
+  const fc=DB.fattureCliente.filter(inY),ff=DB.fattureFornitore.filter(inY),nc=(DB.noteCredito||[]).filter(inY);
+  const ncTot=nc.reduce((s,n)=>s+tot(n.righe),0);
+  const vendTot=fc.reduce((s,f)=>s+tot(f.righe),0)-ncTot;
   const acqTot=ff.reduce((s,f)=>s+tot(f.righe),0);
   const margine=vendTot-acqTot;
   const ftOpen=fc.filter(f=>payState(f).state!=='completo');
@@ -1058,7 +1061,7 @@ function dashboard(){
   const chips=`<div class="dash-period"><button class="${DASHY===''?'on':''}" onclick="setDashY('')">Tutti</button>${years.map(y=>`<button class="${DASHY===y?'on':''}" onclick="setDashY('${y}')">${y}</button>`).join('')}</div>`;
   return `<div class="page-head"><div class="page-title" style="margin:0">Dashboard</div>${chips}</div>
   <div class="stats">
-    ${stat('Totale fatturato',eur0(vendTot),fc.length+' fatture cliente · IVA incl.','var(--accent-d)','ft')}
+    ${stat('Totale fatturato',eur0(vendTot),fc.length+' fatture cliente'+(nc.length?' − '+nc.length+' note di credito':'')+' · IVA incl.','var(--accent-d)','ft')}
     ${stat('Totale acquisti',eur0(acqTot),ff.length+' fatture fornitore · IVA incl.','var(--violet)','ftf')}
     ${stat('Totale margine',eur0(margine),'Fatturato − acquisti · IVA incl.',margine>=0?'var(--accent-d)':'var(--red)')}
   </div>
@@ -1091,6 +1094,7 @@ function buildMonthly(){
   const add=(ym,k,v)=>{(map[ym]=map[ym]||{vend:0,acq:0})[k]+=v;};
   const inY=f=>!DASHY||(f.data||'').startsWith(DASHY);
   DB.fattureCliente.filter(inY).forEach(f=>add(f.data.slice(0,7),'vend',tot(f.righe)));
+  (DB.noteCredito||[]).filter(inY).forEach(n=>add(n.data.slice(0,7),'vend',-tot(n.righe)));
   DB.fattureFornitore.filter(inY).forEach(f=>add(f.data.slice(0,7),'acq',tot(f.righe)));
   return Object.keys(map).sort().map(ym=>{const[y,m]=ym.split('-');return{label:MESI[+m-1]+' '+y.slice(2),vend:map[ym].vend,acq:map[ym].acq};});
 }
@@ -1153,6 +1157,7 @@ function statusOf(mod,it){
   if(mod==='ddt')return it.ftId?['p-green','Fatturato']:['p-amber','Da fatturare'];
   if(mod==='ft'){const p=payState(it);return p.state==='completo'?['p-green','Incassata']:p.state==='parziale'?['p-blue','Parziale '+p.pct+'%']:['p-amber','Da incassare'];}
   if(mod==='ftf'){const p=payState(it);return p.state==='completo'?['p-green','Pagata']:p.state==='parziale'?['p-blue','Parziale '+p.pct+'%']:['p-amber','Da pagare'];}
+  if(mod==='nc')return it.ftId?['p-gray','A storno di '+it.ftId]:['p-gray','Emessa'];
   return ['p-gray','—'];
 }
 function evasione(o){
@@ -1169,11 +1174,14 @@ function payState(it){
   const totaleRaw=tot(it.righe);
   const sign=totaleRaw<0?-1:1;
   const totale=totaleRaw*sign; // lavora sempre in valore assoluto (gestisce anche le note di credito, negative)
-  const pagato=payTot(it)*sign;
+  // Una nota di credito collegata a questa fattura (via nc.ftId===it.num) riduce quanto resta da incassare,
+  // come se fosse un incasso: non tocca il registro "Incassi" (pagato resta il contante ricevuto per davvero).
+  const creditato=it.num?(DB.noteCredito||[]).filter(nc=>nc.ftId===it.num).reduce((s,nc)=>s+tot(nc.righe),0):0;
+  const pagato=(payTot(it)+creditato)*sign;
   const state=pagato<=0.004?'aperto':pagato>=totale-0.01?'completo':'parziale';
   const pct=totale?Math.min(100,Math.round(pagato/totale*100)):0;
   const residuo=Math.max(0,totale-pagato)*sign;
-  return {totale:totaleRaw,pagato:payTot(it),residuo,state,pct};
+  return {totale:totaleRaw,pagato:payTot(it),residuo,state,pct,creditato};
 }
 async function addPagamento(coll,id,importo,data){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
@@ -1199,8 +1207,9 @@ function pagamentiPanel(coll,it){
   const p=payState(it);
   const barCol=p.state==='completo'?'#0ea371':p.state==='parziale'?'#2f7fe0':'#cd8b1f';
   const rows=(it.pagamenti||[]).map((pg,i)=>`<tr><td>${fdate(pg.data)}</td><td class="num">${eur(pg.importo)}</td><td class="right">${isAdmin()?`<button class="btn sm ghost" style="border:1px solid var(--border2)" onclick="delPagamento('${coll}','${it.id}',${i})">rimuovi</button>`:''}</td></tr>`).join('');
-  return `<div class="panel"><div class="panel-h">${isF?'Pagamenti':'Incassi'}<span style="margin-left:auto;font-size:12px;color:var(--muted)">${eur(p.pagato)}/${eur(p.totale)} · ${p.pct}%</span></div>
+  return `<div class="panel"><div class="panel-h">${isF?'Pagamenti':'Incassi'}<span style="margin-left:auto;font-size:12px;color:var(--muted)">${eur(p.pagato)}${p.creditato?' + '+eur(p.creditato)+' nota credito':''}/${eur(p.totale)} · ${p.pct}%</span></div>
    <div style="padding:13px 18px 2px"><div class="evbar"><div class="evbar-fill" style="width:${p.pct}%;background:${barCol}"></div></div></div>
+   ${p.creditato?`<div style="padding:0 18px 10px;color:var(--muted);font-size:12px">↩ ${eur(p.creditato)} già stornati con nota di credito, non conteggiati come incasso.</div>`:''}
    ${rows?`<table class="lines" style="margin-top:8px"><thead><tr><th>Data</th><th class="right">Importo</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:(it.pagamenti==null&&it.paid?`<div style="padding:10px 18px;color:var(--muted);font-size:13px">Fattura segnata come ${isF?'pagata':'incassata'} (precedente all'introduzione dello storico ${verbo}i)</div>`:`<div style="padding:10px 18px;color:var(--muted);font-size:13px">Nessun ${verbo} registrato</div>`)}
    ${isAdmin()&&p.state!=='completo'?`<div style="display:flex;gap:8px;align-items:center;padding:12px 18px;background:var(--surface2);border-top:1px solid var(--border);flex-wrap:wrap">
      <input type="date" id="pg-data-${it.id}" value="${today()}" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px">
@@ -1280,7 +1289,7 @@ function docMatchStatus(mod,it,val){
   if(mod==='ddt')return val==='fatt'?!!it.ftId:!it.ftId;
   return true;
 }
-const FMODS=['ft','ftf','oc','of','ddt'];
+const FMODS=['ft','ftf','oc','of','ddt','nc'];
 function filteredDocRows(){
   const m=META[MOD];const items=DB[m.coll];
   const isForn=(MOD==='of'||MOD==='ftf');
@@ -1327,7 +1336,7 @@ function buildDocPDFPage(doc,coll,item){
   const az=DB.azienda||{};
   const isForn=coll==='ordiniFornitore'||coll==='fattureFornitore';
   const party=isForn?fornitore(item.fornitoreId):cliente(item.clienteId);
-  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO'};
+  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO',noteCredito:'NOTA DI CREDITO'};
   // Intestazione azienda
   doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(az.nome||'Ipsofarma S.r.l.',M,y);
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(titles[coll]||coll,W-M,y,{align:'right'});
@@ -1412,6 +1421,7 @@ function primaryActionBtn(){
     prev:['openPrevForm()','+ Nuovo preventivo'],
     of:['openOFForm()','+ Nuovo ordine fornitore'],
     ft:['openFTNew()','+ Nuova fattura'],
+    nc:['openNCForm()','+ Nuova nota di credito'],
     ftf:['openFTFNew()','+ Nuova fattura fornitore'],
     clienti:['openClienteForm()','+ Nuovo cliente'],
     fornitori:['openFornitoreForm()','+ Nuovo fornitore'],
@@ -1621,7 +1631,9 @@ function detailView(){
     const fullyInv=item.righe.length>0&&item.righe.every(r=>(r.qtyFatt||0)>=r.qty);
     actions=`<button class="btn" onclick="openOFEdit('${item.id}')">✎ Modifica ordine</button><button class="btn" onclick="openOFEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${fullyInv?'':'primary'}" ${fullyInv?'disabled':''} onclick="openFTFForm('${item.id}')">${fullyInv?'✓ Fatturato':(hasInv?'+ Registra altra fattura':'→ Registra fattura fornitore')}</button>`;
   }else if(coll==='fattureCliente'){
-    actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureCliente','${item.id}')">↺ Riapri (segna da incassare)</button>`:''}<button class="btn" onclick="openFTEdit('${item.id}')">✎ Modifica righe</button>`;
+    actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureCliente','${item.id}')">↺ Riapri (segna da incassare)</button>`:''}<button class="btn" onclick="openFTEdit('${item.id}')">✎ Modifica righe</button><button class="btn" onclick="openNCForm('${item.id}')">↩ Crea nota di credito</button>`;
+  }else if(coll==='noteCredito'){
+    actions=`<button class="btn" onclick="openNCEdit('${item.id}')">✎ Modifica righe</button>${item.ftId?`<button class="btn" onclick="openByNum('${item.ftId}')">🔗 Vai alla fattura ${item.ftId}</button>`:''}`;
   }else if(coll==='fattureFornitore'){
     actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureFornitore','${item.id}')">↺ Riapri (segna da pagare)</button>`:''}<button class="btn" onclick="openFTFEdit('${item.id}')">✎ Modifica righe</button>${item.ofId?`<button class="btn" onclick="unlinkFTF('${item.id}')">🔗 Scollega da ${item.ofId}</button>`:`<button class="btn" onclick="openFTFLink('${item.id}')">🔗 Collega a ordine fornitore</button>`}`;
   }
@@ -1649,7 +1661,7 @@ function detailView(){
     </div>
     <div class="panel"><div class="panel-h">Righe documento${isOrder?`<span style="margin-left:auto;font-size:12px;color:var(--muted)">${ev.evQ}/${ev.totQ} pz · ${ev.pct}% ${isF?'ricevuto':'consegnato'}</span>`:''}</div>
       ${isOrder?`<div style="padding:12px 18px 2px"><div class="evbar"><div class="evbar-fill" style="width:${ev.pct}%;background:${barCol}"></div></div></div>`:''}
-      ${(()=>{const hs=item.righe.some(r=>scEff(r.sconto)>0);const hl=['ddt','fattureCliente','fattureFornitore'].includes(coll)&&item.righe.some(r=>r.lotto||r.scad);const colL=isF?'Ricevuta':'Consegnata';const linkedOF=coll==='fattureFornitore'&&item.ofId?DB.ordiniFornitore.find(o=>o.num===item.ofId):null;return `<div class="lines-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="lines-scroll"><table class="lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hl?'<th>Lotto</th><th class="right">Scadenza</th>':''}<th class="right">${isOrder?'Ordinata':'Q.tà'}</th>${isOrder?`<th class="right">${colL}</th><th class="right">Residuo</th><th class="right">Stato</th>`:''}<th class="right">Prezzo</th><th class="right">Imponibile</th>${hs?'<th class="right">Sconto</th>':''}<th class="right">IVA</th><th class="right">Totale</th></tr></thead>
+      ${(()=>{const hs=item.righe.some(r=>scEff(r.sconto)>0);const hl=['ddt','fattureCliente','fattureFornitore','noteCredito'].includes(coll)&&item.righe.some(r=>r.lotto||r.scad);const colL=isF?'Ricevuta':'Consegnata';const linkedOF=coll==='fattureFornitore'&&item.ofId?DB.ordiniFornitore.find(o=>o.num===item.ofId):null;return `<div class="lines-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="lines-scroll"><table class="lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hl?'<th>Lotto</th><th class="right">Scadenza</th>':''}<th class="right">${isOrder?'Ordinata':'Q.tà'}</th>${isOrder?`<th class="right">${colL}</th><th class="right">Residuo</th><th class="right">Stato</th>`:''}<th class="right">Prezzo</th><th class="right">Imponibile</th>${hs?'<th class="right">Sconto</th>':''}<th class="right">IVA</th><th class="right">Totale</th></tr></thead>
       <tbody>${item.righe.map((r,i)=>{const evd=Math.min(r.qtyEv||0,r.qty),done=evd>=r.qty;const evc=isOrder?`<td class="num"><input class="evin" type="number" min="0" max="${r.qty}" value="${r.qtyEv||0}" onchange="updEv('${coll}','${item.id}',${i},this.value)"></td><td class="num">${r.qty-evd}</td><td class="right" style="white-space:nowrap">${done?'<span class="pill p-green">ok</span>':evd>0?'<span class="pill p-blue">parziale</span>':'<span class="pill p-amber">in&nbsp;attesa</span>'}</td>`:'';const cmp=linkedOF?(()=>{const ol=linkedOF.righe.find(x=>x.cod===r.cod);if(!ol)return '<td class="right"><span class="t-mut">—</span></td>';return Math.abs((ol.prezzo||0)-(r.prezzo||0))<0.005?'<td class="right"><span class="pill p-green">= ordine</span></td>':`<td class="right"><span class="pill p-red">ordine ${eur(ol.prezzo)}</span></td>`;})():'';return `<tr><td class="code cod-link" onclick="openProdByCode('${r.cod}')" title="Apri scheda prodotto">${r.cod}</td><td>${r.descr}</td>${hl?`<td>${r.lotto||'—'}</td><td class="num">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="num">${r.qty}</td>${evc}<td class="num" style="white-space:nowrap">${eur(r.prezzo)}</td><td class="num">${eur(lineNet(r))}</td>${hs?`<td class="num">${scLabel(r.sconto)}</td>`:''}<td class="num">${r.iva}%</td><td class="num">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td></tr>`;}).join('')}</tbody></table></div>`;})()}
       ${isOrder?`<div style="display:flex;gap:9px;padding:13px 18px;background:var(--surface2);border-top:1px solid var(--border)"><button class="btn sm" onclick="markAllEv('${coll}','${item.id}',true)">Segna tutto ${isF?'ricevuto':'consegnato'}</button><button class="btn sm ghost" style="border:1px solid var(--border2)" onclick="markAllEv('${coll}','${item.id}',false)">Azzera</button></div>`:''}
       <div class="lines-foot"><span class="it">Imponibile<b>${eur(imp(item.righe))}</b></span><span class="it">IVA<b>${eur(ivaT(item.righe))}</b></span><span class="grand">${eur(tot(item.righe))}</span></div>
@@ -1661,7 +1673,7 @@ function detailView(){
 
 /* lineage: ricostruisce la catena dall'OC radice */
 function lineage(item,coll){
-  const t=coll?({ordiniCliente:'OC',ordiniFornitore:'OF',ddt:'DDT',fattureCliente:'FT',fattureFornitore:'FTF',preventivi:'PREV'})[coll]:item.num.split('/')[0];
+  const t=coll?({ordiniCliente:'OC',ordiniFornitore:'OF',ddt:'DDT',fattureCliente:'FT',fattureFornitore:'FTF',preventivi:'PREV',noteCredito:'NC'})[coll]:item.num.split('/')[0];
   const fOC=n=>n?DB.ordiniCliente.find(o=>o.num===n):null;
   const fOF=n=>n?DB.ordiniFornitore.find(o=>o.num===n):null;
   const fDDT=n=>n?DB.ddt.find(d=>d.num===n):null;
@@ -1670,6 +1682,7 @@ function lineage(item,coll){
   const cur=item.num;
   const node=(label,obj)=>`<div class="fnode ${obj.num===cur?'cur':''}" onclick="openByNum('${obj.num}')"><span class="fl">${label}</span><span class="fv">${obj.num}</span></div>`;
   const arrow='<span class="farrow">→</span>';
+  const ncNodesFor=ftNum=>(DB.noteCredito||[]).filter(nc=>nc.ftId===ftNum).map(nc=>arrow+node('Nota di credito',nc)).join('');
   // OC radice (se esiste)
   let ocNum=null;
   if(t==='OC')ocNum=item.num;
@@ -1677,6 +1690,7 @@ function lineage(item,coll){
   else if(t==='FT'){const dd=fDDT(item.ddtId);ocNum=item.ocId||(dd&&dd.ocId);}
   else if(t==='OF')ocNum=item.ocId;
   else if(t==='FTF'){const of=fOF(item.ofId);ocNum=of&&of.ocId;}
+  else if(t==='NC'){const ft=fFT(item.ftId);ocNum=ft?(ft.ocId||(fDDT(ft.ddtId)&&fDDT(ft.ddtId).ocId)):null;}
   const oc=fOC(ocNum);
   if(oc){
     const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));
@@ -1688,7 +1702,7 @@ function lineage(item,coll){
       const ftfNodes=ftfList.length?ftfList.map((f,j)=>node('Fattura fornitore'+(ftfList.length>1?' '+(j+1):''),f)).join(arrow):g('Fattura fornitore',null);
       return `<div class="flow-row">${node('Ordine fornitore'+(ofList.length>1?' '+(i+1):''),of)}${arrow}${ftfNodes}</div>`;
     }).join(''):`<div class="flow-row">${g('Ordine fornitore',null)}${arrow}${g('Fattura fornitore',null)}</div>`;
-    const ddtRows=ddtList.length?ddtList.map((d,i)=>`<div class="flow-row">${node('DDT'+(ddtList.length>1?' '+(i+1):''),d)}${arrow}${d.ftId?node('Fattura cliente',fFT(d.ftId)):g('Fattura cliente',null)}</div>`).join(''):`<div class="flow-row">${g('DDT',null)}${arrow}${g('Fattura cliente',null)}</div>`;
+    const ddtRows=ddtList.length?ddtList.map((d,i)=>`<div class="flow-row">${node('DDT'+(ddtList.length>1?' '+(i+1):''),d)}${arrow}${d.ftId?node('Fattura cliente',fFT(d.ftId))+ncNodesFor(d.ftId):g('Fattura cliente',null)}</div>`).join(''):`<div class="flow-row">${g('DDT',null)}${arrow}${g('Fattura cliente',null)}</div>`;
     return `<div class="flow"><div class="flow-row">
       ${node('Ordine cliente',oc)}${arrow}
       <div class="fbranch">
@@ -1709,11 +1723,13 @@ function lineage(item,coll){
     if(t==='FTF')return '<div class="flow"><span class="t-mut">Fattura non collegata a un ordine fornitore. Usa il pulsante “🔗 Collega a ordine fornitore” per mostrare la filiera.</span></div>';
   }
   let chain=[];
-  if(t==='DDT'||t==='FT'){
-    const ddt=t==='DDT'?item:fDDT(item.ddtId);
-    const ft=t==='FT'?item:(ddt?fFT(ddt.ftId):null);
+  if(t==='DDT'||t==='FT'||t==='NC'){
+    const ddt=t==='DDT'?item:(t==='FT'?fDDT(item.ddtId):null);
+    const ft=t==='FT'?item:(t==='NC'?fFT(item.ftId):(ddt?fFT(ddt.ftId):null));
     if(ddt)chain.push(['DDT',ddt]);
     if(ft)chain.push(['Fattura cliente',ft]);
+    if(t==='NC')chain.push(['Nota di credito',item]);
+    else if(ft)(DB.noteCredito||[]).filter(nc=>nc.ftId===ft.num).forEach(nc=>chain.push(['Nota di credito',nc]));
   }
   if(chain.length<2)return '<div class="flow"><span class="t-mut">Nessun altro documento collegato.</span></div>';
   return `<div class="flow"><div class="flow-row">${chain.map(c=>node(c[0],c[1])).join(arrow)}</div></div>`;
@@ -1954,7 +1970,7 @@ function removeDoc(coll,id){
   if(coll==='ordiniCliente'&&((it.ofIds&&it.ofIds.length)||it.ofId||(it.ddtIds&&it.ddtIds.length)||it.ddtId||it.ftId)){toast('Elimina prima i documenti collegati (OF / DDT / Fattura)');return;}
   if(coll==='ordiniFornitore'&&((it.ftfIds&&it.ftfIds.length)||it.ftfId)){toast('Elimina prima le fatture fornitore collegate');return;}
   if(coll==='ddt'&&it.ftId){toast('Elimina prima la fattura collegata');return;}
-  const tipo={ordiniCliente:'l\'ordine cliente',ordiniFornitore:'l\'ordine fornitore',ddt:'il DDT',fattureCliente:'la fattura',fattureFornitore:'la fattura fornitore'}[coll];
+  const tipo={ordiniCliente:'l\'ordine cliente',ordiniFornitore:'l\'ordine fornitore',ddt:'il DDT',fattureCliente:'la fattura',fattureFornitore:'la fattura fornitore',noteCredito:'la nota di credito'}[coll];
   askConfirm(`Vuoi eliminare definitivamente ${tipo} <b>${it.num}</b>?<br>L'operazione non è reversibile.`,()=>doRemove(coll,id));
 }
 async function doRemove(coll,id){
@@ -2509,6 +2525,70 @@ async function saveFTNew(){
   const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));if(!righe.length){toast('Aggiungi almeno una riga');return;}
   const f={id:uid('ft'),num:consumeNum('FT',(document.getElementById('f-num')||{}).value),data,clienteId,righe,ddtId:null,ocId:null,paid:false,paidDate:null};
   DB.fattureCliente.push(f);await persist();closeModal();toast('Fattura '+f.num+' creata');MOD='ft';VIEW='list';SEL={coll:'fattureCliente',item:f};render();
+}
+/* ===== Note di credito ===== */
+function openNCForm(ftId){
+  const ft=ftId?DB.fattureCliente.find(f=>f.id===ftId):null;
+  FR=ft?ft.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||'',_man:true})):[];
+  FRMODE='cliente';OFEDIT=null;LOTE=true;
+  const opts=[...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>`<option value="${c.id}" ${ft&&c.id===ft.clienteId?'selected':''}>${c.nome}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>Nuova nota di credito${ft?' — da '+ft.num:''}</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      ${ft?`<p class="ai-intro">Righe riprese dalla fattura ${ft.num}: elimina quelle che non vanno stornate o correggi le quantità, poi salva.</p>`:''}
+      <div class="field"><label>Cliente</label><select id="f-cli" ${ft?'disabled':''} onchange="onClientePick()">${opts}</select></div>
+      <div class="row2"><div class="field"><label>Numero nota di credito</label><input id="f-num" value="${peekNum('NC')}"></div>
+        <div class="field"><label>Data</label><input type="date" id="f-data" value="${today()}"></div></div>
+      <div class="field"><label>Motivo</label><input id="f-note" placeholder="es. Errore di fatturazione, reso merce…" value="${ft?('A storno (parziale) della fattura '+ft.num).replace(/"/g,'&quot;'):''}"></div>
+      <div class="field"><label>Aggiungi prodotto</label>
+        <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
+      <div class="field"><label>Righe da stornare</label><div id="le"></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
+      <span class="tot" id="f-tot"><small>Totale storno</small> ${eur(ft?tot(FR):0)}</span>
+      <button class="btn primary" onclick="saveNC('${ft?ft.id:''}')">Crea nota di credito</button></div>`;
+  renderLE();document.getElementById('overlay').classList.add('show');
+}
+async function saveNC(ftId){
+  const clienteId=document.getElementById('f-cli').value,data=document.getElementById('f-data').value;
+  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
+  if(!righe.length){toast('Aggiungi almeno una riga');return;}
+  const note=(document.getElementById('f-note')||{}).value.trim();
+  const ft=ftId?DB.fattureCliente.find(f=>f.id===ftId):null;
+  const nc={id:uid('nc'),num:consumeNum('NC',(document.getElementById('f-num')||{}).value),data,clienteId,righe,ftId:ft?ft.num:null,note};
+  DB.noteCredito.push(nc);await persist();closeModal();toast('Nota di credito '+nc.num+' creata');MOD='nc';VIEW='list';SEL={coll:'noteCredito',item:nc};render();document.getElementById('content').scrollTo(0,0);
+}
+function openNCEdit(id){
+  const nc=DB.noteCredito.find(x=>x.id===id);if(!nc)return;
+  FR=nc.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||'',_man:true}));
+  FRMODE='cliente';OFEDIT=null;LOTE=true;
+  const opts=[...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>`<option value="${c.id}" ${c.id===nc.clienteId?'selected':''}>${c.nome}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>Modifica nota di credito ${nc.num}</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      ${nc.ftId?`<p class="ai-intro">Collegata alla fattura ${nc.ftId}.</p>`:''}
+      <div class="field"><label>Cliente</label><select id="f-cli">${opts}</select></div>
+      <div class="row2"><div class="field"><label>Numero</label><input id="f-num" value="${nc.num}"></div>
+        <div class="field"><label>Data</label><input type="date" id="f-data" value="${nc.data}"></div></div>
+      <div class="field"><label>Motivo</label><input id="f-note" value="${(nc.note||'').replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Aggiungi prodotto</label>
+        <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
+      <div class="field"><label>Righe da stornare</label><div id="le"></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
+      <span class="tot" id="f-tot"><small>Totale storno</small> ${eur(tot(FR))}</span>
+      <button class="btn primary" onclick="saveNCEdit('${id}')">Salva modifiche</button></div>`;
+  renderLE();document.getElementById('overlay').classList.add('show');
+}
+async function saveNCEdit(id){
+  const nc=DB.noteCredito.find(x=>x.id===id);if(!nc)return;
+  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
+  if(!righe.length){toast('Aggiungi almeno una riga');return;}
+  nc.clienteId=document.getElementById('f-cli').value;nc.data=document.getElementById('f-data').value;nc.righe=righe;
+  nc.note=(document.getElementById('f-note')||{}).value.trim();
+  const newnum=((document.getElementById('f-num')||{}).value||'').trim();
+  if(newnum&&newnum!==nc.num){const m=newnum.match(/^NC\/(\d{4})\/(\d+)$/);if(m){const n=parseInt(m[2]);if(DB.counters.NC<=n)DB.counters.NC=n+1;}nc.num=newnum;}
+  await persist();closeModal();toast('Nota di credito '+nc.num+' aggiornata');SEL={coll:'noteCredito',item:nc};render();
 }
 function openFTFNew(){
   FR=[];FRMODE='fornitore';OFEDIT=null;LOTE=true;
@@ -4062,7 +4142,7 @@ function buildPrintHTML(coll,it){
   const az=DB.azienda||{};
   const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore');
   const p=isForn?fornitore(it.fornitoreId):cliente(it.clienteId);
-  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE A FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO'};
+  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE A FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO',noteCredito:'NOTA DI CREDITO'};
   const azLine=[az.via,`${az.cap||''} ${az.citta||''}${az.prov?' ('+az.prov+')':''}`.trim()].filter(Boolean).join('<br>');
   const azMeta=[az.piva?'P.IVA '+az.piva:'',az.cf&&az.cf!==az.piva?'C.F. '+az.cf:'',az.tel?'Tel '+az.tel:'',az.email||'',az.pec?'PEC '+az.pec:'',az.web||''].filter(Boolean).join(' · ');
   const pAddr=[p.via,`${p.cap||''} ${p.citta||''}${p.prov?' ('+p.prov+')':''}`.trim()].filter(Boolean).join('<br>');
@@ -4075,17 +4155,20 @@ function buildPrintHTML(coll,it){
   const partyLabel=isForn?'Spettabile fornitore':(coll==='ddt'?(_dst?'Destinatario':'Destinatario / luogo di consegna'):'Spettabile cliente');
   const pMeta=[p.piva?'P.IVA '+p.piva:'',p.cf&&p.cf!==p.piva?'C.F. '+p.cf:'',p.sdi?'Cod. SDI '+p.sdi:'',p.pec?'PEC '+p.pec:''].filter(Boolean).join('<br>');
   const hasSc=it.righe.some(r=>scEff(r.sconto)>0);
-  const hasLot=['ddt','fattureCliente','fattureFornitore'].includes(coll)&&it.righe.some(r=>r.lotto||r.scad);
+  const hasLot=['ddt','fattureCliente','fattureFornitore','noteCredito'].includes(coll)&&it.righe.some(r=>r.lotto||r.scad);
   const rows=it.righe.map(r=>`<tr><td>${r.cod}</td><td>${r.descr}</td>${hasLot?`<td>${r.lotto||'—'}</td><td class="r">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="r">${r.qty}</td><td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc?`<td class="r">${scLabel(r.sconto)}</td>`:''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td></tr>`).join('');
   let ddtBlock='';
   if(coll==='ddt')ddtBlock=`<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ____</td></tr></table>`;
   const userNote=it.note?`<div class="pa-note pa-usernote"><b>Note:</b> ${aiEsc(it.note)}</div>`:'';
   let note='';
-  if(coll==='fattureCliente'){
+  if(coll==='fattureCliente'||coll==='noteCredito'){
     if(p.split==='si')note+='<div class="pa-note">Operazione soggetta a scissione dei pagamenti — art. 17‑ter DPR 633/72. IVA versata dall\'ente acquirente.</div>';
-    const term=p.term?`Pagamento: ${p.pag||'Bonifico'} a ${p.term} gg`:'';
-    const iban=az.iban?` · IBAN ${az.iban}`:'';
-    if(term||iban)note+=`<div class="pa-note">${term}${iban}</div>`;
+    if(coll==='noteCredito'&&it.ftId)note+=`<div class="pa-note">A storno (parziale) della fattura ${it.ftId}.</div>`;
+    if(coll==='fattureCliente'){
+      const term=p.term?`Pagamento: ${p.pag||'Bonifico'} a ${p.term} gg`:'';
+      const iban=az.iban?` · IBAN ${az.iban}`:'';
+      if(term||iban)note+=`<div class="pa-note">${term}${iban}</div>`;
+    }
     note+='<div class="pa-foot-note">Documento privo di valore fiscale se non trasmesso allo SDI tramite il sistema di fatturazione elettronica.</div>';
   }
   return `<div class="pa-doc">
@@ -4506,6 +4589,8 @@ async function ensureSchema(){
   let changed=false;
   if(!DB.preventivi){DB.preventivi=[];changed=true;}
   if(DB.counters&&DB.counters.PREV==null){DB.counters.PREV=1;changed=true;}
+  if(!DB.noteCredito){DB.noteCredito=[];changed=true;}
+  if(DB.counters&&DB.counters.NC==null){DB.counters.NC=1;changed=true;}
   if(!DB.azienda){DB.azienda={nome:'Ipsofarma S.r.l.',via:'',cap:'87100',citta:'Cosenza',prov:'CS',piva:'',cf:'',tel:'',email:'',pec:'',iban:'',iso:'ISO 9001:2015 — Cert. N. IQ-0526-02'};changed=true;}
   DB.clienti.forEach(c=>{if(!c.dest){c.dest=[];changed=true;}});
   DB.ordiniCliente.forEach(o=>{if(!o.ddtIds)o.ddtIds=o.ddtId?[o.ddtId]:[];});
@@ -5259,7 +5344,7 @@ function buildExportRows(){
       const row={Numero:it.num,Data:it.data,Controparte:party};
       if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
       row['Totale €']=parseFloat(tot(it.righe||[]).toFixed(2));
-      if(MOD!=='prev')row.Stato=it.paid?'Pagata':'Aperta';
+      if(MOD!=='prev'&&MOD!=='nc')row.Stato=it.paid?'Pagata':'Aperta';
       return row;
     });
   }

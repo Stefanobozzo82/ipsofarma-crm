@@ -1702,7 +1702,7 @@ function lineage(item,coll){
       const ftfNodes=ftfList.length?ftfList.map((f,j)=>node('Fattura fornitore'+(ftfList.length>1?' '+(j+1):''),f)).join(arrow):g('Fattura fornitore',null);
       return `<div class="flow-row">${node('Ordine fornitore'+(ofList.length>1?' '+(i+1):''),of)}${arrow}${ftfNodes}</div>`;
     }).join(''):`<div class="flow-row">${g('Ordine fornitore',null)}${arrow}${g('Fattura fornitore',null)}</div>`;
-    const ddtRows=ddtList.length?ddtList.map((d,i)=>`<div class="flow-row">${node('DDT'+(ddtList.length>1?' '+(i+1):''),d)}${arrow}${d.ftId?node('Fattura cliente',fFT(d.ftId))+ncNodesFor(d.ftId):g('Fattura cliente',null)}</div>`).join(''):`<div class="flow-row">${g('DDT',null)}${arrow}${g('Fattura cliente',null)}</div>`;
+    const ddtRows=ddtList.length?ddtList.map((d,i)=>{const ftObj=d.ftId?fFT(d.ftId):null;return `<div class="flow-row">${node('DDT'+(ddtList.length>1?' '+(i+1):''),d)}${arrow}${ftObj?node('Fattura cliente',ftObj)+ncNodesFor(d.ftId):g('Fattura cliente',null)}</div>`;}).join(''):`<div class="flow-row">${g('DDT',null)}${arrow}${g('Fattura cliente',null)}</div>`;
     return `<div class="flow"><div class="flow-row">
       ${node('Ordine cliente',oc)}${arrow}
       <div class="fbranch">

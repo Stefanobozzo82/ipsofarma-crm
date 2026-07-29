@@ -1359,18 +1359,21 @@ function buildDocPDFPage(doc,coll,item){
   if(pm){doc.text(pm,M,y);y+=4;}
   doc.setTextColor(20);y+=4;
   // Tabella righe
-  const hasSc=item.righe.some(r=>scEff(r.sconto)>0);
+  const isDDT=coll==='ddt';
+  const hasSc=!isDDT&&item.righe.some(r=>scEff(r.sconto)>0);
   const hasLot=['ddt','fattureCliente','fattureFornitore'].includes(coll)&&item.righe.some(r=>r.lotto||r.scad);
   const cols=[];
   cols.push({h:'Codice',w:28,r:false,v:r=>r.cod||''});
   cols.push({h:'Descrizione',w:hasLot?40:60,r:false,v:r=>r.descr||''});
   if(hasLot){cols.push({h:'Lotto',w:22,r:false,v:r=>r.lotto||'—'});cols.push({h:'Scadenza',w:20,r:true,v:r=>r.scad?fdate(r.scad):'—'});}
   cols.push({h:'Q.tà',w:12,r:true,v:r=>String(r.qty)});
-  cols.push({h:'Prezzo',w:22,r:true,v:r=>eur(r.prezzo)});
-  cols.push({h:'Imponibile',w:24,r:true,v:r=>eur(lineNet(r))});
-  if(hasSc)cols.push({h:'Sconto',w:14,r:true,v:r=>scLabel(r.sconto||0)});
-  cols.push({h:'IVA',w:10,r:true,v:r=>(r.iva||22)+'%'});
-  cols.push({h:'Totale',w:24,r:true,v:r=>eur(lineNet(r)*(1+(r.iva||22)/100))});
+  if(!isDDT){
+    cols.push({h:'Prezzo',w:22,r:true,v:r=>eur(r.prezzo)});
+    cols.push({h:'Imponibile',w:24,r:true,v:r=>eur(lineNet(r))});
+    if(hasSc)cols.push({h:'Sconto',w:14,r:true,v:r=>scLabel(r.sconto||0)});
+    cols.push({h:'IVA',w:10,r:true,v:r=>(r.iva||22)+'%'});
+    cols.push({h:'Totale',w:24,r:true,v:r=>eur(lineNet(r)*(1+(r.iva||22)/100))});
+  }
   // Header
   doc.setFillColor(240,244,241);doc.rect(M,y,W-2*M,6,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80);
@@ -1389,15 +1392,17 @@ function buildDocPDFPage(doc,coll,item){
     });
     y+=5;doc.setDrawColor(230);doc.line(M,y-1,W-M,y-1);
   });
-  // Totali
-  y+=5;const tx=W-M-55;
-  const fImp=imp(item.righe),fIva=ivaT(item.righe),fTot=tot(item.righe);
-  doc.setFontSize(8.5);doc.setTextColor(90);
-  doc.text('Imponibile',tx,y);doc.setTextColor(20);doc.text(eur(fImp),W-M,y,{align:'right'});y+=5;
-  doc.setTextColor(90);doc.text('IVA',tx,y);doc.setTextColor(20);doc.text(eur(fIva),W-M,y,{align:'right'});y+=5;
-  doc.setDrawColor(14,163,113);doc.setLineWidth(0.4);doc.line(tx,y-1,W-M,y-1);doc.setLineWidth(0.2);
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,163,113);
-  doc.text('TOTALE',tx,y+4);doc.text(eur(fTot),W-M,y+4,{align:'right'});doc.setTextColor(20);
+  // Totali (non su DDT: documento di trasporto, senza valori)
+  if(!isDDT){
+    y+=5;const tx=W-M-55;
+    const fImp=imp(item.righe),fIva=ivaT(item.righe),fTot=tot(item.righe);
+    doc.setFontSize(8.5);doc.setTextColor(90);
+    doc.text('Imponibile',tx,y);doc.setTextColor(20);doc.text(eur(fImp),W-M,y,{align:'right'});y+=5;
+    doc.setTextColor(90);doc.text('IVA',tx,y);doc.setTextColor(20);doc.text(eur(fIva),W-M,y,{align:'right'});y+=5;
+    doc.setDrawColor(14,163,113);doc.setLineWidth(0.4);doc.line(tx,y-1,W-M,y-1);doc.setLineWidth(0.2);
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,163,113);
+    doc.text('TOTALE',tx,y+4);doc.text(eur(fTot),W-M,y+4,{align:'right'});doc.setTextColor(20);
+  }
   // Footer
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160);
   doc.text((az.iso||'')+' Ipsofarma Gestionale',M,290);
@@ -4156,9 +4161,10 @@ function buildPrintHTML(coll,it){
   // etichettati "luogo di consegna" ma con indirizzi diversi).
   const partyLabel=isForn?'Spettabile fornitore':(coll==='ddt'?(_dst?'Destinatario':'Destinatario / luogo di consegna'):'Spettabile cliente');
   const pMeta=[p.piva?'P.IVA '+p.piva:'',p.cf&&p.cf!==p.piva?'C.F. '+p.cf:'',p.sdi?'Cod. SDI '+p.sdi:'',p.pec?'PEC '+p.pec:''].filter(Boolean).join('<br>');
-  const hasSc=it.righe.some(r=>scEff(r.sconto)>0);
+  const isDDT=coll==='ddt';
+  const hasSc=!isDDT&&it.righe.some(r=>scEff(r.sconto)>0);
   const hasLot=['ddt','fattureCliente','fattureFornitore','noteCredito'].includes(coll)&&it.righe.some(r=>r.lotto||r.scad);
-  const rows=it.righe.map(r=>`<tr><td>${r.cod}</td><td>${r.descr}</td>${hasLot?`<td>${r.lotto||'—'}</td><td class="r">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="r">${r.qty}</td><td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc?`<td class="r">${scLabel(r.sconto)}</td>`:''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td></tr>`).join('');
+  const rows=it.righe.map(r=>`<tr><td>${r.cod}</td><td>${r.descr}</td>${hasLot?`<td>${r.lotto||'—'}</td><td class="r">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="r">${r.qty}</td>${isDDT?'':`<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc?`<td class="r">${scLabel(r.sconto)}</td>`:''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td>`}</tr>`).join('');
   let ddtBlock='';
   if(coll==='ddt')ddtBlock=`<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ____</td></tr></table>`;
   const userNote=it.note?`<div class="pa-note pa-usernote"><b>Note:</b> ${aiEsc(it.note)}</div>`:'';
@@ -4181,12 +4187,12 @@ function buildPrintHTML(coll,it){
     <div class="pa-party"><div class="pa-pl">${partyLabel}</div><div class="pa-pn">${p.nome}</div><div class="pa-pa">${pAddr}</div><div class="pa-pm">${pMeta}</div></div>
     ${shipBlock}
     ${ddtBlock}
-    <table class="pa-lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hasLot?'<th>Lotto</th><th class="r">Scadenza</th>':''}<th class="r">Q.tà</th><th class="r">Prezzo</th><th class="r">Imponibile</th>${hasSc?'<th class="r">Sconto</th>':''}<th class="r">IVA</th><th class="r">Totale</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="pa-tot"><table>
+    <table class="pa-lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hasLot?'<th>Lotto</th><th class="r">Scadenza</th>':''}<th class="r">Q.tà</th>${isDDT?'':`<th class="r">Prezzo</th><th class="r">Imponibile</th>${hasSc?'<th class="r">Sconto</th>':''}<th class="r">IVA</th><th class="r">Totale</th>`}</tr></thead><tbody>${rows}</tbody></table>
+    ${isDDT?'':`<div class="pa-tot"><table>
       <tr><td>Imponibile</td><td class="r">${eur(imp(it.righe))}</td></tr>
       <tr><td>IVA</td><td class="r">${eur(ivaT(it.righe))}</td></tr>
       <tr class="g"><td>Totale documento</td><td class="r">${eur(tot(it.righe))}</td></tr>
-    </table></div>
+    </table></div>`}
     ${userNote}
     ${note}
     <div class="pa-footer">${az.iso?az.iso+' · ':''}Documento generato con Ipsofarma Gestionale</div>

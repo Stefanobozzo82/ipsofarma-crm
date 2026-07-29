@@ -3988,7 +3988,7 @@ function aziendaView(){
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn primary" onclick="ghSave().then(()=>nav('azienda'))">☁ Salva ora su GitHub</button>
-        <button class="btn" onclick="ghLoad().then(ok=>{if(ok){ensureSchema();render();toast('Caricato da GitHub ✅');}else toast('Errore: '+FB_STATUS);})">⭱ Carica da GitHub</button>
+        <button class="btn" onclick="ghLoad().then(ok=>{if(ok){ensureSchema();if(!isAuthenticated()){showAppLogin(()=>render());}else{render();toast('Caricato da GitHub ✅');}}else toast('Errore: '+FB_STATUS);})">⭱ Carica da GitHub</button>
         <span style="font-size:12px;color:var(--muted)">Stato: <b id="ghStatusSettings">${FB_STATUS}</b></span>
       </div>
     </div>

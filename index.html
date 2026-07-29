@@ -5492,6 +5492,7 @@ async function doAppLogin(){
   const res=await checkPassword(pwd);
   if(res.ok){
     sessionStorage.setItem('app_authenticated','1');
+    sessionStorage.setItem('app_auth_time',String(Date.now()));
     sessionStorage.setItem('app_role',res.role);
     const el=document.getElementById('app-login');
     if(el)el.remove();
@@ -5502,8 +5503,17 @@ async function doAppLogin(){
   }
 }
 function isAdmin(){return sessionStorage.getItem('app_role')!=='viewer';}
+const SESSION_TTL_MS=8*60*60*1000; // ri-chiede la password dopo 8h, anche se il browser tiene viva la scheda/sessionStorage
 function isAuthenticated(){
-  return !localStorage.getItem('app_pwd_hash')&&!localStorage.getItem('app_pwd_viewer_hash')||sessionStorage.getItem('app_authenticated')==='1';
+  if(!localStorage.getItem('app_pwd_hash')&&!localStorage.getItem('app_pwd_viewer_hash'))return true;
+  if(sessionStorage.getItem('app_authenticated')!=='1')return false;
+  const t=parseInt(sessionStorage.getItem('app_auth_time')||'0',10);
+  if(!t||Date.now()-t>SESSION_TTL_MS){
+    sessionStorage.removeItem('app_authenticated');
+    sessionStorage.removeItem('app_auth_time');
+    return false;
+  }
+  return true;
 }
 function openSetPassword(role='admin'){
   const label=role==='admin'?'Amministratore (modifica tutto)':'Sola lettura (solo consultazione)';
@@ -5531,7 +5541,7 @@ async function savePassword(){
   const h=await sha256(p1);
   const key=role==='viewer'?'app_pwd_viewer_hash':'app_pwd_hash';
   localStorage.setItem(key,h);
-  if(role==='admin')sessionStorage.setItem('app_authenticated','1');
+  if(role==='admin'){sessionStorage.setItem('app_authenticated','1');sessionStorage.setItem('app_auth_time',String(Date.now()));}
   sessionStorage.setItem('app_role','admin');
   closeModal();toast(`✅ Password ${role==='viewer'?'sola lettura':'amministratore'} impostata`);nav('azienda');
 }

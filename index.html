@@ -1818,7 +1818,7 @@ function renderDDT(){
       <div class="ftf-prod"><span class="code">${r.cod}</span> ${r.descr}</div>
       <div class="num" data-l="Ord.">${r.qtyOrd}</div>
       <div class="num" data-l="Cons.">${r.sped||0}</div>
-      <div class="num" data-l="In consegna"><input type="number" min="0" max="${r.qtyOrd-(r.sped||0)}" value="${r.qty}" oninput="updDDT(${i},'qty',this.value)"></div>
+      <div class="num" data-l="In consegna" style="display:flex;gap:4px;align-items:center;justify-content:flex-end"><input type="number" min="0" max="${r.qtyOrd-(r.sped||0)}" value="${r.qty}" oninput="updDDT(${i},'qty',this.value)" style="min-width:0"><button class="le-del" onclick="zeroDDT(${i})" title="Non consegnare questo prodotto" style="flex-shrink:0">×</button></div>
       <div class="num" data-l="Prezzo €"><input type="number" step="0.01" value="${r.prezzo}" oninput="updDDT(${i},'prezzo',this.value)"></div>
       <div class="num le-linetot" data-l="Totale">${r.qty>0?eur(rTot(r)):'—'}</div>
     </div>${r.qty>0?`<div class="le-lot"><span class="le-lot-l">Lotto</span><input type="text" value="${(r.lotto||'').replace(/"/g,'&quot;')}" placeholder="es. 726052" oninput="updDDTL(${i},'lotto',this.value)"><span class="le-lot-l">Scad.</span><input type="date" value="${r.scad||''}" oninput="updDDTL(${i},'scad',this.value)"></div>`:''}`).join('');
@@ -1826,6 +1826,7 @@ function renderDDT(){
   document.getElementById('f-tot').innerHTML=`<small>Totale DDT</small> ${eur(tot(sel))}`;
 }
 function updDDT(i,k,v){const r=DDTR[i];if(k==='qty'){let q=parseInt(v||0);const max=r.qtyOrd-(r.sped||0);if(q>max)q=max;if(q<0)q=0;r.qty=q;}else r[k]=parseFloat(v||0);renderDDT();}
+function zeroDDT(i){DDTR[i].qty=0;renderDDT();}
 function updDDTL(i,k,v){DDTR[i][k]=String(v||'');}
 // Segna come ricevute sull'ordine fornitore le quantità di una fattura fornitore collegata (usata da import XML, collegamento manuale, ecc.)
 function markOFReceived(of,righe){

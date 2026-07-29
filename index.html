@@ -2014,6 +2014,7 @@ function openDDTNew(){
       <div class="row2"><div class="field"><label>Numero DDT</label><input id="f-num" value="${peekNum('DDT')}"></div>
         <div class="field"><label>Data</label><input type="date" id="f-data" value="${today()}"></div></div>
       <div class="field" id="f-dest-wrap"><label>Destinazione di consegna</label><select id="f-dest"></select></div>
+      <div class="field"><label>N. colli</label><input type="number" min="0" id="f-colli" placeholder="es. 2"></div>
       <div class="field"><label>Aggiungi prodotto</label>
         <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
       <div class="field"><label>Righe DDT</label><div id="le"></div></div>
@@ -2026,7 +2027,8 @@ function openDDTNew(){
 async function saveDDTNew(){
   const clienteId=document.getElementById('f-cli').value,data=document.getElementById('f-data').value;
   const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));if(!righe.length){toast('Aggiungi almeno una riga');return;}
-  const d={id:uid('ddt'),num:consumeNum('DDT',(document.getElementById('f-num')||{}).value),data,clienteId,destId:(document.getElementById('f-dest')||{}).value||null,righe,ocId:null,ftId:null};
+  const colli=parseInt((document.getElementById('f-colli')||{}).value)||null;
+  const d={id:uid('ddt'),num:consumeNum('DDT',(document.getElementById('f-num')||{}).value),data,clienteId,destId:(document.getElementById('f-dest')||{}).value||null,colli,righe,ocId:null,ftId:null};
   DB.ddt.push(d);
   if(d.ocId)updateOFfromOC(d.ocId,righe);
   await persist();closeModal();toast('DDT '+d.num+' creato');MOD='ddt';VIEW='list';SEL={coll:'ddt',item:d};render();
@@ -2045,6 +2047,7 @@ function openDDTEdit(id){
       <div class="row2"><div class="field"><label>Numero DDT</label><input id="f-num" value="${d.num}"></div>
         <div class="field"><label>Data</label><input type="date" id="f-data" value="${d.data}"></div></div>
       <div class="field" id="f-dest-wrap"><label>Destinazione di consegna</label><select id="f-dest"></select></div>
+      <div class="field"><label>N. colli</label><input type="number" min="0" id="f-colli" placeholder="es. 2" value="${d.colli||''}"></div>
       <div class="field"><label>Aggiungi prodotto</label>
         <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
       <div class="field"><label>Righe DDT</label><div id="le"></div></div>
@@ -2057,7 +2060,7 @@ function openDDTEdit(id){
 async function saveDDTEdit(id){
   const d=DB.ddt.find(x=>x.id===id);if(!d)return;
   const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));if(!righe.length){toast('Aggiungi almeno una riga');return;}
-  d.clienteId=document.getElementById('f-cli').value;d.data=document.getElementById('f-data').value;d.destId=(document.getElementById('f-dest')||{}).value||null;d.righe=righe;
+  d.clienteId=document.getElementById('f-cli').value;d.data=document.getElementById('f-data').value;d.destId=(document.getElementById('f-dest')||{}).value||null;d.colli=parseInt((document.getElementById('f-colli')||{}).value)||null;d.righe=righe;
   const nn=((document.getElementById('f-num')||{}).value||'').trim();if(nn&&nn!==d.num){d.num=nn;}
   // Sincronizza la sede sulla fattura collegata (se già emessa)
   let ftSync='';
@@ -4166,7 +4169,7 @@ function buildPrintHTML(coll,it){
   const hasLot=['ddt','fattureCliente','fattureFornitore','noteCredito'].includes(coll)&&it.righe.some(r=>r.lotto||r.scad);
   const rows=it.righe.map(r=>`<tr><td>${r.cod}</td><td>${r.descr}</td>${hasLot?`<td>${r.lotto||'—'}</td><td class="r">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="r">${r.qty}</td>${isDDT?'':`<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc?`<td class="r">${scLabel(r.sconto)}</td>`:''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td>`}</tr>`).join('');
   let ddtBlock='';
-  if(coll==='ddt')ddtBlock=`<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ____</td></tr></table>`;
+  if(coll==='ddt')ddtBlock=`<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ${it.colli||'____'}</td></tr></table>`;
   const userNote=it.note?`<div class="pa-note pa-usernote"><b>Note:</b> ${aiEsc(it.note)}</div>`:'';
   let note='';
   if(coll==='fattureCliente'||coll==='noteCredito'){

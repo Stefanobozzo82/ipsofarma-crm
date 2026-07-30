@@ -599,7 +599,9 @@ const GH_FILE='backup.json';
  * avvisiamo l'utente (vero conflitto, raro). I documenti nuovi o cancellati
  * su un solo lato vengono aggiunti/rimossi correttamente su entrambi.
  */
-const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','noteCredito','clienti','fornitori','preventivi'];
+const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','noteCredito','clienti','fornitori','preventivi','prodotti'];
+// I prodotti non hanno un id stabile come gli altri documenti: sono tenuti per 'codice'.
+const MERGE_KEY={prodotti:'codice'};
 let GH_BASE=null;
 function snapshotMergeColls(db){
   const s={};MERGE_COLLS.forEach(c=>{s[c]=JSON.parse(JSON.stringify((db&&db[c])||[]));});return s;
@@ -612,10 +614,11 @@ function saveGhBase(snap){
   try{localStorage.setItem('gh_base_docs',JSON.stringify(snap));}catch(e){/* storage pieno: pazienza, si riallinea al prossimo giro */}
 }
 function deepEq(a,b){return JSON.stringify(a)===JSON.stringify(b);}
-function mergeCollection(base,local,remote){
-  const bMap=new Map((base||[]).map(x=>[x.id,x]));
-  const lMap=new Map((local||[]).map(x=>[x.id,x]));
-  const rMap=new Map((remote||[]).map(x=>[x.id,x]));
+function mergeCollection(base,local,remote,keyName){
+  const k=x=>x[keyName||'id'];
+  const bMap=new Map((base||[]).map(x=>[k(x),x]));
+  const lMap=new Map((local||[]).map(x=>[k(x),x]));
+  const rMap=new Map((remote||[]).map(x=>[k(x),x]));
   const ids=new Set([...bMap.keys(),...lMap.keys(),...rMap.keys()]);
   const out=[];let conflict=false;
   ids.forEach(id=>{
@@ -648,9 +651,10 @@ function mergeCollection(base,local,remote){
 function mergeAllDocs(base,localDB,remoteDB){
   let anyConflict=false;
   MERGE_COLLS.forEach(c=>{
-    const{result,conflict}=mergeCollection(base?base[c]:[],localDB[c]||[],remoteDB[c]||[]);
+    const{result,conflict}=mergeCollection(base?base[c]:[],localDB[c]||[],remoteDB[c]||[],MERGE_KEY[c]);
     localDB[c]=result;if(conflict)anyConflict=true;
   });
+  _allProd=null; // il catalogo prodotti può essere stato toccato dal merge: invalida la cache dei prezzi
   return anyConflict;
 }
 function ghToken(){return localStorage.getItem('gh_token')||'';}
@@ -851,6 +855,16 @@ function ghScheduleSave(){
   clearTimeout(GH_TIMER);GH_TIMER=setTimeout(()=>ghSave().catch(console.error),8000);
 }
 window.addEventListener('beforeunload',()=>{if(ghToken()&&DB&&GH_SHA)try{ghSave();}catch(e){};});
+/* 'visibilitychange' (scheda nascosta: cambio tab, minimizzazione, chiusura su mobile) è molto più
+   affidabile di 'beforeunload' per completare un salvataggio in sospeso: la pagina resta viva più a
+   lungo, quindi la fetch verso GitHub ha il tempo di finire invece di rischiare di essere interrotta
+   a metà come spesso succede in beforeunload. */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&GH_TIMER){
+    clearTimeout(GH_TIMER);GH_TIMER=null;
+    if(ghToken()&&DB)ghSave().catch(console.error);
+  }
+});
 let DB=null;
 const hasWS=()=>{try{return typeof window!=='undefined'&&window.storage&&typeof window.storage.get==='function';}catch(e){return false;}};
 async function load(){
@@ -1913,7 +1927,7 @@ async function saveDDT(id){
 }
 async function genFT(id){const ddt=DB.ddt.find(d=>d.id===id);if(ddt.ftId)return;
   const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId,note:ddt.note||''};
-  DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;
+  DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc){oc.ftIds=[...(oc.ftIds||[]),ft.num];oc.ftId=ft.num;}
   await persist();toast('Fattura '+ft.num+' emessa');MOD='ft';SEL={coll:'fattureCliente',item:ft};render();document.getElementById('content').scrollTo(0,0);}
 let FTFR=[];
 function openFTFForm(id){
@@ -2011,7 +2025,10 @@ async function doRemove(coll,id){
     oc.ddtIds=(oc.ddtIds||[]).filter(n=>n!==it.num);
     oc.ddtId=oc.ddtIds.length?oc.ddtIds[oc.ddtIds.length-1]:null;
   }}
-  if(coll==='fattureCliente'){const ddt=DB.ddt.find(d=>d.num===it.ddtId);if(ddt)ddt.ftId=null;const oc=DB.ordiniCliente.find(o=>o.num===it.ocId);if(oc)oc.ftId=null;}
+  if(coll==='fattureCliente'){const ddt=DB.ddt.find(d=>d.num===it.ddtId);if(ddt)ddt.ftId=null;const oc=DB.ordiniCliente.find(o=>o.num===it.ocId);if(oc){
+    oc.ftIds=(oc.ftIds||[]).filter(n=>n!==it.num);
+    oc.ftId=oc.ftIds.length?oc.ftIds[oc.ftIds.length-1]:null;
+  }}
   if(coll==='fattureFornitore'){const of=DB.ordiniFornitore.find(o=>o.num===it.ofId);if(of){
     it.righe.forEach(fr=>{const ln=of.righe.find(x=>x.cod===fr.cod);if(ln)ln.qtyEv=Math.max(0,(ln.qtyEv||0)-fr.qty);});
     of.ftfIds=(of.ftfIds||[]).filter(n=>n!==it.num);
@@ -4476,7 +4493,7 @@ function aiInPeriod(d,p){if(!p)return true;d=d||'';if(typeof p==='string')return
 function aiPeriodLabel(p){if(!p)return '';if(typeof p==='string'){const x=p.split('-');const nm=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];return x[1]?(nm[parseInt(x[1])-1]||'')+' '+x[0]:x[0];}return (p.from||'')+'–'+(p.to||'');}
 function aiFindOC(ref){ref=String(ref==null?'':ref).trim();if(!ref)return null;let o=DB.ordiniCliente.find(x=>x.num.toLowerCase()===ref.toLowerCase());if(o)return o;const dg=ref.replace(/\D/g,'');if(dg){const n=parseInt(dg);o=DB.ordiniCliente.find(x=>parseInt((x.num.split('/').pop()||'0'))===n);}return o||null;}
 function aiGenDDT(oc){const righe=oc.righe.map(r=>{const rest=Math.max(0,r.qty-(r.qtyEv||0));const ls=lotScadFromOF(oc.ofId,r.cod);return{cod:r.cod,descr:r.descr,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};}).filter(r=>r.qty>0);if(!righe.length)return null;const ddt={id:uid('ddt'),num:nextNum('DDT'),data:today(),clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null,note:oc.note||''};DB.ddt.push(ddt);oc.righe.forEach(r=>{r.qtyEv=r.qty;});oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;updateOFfromOC(oc.num,righe);return ddt;}
-function aiGenFT(ddt){if(ddt.ftId)return null;const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId,note:ddt.note||''};DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc)oc.ftId=ft.num;return ft;}
+function aiGenFT(ddt){if(ddt.ftId)return null;const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId,note:ddt.note||''};DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc){oc.ftIds=[...(oc.ftIds||[]),ft.num];oc.ftId=ft.num;}return ft;}
 function aiGenOF(oc){return genOFFromOC(oc);}
 function aiFindProd(q){
   if(!q)return null;const lc=String(q).trim().toLowerCase();const all=allProdotti();
@@ -4627,6 +4644,7 @@ async function ensureSchema(){
   if(!DB.azienda){DB.azienda={nome:'Ipsofarma S.r.l.',via:'',cap:'87100',citta:'Cosenza',prov:'CS',piva:'',cf:'',tel:'',email:'',pec:'',iban:'',iso:'ISO 9001:2015 — Cert. N. IQ-0526-02'};changed=true;}
   DB.clienti.forEach(c=>{if(!c.dest){c.dest=[];changed=true;}});
   DB.ordiniCliente.forEach(o=>{if(!o.ddtIds)o.ddtIds=o.ddtId?[o.ddtId]:[];});
+  DB.ordiniCliente.forEach(o=>{if(!o.ftIds)o.ftIds=o.ftId?[o.ftId]:[];});
   DB.ordiniCliente.forEach(o=>o.righe.forEach(r=>{if(r.qtyEv==null){r.qtyEv=o.ddtId?r.qty:0;changed=true;}}));
   DB.ordiniFornitore.forEach(o=>{if(!o.ftfIds)o.ftfIds=o.ftfId?[o.ftfId]:[];});
   DB.ordiniFornitore.forEach(o=>o.righe.forEach(r=>{if(r.qtyEv==null){r.qtyEv=o.ftfId?r.qty:0;changed=true;}}));

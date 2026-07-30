@@ -17,6 +17,34 @@ import numpy as np
 import pyvirtualcam
 
 
+def ask_source_via_dialog() -> Path:
+    """Apre una finestra per scegliere il video o la foto da trasmettere.
+
+    Usata quando lo script viene avviato con doppio click, senza argomenti
+    da riga di comando (es. dall'eseguibile impacchettato con PyInstaller).
+    """
+    import tkinter as tk
+    from tkinter import filedialog, messagebox
+
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showinfo(
+        "Webcam virtuale",
+        "Seleziona nella prossima finestra il video o la foto da trasmettere come webcam.",
+    )
+    path_str = filedialog.askopenfilename(
+        title="Scegli video o foto",
+        filetypes=[
+            ("Video e foto", "*.mp4 *.avi *.mov *.mkv *.jpg *.jpeg *.png *.bmp"),
+            ("Tutti i file", "*.*"),
+        ],
+    )
+    root.destroy()
+    if not path_str:
+        sys.exit("Nessun file selezionato. Uscita.")
+    return Path(path_str)
+
+
 def _to_rgb(frame: np.ndarray, width: int, height: int) -> np.ndarray:
     frame = cv2.resize(frame, (width, height))
     return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -58,21 +86,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Trasmette un video registrato o una foto come webcam virtuale."
     )
-    parser.add_argument("source", type=Path, help="Percorso del video (.mp4/.avi) o della foto (.jpg/.png)")
+    parser.add_argument(
+        "source", type=Path, nargs="?", default=None,
+        help="Percorso del video (.mp4/.avi) o della foto (.jpg/.png). "
+             "Se omesso, si apre una finestra per sceglierlo.",
+    )
     parser.add_argument("--width", type=int, default=1280, help="Larghezza output (default 1280)")
     parser.add_argument("--height", type=int, default=720, help="Altezza output (default 720)")
     parser.add_argument("--fps", type=int, default=30, help="Frame al secondo (default 30)")
     args = parser.parse_args()
 
-    if not args.source.exists():
-        sys.exit(f"File non trovato: {args.source}")
+    source = args.source if args.source is not None else ask_source_via_dialog()
 
-    is_photo = args.source.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}
+    if not source.exists():
+        sys.exit(f"File non trovato: {source}")
+
+    is_photo = source.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}
     try:
         if is_photo:
-            run_photo(args.source, args.width, args.height, args.fps)
+            run_photo(source, args.width, args.height, args.fps)
         else:
-            run_video(args.source, args.width, args.height, args.fps)
+            run_video(source, args.width, args.height, args.fps)
     except KeyboardInterrupt:
         print("\nWebcam virtuale interrotta.")
 

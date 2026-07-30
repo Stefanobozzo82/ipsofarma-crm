@@ -52,6 +52,27 @@ al posto della webcam reale, in tutte le riunioni.
 Per tornare alla webcam vera basta riselezionarla dallo stesso menu in Zoom
 e chiudere (o premere Ctrl+C nel) terminale dello script.
 
+## Creare un pacchetto autoinstallante (Setup.exe)
+
+Se vuoi distribuire il tool ad altri PC senza far installare Python a
+ciascuno, puoi generare un installer Windows vero e proprio (con icona,
+disinstallazione, ecc.). Va fatto **una sola volta**, sul tuo PC:
+
+1. Esegui `pip install -r requirements.txt` (se non l'hai gia' fatto).
+2. Fai doppio click su **`build_exe.bat`**: crea `dist\virtual_webcam.exe`,
+   un eseguibile singolo che non richiede Python per essere usato.
+3. Installa **Inno Setup** (gratuito): https://jrsoftware.org/isdl.php
+4. Apri **`installer.iss`** con Inno Setup Compiler e premi "Compile" (F9).
+5. Trovi il file pronto in `Output\IpsofarmaWebcamVirtuale-Setup.exe`.
+
+Questo `Setup.exe` puo' essere copiato e lanciato su qualunque PC Windows:
+si installa con una normale procedura guidata (Avanti, Avanti, Fine),
+crea un'icona sul Desktop/Menu Avvio e, all'avvio, apre una finestra per
+scegliere il video o la foto da trasmettere (non serve piu' la riga di
+comando). Resta comunque necessario installare OBS Studio una volta sola
+su ogni PC, come descritto sopra, perche' fornisce il driver della webcam
+virtuale.
+
 ## Parametri opzionali
 ```
 python virtual_webcam.py video.mp4 --width 1280 --height 720 --fps 30

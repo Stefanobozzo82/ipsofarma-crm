@@ -935,7 +935,7 @@ function findByNum(num){
 }
 
 /* ===== Stato UI ===== */
-let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'data',dir:'desc'},PICK=new Set(),PSORT={key:'codice',dir:'asc'},MONTHLY=[],PLIMIT=300,PRODTOTAL=0,FFILT={forn:'',paid:'',from:'',to:'',dest:''},DASHY=today().slice(0,4),REPY=today().slice(0,4),LOTE=false;
+let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'data',dir:'desc'},PICK=new Set(),PSORT={key:'codice',dir:'asc'},MONTHLY=[],PLIMIT=300,PRODTOTAL=0,FFILT={forn:'',paid:'',from:'',to:'',dest:''},DASHY=today().slice(0,4),LOTE=false;
 const NAV=[
   {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'},{id:'gare',ic:'🏛',label:'Gare MEPA'}]},
   {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'},{id:'nc',ic:'↩',label:'Note di credito',coll:'noteCredito'}]},
@@ -5297,75 +5297,48 @@ function exportScadenziarioXLS(){
 }
 
 /* ===== REPORT ===== */
-function setRepY(y){REPY=y;renderContent();}
-/* Statistiche prodotto/cliente nel periodo REPY: ricavo/costo/margine in imponibile (IVA esclusa),
-   con le note di credito già nettate (segno negativo sulle stesse righe della fattura stornata). */
-function reportProdStats(){
-  const prodMap=Object.fromEntries(allProdotti().map(p=>[p.codice,p]));
-  const inY=f=>!REPY||(f.data||'').startsWith(REPY);
-  const fc=DB.fattureCliente.filter(inY),nc=(DB.noteCredito||[]).filter(inY);
-  const stats={};
-  const add=(righe,sign)=>righe.forEach(r=>{
-    if(!r.cod||r.cod==='VARIE')return;
-    const k=r.cod;
-    if(!stats[k])stats[k]={cod:k,descr:r.descr,qty:0,ricavo:0,costo:0};
-    stats[k].qty+=sign*r.qty;stats[k].ricavo+=sign*lineNet(r);stats[k].costo+=sign*r.qty*((prodMap[k]||{}).acq||0);
-  });
-  fc.forEach(f=>add(f.righe,1));nc.forEach(n=>add(n.righe,-1));
-  return Object.values(stats).map(p=>({...p,margine:p.ricavo-p.costo}));
-}
-function reportCliStats(){
-  const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
-  const prodMap=Object.fromEntries(allProdotti().map(p=>[p.codice,p]));
-  const inY=f=>!REPY||(f.data||'').startsWith(REPY);
-  const fc=DB.fattureCliente.filter(inY),nc=(DB.noteCredito||[]).filter(inY);
-  const stats={};
-  const add=(f,sign)=>{
-    const k=f.clienteId;
-    if(!stats[k])stats[k]={id:k,nome:(cl[k]||{}).nome||'?',ricavo:0,costo:0};
-    f.righe.forEach(r=>{
-      stats[k].ricavo+=sign*lineNet(r);
-      if(r.cod&&r.cod!=='VARIE')stats[k].costo+=sign*r.qty*((prodMap[r.cod]||{}).acq||0);
-    });
-  };
-  fc.forEach(f=>add(f,1));nc.forEach(n=>add(n,-1));
-  return Object.values(stats).map(c=>({...c,margine:c.ricavo-c.costo}));
-}
 function reportView(){
-  const years=[...new Set([...DB.fattureCliente,...(DB.noteCredito||[])].map(f=>(f.data||'').slice(0,4)).filter(Boolean))].sort();
-  const topProd=reportProdStats().sort((a,b)=>b.ricavo-a.ricavo).slice(0,15);
-  const cliAll=reportCliStats();
-  const totRicavo=cliAll.reduce((s,c)=>s+c.ricavo,0);
-  const topCli=cliAll.sort((a,b)=>b.ricavo-a.ricavo).slice(0,12);
-  const mCol=m=>m>=0?'var(--accent-d)':'var(--red)';
-  const pct=(m,r)=>r?Math.round(m/r*100)+'%':'—';
-  const chips=`<div class="dash-period"><button class="${REPY===''?'on':''}" onclick="setRepY('')">Tutti</button>${years.map(y=>`<button class="${REPY===y?'on':''}" onclick="setRepY('${y}')">${y}</button>`).join('')}</div>`;
-  const prodRows=topProd.map(p=>`<tr><td class="code cod-link" onclick="openProdByCode('${p.cod}')">${p.cod}</td><td>${aiEsc(p.descr)}</td><td style="text-align:right">${p.qty}</td><td style="text-align:right">${eur(p.ricavo)}</td><td style="text-align:right;color:${mCol(p.margine)}"><b>${eur(p.margine)}</b></td><td style="text-align:right;color:${mCol(p.margine)}">${pct(p.margine,p.ricavo)}</td></tr>`).join('');
-  const cliRows=topCli.map(c=>`<tr><td>${aiEsc(c.nome)}</td><td style="text-align:right">${eur(c.ricavo)}</td><td style="text-align:right;color:${mCol(c.margine)}"><b>${eur(c.margine)}</b></td><td style="text-align:right;color:${mCol(c.margine)}">${pct(c.margine,c.ricavo)}</td><td style="text-align:right">${totRicavo?Math.round(c.ricavo/totRicavo*100)+'%':'—'}</td></tr>`).join('');
-  return `<div class="page-head"><div class="page-title" style="margin:0">Report & Analisi</div>${chips}</div>
+  const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
+  const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f]));
+  // Statistiche per prodotto (da ordini cliente)
+  const prodStats={};
+  DB.ordiniCliente.forEach(o=>{o.righe.forEach(r=>{if(!r.cod||r.cod==='VARIE')return;const k=r.cod;if(!prodStats[k])prodStats[k]={cod:k,descr:r.descr,qtyOrd:0,fatturato:0};prodStats[k].qtyOrd+=r.qty;prodStats[k].fatturato+=lineNet(r)*(1+r.iva/100);});});
+  DB.fattureCliente.forEach(f=>{f.righe.forEach(r=>{if(!r.cod||r.cod==='VARIE')return;const k=r.cod;if(!prodStats[k])prodStats[k]={cod:k,descr:r.descr,qtyOrd:0,fatturato:0};prodStats[k].fatturato+=lineNet(r)*(1+r.iva/100);});});
+  const topProd=Object.values(prodStats).sort((a,b)=>b.fatturato-a.fatturato).slice(0,15);
+  // Margine per cliente
+  const cliStats={};
+  DB.fattureCliente.forEach(f=>{const k=f.clienteId;if(!cliStats[k])cliStats[k]={id:k,nome:(cl[k]||{}).nome||'?',ricavi:0};cliStats[k].ricavi+=imp(f.righe);});
+  DB.fattureFornitore.forEach(f=>{});// costi non allocati per cliente - usiamo ricavi netti
+  const totRicavi=Object.values(cliStats).reduce((s,c)=>s+c.ricavi,0);
+  const topCli=Object.values(cliStats).sort((a,b)=>b.ricavi-a.ricavi).slice(0,12);
+  const prodRows=topProd.map(p=>`<tr><td class="code cod-link" onclick="openProdByCode('${p.cod}')">${p.cod}</td><td>${aiEsc(p.descr)}</td><td style="text-align:right">${p.qtyOrd||0}</td><td style="text-align:right"><b>${eur(p.fatturato)}</b></td></tr>`).join('');
+  const cliRows=topCli.map(c=>`<tr><td>${aiEsc(c.nome)}</td><td style="text-align:right">${eur(c.ricavi)}</td><td style="text-align:right">${totRicavi?Math.round(c.ricavi/totRicavi*100)+'%':'—'}</td></tr>`).join('');
+  return `<div class="page-head"><div class="page-title">Report & Analisi</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:4px" class="report-grid">
-      <div class="panel"><div class="panel-h">Fatturato e margine per prodotto${REPY?' — '+REPY:''}
+      <div class="panel"><div class="panel-h">Top prodotti per fatturato
         <button class="btn sm" style="margin-left:auto" onclick="exportProdXLS()">⬇ Excel</button></div>
-        <div style="overflow-x:auto"><table class="tbl" style="margin:0;min-width:420px">
-          <thead><tr><th>Codice</th><th>Descrizione</th><th style="text-align:right">Q.tà</th><th style="text-align:right">Fatturato</th><th style="text-align:right">Margine</th><th style="text-align:right">Marg. %</th></tr></thead>
-          <tbody>${prodRows||'<tr><td colspan="6" class="t-mut" style="padding:16px">Nessun dato</td></tr>'}</tbody>
-        </table></div>
-        <p class="t-mut" style="font-size:11px;margin:8px 2px 0">Imponibile IVA esclusa, note di credito già sottratte. Margine = fatturato − costo di acquisto a listino.</p></div>
-      <div class="panel"><div class="panel-h">Fatturato e margine per cliente${REPY?' — '+REPY:''}
+        <div style="overflow-x:auto"><table class="tbl" style="margin:0;min-width:300px">
+          <thead><tr><th>Codice</th><th>Descrizione</th><th style="text-align:right">Fatturato</th></tr></thead>
+          <tbody>${prodRows||'<tr><td colspan="3" class="t-mut" style="padding:16px">Nessun dato</td></tr>'}</tbody>
+        </table></div></div>
+      <div class="panel"><div class="panel-h">Fatturato per cliente
         <button class="btn sm" style="margin-left:auto" onclick="exportCliXLS()">⬇ Excel</button></div>
-        <div style="overflow-x:auto"><table class="tbl" style="margin:0;min-width:340px">
-          <thead><tr><th>Cliente</th><th style="text-align:right">Fatturato</th><th style="text-align:right">Margine</th><th style="text-align:right">Marg. %</th><th style="text-align:right">Quota</th></tr></thead>
-          <tbody>${cliRows||'<tr><td colspan="5" class="t-mut" style="padding:16px">Nessun dato</td></tr>'}</tbody>
+        <div style="overflow-x:auto"><table class="tbl" style="margin:0;min-width:260px">
+          <thead><tr><th>Cliente</th><th style="text-align:right">Imponibile</th><th style="text-align:right">%</th></tr></thead>
+          <tbody>${cliRows||'<tr><td colspan="3" class="t-mut" style="padding:16px">Nessun dato</td></tr>'}</tbody>
         </table></div></div>
     </div>`;
 }
 function exportProdXLS(){
-  const rows=reportProdStats().sort((a,b)=>b.ricavo-a.ricavo).map(p=>({Codice:p.cod,Descrizione:p.descr,'Q.tà':p.qty,'Fatturato €':parseFloat(p.ricavo.toFixed(2)),'Costo €':parseFloat(p.costo.toFixed(2)),'Margine €':parseFloat(p.margine.toFixed(2))}));
-  xlsDownload(rows,'Prodotti'+(REPY?'_'+REPY:'')+'_'+today()+'.xlsx','Prodotti');
+  const prodStats={};
+  DB.fattureCliente.forEach(f=>{f.righe.forEach(r=>{if(!r.cod||r.cod==='VARIE')return;const k=r.cod;if(!prodStats[k])prodStats[k]={Codice:r.cod,Descrizione:r.descr,'Fatturato €':0};prodStats[k]['Fatturato €']=parseFloat((prodStats[k]['Fatturato €']+lineNet(r)*(1+r.iva/100)).toFixed(2));});});
+  xlsDownload(Object.values(prodStats).sort((a,b)=>b['Fatturato €']-a['Fatturato €']),'Prodotti_'+today()+'.xlsx','Prodotti');
 }
 function exportCliXLS(){
-  const rows=reportCliStats().sort((a,b)=>b.ricavo-a.ricavo).map(c=>({Cliente:c.nome,'Fatturato €':parseFloat(c.ricavo.toFixed(2)),'Costo €':parseFloat(c.costo.toFixed(2)),'Margine €':parseFloat(c.margine.toFixed(2))}));
-  xlsDownload(rows,'Fatturato_clienti'+(REPY?'_'+REPY:'')+'_'+today()+'.xlsx','Clienti');
+  const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
+  const cliStats={};
+  DB.fattureCliente.forEach(f=>{const k=f.clienteId;if(!cliStats[k])cliStats[k]={Cliente:(cl[k]||{}).nome||'?','Imponibile €':0};cliStats[k]['Imponibile €']=parseFloat((cliStats[k]['Imponibile €']+imp(f.righe)).toFixed(2));});
+  xlsDownload(Object.values(cliStats).sort((a,b)=>b['Imponibile €']-a['Imponibile €']),'Fatturato_clienti_'+today()+'.xlsx','Clienti');
 }
 /* Righe da esportare per la sezione corrente, in formato generico {Colonna:valore}. */
 function buildExportRows(){

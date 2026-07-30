@@ -599,7 +599,7 @@ const GH_FILE='backup.json';
  * avvisiamo l'utente (vero conflitto, raro). I documenti nuovi o cancellati
  * su un solo lato vengono aggiunti/rimossi correttamente su entrambi.
  */
-const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','clienti','fornitori','preventivi'];
+const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','noteCredito','clienti','fornitori','preventivi'];
 let GH_BASE=null;
 function snapshotMergeColls(db){
   const s={};MERGE_COLLS.forEach(c=>{s[c]=JSON.parse(JSON.stringify((db&&db[c])||[]));});return s;
@@ -738,6 +738,28 @@ async function ghLoad(){
   DB=data;_allProd=null;gdSetStatus('caricato ✅');
   saveGhBase(snapshotMergeColls(DB));
   return true;
+}
+/* Controlla periodicamente se un altro dispositivo ha salvato novità (nuovi ordini/DDT/fatture)
+   e le unisce in silenzio, senza sovrascrivere modifiche locali non ancora salvate: usa lo stesso
+   merge a 3 vie di ghSave(), quindi è sicuro anche se scatta a metà di una modifica non ancora
+   salvata. Salta il giro se è aperta una finestra di modifica, per non spiazzare chi sta scrivendo. */
+async function autoPullSync(){
+  if(!ghToken()||!DB)return;
+  if(document.getElementById('overlay')?.classList.contains('show'))return;
+  try{
+    const fetched=await ghFetchRemote();
+    if(!fetched||fetched.sha===GH_SHA)return;
+    const data=fetched.data;delete data._security;
+    const conflict=mergeAllDocs(GH_BASE,DB,data);
+    GH_SHA=fetched.sha;localStorage.setItem('gh_sha',GH_SHA);
+    saveGhBase(snapshotMergeColls(DB));
+    if(SEL&&MERGE_COLLS.includes(SEL.coll)){
+      const found=(DB[SEL.coll]||[]).find(x=>x.id===SEL.item.id);
+      SEL=found?{coll:SEL.coll,item:found}:null;
+    }
+    render();
+    if(conflict)toast('⚠️ Alcuni documenti sono stati modificati anche da un altro dispositivo: ha vinto la versione locale');
+  }catch(e){console.warn('Auto-sync GitHub:',e);}
 }
 
 async function ghTestConn(){
@@ -5593,6 +5615,8 @@ if('serviceWorker' in navigator){
   gsCheckNew();
   setInterval(gsCheckNew,5*60*1000);
   gmailStartTimer();
+  // Riallinea i documenti creati/modificati da altri dispositivi senza dover ricaricare la pagina
+  setInterval(autoPullSync,60*1000);
 })();
 </script>
 </body>

@@ -740,6 +740,7 @@ async function ghLoad(){
   const SENSITIVE=['aiKey','aiOkey','aiProvider','aiModel','aiBase','gdClientId'];
   if(DB&&DB.azienda&&data.azienda)SENSITIVE.forEach(k=>{if(DB.azienda[k])data.azienda[k]=DB.azienda[k];});
   DB=data;_allProd=null;gdSetStatus('caricato ✅');
+  await initCatalog(); // il listino fornitore va mostrato solo dopo una sincronizzazione riuscita, non a un dispositivo senza token
   saveGhBase(snapshotMergeColls(DB));
   return true;
 }
@@ -5332,7 +5333,6 @@ if('serviceWorker' in navigator){
 }
 (async()=>{
   loadGhBase();
-  await initCatalog();
   await load(); // carica localStorage (immediato)
   if(!DB)DB=seed();
   await ensureSchema();
@@ -5341,6 +5341,12 @@ if('serviceWorker' in navigator){
   // mostrare il gestionale, altrimenti su un dispositivo che non l'ha ancora in locale il
   // controllo sotto la troverebbe assente e lascerebbe entrare senza chiederla.
   if(ghToken()){
+    // Il listino fornitore (~16000 articoli) va mostrato solo su un dispositivo configurato/
+    // sincronizzato: lo carichiamo qui, non incondizionatamente, così un dispositivo senza
+    // token non lo vede. Basato sulla presenza del token, non sul successo di QUESTO
+    // tentativo di sync, per non perdere il catalogo a un dispositivo già autorizzato che
+    // stavolta ha solo un problema di rete transitorio.
+    await initCatalog();
     try{
       const loaded=await ghLoad();
       if(loaded)await ensureSchema();

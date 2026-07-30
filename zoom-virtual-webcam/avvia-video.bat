@@ -1,8 +1,18 @@
 @echo off
 REM Doppio click per avviare la webcam virtuale con un VIDEO in loop.
-REM Modifica il percorso qui sotto con il file video che vuoi trasmettere.
-set VIDEO=C:\IpsofarmaWebcam\mio-video.mp4
+REM
+REM Se vuoi scegliere il video ogni volta da una finestra, lascia questa
+REM riga vuota (com'e' di default): si aprira' automaticamente la finestra
+REM di selezione file.
+REM Se invece vuoi che parta sempre con lo STESSO video senza doverlo
+REM scegliere ogni volta, scrivi qui sotto il percorso completo tra
+REM virgolette, es: set VIDEO=C:\IpsofarmaWebcam\mio-video.mp4
+set VIDEO=
 
 cd /d "%~dp0"
-python virtual_webcam.py "%VIDEO%"
+if exist "%VIDEO%" (
+    python virtual_webcam.py "%VIDEO%"
+) else (
+    python virtual_webcam.py
+)
 pause

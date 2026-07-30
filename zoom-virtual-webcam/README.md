@@ -39,9 +39,12 @@ python virtual_webcam.py "C:\percorso\del\tuo\video.mp4"
 python virtual_webcam.py "C:\percorso\della\tua\foto.jpg"
 ```
 
-In alternativa, per comodita', modifica il percorso del file dentro
-`avvia-video.bat` o `avvia-foto.bat` e poi avvia lo script con un doppio
-click: si apre una finestra nera che va lasciata aperta per tutta la durata
+In alternativa, per comodita', fai doppio click su `avvia-video.bat` o
+`avvia-foto.bat`: per default si apre una finestra per scegliere il file
+(non serve modificare nulla). Se invece vuoi che parta sempre con lo stesso
+file senza doverlo scegliere ogni volta, apri il `.bat` con un editor di
+testo e scrivi il percorso completo nella riga `set VIDEO=` (o `set FOTO=`).
+In ogni caso si apre una finestra nera che va lasciata aperta per tutta la durata
 della chiamata.
 
 ### Poi, in Zoom

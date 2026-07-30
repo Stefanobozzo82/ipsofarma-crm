@@ -998,7 +998,7 @@ function findByNum(num){
 /* ===== Stato UI ===== */
 let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'data',dir:'desc'},PICK=new Set(),PSORT={key:'codice',dir:'asc'},MONTHLY=[],PLIMIT=300,PRODTOTAL=0,FFILT={forn:'',paid:'',from:'',to:'',dest:''},DASHY=today().slice(0,4),LOTE=false;
 const NAV=[
-  {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'},{id:'gare',ic:'🏛',label:'Gare MEPA'}]},
+  {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'}]},
   {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'},{id:'nc',ic:'↩',label:'Note di credito',coll:'noteCredito'}]},
   {grp:'Acquisti',items:[{id:'of',ic:'📦',label:'Ordini fornitore',coll:'ordiniFornitore'},{id:'ftf',ic:'📑',label:'Fatture fornitore',coll:'fattureFornitore'}]},
   {grp:'Anagrafiche',items:[{id:'clienti',ic:'🏥',label:'Clienti',coll:'clienti'},{id:'fornitori',ic:'🏢',label:'Fornitori',coll:'fornitori'},{id:'prodotti',ic:'⊞',label:'Prodotti',coll:'prodotti'}]},
@@ -1011,7 +1011,6 @@ const META={
   evadere:{title:'Prodotti da evadere',sub:'Elenco dettagliato di tutti i prodotti ordinati e non ancora consegnati.'},
   ricevere:{title:'Prodotti da ricevere',sub:'Elenco dettagliato di tutti i prodotti ordinati a fornitore e non ancora ricevuti.'},
   report:{title:'Report & Analisi',sub:'Statistiche prodotti, margine per cliente, esportazioni Excel.'},
-  gare:{title:'Gare MEPA',sub:'Bandi e RDO trovati automaticamente su Gmail per le categorie a cui sei abilitato.'},
   prev:{title:'Preventivi',sub:'Crea preventivi e trasformali in ordini cliente con un clic.',coll:'preventivi'},
   oc:{title:'Ordini cliente',sub:'Inserisci ordini e trasformali nei documenti collegati.',coll:'ordiniCliente'},
   ddt:{title:'Documenti di trasporto',sub:'Generati dagli ordini. Trasformali in fattura immediata (1‑a‑1).',coll:'ddt'},
@@ -1030,7 +1029,7 @@ function renderNav(){
   const c=counts();const od=overdueCount();
   document.getElementById('nav').innerHTML=NAV.map(g=>`
     ${g.grp?`<div class="nav-group"><div class="gl">${g.grp}</div>`:'<div class="nav-group" style="margin-top:6px">'}
-    ${g.items.map(it=>`<button class="nav-item ${MOD===it.id?'active':''}" onclick="nav('${it.id}')"><span class="ic">${it.ic}</span>${it.label}${it.coll?`<span class="cnt">${c[it.coll]||0}</span>`:''}${it.id==='scadenziario'&&od?`<span class="overdue-badge">${od}</span>`:''}${it.id==='oc'&&GS_NEW_COUNT?`<span class="overdue-badge" title="Nuovi ordini da Google Sheet">${GS_NEW_COUNT}</span>`:''}${it.id==='ftf'&&GMAIL_NEW_COUNT?`<span class="overdue-badge" title="Nuove fatture trovate su Gmail">${GMAIL_NEW_COUNT}</span>`:''}${it.id==='gare'&&GARE_NEW_COUNT?`<span class="overdue-badge" title="Nuove gare trovate su Gmail">${GARE_NEW_COUNT}</span>`:''}</button>`).join('')}
+    ${g.items.map(it=>`<button class="nav-item ${MOD===it.id?'active':''}" onclick="nav('${it.id}')"><span class="ic">${it.ic}</span>${it.label}${it.coll?`<span class="cnt">${c[it.coll]||0}</span>`:''}${it.id==='scadenziario'&&od?`<span class="overdue-badge">${od}</span>`:''}${it.id==='oc'&&GS_NEW_COUNT?`<span class="overdue-badge" title="Nuovi ordini da Google Sheet">${GS_NEW_COUNT}</span>`:''}${it.id==='ftf'&&GMAIL_NEW_COUNT?`<span class="overdue-badge" title="Nuove fatture trovate su Gmail">${GMAIL_NEW_COUNT}</span>`:''}</button>`).join('')}
     </div>`).join('');
   // Stato sidebar (non usato senza cloud)
   try{const el=document.getElementById('gdStatus');if(el)el.textContent='';}catch(e){}
@@ -1041,7 +1040,7 @@ function animateContentIn(){
   if(!el||!el.animate)return;
   el.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease'});
 }
-function nav(id){MOD=id;SEL=null;Q='';QRAW='';SORT=defSort(id);PICK.clear();PLIMIT=300;FFILT={forn:'',paid:'',from:'',to:'',dest:''};MDOCS=null;const _s=document.getElementById('search');if(_s)_s.value='';document.getElementById('sidebar').classList.remove('open');render();animateContentIn();}
+function nav(id){MOD=id;SEL=null;Q='';QRAW='';SORT=defSort(id);PICK.clear();PLIMIT=300;FFILT={forn:'',paid:'',from:'',to:'',dest:''};const _s=document.getElementById('search');if(_s)_s.value='';document.getElementById('sidebar').classList.remove('open');render();animateContentIn();}
 function backList(){SEL=null;render();animateContentIn();}
 function onSearch(v){QRAW=v;Q=v.toLowerCase();PLIMIT=300;PICK.clear();renderContent();const si=document.getElementById('psearch');if(si){si.focus();const L=si.value.length;try{si.setSelectionRange(L,L);}catch(e){}}}
 
@@ -1094,7 +1093,6 @@ function renderContent(){
   if(MOD==='evadere'){c.innerHTML=evadereView();return;}
   if(MOD==='ricevere'){c.innerHTML=ricevereView();return;}
   if(MOD==='report'){c.innerHTML=reportView();return;}
-  if(MOD==='gare'){c.innerHTML=gareView();return;}
   if(MOD==='ai'){c.innerHTML=aiView();bindAI();return;}
   if(MOD==='azienda'){c.innerHTML=aziendaView();return;}
   if(['clienti','fornitori','prodotti'].includes(MOD)){c.innerHTML=anagrafica();return;}
@@ -3528,158 +3526,9 @@ function gmailStartTimer(){
   if(GMAIL_TIMER)clearInterval(GMAIL_TIMER);
   const min=Math.max(3,parseInt((DB.azienda||{}).gmailPollMin)||10);
   gmailSync(false);
-  gareSync(false);
-  GMAIL_TIMER=setInterval(()=>{gmailSync(false);gareSync(false);},min*60*1000);
+  GMAIL_TIMER=setInterval(()=>{gmailSync(false);},min*60*1000);
 }
 
-/* ===== Gare MEPA (lette da gmail-import.gs, stesso schema del gmail-pending.json) ===== */
-const GARE_FILE='mepa-gare.json';
-let GARE_PENDING=null,GARE_PENDING_SHA=null,GARE_NEW_COUNT=0,GARE_HIDDEN=null;
-async function gareSync(interactive){
-  if(!ghToken()){if(interactive)toast('Configura prima il token GitHub nelle Impostazioni');return;}
-  const res=await ghContentsGet(GARE_FILE);
-  if(!res){if(interactive)toast('Errore nel controllo delle gare MEPA');return;}
-  const items=(res.data&&res.data.items)||[];
-  GARE_PENDING=items;GARE_PENDING_SHA=res.sha;
-  const hidden=gareHiddenSet_();
-  GARE_NEW_COUNT=items.filter(it=>!hidden.has(it.msgId)&&!(DB.azienda&&DB.azienda.gareViste&&DB.azienda.gareViste.includes(it.msgId))).length;
-  renderNav();
-  if(MOD==='gare')renderContent();
-  if(interactive&&!items.length)toast('Nessuna gara trovata su Gmail');
-}
-function gareHiddenSet_(){
-  if(GARE_HIDDEN)return GARE_HIDDEN;
-  GARE_HIDDEN=new Set(((DB.azienda||{}).gareNascoste)||[]);
-  return GARE_HIDDEN;
-}
-async function gareHide(msgId){
-  DB.azienda=DB.azienda||{};
-  DB.azienda.gareNascoste=DB.azienda.gareNascoste||[];
-  if(!DB.azienda.gareNascoste.includes(msgId))DB.azienda.gareNascoste.push(msgId);
-  GARE_HIDDEN=null;
-  await persist();toast('Gara nascosta');renderContent();
-}
-async function gareUnhideAll(){
-  DB.azienda=DB.azienda||{};DB.azienda.gareNascoste=[];GARE_HIDDEN=null;
-  await persist();toast('Gare nascoste ripristinate');renderContent();
-}
-function gareMarkSeen_(msgId){
-  DB.azienda=DB.azienda||{};DB.azienda.gareViste=DB.azienda.gareViste||[];
-  if(!DB.azienda.gareViste.includes(msgId)){DB.azienda.gareViste.push(msgId);persist();GARE_NEW_COUNT=Math.max(0,GARE_NEW_COUNT-1);renderNav();}
-}
-let MDOCS=null;
-function mDocsRows_(){
-  if(MDOCS===null)MDOCS=((DB.azienda||{}).mepaDocs)?JSON.parse(JSON.stringify(DB.azienda.mepaDocs)):[];
-  if(!MDOCS.length)return '<div class="dest-empty">Nessun documento collegato. Aggiungi i link ai documenti che vuoi avere sempre a portata di mano quando prepari un\'offerta (visura camerale, DURC, certificazioni…).</div>';
-  const esc=s=>(s||'').replace(/"/g,'&quot;');
-  return MDOCS.map((d,i)=>`<div class="dest-card">
-     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-       <input placeholder="Nome documento (es. DURC, Visura camerale, ISO 9001…)" value="${esc(d.nome)}" oninput="updMDoc(${i},'nome',this.value)" style="flex:1">
-       <button class="le-del" onclick="delMDoc(${i})" title="Rimuovi">×</button></div>
-     <input placeholder="Link Google Drive" value="${esc(d.url)}" oninput="updMDoc(${i},'url',this.value)"></div>`).join('');
-}
-function addMDoc(){if(MDOCS===null)mDocsRows_();MDOCS.push({nome:'',url:''});renderContent();}
-function delMDoc(i){MDOCS.splice(i,1);renderContent();}
-function updMDoc(i,k,v){MDOCS[i][k]=v;}
-async function saveMDocs(){
-  const clean=(MDOCS||[]).filter(d=>d.nome||d.url).map(d=>({nome:(d.nome||'').trim(),url:(d.url||'').trim()}));
-  DB.azienda=DB.azienda||{};DB.azienda.mepaDocs=clean;MDOCS=null;
-  await persist();toast('Documenti salvati');renderContent();
-}
-function garaGiorni_(dataStr){
-  if(!dataStr)return null;
-  const m=dataStr.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if(!m)return null;
-  const d=new Date(+m[3],+m[2]-1,+m[1]);
-  const oggi=new Date();oggi.setHours(0,0,0,0);
-  return Math.round((d-oggi)/86400000);
-}
-function gareView(){
-  const items=[...(GARE_PENDING||[])];
-  const hidden=gareHiddenSet_();
-  const showHidden=VIEW==='hidden';
-  let list=items.filter(it=>showHidden?hidden.has(it.msgId):!hidden.has(it.msgId));
-  list.sort((a,b)=>{
-    const ga=garaGiorni_(a.dataScadenza),gb=garaGiorni_(b.dataScadenza);
-    if(ga==null&&gb==null)return String(b.addedAt).localeCompare(String(a.addedAt));
-    if(ga==null)return 1;if(gb==null)return -1;
-    return ga-gb;
-  });
-  const nHidden=hidden.size;
-  let head=`<div class="page-title">Gare MEPA</div>
-    <div class="primary-action"><button class="btn" onclick="gareSync(true)">🔄 Controlla ora</button>${nHidden?`<button class="btn" style="margin-left:8px" onclick="setView(${showHidden?"'list'":"'hidden'"})">${showHidden?'← Torna alle gare attive':'👁 Vedi '+nHidden+' nascoste'}</button>`:''}</div>
-    <p class="ai-intro">Gare/RDO trovate automaticamente nelle email da acquistinretepa.it o ricevute via PEC. Il controllo automatico avviene ogni ${Math.max(3,parseInt((DB.azienda||{}).gmailPollMin)||10)} minuti.</p>`;
-  if(!list.length){
-    return head+`<div class="empty"><div class="big">🏛</div><div style="font-weight:600;color:var(--muted)">${showHidden?'Nessuna gara nascosta':'Nessuna gara trovata per ora'}</div></div>`;
-  }
-  return head+`<div class="le" style="border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--surface)">
-    ${list.map(it=>{
-      const giorni=garaGiorni_(it.dataScadenza);
-      const urgCol=giorni==null?'var(--muted)':giorni<0?'var(--red)':giorni<=3?'var(--red)':giorni<=7?'var(--amber)':'var(--accent-d)';
-      const urgLbl=giorni==null?'':giorni<0?'SCADUTA':giorni===0?'scade oggi':giorni===1?'scade domani':'scade tra '+giorni+' giorni';
-      const isPec=it.source==='pec';
-      const titolo=isPec?(it.oggettoReale||it.subject):(it.nomeGara||it.subject);
-      const sub=isPec?('PEC da '+(it.mittente||'ente sconosciuto')):((it.ente||'')+(it.categoria?' · '+it.categoria:''));
-      return `<div class="drow" style="cursor:pointer;display:block;padding:14px 18px" onclick="gareOpenDetail('${it.msgId}')">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13.5px">${aiEsc(titolo)}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:3px">${aiEsc(sub)}</div>
-          </div>
-          <div style="text-align:right;flex-shrink:0">
-            <span class="pill" style="background:${urgCol}18;color:${urgCol}">${it.dataScadenza?aiEsc(it.dataScadenza.split(' ')[0]):(isPec?'via PEC':'—')}</span>
-            ${urgLbl?`<div style="font-size:10.5px;color:${urgCol};font-weight:700;margin-top:4px">${urgLbl}</div>`:''}
-          </div>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`;
-}
-function gareOpenDetail(msgId){
-  const it=(GARE_PENDING||[]).find(x=>x.msgId===msgId);if(!it)return;
-  gareMarkSeen_(msgId);
-  const isPec=it.source==='pec';
-  const giorni=garaGiorni_(it.dataScadenza);
-  const urgCol=giorni==null?'var(--muted)':giorni<0?'var(--red)':giorni<=3?'var(--red)':giorni<=7?'var(--amber)':'var(--accent-d)';
-  const urgLbl=giorni==null?'':giorni<0?'Scaduta':giorni===0?'Scade oggi':giorni===1?'Scade domani':'Scade tra '+giorni+' giorni';
-  const docs=((DB.azienda||{}).mepaDocs)||[];
-  const rows=isPec?`
-    <div class="field"><label>Oggetto reale</label><input value="${aiEsc(it.oggettoReale||it.subject).replace(/"/g,'&quot;')}" disabled></div>
-    <div class="field"><label>Mittente (PEC ente)</label><input value="${aiEsc(it.mittente||'—').replace(/"/g,'&quot;')}" disabled></div>
-    <div class="field"><label>Allegati nel messaggio</label><input value="${aiEsc((it.allegati||[]).join(', ')||'—').replace(/"/g,'&quot;')}" disabled></div>
-    <p class="ai-intro">Questa comunicazione arriva via PEC direttamente da una stazione appaltante: il dettaglio della gara (capitolato, lettera d'invito) è negli allegati del messaggio originale — apri l'email da Gmail per leggerli, qui vengono estratti solo mittente e oggetto.</p>`:`
-    <div class="row2"><div class="field"><label>ID Gara</label><input value="${aiEsc(it.idGara||'—')}" disabled></div>
-      <div class="field"><label>Categoria</label><input value="${aiEsc(it.categoria||'—')}" disabled></div></div>
-    <div class="field"><label>Ente</label><input value="${aiEsc(it.ente||'—').replace(/"/g,'&quot;')}" disabled></div>
-    <div class="row2"><div class="field"><label>Data pubblicazione</label><input value="${aiEsc(it.dataPubblicazione||'—')}" disabled></div>
-      <div class="field"><label>Termine chiarimenti</label><input value="${aiEsc(it.dataChiarimenti||'—')}" disabled></div></div>
-    <p class="ai-intro">Per vedere i codici e le quantità richieste devi accedere con le tue credenziali su acquistinretepa.it, nella gara indicata sopra — l'email di notifica non contiene il dettaglio righe.</p>`;
-  document.getElementById('modal').innerHTML=`
-    <div class="modal-head"><h3>${isPec?'Richiesta di offerta via PEC':'🏛 '+aiEsc(it.nomeGara||it.subject)}</h3><button class="x" onclick="closeModal()">×</button></div>
-    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
-      ${it.dataScadenza?`<div class="d-dest" style="background:${urgCol}18;border-left-color:${urgCol}">📅 <b>Scadenza offerte:</b> ${aiEsc(it.dataScadenza)} ${urgLbl?'— '+urgLbl:''}</div>`:''}
-      ${rows}
-      <div class="panel-h" style="margin:18px 0 8px;padding:0;border:none">Documenti da preparare</div>
-      ${docs.length?`<div class="tablecard"><table class="tbl"><tbody>${docs.map(d=>`<tr><td class="t-party">${aiEsc(d.nome)}</td><td class="t-mut" style="text-align:right">${d.url?`<a href="${aiEsc(d.url)}" target="_blank" rel="noopener">Apri su Drive ↗</a>`:'<span style="color:var(--amber)">link non configurato</span>'}</td></tr>`).join('')}</tbody></table></div>`
-        :`<p class="ai-intro">Non hai ancora configurato i link ai documenti (visura, DURC, ISO, ecc.). Vai in <b>Impostazioni</b> per aggiungerli.</p>`}
-    </div>
-    <div class="modal-foot">
-      <button class="btn ghost" style="border:1px solid var(--border2)" onclick="gareHide('${it.msgId}');closeModal()">🗑 Non mi interessa</button>
-      <div style="flex:1"></div>
-      <button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Chiudi</button>
-      <button class="btn primary" onclick="closeModal();gareOpenPrevForm('${it.msgId}')">→ Prepara offerta</button>
-    </div>`;
-  document.getElementById('overlay').classList.add('show');
-}
-function gareOpenPrevForm(msgId){
-  const it=(GARE_PENDING||[]).find(x=>x.msgId===msgId);
-  openPrevForm();
-  const noteEl=document.getElementById('f-note');
-  if(noteEl&&it){
-    const rif=it.source==='pec'?('Rif. PEC: '+(it.oggettoReale||it.subject)+' — '+(it.mittente||'')):('Rif. gara MEPA '+(it.idGara||'')+' — '+(it.nomeGara||''));
-    noteEl.value=rif;
-  }
-}
 /* ===== Import ordini da Google Sheet ===== */
 function gsExtractId(v){v=String(v||'').trim();const m=v.match(/\/d\/([a-zA-Z0-9-_]+)/);return m?m[1]:v;}
 function gsSendEmail(to,subject,body){
@@ -3919,7 +3768,6 @@ async function gsImportAll(){
   toast(n?n+' ordini importati':'Nessun ordine pronto da importare (seleziona i clienti mancanti)');
 }
 function openProdByCode(cod){cod=String(cod||'').trim();if(!cod)return;openProdottoForm(cod);}
-function bbraunSearch(cod,ev){if(ev&&ev.stopPropagation)ev.stopPropagation();cod=String(cod||'').trim();if(!cod)return;window.open('https://surgical-instruments.bbraun.com/en-01/p/'+encodeURIComponent(cod),'_blank');}
 function prodStorico(cod){
   const acq=[];
   DB.fattureFornitore.forEach(f=>{f.righe.forEach(r=>{if(r.cod===cod)acq.push({data:f.data,num:f.num,prezzo:r.prezzo,party:fornitore(f.fornitoreId).nome});});});
@@ -3954,9 +3802,7 @@ function openProdottoForm(codice){
      ${isEdit&&!existing?'<div class="note">Articolo di listino: salvando ne crei una versione modificabile col tuo costo di acquisto.</div>':''}
      <div class="form-sec">Anagrafica</div>
      <div class="row2">
-       <div class="field"><label>Codice articolo</label><input id="pf-codice" value="${v('codice')}" placeholder="Es. BC565R">
-         ${v('codice')?`<button type="button" class="btn sm ghost" style="margin-top:6px;border:1px solid var(--border2)" onclick="bbraunSearch('${v('codice').replace(/'/g,"\\'")}',event)">🔎 Apri su B.Braun</button>`:''}
-       </div>
+       <div class="field"><label>Codice articolo</label><input id="pf-codice" value="${v('codice')}" placeholder="Es. BC565R"></div>
        <div class="field"><label>Tipologia</label><input id="pf-tipologia" value="${v('tipologia')}" placeholder="Es. Strumentario / Sutura"></div>
      </div>
      <div class="field"><label>Descrizione</label><input id="pf-descrizione" value="${v('descrizione')}"></div>
@@ -4032,15 +3878,6 @@ function aziendaView(){
         ${localStorage.getItem('app_pwd_viewer_hash')?`<button class="btn" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="removePassword('viewer')">Rimuovi</button>`:''}
       </div>
     </div>
-  </div>
-  <div class="page-title" style="margin-top:30px">Gare MEPA — documenti</div>
-  <div class="tablecard" style="max-width:660px;padding:16px 18px">
-    <p style="font-size:13px;color:var(--muted);line-height:1.6;margin:0 0 14px">
-      Link ai documenti su Google Drive da mostrare come promemoria in ogni scheda gara (visura camerale, DURC, certificazioni, ecc.). Il gestionale salva solo il link, non il contenuto del file.
-    </p>
-    ${mDocsRows_()}
-    <button class="btn sm ghost" onclick="addMDoc()" style="margin-top:6px;border:1px solid var(--border2)">+ Aggiungi documento</button>
-    <div style="margin-top:14px"><button class="btn primary" onclick="saveMDocs()">Salva documenti</button></div>
   </div>
   <div class="panel" style="margin-top:18px">
     <div class="panel-h">GitHub — backup automatico</div>

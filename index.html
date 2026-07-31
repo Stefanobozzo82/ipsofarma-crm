@@ -3366,7 +3366,8 @@ function xmlImpRender(){
       return `<tr><td class="code">${aiEsc(l.cod||'—')}</td><td>${nome}</td><td class="right">${l.qty}</td><td class="right">${eur(l.prezzo)}</td><td>${cmp}</td></tr>`;
     }).join('');
     const chk=dupe?'':`<input type="checkbox" class="xi-chk" data-i="${i}" checked onchange="xmlImpUpdateCount()">`;
-    return `<tr><td>${chk}</td><td>${aiEsc(p.ced.nome||'?')}</td><td class="code">${aiEsc(p.number)}</td><td>${fdate(p.date)}</td><td style="text-align:right">${eur(p.totale||imp)}</td><td>${it.src||''} ${mnote}${dupe?' <span class="ai-x">già presente</span>':''}</td><td>${scartaBtn(i)}</td></tr>
+    const editBtn=dupe?'':`<button class="btn ghost" style="padding:2px 8px;font-size:11px;border:1px solid var(--border2)" type="button" onclick="xmlImpEdit(${i})" title="Correggi i dati prima di importare">✎ Modifica</button>`;
+    return `<tr><td>${chk}</td><td>${aiEsc(p.ced.nome||'?')}</td><td class="code">${aiEsc(p.number)}</td><td>${fdate(p.date)}</td><td style="text-align:right">${eur(p.totale||imp)}</td><td>${it.src||''} ${mnote}${dupe?' <span class="ai-x">già presente</span>':''}</td><td style="display:flex;gap:6px;flex-wrap:wrap">${editBtn}${scartaBtn(i)}</td></tr>
     <tr><td></td><td colspan="6" style="padding:6px 8px 14px;background:var(--surface2)"><div class="lst-prev-wrap"><table class="lst-prev" style="margin:0"><thead><tr><th>Codice</th><th>Prodotto</th><th class="right">Q.tà</th><th class="right">Prezzo fatt.</th><th>Confronto ordine</th></tr></thead><tbody>${lineRows}</tbody></table></div></td></tr>`;
   }).join('');
   const ok=XMLIMP.items.filter(it=>it.p&&it.p.dir==='acquisto'&&!DB.fattureFornitore.some(f=>String(f.num)===String(it.p.number))).length;
@@ -3382,6 +3383,43 @@ function xmlImpRender(){
         <button class="btn primary" id="xml-imp-btn" onclick="xmlImpImport()">Importa ${ok} fattura/e</button>
       </div>`:''}
     </div>`;
+}
+/* Corregge i dati letti (AI/XML) di una fattura ancora da importare, prima di scriverla in archivio.
+   Riusa lo stesso editor a righe (FR/renderLE) delle altre fatture, ma lavora sulla bozza XMLIMP.items[i].p
+   e non tocca DB finché non si conferma "Importa" nella lista. */
+function xmlImpEdit(i){
+  const it=XMLIMP.items[i];if(!it||!it.p)return;
+  const p=it.p;
+  FR=p.lines.map(l=>({cod:l.cod,descr:l.descr,qty:l.qty,prezzo:l.prezzo,sconto:l.sconto||0,iva:l.iva,lotto:l.lotto||'',scad:l.scad||'',_man:true}));
+  FRMODE='fornitore';OFEDIT=null;LOTE=true;
+  const step=document.getElementById('xml-step');if(!step)return;
+  step.innerHTML=`
+    <p class="ai-intro">Correggi i dati letti automaticamente, poi salva per tornare all'elenco: non viene importato nulla finché non confermi da lì.</p>
+    <div class="field"><label>Fornitore (ragione sociale)</label><input id="xi-forn" value="${aiEsc(p.ced&&p.ced.nome||'')}"></div>
+    <div class="row2"><div class="field"><label>Numero fattura</label><input id="xi-num" value="${aiEsc(String(p.number||''))}"></div>
+      <div class="field"><label>Data</label><input type="date" id="xi-data" value="${p.date||today()}"></div></div>
+    <div class="field"><label>Aggiungi prodotto</label>
+      <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
+    <div class="field"><label>Righe fattura</label><div id="le"></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost" style="border:1px solid var(--border2)" type="button" onclick="xmlImpRender()">← Annulla</button>
+      <span class="tot" id="f-tot"><small>Totale</small> ${eur(tot(FR))}</span>
+      <button class="btn primary" onclick="xmlImpSaveEdit(${i})">Salva modifiche</button>
+    </div>`;
+  renderLE();
+}
+function xmlImpSaveEdit(i){
+  const it=XMLIMP.items[i];if(!it||!it.p)return;
+  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
+  if(!righe.length){toast('Aggiungi almeno una riga');return;}
+  const p=it.p;
+  p.ced=p.ced||{};p.ced.nome=(document.getElementById('xi-forn')||{}).value||p.ced.nome;
+  const nn=((document.getElementById('xi-num')||{}).value||'').trim();if(nn)p.number=nn;
+  p.date=(document.getElementById('xi-data')||{}).value||p.date;
+  p.lines=righe;
+  p.totale=tot(righe);
+  xmlImpRender();
+  toast('Modifiche salvate');
 }
 function xmlImpToggleAll(state){
   document.querySelectorAll('.xi-chk').forEach(c=>{c.checked=state;});

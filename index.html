@@ -6,6 +6,7 @@
 <title>Ipsofarma · Gestionale</title>
 <style>
 :root{
+  --zoom:1.1;
   --side:#192231;--side2:#212d40;--side-active:#293a55;--side-txt:#d2dbe7;--side-muted:#7e8da4;--side-line:#2a3850;
   --bg:#f4f6f8;--surface:#ffffff;--surface2:#fafbfc;--border:#e5e9ee;--border2:#d6dce3;
   --txt:#1b2531;--muted:#5f6b7a;--faint:#9aa5b2;
@@ -18,14 +19,17 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:clamp(14px,0.25vw + 12.4px,16px);line-height:1.5;-webkit-font-smoothing:antialiased;zoom:1.1}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:clamp(14px,0.25vw + 12.4px,16px);line-height:1.5;-webkit-font-smoothing:antialiased;zoom:var(--zoom)}
 button{font-family:inherit;cursor:pointer}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#c4ccd5;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
 
-.app{display:flex;height:100vh;overflow:hidden}
+/* zoom (sopra) non ridimensiona vh/vw come lo zoom nativo del browser: senza questo calc,
+   100vh renderizzerebbe il 10% più alto del vero schermo e farebbe scomparire in basso
+   contenuto che dovrebbe stare tutto in una schermata (es. il grafico della Dashboard). */
+.app{display:flex;height:calc(100vh / var(--zoom));overflow:hidden}
 
 /* ---------- Sidebar ---------- */
-.sidebar{width:236px;flex-shrink:0;background:var(--side);color:var(--side-txt);display:flex;flex-direction:column;border-right:1px solid var(--side-line);height:100vh;overflow-y:auto}
+.sidebar{width:236px;flex-shrink:0;background:var(--side);color:var(--side-txt);display:flex;flex-direction:column;border-right:1px solid var(--side-line);height:calc(100vh / var(--zoom));overflow-y:auto}
 .side-logo{display:flex;align-items:center;gap:10px;padding:16px 16px 14px}
 .mark{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#16c98c,#0c8a5e);display:grid;place-items:center;color:#04231a;font-weight:800;font-size:15px}
 .side-logo .nm{font-weight:700;font-size:14.5px;letter-spacing:.2px}

@@ -4953,8 +4953,8 @@ function reportView(){
       <div class="panel"><div class="panel-h">Top prodotti per fatturato
         <button class="btn sm" style="margin-left:auto" onclick="exportProdXLS()">⬇ Excel</button></div>
         <div style="overflow-x:auto"><table class="tbl" style="margin:0;min-width:300px">
-          <thead><tr><th>Codice</th><th>Descrizione</th><th style="text-align:right">Fatturato</th></tr></thead>
-          <tbody>${prodRows||'<tr><td colspan="3" class="t-mut" style="padding:16px">Nessun dato</td></tr>'}</tbody>
+          <thead><tr><th>Codice</th><th>Descrizione</th><th style="text-align:right">Q.tà</th><th style="text-align:right">Fatturato</th></tr></thead>
+          <tbody>${prodRows||'<tr><td colspan="4" class="t-mut" style="padding:16px">Nessun dato</td></tr>'}</tbody>
         </table></div></div>
       <div class="panel"><div class="panel-h">Fatturato per cliente
         <button class="btn sm" style="margin-left:auto" onclick="exportCliXLS()">⬇ Excel</button></div>

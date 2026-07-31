@@ -2,37 +2,6 @@
   "items": [
     {
       "addedAt": "2026-07-31T06:07:29.847Z",
-      "msgId": "19fb6a57e007b027",
-      "file": "5718107128.pdf",
-      "p": {
-        "dir": "acquisto",
-        "ced": {
-          "nome": "B. Braun Milano S.p.A. a Socio Unico",
-          "piva": "",
-          "cf": ""
-        },
-        "ces": {},
-        "number": "5718107128",
-        "date": "2026-07-30",
-        "order_ref": "Rif.cliente Vs.ord. 192 del 24.07.2026",
-        "lines": [
-          {
-            "cod": "C0068040N1",
-            "descr": "NOVOSYN VIOLET 4/0 (1,5)70CM H",
-            "qty": 5,
-            "prezzo": 57.57,
-            "sconto": "0",
-            "iva": 22,
-            "lotto": "36209X",
-            "scad": "2031-05-15"
-          }
-        ],
-        "totale": 351.177
-      },
-      "src": "Gmail"
-    },
-    {
-      "addedAt": "2026-07-31T06:07:29.847Z",
       "msgId": "19fb6a3cc3326e2e",
       "file": "5718107127.pdf",
       "p": {

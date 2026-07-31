@@ -150,47 +150,6 @@
         "totale": 4378.3848
       },
       "src": "Gmail"
-    },
-    {
-      "addedAt": "2026-07-31T06:07:29.847Z",
-      "msgId": "19fb6a25342ab727",
-      "file": "5718107125.pdf",
-      "p": {
-        "dir": "acquisto",
-        "ced": {
-          "nome": "B. Braun Milano S.p.A. a Socio Unico",
-          "piva": "",
-          "cf": ""
-        },
-        "ces": {},
-        "number": "5718107125",
-        "date": "2026-07-30",
-        "order_ref": "Rif.cliente Vs.ord. 192 del 24.07.2026",
-        "lines": [
-          {
-            "cod": "4892108",
-            "descr": "STIMUPLEX D SH, 15°, 22GX80MM",
-            "qty": 1,
-            "prezzo": 180,
-            "sconto": "0",
-            "iva": 22,
-            "lotto": "26C25H8B04",
-            "scad": "2031-03-01"
-          },
-          {
-            "cod": "4166159-07",
-            "descr": "CERTOFIX DUO V 715",
-            "qty": 1,
-            "prezzo": 182,
-            "sconto": "0",
-            "iva": 22,
-            "lotto": "26D29A8551",
-            "scad": "2031-04-01"
-          }
-        ],
-        "totale": 441.64
-      },
-      "src": "Gmail"
     }
   ]
 }

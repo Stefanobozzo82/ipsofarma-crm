@@ -98,7 +98,7 @@ button{font-family:inherit;cursor:pointer}
 
 .content{flex:1;overflow-y:auto;padding:clamp(14px,1.6vw,32px);width:100%;max-width:1760px;margin:0 auto}
 /* Dashboard schermo intero */
-.content.dash-view{overflow:hidden!important;display:flex;flex-direction:column;padding:clamp(10px,1.2vw,22px)}
+.content.dash-view{overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding:clamp(10px,1.2vw,22px)}
 .dash-layout{display:flex;flex-direction:column;flex:1;min-height:0;gap:8px}
 .dash-layout .page-head{flex-shrink:0;margin-bottom:0}
 .dash-layout .stats{margin-bottom:0;gap:8px}
@@ -108,9 +108,12 @@ button{font-family:inherit;cursor:pointer}
 .dash-layout .sx{font-size:11px}
 .dash-layout .panel{flex:1;min-height:0;margin-bottom:0;display:flex;flex-direction:column}
 .dash-layout .panel-h{flex-shrink:0}
-.dash-layout .chart-wrap{flex:1;min-height:0;overflow:hidden;padding:8px 16px 6px}
+/* Il grafico non scende mai sotto un'altezza leggibile: su schermi bassi (es. molti laptop
+   aziendali) si preferisce far scorrere la pagina piuttosto che rimpicciolirlo fino a renderlo
+   illeggibile. */
+.dash-layout .chart-wrap{flex:1;min-height:260px;overflow:hidden;padding:8px 16px 6px}
 .dash-layout .chart-wrap svg{display:block;width:100%;height:100%}
-@media(max-width:760px){.content.dash-view{overflow-y:auto!important}.dash-layout .panel{flex:none}.dash-layout .chart-wrap svg{height:auto}}
+@media(max-width:760px){.dash-layout .panel{flex:none}.dash-layout .chart-wrap svg{height:auto}}
 .page-title{font-size:18px;font-weight:700;margin-bottom:16px}
 .primary-action{margin:-6px 0 16px}
 .primary-action .btn{font-size:14px;padding:11px 18px}

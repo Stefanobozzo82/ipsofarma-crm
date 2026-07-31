@@ -18,7 +18,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:clamp(14px,0.25vw + 12.4px,16px);line-height:1.5;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:clamp(14px,0.25vw + 12.4px,16px);line-height:1.5;-webkit-font-smoothing:antialiased;zoom:1.1}
 button{font-family:inherit;cursor:pointer}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#c4ccd5;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
 
@@ -126,7 +126,7 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .t-mut{color:var(--muted);font-family:var(--mono);font-size:12px}
 .t-amt{font-family:var(--mono);font-weight:600;text-align:right}
 .right{text-align:right}
-.dlist{background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--sh);overflow:hidden}
+.dlist{background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--sh);overflow-x:auto}
 .dhead,.drow{display:grid;grid-template-columns:150px 1fr 100px 130px 120px 105px 120px;gap:14px;align-items:center;padding:12px 18px}
 .dhead{background:var(--surface2);border-bottom:1px solid var(--border);font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);font-weight:700}
 .drow{border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;transition:background .12s}

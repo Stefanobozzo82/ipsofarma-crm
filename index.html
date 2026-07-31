@@ -1702,7 +1702,7 @@ function detailView(){
     const fullyInv=item.righe.length>0&&item.righe.every(r=>(r.qtyFatt||0)>=r.qty);
     actions=`<button class="btn" onclick="openOFEdit('${item.id}')">✎ Modifica ordine</button><button class="btn" onclick="openOFEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${fullyInv?'':'primary'}" ${fullyInv?'disabled':''} onclick="openFTFForm('${item.id}')">${fullyInv?'✓ Fatturato':(hasInv?'+ Registra altra fattura':'→ Registra fattura fornitore')}</button>`;
   }else if(coll==='fattureCliente'){
-    actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureCliente','${item.id}')">↺ Riapri (segna da incassare)</button>`:''}<button class="btn" onclick="openFTEdit('${item.id}')">✎ Modifica righe</button><button class="btn" onclick="openNCForm('${item.id}')">↩ Crea nota di credito</button>`;
+    actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureCliente','${item.id}')">↺ Riapri (segna da incassare)</button>`:''}<button class="btn" onclick="openFTEdit('${item.id}')">✎ Modifica righe</button><button class="btn" onclick="openNCForm('${item.id}')">↩ Crea nota di credito</button><button class="btn" onclick="downloadFatturaPAXml('${item.id}')" title="Genera il file XML da caricare su Fatture e Corrispettivi o inviare via PEC">⬇ XML FatturaPA</button>`;
   }else if(coll==='noteCredito'){
     actions=`<button class="btn" onclick="openNCEdit('${item.id}')">✎ Modifica righe</button>${item.ftId?`<button class="btn" onclick="openByNum('${item.ftId}')">🔗 Vai alla fattura ${item.ftId}</button>`:''}`;
   }else if(coll==='fattureFornitore'){
@@ -4093,6 +4093,132 @@ function printDoc(coll,id){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
   document.getElementById('printArea').innerHTML=buildPrintHTML(coll,it);
   window.print();
+}
+/* ===== Export FatturaPA (XML) — regime ordinario =====
+   Genera il file XML standard da caricare a mano sul portale gratuito "Fatture e Corrispettivi"
+   dell'Agenzia delle Entrate (o da inviare via PEC allo SDI): il gestionale non trasmette nulla
+   automaticamente, prepara solo il file nel formato ufficiale. Presuppone regime fiscale ordinario
+   (RF01) e fattura verso privati (FPR12); per clienti Pubblica Amministrazione vera (CIG/CUP) può
+   servire una verifica manuale in più, dato che qui non gestiamo quei riferimenti. */
+const xmlEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+function buildFatturaPAXml(ft){
+  const az=DB.azienda||{};
+  const cli=cliente(ft.clienteId);
+  const progressivo=String(ft.num||'').replace(/\D/g,'').slice(-8).padStart(5,'0')||'00001';
+  const codDest=(cli.sdi||'').trim().toUpperCase();
+  const pecDest=(cli.pec||'').trim();
+  const codiceDestinatario=codDest||(pecDest?'0000000':'XXXXXXX');
+  const isPA=cli.tipo==='PA';
+  const formato=isPA?'FPA12':'FPR12';
+  // Raggruppa le righe per aliquota IVA per i DatiRiepilogo (obbligatori, un blocco per aliquota)
+  const gruppi={};
+  ft.righe.forEach(r=>{
+    const al=r.iva||0;
+    if(!gruppi[al])gruppi[al]={imponibile:0,imposta:0};
+    const netto=lineNet(r);
+    gruppi[al].imponibile+=netto;
+    gruppi[al].imposta+=netto*al/100;
+  });
+  const esigibilita=cli.split==='si'?'S':(cli.esig==='D'?'D':'I');
+  const n2=v=>Number(v||0).toFixed(2);
+  const righeXml=ft.righe.map((r,i)=>`<DettaglioLinee>
+        <NumeroLinea>${i+1}</NumeroLinea>
+        <Descrizione>${xmlEsc(r.descr||r.cod||'Prodotto')}</Descrizione>
+        <Quantita>${n2(r.qty)}</Quantita>
+        <PrezzoUnitario>${(r.prezzo||0).toFixed(4)}</PrezzoUnitario>
+        ${scEff(r.sconto)>0?`<ScontoMaggiorazione><Tipo>SC</Tipo><Percentuale>${scEff(r.sconto)}</Percentuale></ScontoMaggiorazione>`:''}
+        <PrezzoTotale>${n2(lineNet(r))}</PrezzoTotale>
+        <AliquotaIVA>${n2(r.iva)}</AliquotaIVA>
+      </DettaglioLinee>`).join('\n      ');
+  const riepilogoXml=Object.keys(gruppi).map(al=>`<DatiRiepilogo>
+        <AliquotaIVA>${n2(al)}</AliquotaIVA>
+        <ImponibileImporto>${n2(gruppi[al].imponibile)}</ImponibileImporto>
+        <Imposta>${n2(gruppi[al].imposta)}</Imposta>
+        <EsigibilitaIVA>${esigibilita}</EsigibilitaIVA>
+      </DatiRiepilogo>`).join('\n      ');
+  const scad=dueDate(cli,ft);
+  const mpMap={Bonifico:'MP05',RiBa:'MP12',Contanti:'MP01'};
+  const modPag=mpMap[cli.pag]||'MP05';
+  const cessIdFiscale=cli.piva?`<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>${xmlEsc(cli.piva)}</IdCodice></IdFiscaleIVA>`:'';
+  const cessCF=cli.cf?`<CodiceFiscale>${xmlEsc(cli.cf)}</CodiceFiscale>`:'';
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<p:FatturaElettronica xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2" versione="${formato}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <FatturaElettronicaHeader>
+    <DatiTrasmissione>
+      <IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>${xmlEsc(az.piva)}</IdCodice></IdTrasmittente>
+      <ProgressivoInvio>${progressivo}</ProgressivoInvio>
+      <FormatoTrasmissione>${formato}</FormatoTrasmissione>
+      <CodiceDestinatario>${xmlEsc(codiceDestinatario)}</CodiceDestinatario>
+      ${!codDest&&pecDest?`<PECDestinatario>${xmlEsc(pecDest)}</PECDestinatario>`:''}
+    </DatiTrasmissione>
+    <CedentePrestatore>
+      <DatiAnagrafici>
+        <IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>${xmlEsc(az.piva)}</IdCodice></IdFiscaleIVA>
+        ${az.cf?`<CodiceFiscale>${xmlEsc(az.cf)}</CodiceFiscale>`:''}
+        <Anagrafica><Denominazione>${xmlEsc(az.nome)}</Denominazione></Anagrafica>
+        <RegimeFiscale>RF01</RegimeFiscale>
+      </DatiAnagrafici>
+      <Sede>
+        <Indirizzo>${xmlEsc(az.via)}</Indirizzo>
+        <CAP>${xmlEsc(az.cap)}</CAP>
+        <Comune>${xmlEsc(az.citta)}</Comune>
+        <Provincia>${xmlEsc(az.prov)}</Provincia>
+        <Nazione>IT</Nazione>
+      </Sede>
+    </CedentePrestatore>
+    <CessionarioCommittente>
+      <DatiAnagrafici>
+        ${cessIdFiscale}${cessCF}
+        <Anagrafica><Denominazione>${xmlEsc(cli.nome)}</Denominazione></Anagrafica>
+      </DatiAnagrafici>
+      <Sede>
+        <Indirizzo>${xmlEsc(cli.via)}</Indirizzo>
+        <CAP>${xmlEsc(cli.cap)}</CAP>
+        <Comune>${xmlEsc(cli.citta)}</Comune>
+        <Provincia>${xmlEsc(cli.prov)}</Provincia>
+        <Nazione>IT</Nazione>
+      </Sede>
+    </CessionarioCommittente>
+  </FatturaElettronicaHeader>
+  <FatturaElettronicaBody>
+    <DatiGenerali>
+      <DatiGeneraliDocumento>
+        <TipoDocumento>TD01</TipoDocumento>
+        <Divisa>EUR</Divisa>
+        <Data>${ft.data}</Data>
+        <Numero>${xmlEsc(ft.num)}</Numero>
+        <ImportoTotaleDocumento>${n2(tot(ft.righe))}</ImportoTotaleDocumento>
+      </DatiGeneraliDocumento>
+    </DatiGenerali>
+    <DatiBeniServizi>
+      ${righeXml}
+      ${riepilogoXml}
+    </DatiBeniServizi>
+    <DatiPagamento>
+      <CondizioniPagamento>TP02</CondizioniPagamento>
+      <DettaglioPagamento>
+        <ModalitaPagamento>${modPag}</ModalitaPagamento>
+        <DataScadenzaPagamento>${scad}</DataScadenzaPagamento>
+        <ImportoPagamento>${n2(tot(ft.righe))}</ImportoPagamento>
+        ${cli.iban||az.iban?`<IBAN>${xmlEsc(az.iban)}</IBAN>`:''}
+      </DettaglioPagamento>
+    </DatiPagamento>
+  </FatturaElettronicaBody>
+</p:FatturaElettronica>`;
+}
+function downloadFatturaPAXml(id){
+  const ft=DB.fattureCliente.find(x=>x.id===id);if(!ft)return;
+  const cli=cliente(ft.clienteId);
+  if(!cli.sdi&&!cli.pec){toast('⚠️ Manca il Codice Destinatario o la PEC del cliente: aggiungilo nella scheda cliente prima di generare il file');return;}
+  const xml=buildFatturaPAXml(ft);
+  const blob=new Blob([xml],{type:'application/xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const piva=(DB.azienda&&DB.azienda.piva||'ITXXXXXXXXXXX').replace(/\D/g,'');
+  a.href=url;a.download='IT'+piva+'_'+String(ft.num||'').replace(/\W/g,'')+'.xml';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  toast('XML FatturaPA generato — caricalo su "Fatture e Corrispettivi" o invialo via PEC');
 }
 function buildPrintHTML(coll,it){
   const az=DB.azienda||{};

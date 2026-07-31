@@ -1,3 +1,298 @@
 {
-  "items": []
+  "items": [
+    {
+      "addedAt": "2026-07-31T06:07:29.847Z",
+      "msgId": "19fb6a57e007b027",
+      "file": "5718107128.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718107128",
+        "date": "2026-07-30",
+        "order_ref": "Rif.cliente Vs.ord. 192 del 24.07.2026",
+        "lines": [
+          {
+            "cod": "C0068040N1",
+            "descr": "NOVOSYN VIOLET 4/0 (1,5)70CM H",
+            "qty": 5,
+            "prezzo": 57.57,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36209X",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 351.177
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-31T06:07:29.847Z",
+      "msgId": "19fb6a3cc3326e2e",
+      "file": "5718107127.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718107127",
+        "date": "2026-07-30",
+        "order_ref": "Rif.cliente Vs.ord. 195",
+        "lines": [
+          {
+            "cod": "G0058716",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 250CM AR",
+            "qty": 8,
+            "prezzo": 1.98,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126233",
+            "scad": "2031-06-03"
+          },
+          {
+            "cod": "C0068031N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 8,
+            "prezzo": 1.65,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36209W",
+            "scad": "2031-05-15"
+          },
+          {
+            "cod": "C3090043",
+            "descr": "OPTILENE 0 (3,5) 75CM HR26 CV",
+            "qty": 5,
+            "prezzo": 2.11,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626071",
+            "scad": "2031-02-09"
+          },
+          {
+            "cod": "C3090436",
+            "descr": "OPTILENE 2/0 (3) 45CM DS24 (M)",
+            "qty": 6,
+            "prezzo": 1.7,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626087",
+            "scad": "2031-02-22"
+          },
+          {
+            "cod": "C0762369",
+            "descr": "SILKAM NERO 2/0 (3) 75CM DS24",
+            "qty": 4,
+            "prezzo": 0.89,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626211",
+            "scad": "2031-05-18"
+          }
+        ],
+        "totale": 65.08699999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-31T06:07:29.847Z",
+      "msgId": "19fb6a3000cb1238",
+      "file": "5718107126.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718107126",
+        "date": "2026-07-30",
+        "order_ref": "Rif.cliente Vs.ord. 192 del 24.07.2026",
+        "lines": [
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLET 2/0 (3) 70CM HR",
+            "qty": 6,
+            "prezzo": 52.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3621D1",
+            "scad": "2031-05-22"
+          },
+          {
+            "cod": "C0068956N1",
+            "descr": "NOVOSYN VIOLET 0 (3,5) 90CM HR",
+            "qty": 8,
+            "prezzo": 60.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624N5",
+            "scad": "2031-06-13"
+          },
+          {
+            "cod": "C0068041N1",
+            "descr": "NOVOSYN VIOLET 3/0 (2) 70CM HR",
+            "qty": 5,
+            "prezzo": 57.6,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3620B1",
+            "scad": "2031-05-16"
+          },
+          {
+            "cod": "G0058715",
+            "descr": "NOVOSYN VIOLA 3/0 (2) 250CM AR",
+            "qty": 5,
+            "prezzo": 23.76,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126204",
+            "scad": "2031-05-14"
+          },
+          {
+            "cod": "G0058720",
+            "descr": "NOVOSYN VIOLA 2 (5) 250CM ARO",
+            "qty": 6,
+            "prezzo": 37.32,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126221",
+            "scad": "2031-05-25"
+          },
+          {
+            "cod": "G0058716",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 250CM AR",
+            "qty": 4,
+            "prezzo": 23.76,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126233",
+            "scad": "2031-06-03"
+          },
+          {
+            "cod": "C0762601",
+            "descr": "SILKAM NERO 0 (3.5) 75CM DS39",
+            "qty": 7,
+            "prezzo": 30.24,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626151",
+            "scad": "2031-04-06"
+          },
+          {
+            "cod": "C0762610",
+            "descr": "SILKAM NERO 1 (4) 75CM DS39",
+            "qty": 5,
+            "prezzo": 33.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626196",
+            "scad": "2031-05-09"
+          },
+          {
+            "cod": "C0765104",
+            "descr": "SILKAM NERO 3/0 (2) 45CM DS24",
+            "qty": 5,
+            "prezzo": 32.4,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626254",
+            "scad": "2031-06-18"
+          },
+          {
+            "cod": "C3090013",
+            "descr": "OPTILENE 4/0 (1,5) 75CM HR17 C",
+            "qty": 3,
+            "prezzo": 111.24,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "625386",
+            "scad": "2030-09-20"
+          },
+          {
+            "cod": "C3090954",
+            "descr": "OPTILENE 5/0 (1) 75CM 2XHR13 C",
+            "qty": 4,
+            "prezzo": 216,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626123",
+            "scad": "2031-03-18"
+          },
+          {
+            "cod": "C3090954",
+            "descr": "OPTILENE 5/0 (1) 75CM 2XHR13 C",
+            "qty": 1,
+            "prezzo": 216,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "626123",
+            "scad": "2031-03-18"
+          },
+          {
+            "cod": "C3090013",
+            "descr": "OPTILENE 4/0 (1,5) 75CM HR17 C",
+            "qty": 1,
+            "prezzo": 111.24,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "626026",
+            "scad": "2031-03-10"
+          }
+        ],
+        "totale": 4378.3848
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-07-31T06:07:29.847Z",
+      "msgId": "19fb6a25342ab727",
+      "file": "5718107125.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718107125",
+        "date": "2026-07-30",
+        "order_ref": "Rif.cliente Vs.ord. 192 del 24.07.2026",
+        "lines": [
+          {
+            "cod": "4892108",
+            "descr": "STIMUPLEX D SH, 15°, 22GX80MM",
+            "qty": 1,
+            "prezzo": 180,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26C25H8B04",
+            "scad": "2031-03-01"
+          },
+          {
+            "cod": "4166159-07",
+            "descr": "CERTOFIX DUO V 715",
+            "qty": 1,
+            "prezzo": 182,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26D29A8551",
+            "scad": "2031-04-01"
+          }
+        ],
+        "totale": 441.64
+      },
+      "src": "Gmail"
+    }
+  ]
 }

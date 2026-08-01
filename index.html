@@ -341,7 +341,7 @@ table.lines tr:last-child td{border-bottom:none}
 /* modal */
 .overlay{position:fixed;inset:0;background:#1b253166;backdrop-filter:blur(2px);display:flex;align-items:flex-start;justify-content:center;z-index:50;padding:36px 16px;overflow-y:auto;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .16s ease}
 .overlay.show{opacity:1;visibility:visible;pointer-events:auto}
-.modal{background:#fff;border-radius:14px;width:720px;max-width:95vw;max-height:95vh;box-shadow:0 24px 64px #1b253140;display:flex;flex-direction:column;resize:both;overflow:hidden;min-width:380px;min-height:220px;transform:translateY(-14px) scale(.97);transition:transform .2s cubic-bezier(.22,1,.36,1)}
+.modal{background:#fff;border-radius:14px;width:calc(720px / var(--zoom));max-width:calc(95vw / var(--zoom));max-height:calc(95vh / var(--zoom));box-shadow:0 24px 64px #1b253140;display:flex;flex-direction:column;resize:both;overflow:hidden;min-width:calc(min(380px,95vw) / var(--zoom));min-height:calc(220px / var(--zoom));transform:translateY(-14px) scale(.97);transition:transform .2s cubic-bezier(.22,1,.36,1)}
 .overlay.show .modal{transform:translateY(0) scale(1)}
 .modal-head{display:flex;align-items:center;padding:17px 22px;border-bottom:1px solid var(--border);cursor:move;user-select:none}
 .modal-head h3{font-size:15px;font-weight:700}
@@ -368,7 +368,8 @@ table.lines tr:last-child td{border-bottom:none}
 .le-item.le-dragging .le-row{box-shadow:0 8px 20px #1b25313b;z-index:5}
 .le-drag{position:absolute;left:5px;top:0;bottom:0;width:22px;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;color:var(--faint);font-size:15px;user-select:none}
 .le-drag:active{cursor:grabbing}
-.le-lot{display:flex;align-items:center;gap:8px;padding:2px 10px 9px 10px;background:var(--surface2)}
+.le-lot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 10px 9px 10px;background:var(--surface2)}
+.le-lot-pair{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .le-lot-l{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);font-weight:700}
 .le-lot input{border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:11.5px;background:var(--surface);color:var(--txt)}
 .le-lot input[type=text]{width:120px}
@@ -1893,7 +1894,7 @@ function renderDDT(){
       <div class="num" data-l="Prezzo €"><input type="number" step="0.01" value="${r.prezzo}" oninput="updDDT(${i},'prezzo',this.value)"></div>
       <div class="num le-linetot" data-l="Totale">${r.qty>0?eur(rTot(r)):'—'}</div>
       <button class="le-del" onclick="zeroDDT(${i})" title="Non consegnare questo prodotto">×</button>
-    </div>${r.qty>0?`<div class="le-lot"><span class="le-lot-l">Lotto</span><input type="text" value="${(r.lotto||'').replace(/"/g,'&quot;')}" placeholder="es. 726052" oninput="updDDTL(${i},'lotto',this.value)"><span class="le-lot-l">Scad.</span><input type="date" value="${r.scad||''}" oninput="updDDTL(${i},'scad',this.value)"></div>`:''}`).join('');
+    </div>${r.qty>0?`<div class="le-lot"><span class="le-lot-pair"><span class="le-lot-l">Lotto</span><input type="text" value="${(r.lotto||'').replace(/"/g,'&quot;')}" placeholder="es. 726052" oninput="updDDTL(${i},'lotto',this.value)"></span><span class="le-lot-pair"><span class="le-lot-l">Scad.</span><input type="date" value="${r.scad||''}" oninput="updDDTL(${i},'scad',this.value)"></span></div>`:''}`).join('');
   const sel=DDTR.filter(r=>r.qty>0).map(r=>({qty:r.qty,prezzo:r.prezzo,sconto:r.sconto,iva:r.iva}));
   document.getElementById('f-tot').innerHTML=`<small>Totale DDT</small> ${eur(tot(sel))}`;
 }
@@ -2325,7 +2326,7 @@ function renderLE(){
       <div class="num" data-l="Sconto %"><input type="text" inputmode="text" value="${(r.sconto&&r.sconto!=0)?r.sconto:''}" placeholder="0" oninput="updR(${i},'sconto',this.value)"></div>
       <div class="num" data-l="IVA %"><input type="number" value="${r.iva}" oninput="updR(${i},'iva',this.value)"></div>
       <div class="num le-linetot" data-l="Totale" id="le-lt-${i}">${r.cod?eur(rTot(r)):'—'}</div>
-      <button class="le-del" onclick="delRiga(${i})">×<span class="del-t"> rimuovi</span></button></div>${LOTE?`<div class="le-lot"><span class="le-lot-l">Lotto</span><input type="text" value="${(r.lotto||'').replace(/"/g,'&quot;')}" placeholder="es. 726052" oninput="updRL(${i},'lotto',this.value)"><span class="le-lot-l">Scad.</span><input type="date" value="${r.scad||''}" oninput="updRL(${i},'scad',this.value)"></div>`:''}</div>`).join('')}</div>`;
+      <button class="le-del" onclick="delRiga(${i})">×<span class="del-t"> rimuovi</span></button></div>${LOTE?`<div class="le-lot"><span class="le-lot-pair"><span class="le-lot-l">Lotto</span><input type="text" value="${(r.lotto||'').replace(/"/g,'&quot;')}" placeholder="es. 726052" oninput="updRL(${i},'lotto',this.value)"></span><span class="le-lot-pair"><span class="le-lot-l">Scad.</span><input type="date" value="${r.scad||''}" oninput="updRL(${i},'scad',this.value)"></span></div>`:''}</div>`).join('')}</div>`;
   document.getElementById('f-tot').innerHTML=`<small>Totale</small> ${eur(tot(FR.filter(r=>r.cod)))}`;
 }
 let LEDRAG=null;

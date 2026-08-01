@@ -2044,6 +2044,7 @@ function removeDoc(coll,id){
   if(coll==='ordiniCliente'&&((it.ofIds&&it.ofIds.length)||it.ofId||(it.ddtIds&&it.ddtIds.length)||it.ddtId||it.ftId)){toast('Elimina prima i documenti collegati (OF / DDT / Fattura)');return;}
   if(coll==='ordiniFornitore'&&((it.ftfIds&&it.ftfIds.length)||it.ftfId)){toast('Elimina prima le fatture fornitore collegate');return;}
   if(coll==='ddt'&&it.ftId){toast('Elimina prima la fattura collegata');return;}
+  if(coll==='fattureCliente'&&(DB.noteCredito||[]).some(nc=>nc.ftId===it.num)){toast('Elimina prima le note di credito collegate a questa fattura');return;}
   const tipo={ordiniCliente:'l\'ordine cliente',ordiniFornitore:'l\'ordine fornitore',ddt:'il DDT',fattureCliente:'la fattura',fattureFornitore:'la fattura fornitore',noteCredito:'la nota di credito'}[coll];
   askConfirm(`Vuoi eliminare definitivamente ${tipo} <b>${it.num}</b>?<br>L'operazione non è reversibile.`,()=>doRemove(coll,id));
 }
@@ -5212,7 +5213,7 @@ async function xlsDownload(rows,filename,sheetName){
   if(!rows||!rows.length){toast('Nessun dato da esportare');return;}
   try{
     if(!window.XLSX){
-      await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+      await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('Impossibile caricare il modulo Excel (serve una connessione a internet)'));document.head.appendChild(s);});
     }
     const XLSX=window.XLSX;
     const ws=XLSX.utils.json_to_sheet(rows);
@@ -5319,7 +5320,7 @@ async function savePassword(){
   const h=await sha256(p1);
   const key=role==='viewer'?'app_pwd_viewer_hash':'app_pwd_hash';
   localStorage.setItem(key,h);
-  if(role==='admin'){sessionStorage.setItem('app_authenticated','1');sessionStorage.setItem('app_auth_time',String(Date.now()));}
+  sessionStorage.setItem('app_authenticated','1');sessionStorage.setItem('app_auth_time',String(Date.now()));
   sessionStorage.setItem('app_role','admin');
   closeModal();toast(`✅ Password ${role==='viewer'?'sola lettura':'amministratore'} impostata`);nav('azienda');
 }

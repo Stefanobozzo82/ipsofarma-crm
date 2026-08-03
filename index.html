@@ -49,24 +49,6 @@ button{font-family:inherit;cursor:pointer}
 /* ---------- Workspace ---------- */
 .workspace{flex:1;display:flex;flex-direction:column;min-width:0}
 .topbar{height:56px;flex-shrink:0;background:transparent;display:flex;align-items:center;gap:14px;padding:0 clamp(14px,1.6vw,32px);width:100%;max-width:1760px;margin:0 auto}
-/* Ricerca globale */
-.g-search-wrap{position:relative;flex:1;max-width:380px}
-.g-search{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border2);border-radius:9px;padding:6px 12px}
-.g-search input{border:none;background:transparent;outline:none;font-size:13px;color:var(--txt);width:100%}
-.g-search-res{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px #0002;z-index:60;max-height:360px;overflow-y:auto;min-width:320px}
-@media(max-width:600px){
-  .g-search-wrap{flex:1;max-width:none}
-  .g-search-res{position:fixed;left:8px;right:8px;top:auto;min-width:0;width:auto}
-}
-.g-res-item{padding:8px 14px;cursor:pointer;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.g-res-item:last-child{border-bottom:none}
-.g-res-item:hover{background:var(--surface2)}
-.g-res-accent{background:var(--accent-soft)!important}
-.g-res-accent:hover{background:var(--accent-soft)!important;filter:brightness(.95)}
-.g-res-tag{font-size:11px;color:var(--muted);flex-shrink:0;min-width:54px;text-transform:uppercase;letter-spacing:.3px}
-.g-res-main{font-size:13px;font-weight:600;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.g-res-sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
-@media(max-width:600px){.g-res-main{white-space:normal}.g-res-sub{width:100%;margin-left:62px}}
 .overdue-badge{display:inline-block;background:var(--red);color:#fff;border-radius:10px;font-size:11px;font-weight:700;padding:1px 6px;margin-left:5px;vertical-align:middle;line-height:1.4}
 .crumb{font-weight:700;font-size:15px}
 .crumb .back{background:none;border:none;color:var(--muted);font-size:13px;margin-right:4px;padding:4px 8px;border-radius:6px}
@@ -560,10 +542,6 @@ table.lines tr:last-child td{border-bottom:none}
     <div class="topbar">
       <button class="btn ghost menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
       <div class="crumb" id="crumb"></div>
-      <div class="g-search-wrap" id="gsWrap">
-        <div class="g-search"><span style="color:var(--muted);font-size:13px">🔍</span><input id="gsInput" placeholder="Cerca…" autocomplete="off" oninput="gsSearch(this.value)" onblur="setTimeout(()=>gsHide(),180)" onkeydown="gsKey(event)"></div>
-        <div class="g-search-res" id="gsRes" style="display:none"></div>
-      </div>
       <div class="sp"></div>
       <div id="topActions"></div>
     </div>
@@ -4946,68 +4924,6 @@ function ricevereView(){
     +'</div>'
     +(rows.length?sections:'<div class="tablecard" style="padding:32px;text-align:center;color:var(--muted)">\u2705 Nessun prodotto da ricevere.</div>');
 }
-/* ===== RICERCA GLOBALE ===== */
-let GS_IDX=0;
-function gsSearch(q){
-  q=(q||'').trim();const res=document.getElementById('gsRes');
-  if(!res)return;
-  if(q.length<2||!DB){gsHide();return;}
-  const hits=[];const ql=q.toLowerCase();
-  const add=(tag,main,sub,fn,accent)=>{hits.push({tag,main,sub,fn,accent});};
-  try{
-    // Clienti
-    const cliMatch=DB.clienti.filter(c=>(c.nome||'').toLowerCase().includes(ql)||(c.piva||'').includes(ql)||(c.cf||'').includes(ql));
-    cliMatch.slice(0,3).forEach(c=>{
-      const id=c.id;
-      add('Cliente',c.nome,c.citta||'',()=>{nav('clienti');setTimeout(()=>openClienteForm(id),80);});
-      // Documenti del cliente
-      const nFT=DB.fattureCliente.filter(f=>f.clienteId===id).length;
-      const nOC=DB.ordiniCliente.filter(o=>o.clienteId===id).length;
-      const nDDT=DB.ddt.filter(d=>d.clienteId===id).length;
-      if(nFT)add('→ Fatture',`${nFT} fatture di ${c.nome}`,'',()=>{nav('ft');FFILT.forn=id;renderTop();renderContent();},'accent');
-      if(nOC)add('→ Ordini',`${nOC} ordini di ${c.nome}`,'',()=>{nav('oc');FFILT.forn=id;renderTop();renderContent();},'accent');
-      if(nDDT)add('→ DDT',`${nDDT} DDT di ${c.nome}`,'',()=>{nav('ddt');FFILT.forn=id;renderTop();renderContent();},'accent');
-    });
-    // Fornitori
-    const fornMatch=DB.fornitori.filter(f=>(f.nome||'').toLowerCase().includes(ql)||(f.piva||'').includes(ql));
-    fornMatch.slice(0,2).forEach(f=>{
-      const id=f.id;
-      add('Fornitore',f.nome,f.citta||'',()=>{nav('fornitori');setTimeout(()=>openFornitoreForm(id),80);});
-      const nFTF=DB.fattureFornitore.filter(x=>x.fornitoreId===id).length;
-      const nOF=DB.ordiniFornitore.filter(o=>o.fornitoreId===id).length;
-      if(nFTF)add('→ Fatt.For.',`${nFTF} fatture di ${f.nome}`,'',()=>{nav('ftf');FFILT.forn=id;renderTop();renderContent();},'accent');
-      if(nOF)add('→ Ordini',`${nOF} ordini a ${f.nome}`,'',()=>{nav('of');FFILT.forn=id;renderTop();renderContent();},'accent');
-    });
-    // Documenti per numero
-    if(cliMatch.length===0&&fornMatch.length===0){
-      DB.fattureCliente.filter(f=>f.num.toLowerCase().includes(ql)).slice(0,5).forEach(f=>{
-        const id=f.id;add('Fattura',f.num,cliente(f.clienteId).nome+' · '+fdate(f.data),()=>{nav('ft');setTimeout(()=>{SEL=id;renderContent();},80);});});
-      DB.fattureFornitore.filter(f=>f.num.toLowerCase().includes(ql)).slice(0,3).forEach(f=>{
-        const id=f.id;add('Fatt.For.',f.num,fornitore(f.fornitoreId).nome,()=>{nav('ftf');setTimeout(()=>{SEL=id;renderContent();},80);});});
-      DB.ordiniCliente.filter(o=>o.num.toLowerCase().includes(ql)).slice(0,4).forEach(o=>{
-        const id=o.id;add('Ordine',o.num,cliente(o.clienteId).nome,()=>{nav('oc');setTimeout(()=>{SEL=id;renderContent();},80);});});
-      DB.ordiniFornitore.filter(o=>o.num.toLowerCase().includes(ql)).slice(0,3).forEach(o=>{
-        const id=o.id;add('Ord.For.',o.num,fornitore(o.fornitoreId).nome,()=>{nav('of');setTimeout(()=>{SEL=id;renderContent();},80);});});
-      try{allProdotti().filter(p=>(p.codice||'').toLowerCase().includes(ql)||(p.descrizione||'').toLowerCase().includes(ql)).slice(0,4).forEach(p=>{
-        const cod=p.codice;add('Prodotto',p.codice,p.descrizione,()=>{nav('prodotti');setTimeout(()=>openProdottoForm(cod),80);});});}catch(e){}
-    }
-  }catch(e){console.warn('gsSearch:',e);}
-  if(!hits.length){
-    res.innerHTML='<div style="padding:11px 16px;color:var(--muted);font-size:13px">Nessun risultato per "'+aiEsc(q)+'"</div>';
-    res._hits=[];res.style.display='block';return;
-  }
-  GS_IDX=0;
-  res.innerHTML=hits.map((h,i)=>`<div class="g-res-item${h.accent?' g-res-accent':''}" data-i="${i}" onmousedown="event.preventDefault();gsPick(${i})">
-    <span class="g-res-tag" style="${h.accent?'color:var(--accent-d)':''}">${h.tag}</span>
-    <span class="g-res-main" style="${h.accent?'color:var(--accent-d);font-weight:500':''}">${aiEsc(h.main)}</span>
-    ${h.sub?`<span class="g-res-sub">${aiEsc(h.sub)}</span>`:''}
-  </div>`).join('');
-  res._hits=hits;res.style.display='block';
-}
-function gsPick(i){const res=document.getElementById('gsRes');const h=res._hits&&res._hits[i];if(h){gsHide();document.getElementById('gsInput').value='';h.fn();}}
-function gsHide(){const res=document.getElementById('gsRes');if(res)res.style.display='none';}
-function gsKey(e){const res=document.getElementById('gsRes');if(!res._hits)return;if(e.key==='ArrowDown'){GS_IDX=Math.min(GS_IDX+1,res._hits.length-1);[...res.querySelectorAll('.g-res-item')].forEach((el,i)=>el.style.background=i===GS_IDX?'var(--surface2)':'');}else if(e.key==='ArrowUp'){GS_IDX=Math.max(GS_IDX-1,0);[...res.querySelectorAll('.g-res-item')].forEach((el,i)=>el.style.background=i===GS_IDX?'var(--surface2)':'');}else if(e.key==='Enter'){gsPick(GS_IDX);}else if(e.key==='Escape'){gsHide();document.getElementById('gsInput').value='';}}
-
 /* ===== SCADENZIARIO ===== */
 let SCAD_GROUP=false;
 let SCAD_CLI='';

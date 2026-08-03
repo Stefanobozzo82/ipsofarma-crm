@@ -1831,21 +1831,39 @@ async function genOF(id){const oc=DB.ordiniCliente.find(o=>o.id===id);if(!oc)ret
   toast(parts.join(' · '));
   const first=created[0]||updated[0];
   MOD='of';SEL={coll:'ordiniFornitore',item:first};render();document.getElementById('content').scrollTo(0,0);openOFEdit(first.id);}
-// Cerca lotto/scadenza per un codice prodotto tra le fatture fornitore collegate a un ordine fornitore
+// Cerca tutti i lotti/scadenze di un codice prodotto tra le fatture fornitore collegate a un ordine fornitore.
+// Ritorna un array {lotto,scad,qty} (uno per lotto realmente ricevuto), in ordine FIFO (più vecchio prima),
+// così una singola riga cliente può essere spezzata su più lotti se il prodotto è arrivato in più partite.
 function lotScadFromOF(ofNums,cod){
-  if(!ofNums||!cod)return null;
+  if(!ofNums||!cod)return [];
   const list=Array.isArray(ofNums)?ofNums:[ofNums];
+  const lots=[];
   for(const ofNum of list){
     const of=DB.ordiniFornitore.find(o=>o.num===ofNum);if(!of)continue;
     const nums=(of.ftfIds&&of.ftfIds.length)?of.ftfIds:(of.ftfId?[of.ftfId]:[]);
     if(!nums.length)continue;
-    const ftfs=nums.map(n=>DB.fattureFornitore.find(f=>f.num===n)).filter(Boolean).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+    const ftfs=nums.map(n=>DB.fattureFornitore.find(f=>f.num===n)).filter(Boolean).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
     for(const ftf of ftfs){
-      const line=ftf.righe.find(r=>r.cod===cod&&(r.lotto||r.scad));
-      if(line)return{lotto:line.lotto||'',scad:line.scad||''};
+      ftf.righe.forEach(r=>{if(r.cod===cod&&(r.lotto||r.scad))lots.push({lotto:r.lotto||'',scad:r.scad||'',qty:r.qty||0});});
     }
   }
-  return null;
+  return lots;
+}
+// Spezza una riga (qty pezzi di cod) sui lotti realmente ricevuti dal fornitore collegato,
+// producendo una riga per ogni lotto coinvolto invece di attribuire tutto il quantitativo a un solo lotto.
+function splitRigaByLots(base,ofNums,qty){
+  const lots=lotScadFromOF(ofNums,base.cod);
+  if(!lots.length)return[{...base,qty,lotto:'',scad:''}];
+  let remaining=qty;const rows=[];
+  for(const lot of lots){
+    if(remaining<=0)break;
+    const q=Math.min(remaining,lot.qty);
+    if(q<=0)continue;
+    rows.push({...base,qty:q,lotto:lot.lotto,scad:lot.scad});
+    remaining-=q;
+  }
+  if(remaining>0)rows.push({...base,qty:remaining,lotto:lots[lots.length-1].lotto,scad:lots[lots.length-1].scad});
+  return rows;
 }
 // Quantità di un prodotto già fatturata dal fornitore (arrivo imminente) tra gli ordini fornitore collegati a un OC
 function ofInvoicedQty(ofNums,cod){
@@ -1862,7 +1880,7 @@ let DDTR=[];
 function openDDTForm(id){
   const oc=DB.ordiniCliente.find(o=>o.id===id);if(!oc)return;
   const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));
-  DDTR=oc.righe.map((r,i)=>{const sped=r.qtyEv||0,rest=Math.max(0,r.qty-sped);const ls=lotScadFromOF(ofNums,r.cod);return{i,cod:r.cod,descr:r.descr,qtyOrd:r.qty,sped,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};});
+  DDTR=oc.righe.flatMap((r,i)=>{const sped=r.qtyEv||0,rest=Math.max(0,r.qty-sped);const base={i,cod:r.cod,descr:r.descr,qtyOrd:r.qty,sped,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva};return rest>0?splitRigaByLots(base,ofNums,rest):[{...base,qty:0,lotto:'',scad:''}];});
   const cli=cliente(oc.clienteId);
   document.getElementById('modal').innerHTML=`
     <div class="modal-head"><h3>Consegna (DDT) — ordine ${oc.num}</h3><button class="x" onclick="closeModal()">×</button></div>
@@ -4522,7 +4540,7 @@ function aiNorm(s){return (s||'').toLowerCase();}
 function aiInPeriod(d,p){if(!p)return true;d=d||'';if(typeof p==='string')return d.startsWith(p);if(p.month&&p.year)return d.startsWith(p.year+'-'+String(p.month).padStart(2,'0'));if(p.from&&d<p.from)return false;if(p.to&&d>p.to)return false;return true;}
 function aiPeriodLabel(p){if(!p)return '';if(typeof p==='string'){const x=p.split('-');const nm=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];return x[1]?(nm[parseInt(x[1])-1]||'')+' '+x[0]:x[0];}return (p.from||'')+'–'+(p.to||'');}
 function aiFindOC(ref){ref=String(ref==null?'':ref).trim();if(!ref)return null;let o=DB.ordiniCliente.find(x=>x.num.toLowerCase()===ref.toLowerCase());if(o)return o;const dg=ref.replace(/\D/g,'');if(dg){const n=parseInt(dg);o=DB.ordiniCliente.find(x=>parseInt((x.num.split('/').pop()||'0'))===n);}return o||null;}
-function aiGenDDT(oc){const righe=oc.righe.map(r=>{const rest=Math.max(0,r.qty-(r.qtyEv||0));const ls=lotScadFromOF(oc.ofId,r.cod);return{cod:r.cod,descr:r.descr,qty:rest,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:ls?ls.lotto:'',scad:ls?ls.scad:''};}).filter(r=>r.qty>0);if(!righe.length)return null;const ddt={id:uid('ddt'),num:nextNum('DDT'),data:today(),clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null,note:oc.note||''};DB.ddt.push(ddt);oc.righe.forEach(r=>{r.qtyEv=r.qty;});oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;updateOFfromOC(oc.num,righe);return ddt;}
+function aiGenDDT(oc){const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));const righe=oc.righe.flatMap(r=>{const rest=Math.max(0,r.qty-(r.qtyEv||0));if(rest<=0)return[];return splitRigaByLots({cod:r.cod,descr:r.descr,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva},ofNums,rest);});if(!righe.length)return null;const ddt={id:uid('ddt'),num:nextNum('DDT'),data:today(),clienteId:oc.clienteId,destId:oc.destId||null,righe,ocId:oc.num,ftId:null,note:oc.note||''};DB.ddt.push(ddt);oc.righe.forEach(r=>{r.qtyEv=r.qty;});oc.ddtIds=[...(oc.ddtIds||[]),ddt.num];oc.ddtId=ddt.num;updateOFfromOC(oc.num,righe);return ddt;}
 function aiGenFT(ddt){if(ddt.ftId)return null;const ft={id:uid('ft'),num:nextNum('FT'),data:today(),clienteId:ddt.clienteId,destId:ddt.destId||null,righe:ddt.righe.map(r=>({...r})),ddtId:ddt.num,ocId:ddt.ocId,note:ddt.note||''};DB.fattureCliente.push(ft);ddt.ftId=ft.num;const oc=DB.ordiniCliente.find(o=>o.num===ddt.ocId);if(oc){oc.ftIds=[...(oc.ftIds||[]),ft.num];oc.ftId=ft.num;}return ft;}
 function aiGenOF(oc){return genOFFromOC(oc);}
 function aiFindProd(q){

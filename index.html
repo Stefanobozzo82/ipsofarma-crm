@@ -1119,7 +1119,6 @@ function dashboard(){
   const ncTot=nc.reduce((s,n)=>s+tot(n.righe),0);
   const vendTot=fc.reduce((s,f)=>s+tot(f.righe),0)-ncTot;
   const acqTot=ff.reduce((s,f)=>s+tot(f.righe),0);
-  const margine=vendTot-acqTot;
   const ftOpen=fc.filter(f=>payState(f).state!=='completo');
   const ftfOpen=ff.filter(f=>payState(f).state!=='completo');
   const daInc=ftOpen.reduce((s,f)=>s+payState(f).residuo,0);
@@ -1131,10 +1130,9 @@ function dashboard(){
   const data=buildMonthly();MONTHLY=data;
   const chips=`<div class="dash-period"><button class="${DASHY===''?'on':''}" onclick="setDashY('')">Tutti</button>${years.map(y=>`<button class="${DASHY===y?'on':''}" onclick="setDashY('${y}')">${y}</button>`).join('')}</div>`;
   return `<div class="page-head"><div class="page-title" style="margin:0">Dashboard</div>${chips}</div>
-  <div class="stats">
+  <div class="stats" style="grid-template-columns:repeat(2,1fr)">
     ${stat('Totale fatturato',eur0(vendTot),fc.length+' fatture cliente'+(nc.length?' − '+nc.length+' note di credito':'')+' · IVA incl.','var(--accent-d)','ft')}
     ${stat('Totale acquisti',eur0(acqTot),ff.length+' fatture fornitore · IVA incl.','var(--violet)','ftf')}
-    ${stat('Totale margine',eur0(margine),'Fatturato − acquisti · IVA incl.',margine>=0?'var(--accent-d)':'var(--red)')}
   </div>
   <div class="stats" style="grid-template-columns:repeat(2,1fr)">
     ${stat('Da incassare dai clienti',eur0(daInc),ftOpen.length+' fatture cliente aperte','var(--amber)','ft')}

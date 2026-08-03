@@ -1874,8 +1874,7 @@ function ofInvoicedQty(ofNums,cod){
   let q=0;
   for(const ofNum of list){
     const of=DB.ordiniFornitore.find(o=>o.num===ofNum);if(!of)continue;
-    const line=of.righe.find(r=>r.cod===cod);
-    if(line)q+=line.qtyFatt||0;
+    of.righe.filter(r=>r.cod===cod).forEach(r=>{q+=r.qtyFatt||0;});
   }
   return q;
 }
@@ -1919,7 +1918,7 @@ function updDDTL(i,k,v){DDTR[i][k]=String(v||'');}
 function markOFReceived(of,righe){
   if(!of||!righe)return;
   righe.forEach(r=>{
-    let ofr=of.righe.find(x=>x.cod===r.cod);
+    let ofr=of.righe.find(x=>x.cod===r.cod&&(x.qtyEv||0)<x.qty)||of.righe.find(x=>x.cod===r.cod);
     if(!ofr){ofr={cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyEv:0};of.righe.push(ofr);}
     ofr.qtyEv=Math.min(ofr.qty,(ofr.qtyEv||0)+r.qty);
   });
@@ -1928,7 +1927,9 @@ function markOFReceived(of,righe){
 function markOFInvoiced(of,righe){
   if(!of||!righe)return;
   righe.forEach(r=>{
-    let ofr=of.righe.find(x=>x.cod===r.cod);
+    // Se lo stesso codice compare su più righe (es. sconto merce 100% su riga separata),
+    // riempi prima quella con capienza residua invece di saturare sempre la prima trovata.
+    let ofr=of.righe.find(x=>x.cod===r.cod&&(x.qtyFatt||0)<x.qty)||of.righe.find(x=>x.cod===r.cod);
     if(!ofr){ofr={cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,qtyFatt:0};of.righe.push(ofr);}
     ofr.qtyFatt=Math.min(ofr.qty,(ofr.qtyFatt||0)+r.qty);
   });
@@ -1942,7 +1943,7 @@ function updateOFfromOC(ocNum,righeConsegnate){
   let added=false;
   righeConsegnate.forEach(dr=>{
     let target=null,ofr=null;
-    for(const of of ofs){const r=of.righe.find(x=>x.cod===dr.cod);if(r){target=of;ofr=r;break;}}
+    for(const of of ofs){const r=of.righe.find(x=>x.cod===dr.cod&&(x.qtyEv||0)<x.qty)||of.righe.find(x=>x.cod===dr.cod);if(r){target=of;ofr=r;break;}}
     if(!ofr){
       // Prodotto non presente su nessun ordine fornitore collegato (es. aggiunto sull'OC dopo aver generato gli OF): lo aggiungiamo al fornitore giusto (o al primo OF se ignoto)
       const prod=allProdotti().find(x=>x.codice===dr.cod);

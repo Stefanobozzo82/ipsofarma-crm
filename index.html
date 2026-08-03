@@ -1867,6 +1867,18 @@ function lotScadFromOF(ofNums,cod){
   }
   return null;
 }
+// Quantità di un prodotto già fatturata dal fornitore (arrivo imminente) tra gli ordini fornitore collegati a un OC
+function ofInvoicedQty(ofNums,cod){
+  if(!ofNums||!cod)return 0;
+  const list=Array.isArray(ofNums)?ofNums:[ofNums];
+  let q=0;
+  for(const ofNum of list){
+    const of=DB.ordiniFornitore.find(o=>o.num===ofNum);if(!of)continue;
+    const line=of.righe.find(r=>r.cod===cod);
+    if(line)q+=line.qtyFatt||0;
+  }
+  return q;
+}
 let DDTR=[];
 function openDDTForm(id){
   const oc=DB.ordiniCliente.find(o=>o.id===id);if(!oc)return;
@@ -4764,12 +4776,14 @@ function evadereView(){
   const rows=[];
   DB.ordiniCliente.forEach(function(o){
     if(evasione(o).state==='completo')return;
+    var ofNums=(o.ofIds&&o.ofIds.length?o.ofIds:(o.ofId?[o.ofId]:[]));
     o.righe.forEach(function(r){
       var res=Math.max(0,(r.qty||0)-(r.qtyEv!=null?r.qtyEv:0));
       if(res<=0)return;
+      var qtyArr=Math.min(res,ofInvoicedQty(ofNums,r.cod));
       rows.push({ocNum:o.num,ocId:o.id,data:o.data,clienteId:o.clienteId,
         cliente:(cl[o.clienteId]||{}).nome||'?',
-        cod:r.cod,descr:r.descr,qtyOrd:r.qty,qtyEv:r.qtyEv||0,qtyRes:res,
+        cod:r.cod,descr:r.descr,qtyOrd:r.qty,qtyEv:r.qtyEv||0,qtyRes:res,qtyArr:qtyArr,
         val:tot([Object.assign({},r,{qty:res})])});
     });
   });
@@ -4801,11 +4815,12 @@ function evadereView(){
       return 0;
     });
     var trs=sortedRows.map(function(r){
+      var arrBadge=r.qtyArr>0?(' <span class="pill '+(r.qtyArr>=r.qtyRes?'p-blue':'p-amber')+'" style="font-size:9.5px">📦 in arrivo'+(r.qtyArr<r.qtyRes?' '+r.qtyArr+'/'+r.qtyRes:'')+'</span>'):'';
       return '<tr>'
         +'<td class="code" style="cursor:pointer;color:var(--blue)" onclick="openDoc(\'ordiniCliente\',\''+r.ocId+'\')">' +r.ocNum+'</td>'
         +'<td>'+fdate(r.data)+'</td>'
         +'<td class="code cod-link" style="cursor:pointer" onclick="openProdByCode(\''+r.cod+'\')">' +r.cod+'</td>'
-        +'<td>'+aiEsc(r.descr)+'</td>'
+        +'<td>'+aiEsc(r.descr)+arrBadge+'</td>'
         +'<td class="num">'+r.qtyOrd+'</td>'
         +'<td class="num">'+r.qtyEv+'</td>'
         +'<td class="num" style="font-weight:700;color:var(--accent-d)">'+r.qtyRes+'</td>'

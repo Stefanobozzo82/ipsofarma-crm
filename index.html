@@ -936,8 +936,8 @@ const eur=n=>'€ '+(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maxi
 const eur0=n=>'€ '+Math.round(n||0).toLocaleString('it-IT',{maximumFractionDigits:0});
 const fdate=s=>{const[y,m,d]=s.split('-');return `${d}/${m}/${y}`;};
 const today=()=>new Date().toISOString().slice(0,10);
-const COLL_BY_T={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito'};
-function maxDocNum(t){const coll=COLL_BY_T[t];if(!coll||!DB[coll])return 0;let mx=0;const re=new RegExp('^'+t+'\\/\\d{4}\\/(\\d+)$');DB[coll].forEach(d=>{const m=String(d.num||'').match(re);if(m){const n=parseInt(m[1]);if(n>mx)mx=n;}});return mx;}
+const COLL_BY_T={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:['fattureCliente','noteCredito'],FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito'};
+function maxDocNum(t){const colls=[].concat(COLL_BY_T[t]||[]);let mx=0;const re=new RegExp('^'+t+'\\/\\d{4}\\/(\\d+)$');colls.forEach(coll=>{if(!DB[coll])return;DB[coll].forEach(d=>{const m=String(d.num||'').match(re);if(m){const n=parseInt(m[1]);if(n>mx)mx=n;}});});return mx;}
 function syncCounter(t){DB.counters[t]=maxDocNum(t)+1;return DB.counters[t];}
 function nextNum(t){syncCounter(t);const n=DB.counters[t]++;return `${t}/${DB.year}/${String(n).padStart(4,'0')}`;}
 function peekNum(t){syncCounter(t);return `${t}/${DB.year}/${String(DB.counters[t]).padStart(4,'0')}`;}
@@ -2618,7 +2618,7 @@ function openNCForm(ftId){
     <div class="modal-body">
       ${ft?`<p class="ai-intro">Righe riprese dalla fattura ${ft.num}: elimina quelle che non vanno stornate o correggi le quantità, poi salva.</p>`:''}
       <div class="field"><label>Cliente</label><select id="f-cli" ${ft?'disabled':''} onchange="onClientePick()">${opts}</select></div>
-      <div class="row2"><div class="field"><label>Numero nota di credito</label><input id="f-num" value="${peekNum('NC')}"></div>
+      <div class="row2"><div class="field"><label>Numero nota di credito</label><input id="f-num" value="${peekNum('FT')}"></div>
         <div class="field"><label>Data</label><input type="date" id="f-data" value="${today()}"></div></div>
       <div class="field"><label>Motivo</label><input id="f-note" placeholder="es. Errore di fatturazione, reso merce…" value="${ft?('A storno (parziale) della fattura '+ft.num).replace(/"/g,'&quot;'):''}"></div>
       <div class="field"><label>Aggiungi prodotto</label>
@@ -2636,7 +2636,7 @@ async function saveNC(ftId){
   if(!righe.length){toast('Aggiungi almeno una riga');return;}
   const note=(document.getElementById('f-note')||{}).value.trim();
   const ft=ftId?DB.fattureCliente.find(f=>f.id===ftId):null;
-  const nc={id:uid('nc'),num:consumeNum('NC',(document.getElementById('f-num')||{}).value),data,clienteId,righe,ftId:ft?ft.num:null,note};
+  const nc={id:uid('nc'),num:consumeNum('FT',(document.getElementById('f-num')||{}).value),data,clienteId,righe,ftId:ft?ft.num:null,note};
   DB.noteCredito.push(nc);await persist();closeModal();toast('Nota di credito '+nc.num+' creata');MOD='nc';VIEW='list';SEL={coll:'noteCredito',item:nc};render();document.getElementById('content').scrollTo(0,0);
 }
 function openNCEdit(id){
@@ -2668,7 +2668,7 @@ async function saveNCEdit(id){
   nc.clienteId=document.getElementById('f-cli').value;nc.data=document.getElementById('f-data').value;nc.righe=righe;
   nc.note=(document.getElementById('f-note')||{}).value.trim();
   const newnum=((document.getElementById('f-num')||{}).value||'').trim();
-  if(newnum&&newnum!==nc.num){const m=newnum.match(/^NC\/(\d{4})\/(\d+)$/);if(m){const n=parseInt(m[2]);if(DB.counters.NC<=n)DB.counters.NC=n+1;}nc.num=newnum;}
+  if(newnum&&newnum!==nc.num){const m=newnum.match(/^(FT|NC)\/(\d{4})\/(\d+)$/);if(m){const t=m[1],n=parseInt(m[3]);if(DB.counters[t]<=n)DB.counters[t]=n+1;}nc.num=newnum;}
   await persist();closeModal();toast('Nota di credito '+nc.num+' aggiornata');SEL={coll:'noteCredito',item:nc};render();
 }
 function openFTFNew(){

@@ -1318,12 +1318,12 @@ async function markAllEv(coll,id,full){
   toast(full?'Segnato come completo':'Evasione azzerata');SEL={coll,item:it};render();
 }
 function setSort(key){if(SORT.key===key)SORT.dir=SORT.dir==='asc'?'desc':'asc';else{SORT.key=key;SORT.dir=key==='data'?'desc':'asc';}renderContent();}
-function sortVal(key,it,party){
+function sortVal(key,it,party,coll){
   switch(key){
     case 'num':return it.num;
     case 'party':return (party||'').toLowerCase();
     case 'data':return it.data;
-    case 'stato':return statusOf(MOD,it)[1];
+    case 'stato':return coll==='noteCredito'?'Nota di credito':statusOf(MOD,it)[1];
     case 'righe':return it.righe.length;
     case 'imp':return imp(it.righe);
     case 'iva':return ivaT(it.righe);
@@ -1360,12 +1360,13 @@ const FMODS=['ft','ftf','oc','of','ddt','nc'];
 function filteredDocRows(){
   const m=META[MOD];const items=DB[m.coll];
   const isForn=(MOD==='of'||MOD==='ftf');
-  let rows=items.map(it=>({it,party:(isForn?fornitore(it.fornitoreId):cliente(it.clienteId)).nome}));
+  let rows=items.map(it=>({it,party:(isForn?fornitore(it.fornitoreId):cliente(it.clienteId)).nome,coll:m.coll}));
+  if(MOD==='ft')rows=rows.concat((DB.noteCredito||[]).map(it=>({it,party:cliente(it.clienteId).nome,coll:'noteCredito'})));
   if(Q)rows=rows.filter(r=>r.it.num.toLowerCase().includes(Q)||r.party.toLowerCase().includes(Q));
   if(FMODS.includes(MOD)){
     if(FFILT.forn)rows=rows.filter(r=>(isForn?r.it.fornitoreId:r.it.clienteId)===FFILT.forn);
     if(FFILT.dest)rows=rows.filter(r=>FFILT.dest==='__sede__'?!r.it.destId:r.it.destId===FFILT.dest);
-    if(FFILT.paid)rows=rows.filter(r=>docMatchStatus(MOD,r.it,FFILT.paid));
+    if(FFILT.paid)rows=rows.filter(r=>r.coll!=='noteCredito'&&docMatchStatus(MOD,r.it,FFILT.paid));
     if(FFILT.from)rows=rows.filter(r=>(r.it.data||'')>=FFILT.from);
     if(FFILT.to)rows=rows.filter(r=>(r.it.data||'')<=FFILT.to);
   }
@@ -1374,7 +1375,7 @@ function filteredDocRows(){
 function setFFilt(k,v){FFILT[k]=v;if(k==='forn')FFILT.dest='';PICK.clear();renderContent();}
 function clearFFilt(){FFILT={forn:'',paid:'',from:'',to:'',dest:''};PICK.clear();renderContent();}
 function togglePick(id){PICK.has(id)?PICK.delete(id):PICK.add(id);renderContent();}
-function toggleAll(ch){if(ch)filteredDocRows().forEach(r=>PICK.add(r.it.id));else PICK.clear();renderContent();}
+function toggleAll(ch){if(ch)filteredDocRows().filter(r=>r.coll!=='noteCredito').forEach(r=>PICK.add(r.it.id));else PICK.clear();renderContent();}
 function clearPick(){PICK.clear();renderContent();}
 
 async function bulkDownloadPDF(){
@@ -1508,7 +1509,7 @@ function listView(){
   const inv=(MOD==='ft'||MOD==='ftf'||MOD==='ddt');
   let rows=filteredDocRows();
   const dir=SORT.dir==='asc'?1:-1;
-  rows.sort((a,b)=>{const va=sortVal(SORT.key,a.it,a.party),vb=sortVal(SORT.key,b.it,b.party);
+  rows.sort((a,b)=>{const va=sortVal(SORT.key,a.it,a.party,a.coll),vb=sortVal(SORT.key,b.it,b.party,b.coll);
     let c;
     if(typeof va==='number'&&typeof vb==='number')c=(va-vb)*dir;
     else c=String(va).localeCompare(String(vb),'it',{numeric:true})*dir;
@@ -1563,15 +1564,16 @@ function listView(){
       ${canPaid&&anyPaid?`<button class="btn sm" onclick="bulkPaid(false)">↺ Segna ${lbl[1]}</button>`:''}
       <button class="btn sm" style="background:#1a5c40;border:none;color:#cfe9dd" onclick="bulkDownloadPDF()">📄 Scarica PDF</button>
       <button class="btn sm ghost" style="border:1px solid #1a6b4d;color:#cfe9dd;background:transparent" onclick="clearPick()">✕ Deseleziona</button></div>`;}
-  const allCk=inv&&rows.every(r=>PICK.has(r.it.id));
+  const fatturaRows=rows.filter(r=>r.coll!=='noteCredito');
+  const allCk=inv&&fatturaRows.length>0&&fatturaRows.every(r=>PICK.has(r.it.id));
   const chkHead=inv?`<div class="dr-check"><input type="checkbox" ${allCk?'checked':''} onclick="event.stopPropagation();toggleAll(this.checked)"></div>`:'';
   return head+bulk+`<div class="dlist ${inv?'with-check':''}">
     <div class="dhead">${chkHead}${sh('num','Numero')}${sh('party',isForn?'Fornitore':'Cliente')}${sh('data','Data')}${sh('stato','Stato')}${sh('imp','Imponibile','rt')}${sh('iva','IVA','rt')}${sh('tot','Totale','rt')}</div>
-    ${rows.map(({it,party})=>{const[c,l]=statusOf(MOD,it);const chk=inv?`<div class="dr-check"><input type="checkbox" ${PICK.has(it.id)?'checked':''} onclick="event.stopPropagation();togglePick('${it.id}')"></div>`:'';
+    ${rows.map(({it,party,coll})=>{const isNC=coll==='noteCredito';const[c,l]=isNC?['p-gray','Nota di credito']:statusOf(MOD,it);const chk=inv?(isNC?'<div class="dr-check"></div>':`<div class="dr-check"><input type="checkbox" ${PICK.has(it.id)?'checked':''} onclick="event.stopPropagation();togglePick('${it.id}')"></div>`):'';
       const partyObj=isForn?null:DB.clienti.find(x=>x.id===it.clienteId);
       const destObj=(it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
       const destSub=destObj?`<div style="font-size:11px;color:var(--muted);margin-top:1px">📍 ${aiEsc(destObj.nome||destObj.citta||'Sede')}</div>`:'';
-      return `<div class="drow" onclick="openDoc('${m.coll}','${it.id}')">
+      return `<div class="drow" onclick="openDoc('${coll}','${it.id}')">
       ${chk}<div class="dr-num t-num">${it.num}</div>
       <div class="dr-party t-party">${party}${destSub}</div>
       <div class="dr-date t-mut">${fdate(it.data)}</div>
@@ -5125,7 +5127,8 @@ function buildExportRows(){
       const row={Numero:it.num,Data:it.data,Controparte:party};
       if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
       row['Totale €']=parseFloat(tot(it.righe||[]).toFixed(2));
-      if(MOD!=='prev'&&MOD!=='nc')row.Stato=it.paid?'Pagata':'Aperta';
+      if(r.coll==='noteCredito')row.Stato='Nota di credito';
+      else if(MOD!=='prev'&&MOD!=='nc')row.Stato=it.paid?'Pagata':'Aperta';
       return row;
     });
   }

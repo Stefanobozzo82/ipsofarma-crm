@@ -468,6 +468,7 @@ table.lines tr:last-child td{border-bottom:none}
 .dash-period button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .stat-go{cursor:pointer;transition:transform .08s,box-shadow .12s}
 .stat-go:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.09)}
+.stat-active{border-color:var(--accent-d);box-shadow:0 0 0 2px var(--accent-d) inset}
 .stat-go::after{content:'›';position:absolute;top:12px;right:14px;color:var(--faint);font-size:18px;font-weight:700}
 .stat{position:relative}
 .prod-search input{width:300px;max-width:60vw}
@@ -1051,7 +1052,7 @@ function animateContentIn(){
   if(!el||!el.animate)return;
   el.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease'});
 }
-function nav(id){MOD=id;SEL=null;Q='';QRAW='';SORT=defSort(id);PICK.clear();PLIMIT=300;FFILT={forn:'',paid:'',from:'',to:'',dest:''};const _s=document.getElementById('search');if(_s)_s.value='';document.getElementById('sidebar').classList.remove('open');render();animateContentIn();}
+function nav(id){MOD=id;SEL=null;Q='';QRAW='';SORT=defSort(id);PICK.clear();PLIMIT=300;FFILT={forn:'',paid:'',from:'',to:'',dest:''};if(id==='evadere')EV_ARRIVO_ONLY=false;const _s=document.getElementById('search');if(_s)_s.value='';document.getElementById('sidebar').classList.remove('open');render();animateContentIn();}
 function backList(){SEL=null;render();animateContentIn();}
 function onSearch(v){QRAW=v;Q=v.toLowerCase();PLIMIT=300;PICK.clear();renderContent();const si=document.getElementById('psearch');if(si){si.focus();const L=si.value.length;try{si.setSelectionRange(L,L);}catch(e){}}}
 
@@ -4772,8 +4773,10 @@ function setupModalDrag(){
 /* ===== PRODOTTI DA EVADERE ===== */
 var EVSORT={col:'cliente',dir:1};
 var RCSORT={col:'fornitore',dir:1};
+var EV_ARRIVO_ONLY=false;
 
 function evSort(col){if(EVSORT.col===col)EVSORT.dir*=-1;else{EVSORT.col=col;EVSORT.dir=1;}document.getElementById('content').innerHTML=evadereView();}
+function toggleEvArrivo(){EV_ARRIVO_ONLY=!EV_ARRIVO_ONLY;document.getElementById('content').innerHTML=evadereView();}
 function evadereView(){
   if(!DB||!DB.ordiniCliente)return '<div class="t-mut" style="padding:32px">Caricamento...</div>';
   const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
@@ -4788,18 +4791,19 @@ function evadereView(){
       rows.push({ocNum:o.num,ocId:o.id,data:o.data,clienteId:o.clienteId,
         cliente:(cl[o.clienteId]||{}).nome||'?',
         cod:r.cod,descr:r.descr,qtyOrd:r.qty,qtyEv:r.qtyEv||0,qtyRes:res,qtyArr:qtyArr,
-        val:tot([Object.assign({},r,{qty:res})])});
+        val:tot([Object.assign({},r,{qty:res})]),
+        valArr:qtyArr>0?tot([Object.assign({},r,{qty:qtyArr})]):0});
     });
   });
+  var arrivoTot=rows.reduce(function(s,r){return s+r.valArr;},0);
+  var displayRows=EV_ARRIVO_ONLY?rows.filter(function(r){return r.qtyArr>0;}):rows;
   var byClient={};
-  rows.forEach(function(r){
+  displayRows.forEach(function(r){
     if(!byClient[r.clienteId])byClient[r.clienteId]={nome:r.cliente,rows:[],tot:0};
     byClient[r.clienteId].rows.push(r);
     byClient[r.clienteId].tot+=r.val;
   });
   var totaleTot=rows.reduce(function(s,r){return s+r.val;},0);
-  var totOrd=new Set(rows.map(function(r){return r.ocNum;})).size;
-  var nCli=Object.keys(byClient).length;
   var sectionList=Object.values(byClient);
   sectionList.sort(function(a,b){
     if(EVSORT.col==='cliente'||EVSORT.col==='ordine'||EVSORT.col==='data'||EVSORT.col==='cod'||EVSORT.col==='descr'){
@@ -4853,12 +4857,11 @@ function evadereView(){
     +'<div class="page-title">Prodotti da evadere</div>'
     +'<button class="btn" onclick="nav(\'oc\');FFILT.paid=\'inevaso\';renderTop();renderContent()">Lista ordini \u2192</button>'
     +'</div>'
-    +'<div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">'
+    +'<div class="stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:16px">'
     +stat('Valore da consegnare',eur0(totaleTot),'IVA inclusa','var(--blue)','')
-    +stat('Righe prodotto',String(rows.length),'in '+totOrd+' ordini','var(--accent-d)','')
-    +stat('Clienti con residui',String(nCli),'da evadere','var(--amber)','')
+    +'<div class="stat stat-go'+(EV_ARRIVO_ONLY?' stat-active':'')+'" onclick="toggleEvArrivo()"><div class="sl">\ud83d\udce6 Prodotti in arrivo</div><div class="sv" style="color:var(--accent-d)">'+eur0(arrivoTot)+'</div><div class="sx">'+(EV_ARRIVO_ONLY?'clic per vedere tutti':'clic per vedere solo questi')+'</div></div>'
     +'</div>'
-    +(rows.length?sections:'<div class="tablecard" style="padding:32px;text-align:center;color:var(--muted)">\u2705 Nessun prodotto da evadere.</div>');
+    +(displayRows.length?sections:'<div class="tablecard" style="padding:32px;text-align:center;color:var(--muted)">'+(EV_ARRIVO_ONLY?'Nessun prodotto in arrivo al momento.':'\u2705 Nessun prodotto da evadere.')+'</div>');
 }
 function rcSort(col){if(RCSORT.col===col)RCSORT.dir*=-1;else{RCSORT.col=col;RCSORT.dir=1;}document.getElementById('content').innerHTML=ricevereView();}
 /* ===== PRODOTTI DA RICEVERE DAI FORNITORI ===== */

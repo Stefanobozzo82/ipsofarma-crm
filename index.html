@@ -1933,6 +1933,17 @@ function markOFInvoiced(of,righe){
     ofr.qtyFatt=Math.min(ofr.qty,(ofr.qtyFatt||0)+r.qty);
   });
 }
+// Ricalcola da zero le quantità fatturate (qtyFatt) di un ordine fornitore sulla base di TUTTE le
+// fatture fornitore attualmente collegate. Da richiamare ogni volta che una fattura collegata viene
+// creata, modificata o scollegata, così qtyFatt resta sempre coerente con ciò che è davvero collegato
+// (invece di accumulare per singola azione, cosa che rischia di disallinearsi dopo una modifica).
+function resyncOFInvoiced(of){
+  if(!of)return;
+  of.righe.forEach(r=>{r.qtyFatt=0;});
+  const nums=(of.ftfIds&&of.ftfIds.length)?of.ftfIds:(of.ftfId?[of.ftfId]:[]);
+  const ftfs=nums.map(n=>DB.fattureFornitore.find(f=>f.num===n)).filter(Boolean).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  ftfs.forEach(ftf=>markOFInvoiced(of,ftf.righe));
+}
 // Scala le quantità sull'ordine fornitore collegato all'OC
 function updateOFfromOC(ocNum,righeConsegnate){
   const oc=DB.ordiniCliente.find(o=>o.num===ocNum);if(!oc)return;
@@ -2076,9 +2087,9 @@ async function doRemove(coll,id){
     oc.ftId=oc.ftIds.length?oc.ftIds[oc.ftIds.length-1]:null;
   }}
   if(coll==='fattureFornitore'){const of=DB.ordiniFornitore.find(o=>o.num===it.ofId);if(of){
-    it.righe.forEach(fr=>{const ln=of.righe.find(x=>x.cod===fr.cod);if(ln)ln.qtyEv=Math.max(0,(ln.qtyEv||0)-fr.qty);});
     of.ftfIds=(of.ftfIds||[]).filter(n=>n!==it.num);
     of.ftfId=of.ftfIds.length?of.ftfIds[of.ftfIds.length-1]:null;
+    resyncOFInvoiced(of);
   }}
   DB[coll]=DB[coll].filter(x=>x.id!==id);
   await persist();toast(it.num+' eliminato');SEL=null;render();
@@ -2207,6 +2218,7 @@ async function saveFTFEdit(id){
   const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));if(!righe.length){toast('Aggiungi almeno una riga');return;}
   f.fornitoreId=document.getElementById('f-forn').value;f.data=document.getElementById('f-data').value;f.righe=righe;
   const nn=((document.getElementById('f-num')||{}).value||'').trim();if(nn)f.num=nn;
+  if(f.ofId){const of=DB.ordiniFornitore.find(o=>o.num===f.ofId);if(of)resyncOFInvoiced(of);}
   await persist();closeModal();toast('Fattura fornitore '+f.num+' aggiornata');SEL={coll:'fattureFornitore',item:f};render();
 }
 function openOCForm(){
@@ -2719,16 +2731,16 @@ function openFTFLink(id){
 async function saveFTFLink(id){
   const ff=DB.fattureFornitore.find(f=>f.id===id);if(!ff)return;
   const num=(document.getElementById('ftf-of')||{}).value;const of=DB.ordiniFornitore.find(o=>o.num===num);if(!of){toast('Nessun ordine selezionato');return;}
-  if(ff.ofId){const old=DB.ordiniFornitore.find(o=>o.num===ff.ofId);if(old){old.ftfIds=(old.ftfIds||[]).filter(n=>n!==ff.num);old.ftfId=old.ftfIds.length?old.ftfIds[old.ftfIds.length-1]:null;}}
+  if(ff.ofId){const old=DB.ordiniFornitore.find(o=>o.num===ff.ofId);if(old){old.ftfIds=(old.ftfIds||[]).filter(n=>n!==ff.num);old.ftfId=old.ftfIds.length?old.ftfIds[old.ftfIds.length-1]:null;resyncOFInvoiced(old);}}
   ff.ofId=of.num;ff.fornitoreId=of.fornitoreId;
   of.ftfIds=[...(of.ftfIds||[]).filter(n=>n!==ff.num),ff.num];of.ftfId=ff.num;
-  markOFInvoiced(of,ff.righe);
+  resyncOFInvoiced(of);
   await persist();closeModal();toast('Fattura collegata a '+of.num);SEL={coll:'fattureFornitore',item:ff};render();
 }
 async function unlinkFTF(id){
   const ff=DB.fattureFornitore.find(f=>f.id===id);if(!ff||!ff.ofId)return;
   const of=DB.ordiniFornitore.find(o=>o.num===ff.ofId);
-  if(of){of.ftfIds=(of.ftfIds||[]).filter(n=>n!==ff.num);of.ftfId=of.ftfIds.length?of.ftfIds[of.ftfIds.length-1]:null;}
+  if(of){of.ftfIds=(of.ftfIds||[]).filter(n=>n!==ff.num);of.ftfId=of.ftfIds.length?of.ftfIds[of.ftfIds.length-1]:null;resyncOFInvoiced(of);}
   ff.ofId=null;await persist();toast('Collegamento rimosso');SEL={coll:'fattureFornitore',item:ff};render();
 }
 async function saveFTFNew(){
@@ -2740,7 +2752,7 @@ async function saveFTFNew(){
   const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));if(!righe.length){toast('Aggiungi almeno una riga');return;}
   const f={id:uid('ftf'),num,data,fornitoreId,righe,ofId:of?of.num:null,paid:false,paidDate:null};
   DB.fattureFornitore.push(f);
-  if(of){of.ftfIds=[...(of.ftfIds||[]),f.num];of.ftfId=f.num;markOFInvoiced(of,righe);}
+  if(of){of.ftfIds=[...(of.ftfIds||[]),f.num];of.ftfId=f.num;resyncOFInvoiced(of);}
   await persist();closeModal();toast('Fattura fornitore '+f.num+' creata'+(of?' · collegata a '+of.num:''));MOD='ftf';VIEW='list';SEL={coll:'fattureFornitore',item:f};render();
 }
 function openOFForm(){
@@ -3492,7 +3504,7 @@ async function xmlImpImport(){
     if(p.order_ref){const on=String(p.order_ref).replace(/\D/g,'');if(on){const oc='OC/2026/'+on.padStart(4,'0');const cands=DB.ordiniFornitore.filter(o=>o.ocId===oc);match=cands.find(o=>o.fornitoreId===f.id)||cands[0]||null;if(!match){const o=DB.ordiniCliente.find(x=>x.num===oc);if(o){const ofNums=(o.ofIds&&o.ofIds.length?o.ofIds:(o.ofId?[o.ofId]:[]));const cands2=ofNums.map(n=>DB.ordiniFornitore.find(x=>x.num===n)).filter(Boolean);match=cands2.find(x=>x.fornitoreId===f.id)||cands2[0]||null;}}}}
     const ff={id:uid('ftf'),num:p.number,data:p.date||today(),fornitoreId:f.id,righe:p.lines.map(l=>({cod:l.cod,descr:l.descr,qty:l.qty,prezzo:l.prezzo,sconto:l.sconto||0,iva:l.iva,lotto:l.lotto||'',scad:l.scad||''})),ofId:match?match.num:null,paid:false,paidDate:null};
     DB.fattureFornitore.push(ff);add++;
-    if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;markOFInvoiced(match,ff.righe);linked++;}
+    if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;resyncOFInvoiced(match);linked++;}
     if(it.msgId)consumedMsgIds.push(it.msgId);
   }
   await persist();closeModal();toast('Importate '+add+' fatture fornitore'+(linked?' · '+linked+' collegate a ordini':'')+(newp?' · '+newp+' fornitori nuovi':'')+(skip?' · '+skip+' già presenti':''));
@@ -4652,7 +4664,7 @@ function aiResolve(a){
       if(!f){f={id:uid('f'),nome:sname,piva:'',cf:'',sdi:'',pec:'',via:'',cap:'',citta:'',prov:'',pag:'',iban:'',tel:'',email:'',note:'Creato da fattura PDF/AI'};DB.fornitori.push(f);isnew=true;}
       const ff={id:uid('ftf'),num:num||('FTF/2026/'+String(Date.now()).slice(-4)),data:a.date||today(),fornitoreId:f.id,righe:lines.map(l=>({cod:l.cod,descr:l.descr,qty:l.qty,prezzo:l.prezzo,sconto:l.sconto||0,iva:l.iva,lotto:l.lotto||'',scad:l.scad||''})),ofId:match?match.num:null,paid:false,paidDate:null};
       DB.fattureFornitore.push(ff);
-      if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;}
+      if(match){match.ftfIds=[...(match.ftfIds||[]).filter(n=>n!==ff.num),ff.num];match.ftfId=ff.num;resyncOFInvoiced(match);}
       return 'Fattura fornitore '+ff.num+' registrata per '+f.nome+(isnew?' (nuovo fornitore)':'')+(match?' e collegata a '+match.num:'')+' ('+ff.righe.length+' righe)';
     }:null};
   }

@@ -1,3 +1,128 @@
 {
-  "items": []
+  "items": [
+    {
+      "addedAt": "2026-08-04T08:10:41.645Z",
+      "msgId": "19fcba70ad0b2426",
+      "file": "5718107726.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718107726",
+        "date": "2026-08-03",
+        "order_ref": "Rif.cliente Vs.ord. 194",
+        "lines": [
+          {
+            "cod": "4502051-13",
+            "descr": "PENCAN 27GX3 1/2\" (0,4X88MM)",
+            "qty": 2,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26B25H8B05",
+            "scad": "2031-02-01"
+          }
+        ],
+        "totale": 207.4
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-08-04T08:10:41.646Z",
+      "msgId": "19fcba6ee1b9383c",
+      "file": "5718107725.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718107725",
+        "date": "2026-08-03",
+        "order_ref": "Rif.cliente Vs.ord. 193",
+        "lines": [
+          {
+            "cod": "16494C",
+            "descr": "DISCOFIX C - 3 VIE BLU",
+            "qty": 6,
+            "prezzo": 50,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F17D9007",
+            "scad": "2029-06-01"
+          }
+        ],
+        "totale": 366
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-08-04T08:10:41.646Z",
+      "msgId": "19fcba6c498db4e2",
+      "file": "5718107724.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718107724",
+        "date": "2026-08-03",
+        "order_ref": "101",
+        "lines": [
+          {
+            "cod": "5206363",
+            "descr": "ARTERIOFIX V 20G X 80MM",
+            "qty": 20,
+            "prezzo": 8,
+            "sconto": "0",
+            "iva": 5,
+            "lotto": "26F19844",
+            "scad": "2029-06-17"
+          }
+        ],
+        "totale": 168
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-08-04T08:10:41.646Z",
+      "msgId": "19fcba23da7ab11a",
+      "file": "5301021389.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5301021389",
+        "date": "2026-07-31",
+        "order_ref": "Rif.cliente Vs.ord. 172",
+        "lines": [
+          {
+            "cod": "C0068062N1",
+            "descr": "NOVOSYN VIOLA 1 (4) 70CM HR48",
+            "qty": 6,
+            "prezzo": 70.92,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 519.1343999999999
+      },
+      "src": "Gmail"
+    }
+  ]
 }

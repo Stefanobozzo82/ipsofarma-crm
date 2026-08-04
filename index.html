@@ -641,7 +641,15 @@ function mergeCollection(base,local,remote,keyName){
 function mergeAllDocs(base,localDB,remoteDB){
   let anyConflict=false;
   MERGE_COLLS.forEach(c=>{
-    const{result,conflict}=mergeCollection(base?base[c]:[],localDB[c]||[],remoteDB[c]||[],MERGE_KEY[c]);
+    // Se il lato remoto o quello locale non hanno affatto questa chiave (es. una scheda/dispositivo
+    // rimasto aperto con una versione più vecchia del gestionale, che non conosce ancora una
+    // collezione appena introdotta), NON va trattato come "cancellato apposta": altrimenti basta
+    // che quella scheda vecchia salvi nel frattempo per perdere per sempre l'intera collezione
+    // nuova. In quel caso teniamo semplicemente il lato che la conosce, senza fare merge.
+    if(remoteDB[c]===undefined&&localDB[c]===undefined)return; // nessuno dei due la conosce
+    if(remoteDB[c]===undefined)return; // il remoto non la conosce ancora: tieni il locale così com'è
+    if(localDB[c]===undefined){localDB[c]=JSON.parse(JSON.stringify(remoteDB[c]));return;} // il locale non la conosce ancora: prendi il remoto
+    const{result,conflict}=mergeCollection(base?base[c]:[],localDB[c],remoteDB[c],MERGE_KEY[c]);
     localDB[c]=result;if(conflict)anyConflict=true;
   });
   _allProd=null; // il catalogo prodotti può essere stato toccato dal merge: invalida la cache dei prezzi

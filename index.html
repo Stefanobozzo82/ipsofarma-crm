@@ -3392,13 +3392,17 @@ function parseFatturaXML(xml){
   let order_ref='';const ord=G(body,'DatiOrdineAcquisto');if(ord)order_ref=T(ord,'IdDocumento');
   const lines=GA(body,'DettaglioLinee').map(dl=>{
     const ca=G(dl,'CodiceArticolo');
-    let lotto='',scad='';
+    let lotto='',scad='',codProdotto='';
     GA(dl,'AltriDatiGestionali').forEach(adg=>{
       const tipo=(T(adg,'TipoDato')||'').toUpperCase();
       if(tipo.includes('LOTTO')||tipo.includes('PARTITA'))lotto=T(adg,'RiferimentoTesto')||lotto;
       if(tipo.includes('SCAD'))scad=T(adg,'RiferimentoData')||T(adg,'RiferimentoTesto')||scad;
+      // Il codice prodotto del fornitore (quello che corrisponde al nostro codice a catalogo,
+      // es. "PO191R") è quasi sempre qui sotto TipoDato="Prodotto" — non nel <CodiceArticolo>,
+      // che spesso è un EAN o un altro codice del produttore diverso da quello che usiamo noi.
+      if(tipo==='PRODOTTO')codProdotto=T(adg,'RiferimentoTesto')||codProdotto;
     });
-    return{cod:ca?T(ca,'CodiceValore'):'',descr:T(dl,'Descrizione'),qty:xmlNum(T(dl,'Quantita'))||1,prezzo:xmlNum(T(dl,'PrezzoUnitario')),iva:xmlNum(T(dl,'AliquotaIVA')),lotto,scad};
+    return{cod:codProdotto||(ca?T(ca,'CodiceValore'):''),descr:T(dl,'Descrizione'),qty:xmlNum(T(dl,'Quantita'))||1,prezzo:xmlNum(T(dl,'PrezzoUnitario')),iva:xmlNum(T(dl,'AliquotaIVA')),lotto,scad};
   });
   const totale=xmlNum(T(dgd,'ImportoTotaleDocumento'));
   const az=DB.azienda||{};const ap=(az.piva||'').replace(/\D/g,'');

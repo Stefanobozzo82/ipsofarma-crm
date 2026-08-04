@@ -1371,22 +1371,20 @@ function filteredDocRows(){
 function setFFilt(k,v){FFILT[k]=v;if(k==='forn')FFILT.dest='';PICK.clear();renderContent();}
 function clearFFilt(){FFILT={forn:'',paid:'',from:'',to:'',dest:''};PICK.clear();renderContent();}
 function togglePick(id){PICK.has(id)?PICK.delete(id):PICK.add(id);renderContent();}
-function toggleAll(ch){if(ch)filteredDocRows().filter(r=>r.coll!=='noteCredito'&&r.coll!=='noteCreditoFornitore').forEach(r=>PICK.add(r.it.id));else PICK.clear();renderContent();}
+function toggleAll(ch){if(ch)filteredDocRows().forEach(r=>PICK.add(r.it.id));else PICK.clear();renderContent();}
 function clearPick(){PICK.clear();renderContent();}
 
 async function bulkDownloadPDF(){
   if(!PICK.size)return;
-  const m=META[MOD];if(!m||!m.coll)return;
-  const ids=[...PICK];
-  const items=DB[m.coll].filter(x=>ids.includes(x.id));
-  if(!items.length)return;
+  const rows=filteredDocRows().filter(r=>PICK.has(r.it.id));
+  if(!rows.length)return;
   toast('Generazione PDF in corso…');
   try{
     const JsPDF=await loadJsPDF();
     let n=0;
-    for(const item of items){
+    for(const{it:item,coll} of rows){
       const doc=new JsPDF({unit:'mm',format:'a4'});
-      buildDocPDFPage(doc,m.coll,item);
+      buildDocPDFPage(doc,coll,item);
       doc.save(String(item.num).replace(/\//g,'-')+'.pdf');
       n++;
       await new Promise(r=>setTimeout(r,250));
@@ -1553,21 +1551,20 @@ function listView(){
   if(inv&&PICK.size){
     const canPaid=MOD==='ft'||MOD==='ftf';
     const lbl=MOD==='ft'?['incassate','da incassare']:['pagate','da pagare'];
-    const selItems=DB[m.coll].filter(x=>PICK.has(x.id));
-    const anyUnpaid=selItems.some(x=>!x.paid);
-    const anyPaid=selItems.some(x=>x.paid);
+    const selItems=rows.filter(r=>PICK.has(r.it.id)).map(r=>r.it);
+    const anyUnpaid=selItems.some(x=>x.paid===false);
+    const anyPaid=selItems.some(x=>x.paid===true);
     const selTot=selItems.reduce((s,x)=>s+tot(x.righe),0);
     bulk=`<div class="bulkbar"><span>${PICK.size} selezionat${PICK.size===1?'o':'i'} · Totale ${eur(selTot)}</span><div style="flex:1"></div>
       ${canPaid&&anyUnpaid?`<button class="btn sm primary" onclick="bulkPaid(true)">✓ Segna ${lbl[0]}</button>`:''}
       ${canPaid&&anyPaid?`<button class="btn sm" onclick="bulkPaid(false)">↺ Segna ${lbl[1]}</button>`:''}
       <button class="btn sm" style="background:#1a5c40;border:none;color:#cfe9dd" onclick="bulkDownloadPDF()">📄 Scarica PDF</button>
       <button class="btn sm ghost" style="border:1px solid #1a6b4d;color:#cfe9dd;background:transparent" onclick="clearPick()">✕ Deseleziona</button></div>`;}
-  const fatturaRows=rows.filter(r=>r.coll!=='noteCredito'&&r.coll!=='noteCreditoFornitore');
-  const allCk=inv&&fatturaRows.length>0&&fatturaRows.every(r=>PICK.has(r.it.id));
+  const allCk=inv&&rows.length>0&&rows.every(r=>PICK.has(r.it.id));
   const chkHead=inv?`<div class="dr-check"><input type="checkbox" ${allCk?'checked':''} onclick="event.stopPropagation();toggleAll(this.checked)"></div>`:'';
   return head+bulk+`<div class="dlist ${inv?'with-check':''}">
     <div class="dhead">${chkHead}${sh('num','Numero')}${sh('party',isForn?'Fornitore':'Cliente')}${sh('data','Data')}${sh('stato','Stato')}${sh('imp','Imponibile','rt')}${sh('iva','IVA','rt')}${sh('tot','Totale','rt')}</div>
-    ${rows.map(({it,party,coll})=>{const isNC=coll==='noteCredito'||coll==='noteCreditoFornitore';const[c,l]=isNC?['p-gray','Nota di credito']:statusOf(MOD,it);const chk=inv?(isNC?'<div class="dr-check"></div>':`<div class="dr-check"><input type="checkbox" ${PICK.has(it.id)?'checked':''} onclick="event.stopPropagation();togglePick('${it.id}')"></div>`):'';
+    ${rows.map(({it,party,coll})=>{const isNC=coll==='noteCredito'||coll==='noteCreditoFornitore';const[c,l]=isNC?['p-gray','Nota di credito']:statusOf(MOD,it);const chk=inv?`<div class="dr-check"><input type="checkbox" ${PICK.has(it.id)?'checked':''} onclick="event.stopPropagation();togglePick('${it.id}')"></div>`:'';
       const partyObj=isForn?null:DB.clienti.find(x=>x.id===it.clienteId);
       const destObj=(it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
       const destSub=destObj?`<div style="font-size:11px;color:var(--muted);margin-top:1px">📍 ${aiEsc(destObj.nome||destObj.citta||'Sede')}</div>`:'';

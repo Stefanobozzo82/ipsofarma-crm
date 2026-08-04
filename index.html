@@ -1539,7 +1539,8 @@ function listView(){
     const selItems=DB[m.coll].filter(x=>PICK.has(x.id));
     const anyUnpaid=selItems.some(x=>!x.paid);
     const anyPaid=selItems.some(x=>x.paid);
-    bulk=`<div class="bulkbar"><span>${PICK.size} selezionat${PICK.size===1?'o':'i'}</span><div style="flex:1"></div>
+    const selTot=selItems.reduce((s,x)=>s+tot(x.righe),0);
+    bulk=`<div class="bulkbar"><span>${PICK.size} selezionat${PICK.size===1?'o':'i'} · Totale ${eur(selTot)}</span><div style="flex:1"></div>
       ${canPaid&&anyUnpaid?`<button class="btn sm primary" onclick="bulkPaid(true)">✓ Segna ${lbl[0]}</button>`:''}
       ${canPaid&&anyPaid?`<button class="btn sm" onclick="bulkPaid(false)">↺ Segna ${lbl[1]}</button>`:''}
       <button class="btn sm" style="background:#1a5c40;border:none;color:#cfe9dd" onclick="bulkDownloadPDF()">📄 Scarica PDF</button>

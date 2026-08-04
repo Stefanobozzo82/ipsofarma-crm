@@ -589,7 +589,7 @@ const GH_FILE='backup.json';
  * avvisiamo l'utente (vero conflitto, raro). I documenti nuovi o cancellati
  * su un solo lato vengono aggiunti/rimossi correttamente su entrambi.
  */
-const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','noteCredito','clienti','fornitori','preventivi','prodotti'];
+const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','noteCredito','noteCreditoFornitore','clienti','fornitori','preventivi','prodotti'];
 // I prodotti non hanno un id stabile come gli altri documenti: sono tenuti per 'codice'.
 const MERGE_KEY={prodotti:'codice'};
 let GH_BASE=null;
@@ -882,7 +882,8 @@ function seed(){
     "FT": 1,
     "FTF": 1,
     "PREV": 1,
-    "NC": 1
+    "NC": 1,
+    "NCF": 1
   },
   "year": 2026,
   "clienti": [],
@@ -895,6 +896,7 @@ function seed(){
   "fattureFornitore": [],
   "preventivi": [],
   "noteCredito": [],
+  "noteCreditoFornitore": [],
   "azienda": {
     "nome": "Ipsofarma S.r.l.",
     "via": "",
@@ -918,7 +920,7 @@ const eur=n=>'€ '+(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maxi
 const eur0=n=>'€ '+Math.round(n||0).toLocaleString('it-IT',{maximumFractionDigits:0});
 const fdate=s=>{const[y,m,d]=s.split('-');return `${d}/${m}/${y}`;};
 const today=()=>new Date().toISOString().slice(0,10);
-const COLL_BY_T={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:['fattureCliente','noteCredito'],FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito'};
+const COLL_BY_T={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:['fattureCliente','noteCredito'],FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito',NCF:'noteCreditoFornitore'};
 function maxDocNum(t){const colls=[].concat(COLL_BY_T[t]||[]);let mx=0;const re=new RegExp('^'+t+'\\/\\d{4}\\/(\\d+)$');colls.forEach(coll=>{if(!DB[coll])return;DB[coll].forEach(d=>{const m=String(d.num||'').match(re);if(m){const n=parseInt(m[1]);if(n>mx)mx=n;}});});return mx;}
 function syncCounter(t){DB.counters[t]=maxDocNum(t)+1;return DB.counters[t];}
 function nextNum(t){syncCounter(t);const n=DB.counters[t]++;return `${t}/${DB.year}/${String(n).padStart(4,'0')}`;}
@@ -977,9 +979,9 @@ function toast(m){const t=document.getElementById('toast');document.getElementBy
 function findByNum(num){
   if(!num)return null;
   const t=num.split('/')[0];
-  const coll={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito'}[t];
+  const coll={OC:'ordiniCliente',OF:'ordiniFornitore',DDT:'ddt',FT:'fattureCliente',FTF:'fattureFornitore',PREV:'preventivi',NC:'noteCredito',NCF:'noteCreditoFornitore'}[t];
   if(coll){const item=(DB[coll]||[]).find(x=>x.num===num);if(item)return{coll,item};}
-  for(const c of ['fattureFornitore','ordiniFornitore','ordiniCliente','ddt','fattureCliente','preventivi','noteCredito']){
+  for(const c of ['fattureFornitore','ordiniFornitore','ordiniCliente','ddt','fattureCliente','preventivi','noteCredito','noteCreditoFornitore']){
     const item=(DB[c]||[]).find(x=>String(x.num)===String(num));if(item)return{coll:c,item};
   }
   return null;
@@ -990,7 +992,7 @@ let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'da
 const NAV=[
   {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'}]},
   {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'},{id:'nc',ic:'↩',label:'Note di credito',coll:'noteCredito'}]},
-  {grp:'Acquisti',items:[{id:'of',ic:'📦',label:'Ordini fornitore',coll:'ordiniFornitore'},{id:'ftf',ic:'📑',label:'Fatture fornitore',coll:'fattureFornitore'}]},
+  {grp:'Acquisti',items:[{id:'of',ic:'📦',label:'Ordini fornitore',coll:'ordiniFornitore'},{id:'ftf',ic:'📑',label:'Fatture fornitore',coll:'fattureFornitore'},{id:'ncf',ic:'↩',label:'Note credito fornitori',coll:'noteCreditoFornitore'}]},
   {grp:'Anagrafiche',items:[{id:'clienti',ic:'🏥',label:'Clienti',coll:'clienti'},{id:'fornitori',ic:'🏢',label:'Fornitori',coll:'fornitori'},{id:'prodotti',ic:'⊞',label:'Prodotti',coll:'prodotti'}]},
   {grp:'Impostazioni',items:[{id:'azienda',ic:'⚙',label:'Impostazioni'}]},
 ];
@@ -1008,12 +1010,13 @@ const META={
   nc:{title:'Note di credito',sub:'Storni verso i clienti, anche parziali, con riferimento alla fattura originale.',coll:'noteCredito'},
   of:{title:'Ordini fornitore',sub:'Generati dagli ordini cliente. Registra la fattura alla ricezione.',coll:'ordiniFornitore'},
   ftf:{title:'Fatture fornitore',sub:'Fatture passive registrate dagli ordini fornitore.',coll:'fattureFornitore'},
+  ncf:{title:'Note credito fornitori',sub:'Storni ricevuti dai fornitori, con riferimento alla fattura fornitore originale.',coll:'noteCreditoFornitore'},
   clienti:{title:'Clienti',sub:'Anagrafica clienti.',coll:'clienti'},
   fornitori:{title:'Fornitori',sub:'Anagrafica fornitori.',coll:'fornitori'},
   prodotti:{title:'Prodotti',sub:'Listino Aesculap + i tuoi articoli. Cerca per codice o descrizione.',coll:'prodotti'},
   azienda:{title:'Impostazioni',sub:'Intestazione azienda, impostazioni AI, backup e sicurezza.'},
 };
-function counts(){if(!DB)return{preventivi:0,ordiniCliente:0,ddt:0,fattureCliente:0,noteCredito:0,ordiniFornitore:0,fattureFornitore:0,clienti:0,fornitori:0,prodotti:0};return{preventivi:(DB.preventivi||[]).length,ordiniCliente:(DB.ordiniCliente||[]).length,ddt:(DB.ddt||[]).length,fattureCliente:(DB.fattureCliente||[]).length,noteCredito:(DB.noteCredito||[]).length,ordiniFornitore:(DB.ordiniFornitore||[]).length,fattureFornitore:(DB.fattureFornitore||[]).length,clienti:(DB.clienti||[]).length,fornitori:(DB.fornitori||[]).length,prodotti:allProdotti().length};}
+function counts(){if(!DB)return{preventivi:0,ordiniCliente:0,ddt:0,fattureCliente:0,noteCredito:0,noteCreditoFornitore:0,ordiniFornitore:0,fattureFornitore:0,clienti:0,fornitori:0,prodotti:0};return{preventivi:(DB.preventivi||[]).length,ordiniCliente:(DB.ordiniCliente||[]).length,ddt:(DB.ddt||[]).length,fattureCliente:(DB.fattureCliente||[]).length,noteCredito:(DB.noteCredito||[]).length,noteCreditoFornitore:(DB.noteCreditoFornitore||[]).length,ordiniFornitore:(DB.ordiniFornitore||[]).length,fattureFornitore:(DB.fattureFornitore||[]).length,clienti:(DB.clienti||[]).length,fornitori:(DB.fornitori||[]).length,prodotti:allProdotti().length};}
 
 function renderNav(){
   const c=counts();const od=overdueCount();
@@ -1093,10 +1096,11 @@ function renderContent(){
 function dashboard(){
   const years=[...new Set([...DB.fattureCliente,...DB.fattureFornitore].map(f=>(f.data||'').slice(0,4)).filter(Boolean))].sort();
   const inY=f=>!DASHY||(f.data||'').startsWith(DASHY);
-  const fc=DB.fattureCliente.filter(inY),ff=DB.fattureFornitore.filter(inY),nc=(DB.noteCredito||[]).filter(inY);
+  const fc=DB.fattureCliente.filter(inY),ff=DB.fattureFornitore.filter(inY),nc=(DB.noteCredito||[]).filter(inY),ncf=(DB.noteCreditoFornitore||[]).filter(inY);
   const ncTot=nc.reduce((s,n)=>s+tot(n.righe),0);
+  const ncfTot=ncf.reduce((s,n)=>s+tot(n.righe),0);
   const vendTot=fc.reduce((s,f)=>s+tot(f.righe),0)-ncTot;
-  const acqTot=ff.reduce((s,f)=>s+tot(f.righe),0);
+  const acqTot=ff.reduce((s,f)=>s+tot(f.righe),0)-ncfTot;
   const ftOpen=fc.filter(f=>payState(f).state!=='completo');
   const ftfOpen=ff.filter(f=>payState(f).state!=='completo');
   const daInc=ftOpen.reduce((s,f)=>s+payState(f).residuo,0);
@@ -1110,7 +1114,7 @@ function dashboard(){
   return `<div class="page-head"><div class="page-title" style="margin:0">Dashboard</div>${chips}</div>
   <div class="stats" style="grid-template-columns:repeat(2,1fr)">
     ${stat('Totale fatturato',eur0(vendTot),fc.length+' fatture cliente'+(nc.length?' − '+nc.length+' note di credito':'')+' · IVA incl.','var(--accent-d)','ft')}
-    ${stat('Totale acquisti',eur0(acqTot),ff.length+' fatture fornitore · IVA incl.','var(--violet)','ftf')}
+    ${stat('Totale acquisti',eur0(acqTot),ff.length+' fatture fornitore'+(ncf.length?' − '+ncf.length+' note di credito':'')+' · IVA incl.','var(--violet)','ftf')}
   </div>
   <div class="stats" style="grid-template-columns:repeat(2,1fr)">
     ${stat('Da incassare dai clienti',eur0(daInc),ftOpen.length+' fatture cliente aperte','var(--amber)','ft')}
@@ -1205,6 +1209,7 @@ function statusOf(mod,it){
   if(mod==='ft'){const p=payState(it);return p.state==='completo'?['p-green','Incassata']:p.state==='parziale'?['p-blue','Parziale '+p.pct+'%']:['p-amber','Da incassare'];}
   if(mod==='ftf'){const p=payState(it);return p.state==='completo'?['p-green','Pagata']:p.state==='parziale'?['p-blue','Parziale '+p.pct+'%']:['p-amber','Da pagare'];}
   if(mod==='nc')return it.ftId?['p-gray','A storno di '+it.ftId]:['p-gray','Emessa'];
+  if(mod==='ncf')return it.ftfId?['p-gray','A storno di '+it.ftfId]:['p-gray','Emessa'];
   return ['p-gray','—'];
 }
 function evasione(o){
@@ -1221,9 +1226,11 @@ function payState(it){
   const totaleRaw=tot(it.righe);
   const sign=totaleRaw<0?-1:1;
   const totale=totaleRaw*sign; // lavora sempre in valore assoluto (gestisce anche le note di credito, negative)
-  // Una nota di credito collegata a questa fattura (via nc.ftId===it.num) riduce quanto resta da incassare,
-  // come se fosse un incasso: non tocca il registro "Incassi" (pagato resta il contante ricevuto per davvero).
-  const creditato=it.num?(DB.noteCredito||[]).filter(nc=>nc.ftId===it.num).reduce((s,nc)=>s+tot(nc.righe),0):0;
+  // Una nota di credito collegata a questa fattura (via nc.ftId===it.num, o ncf.ftfId===it.num per le
+  // fatture fornitore) riduce quanto resta da incassare/pagare, come se fosse un incasso/pagamento:
+  // non tocca il registro "Incassi"/"Pagamenti" (pagato resta il contante versato per davvero).
+  const creditato=it.num?(DB.noteCredito||[]).filter(nc=>nc.ftId===it.num).reduce((s,nc)=>s+tot(nc.righe),0)
+    +(DB.noteCreditoFornitore||[]).filter(ncf=>ncf.ftfId===it.num).reduce((s,ncf)=>s+tot(ncf.righe),0):0;
   const pagato=(payTot(it)+creditato)*sign;
   const state=pagato<=0.004?'aperto':pagato>=totale-0.01?'completo':'parziale';
   const pct=totale?Math.min(100,Math.round(pagato/totale*100)):0;
@@ -1336,10 +1343,10 @@ function docMatchStatus(mod,it,val){
   if(mod==='ddt')return val==='fatt'?!!it.ftId:!it.ftId;
   return true;
 }
-const FMODS=['ft','ftf','oc','of','ddt','nc'];
+const FMODS=['ft','ftf','oc','of','ddt','nc','ncf'];
 function filteredDocRows(){
   const m=META[MOD];const items=DB[m.coll];
-  const isForn=(MOD==='of'||MOD==='ftf');
+  const isForn=(MOD==='of'||MOD==='ftf'||MOD==='ncf');
   let rows=items.map(it=>({it,party:(isForn?fornitore(it.fornitoreId):cliente(it.clienteId)).nome,coll:m.coll}));
   if(MOD==='ft')rows=rows.concat((DB.noteCredito||[]).map(it=>({it,party:cliente(it.clienteId).nome,coll:'noteCredito'})));
   if(Q)rows=rows.filter(r=>r.it.num.toLowerCase().includes(Q)||r.party.toLowerCase().includes(Q));
@@ -1382,9 +1389,9 @@ async function bulkDownloadPDF(){
 function buildDocPDFPage(doc,coll,item){
   const W=210,M=15;let y=16;
   const az=DB.azienda||{};
-  const isForn=coll==='ordiniFornitore'||coll==='fattureFornitore';
+  const isForn=coll==='ordiniFornitore'||coll==='fattureFornitore'||coll==='noteCreditoFornitore';
   const party=isForn?fornitore(item.fornitoreId):cliente(item.clienteId);
-  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO',noteCredito:'NOTA DI CREDITO'};
+  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO',noteCredito:'NOTA DI CREDITO',noteCreditoFornitore:'NOTA DI CREDITO FORNITORE'};
   // Intestazione azienda
   doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(az.nome||'Ipsofarma S.r.l.',M,y);
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(titles[coll]||coll,W-M,y,{align:'right'});
@@ -1476,6 +1483,7 @@ function primaryActionBtn(){
     ft:['openFTNew()','+ Nuova fattura'],
     nc:['openNCForm()','+ Nuova nota di credito'],
     ftf:['openFTFNew()','+ Nuova fattura fornitore'],
+    ncf:['openNCFForm()','+ Nuova nota di credito fornitore'],
     clienti:['openClienteForm()','+ Nuovo cliente'],
     fornitori:['openFornitoreForm()','+ Nuovo fornitore'],
     prodotti:['openProdottoForm()','+ Nuovo prodotto']
@@ -1485,7 +1493,7 @@ function primaryActionBtn(){
 }
 function listView(){
   const m=META[MOD];
-  const isForn=(MOD==='of'||MOD==='ftf');
+  const isForn=(MOD==='of'||MOD==='ftf'||MOD==='ncf');
   const inv=(MOD==='ft'||MOD==='ftf'||MOD==='ddt');
   let rows=filteredDocRows();
   const dir=SORT.dir==='asc'?1:-1;
@@ -1498,7 +1506,7 @@ function listView(){
   let head=`<div class="page-title">${m.title}</div>${primaryActionBtn()}`;
   const ffActive=FMODS.includes(MOD)&&(FFILT.forn||FFILT.paid||FFILT.from||FFILT.to||FFILT.dest);
   if(FMODS.includes(MOD)){
-    const isF=(MOD==='of'||MOD==='ftf');const list=isF?DB.fornitori:DB.clienti;
+    const isF=(MOD==='of'||MOD==='ftf'||MOD==='ncf');const list=isF?DB.fornitori:DB.clienti;
     const fopts=`<option value="">${isF?'Tutti i fornitori':'Tutti i clienti'}</option>`+[...list].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>`<option value="${f.id}" ${FFILT.forn===f.id?'selected':''}>${f.nome}</option>`).join('');
     const stMap={ftf:[['paid','Pagate'],['unpaid','Da pagare']],ft:[['paid','Incassate'],['unpaid','Da incassare']],oc:[['completo','Evasi'],['inevaso','Da evadere']],of:[['completo','Ricevuti'],['inevaso','Da ricevere']],ddt:[['fatt','Fatturati'],['nofatt','Da fatturare']]};
     const stOpts=(stMap[MOD]||[]).map(o=>`<option value="${o[0]}" ${FFILT.paid===o[0]?'selected':''}>${o[1]}</option>`).join('');
@@ -1663,7 +1671,7 @@ function anagrafica(){
 /* ----- Detail ----- */
 function detailView(){
   const {coll,item}=SEL;const mod=Object.keys(META).find(k=>META[k].coll===coll);
-  const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore');
+  const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore'||coll==='noteCreditoFornitore');
   const party=isForn?fornitore(item.fornitoreId):cliente(item.clienteId);
   const dst=(coll==='ddt'||coll==='ordiniCliente')?docDest(item,party):null;
   const[pc,pl]=statusOf(mod,item);
@@ -1690,7 +1698,9 @@ function detailView(){
   }else if(coll==='noteCredito'){
     actions=`<button class="btn" onclick="openNCEdit('${item.id}')">✎ Modifica righe</button>${item.ftId?`<button class="btn" onclick="openByNum('${item.ftId}')">🔗 Vai alla fattura ${item.ftId}</button>`:''}`;
   }else if(coll==='fattureFornitore'){
-    actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureFornitore','${item.id}')">↺ Riapri (segna da pagare)</button>`:''}<button class="btn" onclick="openFTFEdit('${item.id}')">✎ Modifica righe</button>${item.ofId?`<button class="btn" onclick="unlinkFTF('${item.id}')">🔗 Scollega da ${item.ofId}</button>`:`<button class="btn" onclick="openFTFLink('${item.id}')">🔗 Collega a ordine fornitore</button>`}`;
+    actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureFornitore','${item.id}')">↺ Riapri (segna da pagare)</button>`:''}<button class="btn" onclick="openFTFEdit('${item.id}')">✎ Modifica righe</button><button class="btn" onclick="openNCFForm('${item.id}')">↩ Crea nota di credito</button>${item.ofId?`<button class="btn" onclick="unlinkFTF('${item.id}')">🔗 Scollega da ${item.ofId}</button>`:`<button class="btn" onclick="openFTFLink('${item.id}')">🔗 Collega a ordine fornitore</button>`}`;
+  }else if(coll==='noteCreditoFornitore'){
+    actions=`<button class="btn" onclick="openNCFEdit('${item.id}')">✎ Modifica righe</button>${item.ftfId?`<button class="btn" onclick="openByNum('${item.ftfId}')">🔗 Vai alla fattura ${item.ftfId}</button>`:''}`;
   }
   const isOrder=(coll==='ordiniCliente'||coll==='ordiniFornitore'),isF=coll==='ordiniFornitore',ev=isOrder?evasione(item):null,barCol=ev?(ev.state==='completo'?'#0ea371':ev.state==='parziale'?'#2f7fe0':'#cd8b1f'):'';
   return `<div class="detail">
@@ -1728,7 +1738,7 @@ function detailView(){
 
 /* lineage: ricostruisce la catena dall'OC radice */
 function lineage(item,coll){
-  const t=coll?({ordiniCliente:'OC',ordiniFornitore:'OF',ddt:'DDT',fattureCliente:'FT',fattureFornitore:'FTF',preventivi:'PREV',noteCredito:'NC'})[coll]:item.num.split('/')[0];
+  const t=coll?({ordiniCliente:'OC',ordiniFornitore:'OF',ddt:'DDT',fattureCliente:'FT',fattureFornitore:'FTF',preventivi:'PREV',noteCredito:'NC',noteCreditoFornitore:'NCF'})[coll]:item.num.split('/')[0];
   const fOC=n=>n?DB.ordiniCliente.find(o=>o.num===n):null;
   const fOF=n=>n?DB.ordiniFornitore.find(o=>o.num===n):null;
   const fDDT=n=>n?DB.ddt.find(d=>d.num===n):null;
@@ -1738,6 +1748,7 @@ function lineage(item,coll){
   const node=(label,obj)=>`<div class="fnode ${obj.num===cur?'cur':''}" onclick="openByNum('${obj.num}')"><span class="fl">${label}</span><span class="fv">${obj.num}</span></div>`;
   const arrow='<span class="farrow">→</span>';
   const ncNodesFor=ftNum=>(DB.noteCredito||[]).filter(nc=>nc.ftId===ftNum).map(nc=>arrow+node('Nota di credito',nc)).join('');
+  const ncfNodesFor=ftfNum=>(DB.noteCreditoFornitore||[]).filter(ncf=>ncf.ftfId===ftfNum).map(ncf=>arrow+node('Nota di credito fornitore',ncf)).join('');
   // OC radice (se esiste)
   let ocNum=null;
   if(t==='OC')ocNum=item.num;
@@ -1746,6 +1757,7 @@ function lineage(item,coll){
   else if(t==='OF')ocNum=item.ocId;
   else if(t==='FTF'){const of=fOF(item.ofId);ocNum=of&&of.ocId;}
   else if(t==='NC'){const ft=fFT(item.ftId);ocNum=ft?(ft.ocId||(fDDT(ft.ddtId)&&fDDT(ft.ddtId).ocId)):null;}
+  else if(t==='NCF'){const ftf=fFTF(item.ftfId);const of=ftf?fOF(ftf.ofId):null;ocNum=of&&of.ocId;}
   const oc=fOC(ocNum);
   if(oc){
     const ofNums=(oc.ofIds&&oc.ofIds.length?oc.ofIds:(oc.ofId?[oc.ofId]:[]));
@@ -1754,7 +1766,7 @@ function lineage(item,coll){
     const g=(label,obj)=>obj?node(label,obj):`<div class="fnode ghost"><span class="fl">${label}</span><span class="fv">— non generato</span></div>`;
     const ofRows=ofList.length?ofList.map((of,i)=>{
       const ftfList=(of.ftfIds&&of.ftfIds.length?of.ftfIds:(of.ftfId?[of.ftfId]:[])).map(n=>fFTF(n)).filter(Boolean);
-      const ftfNodes=ftfList.length?ftfList.map((f,j)=>node('Fattura fornitore'+(ftfList.length>1?' '+(j+1):''),f)).join(arrow):g('Fattura fornitore',null);
+      const ftfNodes=ftfList.length?ftfList.map((f,j)=>node('Fattura fornitore'+(ftfList.length>1?' '+(j+1):''),f)+ncfNodesFor(f.num)).join(arrow):g('Fattura fornitore',null);
       return `<div class="flow-row">${node('Ordine fornitore'+(ofList.length>1?' '+(i+1):''),of)}${arrow}${ftfNodes}</div>`;
     }).join(''):`<div class="flow-row">${g('Ordine fornitore',null)}${arrow}${g('Fattura fornitore',null)}</div>`;
     const ddtRows=ddtList.length?ddtList.map((d,i)=>{const ftObj=d.ftId?fFT(d.ftId):null;return `<div class="flow-row">${node('DDT'+(ddtList.length>1?' '+(i+1):''),d)}${arrow}${ftObj?node('Fattura cliente',ftObj)+ncNodesFor(d.ftId):g('Fattura cliente',null)}</div>`;}).join(''):`<div class="flow-row">${g('DDT',null)}${arrow}${g('Fattura cliente',null)}</div>`;
@@ -1768,14 +1780,15 @@ function lineage(item,coll){
   }
   // senza ordine cliente radice: mostra comunque lo schema del lato pertinente
   const ghost=(label)=>`<div class="fnode ghost"><span class="fl">${label}</span><span class="fv">— non generato</span></div>`;
-  if(t==='OF'||t==='FTF'){
-    const of=t==='OF'?item:fOF(item.ofId);
+  if(t==='OF'||t==='FTF'||t==='NCF'){
+    const of=t==='OF'?item:(t==='FTF'?fOF(item.ofId):fOF((fFTF(item.ftfId)||{}).ofId));
     if(of){
       const ftfList=(of.ftfIds&&of.ftfIds.length?of.ftfIds:(of.ftfId?[of.ftfId]:[])).map(n=>fFTF(n)).filter(Boolean);
-      const ftfNodes=ftfList.length?ftfList.map((f,i)=>node('Fattura fornitore'+(ftfList.length>1?' '+(i+1):''),f)).join(arrow):ghost('Fattura fornitore');
+      const ftfNodes=ftfList.length?ftfList.map((f,i)=>node('Fattura fornitore'+(ftfList.length>1?' '+(i+1):''),f)+ncfNodesFor(f.num)).join(arrow):ghost('Fattura fornitore');
       return `<div class="flow"><div class="flow-row">${node('Ordine fornitore',of)}${arrow}${ftfNodes}</div></div>`;
     }
     if(t==='FTF')return '<div class="flow"><span class="t-mut">Fattura non collegata a un ordine fornitore. Usa il pulsante “🔗 Collega a ordine fornitore” per mostrare la filiera.</span></div>';
+    if(t==='NCF'){const ftf=fFTF(item.ftfId);return ftf?`<div class="flow"><div class="flow-row">${node('Fattura fornitore',ftf)}${arrow}${node('Nota di credito fornitore',item)}</div></div>`:'<div class="flow"><span class="t-mut">Nota di credito non collegata a una fattura fornitore.</span></div>';}
   }
   let chain=[];
   if(t==='DDT'||t==='FT'||t==='NC'){
@@ -2070,7 +2083,8 @@ function removeDoc(coll,id){
   if(coll==='ordiniFornitore'&&((it.ftfIds&&it.ftfIds.length)||it.ftfId)){toast('Elimina prima le fatture fornitore collegate');return;}
   if(coll==='ddt'&&it.ftId){toast('Elimina prima la fattura collegata');return;}
   if(coll==='fattureCliente'&&(DB.noteCredito||[]).some(nc=>nc.ftId===it.num)){toast('Elimina prima le note di credito collegate a questa fattura');return;}
-  const tipo={ordiniCliente:'l\'ordine cliente',ordiniFornitore:'l\'ordine fornitore',ddt:'il DDT',fattureCliente:'la fattura',fattureFornitore:'la fattura fornitore',noteCredito:'la nota di credito'}[coll];
+  if(coll==='fattureFornitore'&&(DB.noteCreditoFornitore||[]).some(ncf=>ncf.ftfId===it.num)){toast('Elimina prima le note di credito collegate a questa fattura fornitore');return;}
+  const tipo={ordiniCliente:'l\'ordine cliente',ordiniFornitore:'l\'ordine fornitore',ddt:'il DDT',fattureCliente:'la fattura',fattureFornitore:'la fattura fornitore',noteCredito:'la nota di credito',noteCreditoFornitore:'la nota di credito fornitore'}[coll];
   askConfirm(`Vuoi eliminare definitivamente ${tipo} <b>${it.num}</b>?<br>L'operazione non è reversibile.`,()=>doRemove(coll,id));
 }
 async function doRemove(coll,id){
@@ -2696,6 +2710,69 @@ async function saveNCEdit(id){
   const newnum=((document.getElementById('f-num')||{}).value||'').trim();
   if(newnum&&newnum!==nc.num){const m=newnum.match(/^(FT|NC)\/(\d{4})\/(\d+)$/);if(m){const t=m[1],n=parseInt(m[3]);if(DB.counters[t]<=n)DB.counters[t]=n+1;}nc.num=newnum;}
   await persist();closeModal();toast('Nota di credito '+nc.num+' aggiornata');SEL={coll:'noteCredito',item:nc};render();
+}
+function openNCFForm(ftfId){
+  const ftf=ftfId?DB.fattureFornitore.find(f=>f.id===ftfId):null;
+  FR=ftf?ftf.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||'',_man:true})):[];
+  FRMODE='fornitore';OFEDIT=null;LOTE=true;
+  const opts=[...DB.fornitori].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>`<option value="${f.id}" ${ftf&&f.id===ftf.fornitoreId?'selected':''}>${f.nome}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>Nuova nota di credito fornitore${ftf?' — da '+ftf.num:''}</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      ${ftf?`<p class="ai-intro">Righe riprese dalla fattura ${ftf.num}: elimina quelle che non vanno stornate o correggi le quantità, poi salva.</p>`:''}
+      <div class="field"><label>Fornitore</label><select id="f-forn" ${ftf?'disabled':''}>${opts}</select></div>
+      <div class="row2"><div class="field"><label>Numero nota di credito del fornitore</label><input id="f-num" placeholder="es. 5301021389"></div>
+        <div class="field"><label>Data</label><input type="date" id="f-data" value="${today()}"></div></div>
+      <div class="field"><label>Motivo</label><input id="f-note" placeholder="es. Merce smarrita, reso merce, errore di fatturazione…" value="${ftf?('A storno (parziale) della fattura '+ftf.num).replace(/"/g,'&quot;'):''}"></div>
+      <div class="field"><label>Aggiungi prodotto</label>
+        <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
+      <div class="field"><label>Righe da stornare</label><div id="le"></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
+      <span class="tot" id="f-tot"><small>Totale storno</small> ${eur(ftf?tot(FR):0)}</span>
+      <button class="btn primary" onclick="saveNCF('${ftf?ftf.id:''}')">Crea nota di credito</button></div>`;
+  renderLE();document.getElementById('overlay').classList.add('show');
+}
+async function saveNCF(ftfId){
+  const fornitoreId=document.getElementById('f-forn').value,data=document.getElementById('f-data').value;
+  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
+  if(!righe.length){toast('Aggiungi almeno una riga');return;}
+  const note=(document.getElementById('f-note')||{}).value.trim();
+  const ftf=ftfId?DB.fattureFornitore.find(f=>f.id===ftfId):null;
+  const num=((document.getElementById('f-num')||{}).value||'').trim()||('NCF/'+DB.year+'/'+String(peekNum('NCF')).replace(/\D/g,'').slice(-4));
+  const ncf={id:uid('ncf'),num,data,fornitoreId:ftf?ftf.fornitoreId:fornitoreId,righe,ftfId:ftf?ftf.num:null,note};
+  DB.noteCreditoFornitore.push(ncf);await persist();closeModal();toast('Nota di credito '+ncf.num+' creata');MOD='ncf';VIEW='list';SEL={coll:'noteCreditoFornitore',item:ncf};render();document.getElementById('content').scrollTo(0,0);
+}
+function openNCFEdit(id){
+  const ncf=DB.noteCreditoFornitore.find(x=>x.id===id);if(!ncf)return;
+  FR=ncf.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||'',_man:true}));
+  FRMODE='fornitore';OFEDIT=null;LOTE=true;
+  const opts=[...DB.fornitori].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>`<option value="${f.id}" ${f.id===ncf.fornitoreId?'selected':''}>${f.nome}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>Modifica nota di credito fornitore ${ncf.num}</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      ${ncf.ftfId?`<p class="ai-intro">Collegata alla fattura ${ncf.ftfId}.</p>`:''}
+      <div class="field"><label>Fornitore</label><select id="f-forn">${opts}</select></div>
+      <div class="row2"><div class="field"><label>Numero</label><input id="f-num" value="${(ncf.num||'').replace(/"/g,'&quot;')}"></div>
+        <div class="field"><label>Data</label><input type="date" id="f-data" value="${ncf.data}"></div></div>
+      <div class="field"><label>Motivo</label><input id="f-note" value="${(ncf.note||'').replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Aggiungi prodotto</label>
+        <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
+      <div class="field"><label>Righe da stornare</label><div id="le"></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
+      <span class="tot" id="f-tot"><small>Totale storno</small> ${eur(tot(FR))}</span>
+      <button class="btn primary" onclick="saveNCFEdit('${id}')">Salva modifiche</button></div>`;
+  renderLE();document.getElementById('overlay').classList.add('show');
+}
+async function saveNCFEdit(id){
+  const ncf=DB.noteCreditoFornitore.find(x=>x.id===id);if(!ncf)return;
+  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
+  if(!righe.length){toast('Aggiungi almeno una riga');return;}
+  ncf.fornitoreId=document.getElementById('f-forn').value;ncf.data=document.getElementById('f-data').value;ncf.righe=righe;
+  ncf.note=(document.getElementById('f-note')||{}).value.trim();
+  const nn=((document.getElementById('f-num')||{}).value||'').trim();if(nn)ncf.num=nn;
+  await persist();closeModal();toast('Nota di credito '+ncf.num+' aggiornata');SEL={coll:'noteCreditoFornitore',item:ncf};render();
 }
 function openFTFNew(){
   FR=[];FRMODE='fornitore';OFEDIT=null;LOTE=true;
@@ -4250,9 +4327,9 @@ function downloadFatturaPAXml(id){
 }
 function buildPrintHTML(coll,it){
   const az=DB.azienda||{};
-  const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore');
+  const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore'||coll==='noteCreditoFornitore');
   const p=isForn?fornitore(it.fornitoreId):cliente(it.clienteId);
-  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE A FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO',noteCredito:'NOTA DI CREDITO'};
+  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE A FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO',noteCredito:'NOTA DI CREDITO',noteCreditoFornitore:'NOTA DI CREDITO FORNITORE'};
   const azLine=[az.via,`${az.cap||''} ${az.citta||''}${az.prov?' ('+az.prov+')':''}`.trim()].filter(Boolean).join('<br>');
   const azMeta=[az.piva?'P.IVA '+az.piva:'',az.cf&&az.cf!==az.piva?'C.F. '+az.cf:'',az.tel?'Tel '+az.tel:'',az.email||'',az.pec?'PEC '+az.pec:'',az.web||''].filter(Boolean).join(' · ');
   const pAddr=[p.via,`${p.cap||''} ${p.citta||''}${p.prov?' ('+p.prov+')':''}`.trim()].filter(Boolean).join('<br>');
@@ -4702,6 +4779,8 @@ async function ensureSchema(){
   if(DB.counters&&DB.counters.PREV==null){DB.counters.PREV=1;changed=true;}
   if(!DB.noteCredito){DB.noteCredito=[];changed=true;}
   if(DB.counters&&DB.counters.NC==null){DB.counters.NC=1;changed=true;}
+  if(!DB.noteCreditoFornitore){DB.noteCreditoFornitore=[];changed=true;}
+  if(DB.counters&&DB.counters.NCF==null){DB.counters.NCF=1;changed=true;}
   if(!DB.azienda){DB.azienda={nome:'Ipsofarma S.r.l.',via:'',cap:'87100',citta:'Cosenza',prov:'CS',piva:'',cf:'',tel:'',email:'',pec:'',iban:'',iso:'ISO 9001:2015 — Cert. N. IQ-0526-02'};changed=true;}
   DB.clienti.forEach(c=>{if(!c.dest){c.dest=[];changed=true;}});
   DB.ordiniCliente.forEach(o=>{if(!o.ddtIds)o.ddtIds=o.ddtId?[o.ddtId]:[];});
@@ -5085,7 +5164,7 @@ function buildExportRows(){
     const rows=filteredDocRows();if(!rows.length)return [];
     const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
     const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f.nome]));
-    const isForn=MOD==='ftf'||MOD==='of';
+    const isForn=MOD==='ftf'||MOD==='of'||MOD==='ncf';
     return rows.map(r=>{
       const it=r.it;
       const partyObj=isForn?null:cl[it.clienteId];
@@ -5095,7 +5174,7 @@ function buildExportRows(){
       if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
       row['Totale €']=parseFloat(tot(it.righe||[]).toFixed(2));
       if(r.coll==='noteCredito')row.Stato='Nota di credito';
-      else if(MOD!=='prev'&&MOD!=='nc')row.Stato=it.paid?'Pagata':'Aperta';
+      else if(MOD!=='prev'&&MOD!=='nc'&&MOD!=='ncf')row.Stato=it.paid?'Pagata':'Aperta';
       return row;
     });
   }
@@ -5122,7 +5201,7 @@ function buildExportRows(){
 function exportFilenameBase(){
   const m=META[MOD];
   if(FMODS.includes(MOD)&&FFILT.forn){
-    const isForn=MOD==='ftf'||MOD==='of';
+    const isForn=MOD==='ftf'||MOD==='of'||MOD==='ncf';
     const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
     const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f.nome]));
     const cl2=Object.fromEntries(DB.clienti.map(c=>[c.id,c.nome]));

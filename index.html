@@ -1116,7 +1116,7 @@ function dashboard(){
   let ocDaEvadere=0,ocDaEvadereN=0;
   DB.ordiniCliente.forEach(o=>{if(evasione(o).state==='completo')return;let ov=0;o.righe.forEach(r=>{const res=Math.max(0,(r.qty||0)-(r.qtyEv!=null?r.qtyEv:0));if(res>0)ov+=tot([Object.assign({},r,{qty:res})]);});if(ov>0){ocDaEvadere+=ov;ocDaEvadereN++;}});
   let ofDaRicevere=0,ofDaRicevereN=0;
-  DB.ordiniFornitore.forEach(o=>{if(evasione(o).state==='completo')return;let ov=0;o.righe.forEach(r=>{const res=Math.max(0,(r.qty||0)-(r.qtyEv!=null?r.qtyEv:0));if(res>0)ov+=tot([Object.assign({},r,{qty:res})]);});if(ov>0){ofDaRicevere+=ov;ofDaRicevereN++;}});
+  DB.ordiniFornitore.forEach(o=>{if(evasione(o).state==='completo')return;let ov=0;o.righe.forEach(r=>{const res=Math.max(0,(r.qty||0)-(r.qtyFatt!=null?r.qtyFatt:0));if(res>0)ov+=tot([Object.assign({},r,{qty:res})]);});if(ov>0){ofDaRicevere+=ov;ofDaRicevereN++;}});
   const data=buildMonthly();MONTHLY=data;
   const chips=`<div class="dash-period"><button class="${DASHY===''?'on':''}" onclick="setDashY('')">Tutti</button>${years.map(y=>`<button class="${DASHY===y?'on':''}" onclick="setDashY('${y}')">${y}</button>`).join('')}</div>`;
   return `<div class="page-head"><div class="page-title" style="margin:0">Dashboard</div>${chips}</div>
@@ -1221,9 +1221,13 @@ function statusOf(mod,it){
   return ['p-gray','—'];
 }
 function evasione(o){
+  // Su un ordine fornitore "evaso" significa fatturato/ricevuto dal fornitore (qtyFatt), non spedito
+  // a valle al cliente (qtyEv, che è un concetto diverso e indipendente). Su un ordine cliente invece
+  // è sempre qtyEv (quanto è stato consegnato al cliente).
+  const field=o.fornitoreId?'qtyFatt':'qtyEv';
   const totQ=o.righe.reduce((s,r)=>s+r.qty,0);
-  const evQ=o.righe.reduce((s,r)=>s+Math.min(r.qtyEv||0,r.qty),0);
-  const complete=o.righe.length>0&&o.righe.every(r=>(r.qtyEv||0)>=r.qty);
+  const evQ=o.righe.reduce((s,r)=>s+Math.min(r[field]||0,r.qty),0);
+  const complete=o.righe.length>0&&o.righe.every(r=>(r[field]||0)>=r.qty);
   return {state:evQ<=0?'aperto':complete?'completo':'parziale',pct:totQ?Math.round(evQ/totQ*100):0,evQ,totQ};
 }
 function payTot(it){
@@ -1286,11 +1290,12 @@ function evasionePanel(coll,it){
   const title=isF?'Ricezione merce':'Stato di evasione (consegna)';
   const colL=isF?'Ricevuta':'Consegnata';
   const e=evasione(it);
+  const evF=isF?'qtyFatt':'qtyEv';
   const barCol=e.state==='completo'?'#0ea371':e.state==='parziale'?'#2f7fe0':'#cd8b1f';
   const rows=it.righe.map((r,i)=>{
-    const ev=Math.min(r.qtyEv||0,r.qty),done=ev>=r.qty;
+    const ev=Math.min(r[evF]||0,r.qty),done=ev>=r.qty;
     return `<tr><td class="code">${r.cod}</td><td>${r.descr}</td><td class="num">${r.qty}</td>
-      <td class="num"><input class="evin" type="number" min="0" max="${r.qty}" value="${r.qtyEv||0}" onchange="updEv('${coll}','${it.id}',${i},this.value)"></td>
+      <td class="num"><input class="evin" type="number" min="0" max="${r.qty}" value="${r[evF]||0}" onchange="updEv('${coll}','${it.id}',${i},this.value)"></td>
       <td class="num">${r.qty-ev}</td>
       <td class="right">${done?'<span class="pill p-green">ok</span>':ev>0?'<span class="pill p-blue">parziale</span>':'<span class="pill p-amber">in attesa</span>'}</td></tr>`;
   }).join('');
@@ -1304,12 +1309,14 @@ function evasionePanel(coll,it){
 }
 async function updEv(coll,id,i,val){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
+  const field=coll==='ordiniFornitore'?'qtyFatt':'qtyEv';
   let v=parseInt(val||0);if(isNaN(v)||v<0)v=0;if(v>it.righe[i].qty)v=it.righe[i].qty;
-  it.righe[i].qtyEv=v;await persist();SEL={coll,item:it};render();
+  it.righe[i][field]=v;await persist();SEL={coll,item:it};render();
 }
 async function markAllEv(coll,id,full){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
-  it.righe.forEach(r=>r.qtyEv=full?r.qty:0);await persist();
+  const field=coll==='ordiniFornitore'?'qtyFatt':'qtyEv';
+  it.righe.forEach(r=>r[field]=full?r.qty:0);await persist();
   toast(full?'Segnato come completo':'Evasione azzerata');SEL={coll,item:it};render();
 }
 function setSort(key){if(SORT.key===key)SORT.dir=SORT.dir==='asc'?'desc':'asc';else{SORT.key=key;SORT.dir=key==='data'?'desc':'asc';}renderContent();}
@@ -1538,8 +1545,9 @@ function listView(){
     // Per OC/OF con filtro inevaso: mostra il valore RESIDUO non ancora evaso/ricevuto
     const isOCResidue=(MOD==='oc'||MOD==='of')&&(FFILT.paid==='parziale'||FFILT.paid==='aperto'||FFILT.paid==='inevaso');
     if(isOCResidue){
-      sImp=rows.reduce((s,r)=>s+r.it.righe.reduce((rs,rl)=>rs+Math.max(0,(rl.qty||0)-(rl.qtyEv||0))*rl.prezzo*scFactor(rl.sconto||0),0),0);
-      sTot=rows.reduce((s,r)=>s+r.it.righe.reduce((rs,rl)=>rs+Math.max(0,(rl.qty||0)-(rl.qtyEv||0))*rl.prezzo*scFactor(rl.sconto||0)*(1+(rl.iva||22)/100),0),0);
+      const resF=MOD==='of'?'qtyFatt':'qtyEv';
+      sImp=rows.reduce((s,r)=>s+r.it.righe.reduce((rs,rl)=>rs+Math.max(0,(rl.qty||0)-(rl[resF]||0))*rl.prezzo*scFactor(rl.sconto||0),0),0);
+      sTot=rows.reduce((s,r)=>s+r.it.righe.reduce((rs,rl)=>rs+Math.max(0,(rl.qty||0)-(rl[resF]||0))*rl.prezzo*scFactor(rl.sconto||0)*(1+(rl.iva||22)/100),0),0);
     }else{
       sImp=rows.reduce((s,r)=>s+imp(r.it.righe),0);
       sTot=rows.reduce((s,r)=>s+tot(r.it.righe),0);
@@ -1733,7 +1741,7 @@ function detailView(){
     <div class="panel"><div class="panel-h">Righe documento${isOrder?`<span style="margin-left:auto;font-size:12px;color:var(--muted)">${ev.evQ}/${ev.totQ} pz · ${ev.pct}% ${isF?'ricevuto':'consegnato'}</span>`:''}</div>
       ${isOrder?`<div style="padding:12px 18px 2px"><div class="evbar"><div class="evbar-fill" style="width:${ev.pct}%;background:${barCol}"></div></div></div>`:''}
       ${(()=>{const hs=item.righe.some(r=>scEff(r.sconto)>0);const hl=['ddt','fattureCliente','fattureFornitore','noteCredito'].includes(coll)&&item.righe.some(r=>r.lotto||r.scad);const colL=isF?'Ricevuta':'Consegnata';const linkedOF=coll==='fattureFornitore'&&item.ofId?DB.ordiniFornitore.find(o=>o.num===item.ofId):null;return `<div class="lines-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="lines-scroll"><table class="lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hl?'<th>Lotto</th><th class="right">Scadenza</th>':''}<th class="right">${isOrder?'Ordinata':'Q.tà'}</th>${isOrder?`<th class="right">${colL}</th><th class="right">Residuo</th><th class="right">Stato</th>`:''}<th class="right">Prezzo</th><th class="right">Imponibile</th>${hs?'<th class="right">Sconto</th>':''}<th class="right">IVA</th><th class="right">Totale</th></tr></thead>
-      <tbody>${item.righe.map((r,i)=>{const evd=Math.min(r.qtyEv||0,r.qty),done=evd>=r.qty;const evc=isOrder?`<td class="num"><input class="evin" type="number" min="0" max="${r.qty}" value="${r.qtyEv||0}" onchange="updEv('${coll}','${item.id}',${i},this.value)"></td><td class="num">${r.qty-evd}</td><td class="right" style="white-space:nowrap">${done?'<span class="pill p-green">ok</span>':evd>0?'<span class="pill p-blue">parziale</span>':'<span class="pill p-amber">in&nbsp;attesa</span>'}</td>`:'';const cmp=linkedOF?(()=>{const ol=linkedOF.righe.find(x=>x.cod===r.cod);if(!ol)return '<td class="right"><span class="t-mut">—</span></td>';return Math.abs((ol.prezzo||0)-(r.prezzo||0))<0.005?'<td class="right"><span class="pill p-green">= ordine</span></td>':`<td class="right"><span class="pill p-red">ordine ${eur(ol.prezzo)}</span></td>`;})():'';return `<tr><td class="code cod-link" onclick="openProdByCode('${r.cod}')" title="Apri scheda prodotto">${r.cod}</td><td>${r.descr}</td>${hl?`<td>${r.lotto||'—'}</td><td class="num">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="num">${r.qty}</td>${evc}<td class="num" style="white-space:nowrap">${eur(r.prezzo)}</td><td class="num">${eur(lineNet(r))}</td>${hs?`<td class="num">${scLabel(r.sconto)}</td>`:''}<td class="num">${r.iva}%</td><td class="num">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td></tr>`;}).join('')}</tbody></table></div>`;})()}
+      <tbody>${item.righe.map((r,i)=>{const evF=isF?'qtyFatt':'qtyEv';const evd=Math.min(r[evF]||0,r.qty),done=evd>=r.qty;const evc=isOrder?`<td class="num"><input class="evin" type="number" min="0" max="${r.qty}" value="${r[evF]||0}" onchange="updEv('${coll}','${item.id}',${i},this.value)"></td><td class="num">${r.qty-evd}</td><td class="right" style="white-space:nowrap">${done?'<span class="pill p-green">ok</span>':evd>0?'<span class="pill p-blue">parziale</span>':'<span class="pill p-amber">in&nbsp;attesa</span>'}</td>`:'';const cmp=linkedOF?(()=>{const ol=linkedOF.righe.find(x=>x.cod===r.cod);if(!ol)return '<td class="right"><span class="t-mut">—</span></td>';return Math.abs((ol.prezzo||0)-(r.prezzo||0))<0.005?'<td class="right"><span class="pill p-green">= ordine</span></td>':`<td class="right"><span class="pill p-red">ordine ${eur(ol.prezzo)}</span></td>`;})():'';return `<tr><td class="code cod-link" onclick="openProdByCode('${r.cod}')" title="Apri scheda prodotto">${r.cod}</td><td>${r.descr}</td>${hl?`<td>${r.lotto||'—'}</td><td class="num">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="num">${r.qty}</td>${evc}<td class="num" style="white-space:nowrap">${eur(r.prezzo)}</td><td class="num">${eur(lineNet(r))}</td>${hs?`<td class="num">${scLabel(r.sconto)}</td>`:''}<td class="num">${r.iva}%</td><td class="num">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td></tr>`;}).join('')}</tbody></table></div>`;})()}
       ${isOrder?`<div style="display:flex;gap:9px;padding:13px 18px;background:var(--surface2);border-top:1px solid var(--border)"><button class="btn sm" onclick="markAllEv('${coll}','${item.id}',true)">Segna tutto ${isF?'ricevuto':'consegnato'}</button><button class="btn sm ghost" style="border:1px solid var(--border2)" onclick="markAllEv('${coll}','${item.id}',false)">Azzera</button></div>`:''}
       <div class="lines-foot"><span class="it">Imponibile<b>${eur(imp(item.righe))}</b></span><span class="it">IVA<b>${eur(ivaT(item.righe))}</b></span><span class="grand">${eur(tot(item.righe))}</span></div>
     </div>
@@ -4742,7 +4750,7 @@ function aiResolve(a){
       const codes=lines.map(l=>l.cod).filter(Boolean);
       const cands=DB.ordiniFornitore.filter(o=>o.fornitoreId===existing.id&&o.righe.some(r=>codes.includes(r.cod)));
       if(cands.length===1)match=cands[0];
-      else if(cands.length>1){const open=cands.filter(o=>o.righe.some(r=>(r.qtyEv||0)<r.qty));if(open.length===1)match=open[0];}
+      else if(cands.length>1){const open=cands.filter(o=>o.righe.some(r=>(r.qtyFatt||0)<r.qty));if(open.length===1)match=open[0];}
     }
     if(match)desc+=`<div class="note" style="margin-top:2px">Verrà collegata all'ordine fornitore <b>${match.num}</b>${matchWhy}.</div>`;
     else if(a.order_ref)desc+=`<div class="ai-x">Nessun ordine fornitore trovato per il rif. ${aiEsc(String(a.order_ref))}: la fattura verrà creata senza collegamento automatico.</div>`;
@@ -4968,11 +4976,15 @@ function ricevereView(){
   DB.ordiniFornitore.forEach(function(o){
     if(evasione(o).state==='completo')return;
     o.righe.forEach(function(r){
-      var res=Math.max(0,(r.qty||0)-(r.qtyEv!=null?r.qtyEv:0));
+      // "residuo da ricevere" è quanto NON è ancora stato fatturato dal fornitore (qtyFatt), non
+      // quanto non è ancora stato spedito a valle al cliente (qtyEv, un concetto indipendente):
+      // un prodotto già fatturato dal fornitore ma non ancora spedito al cliente non deve comparire
+      // qui come "da ricevere" — quello si vede invece in "Prodotti da evadere".
+      var res=Math.max(0,(r.qty||0)-(r.qtyFatt!=null?r.qtyFatt:0));
       if(res<=0)return;
       rows.push({ofNum:o.num,ofId:o.id,data:o.data,fornitoreId:o.fornitoreId,
         fornitore:(fo[o.fornitoreId]||{}).nome||'?',
-        cod:r.cod,descr:r.descr,qtyOrd:r.qty,qtyEv:r.qtyEv||0,qtyRes:res,
+        cod:r.cod,descr:r.descr,qtyOrd:r.qty,qtyFatt:r.qtyFatt||0,qtyRes:res,
         val:tot([Object.assign({},r,{qty:res})])});
     });
   });
@@ -5010,7 +5022,7 @@ function ricevereView(){
         +'<td class="code cod-link" style="cursor:pointer" onclick="openProdByCode(\''+r.cod+'\')">' +r.cod+'</td>'
         +'<td>'+aiEsc(r.descr)+'</td>'
         +'<td class="num">'+r.qtyOrd+'</td>'
-        +'<td class="num">'+r.qtyEv+'</td>'
+        +'<td class="num">'+r.qtyFatt+'</td>'
         +'<td class="num" style="font-weight:700;color:var(--violet)">'+r.qtyRes+'</td>'
         +'<td class="num">'+eur(r.val)+'</td>'
         +'</tr>';

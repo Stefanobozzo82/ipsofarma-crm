@@ -448,6 +448,8 @@ table.lines tr:last-child td{border-bottom:none}
 .dash-period{display:flex;gap:6px;flex-wrap:wrap}
 .dash-period button{font-size:12.5px;padding:6px 13px;border:1px solid var(--border2);border-radius:999px;background:var(--surface);color:var(--muted);cursor:pointer;font-weight:600}
 .dash-period button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.nc-ftlink-row{display:flex;align-items:center;gap:8px;padding:7px 4px;font-size:13px;border-bottom:1px solid var(--border)}
+.nc-ftlink-row:last-child{border-bottom:none}
 .stat-go{cursor:pointer;transition:transform .08s,box-shadow .12s}
 .stat-go:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.09)}
 .stat-active{border-color:var(--accent-d);box-shadow:0 0 0 2px var(--accent-d) inset}
@@ -1230,14 +1232,33 @@ function payTot(it){
   if(it.pagamenti==null)return it.paid?tot(it.righe):0; // fattura non ancora "toccata" dal nuovo sistema incassi: usa il vecchio stato pagata/non pagata
   return it.pagamenti.reduce((s,p)=>s+(p.importo||0),0);
 }
+// Quanto di una nota di credito va imputato a UNA specifica fattura. Nel caso normale (una sola
+// fattura collegata) è semplicemente l'intero importo della nota. Quando invece la nota copre un
+// saldo complessivo su più fatture (ftIds con più di un elemento, es. accordo transattivo), il suo
+// importo viene distribuito sulle fatture collegate partendo dalla più vecchia — come un incasso
+// parziale applicato in sequenza — finché non si esaurisce.
+function ncCreditoFor(nc,ftNum,fattureColl){
+  const ids=(nc.ftIds&&nc.ftIds.length)?nc.ftIds:(nc.ftId?[nc.ftId]:[]);
+  if(!ids.includes(ftNum))return 0;
+  if(ids.length<=1)return tot(nc.righe);
+  let remaining=tot(nc.righe);
+  const ordered=ids.map(n=>fattureColl.find(f=>f.num===n)).filter(Boolean).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  for(const f of ordered){
+    if(remaining<=0)break;
+    const alloc=Math.min(remaining,tot(f.righe));
+    if(f.num===ftNum)return alloc;
+    remaining-=alloc;
+  }
+  return 0;
+}
 function payState(it){
   const totaleRaw=tot(it.righe);
   const sign=totaleRaw<0?-1:1;
   const totale=totaleRaw*sign; // lavora sempre in valore assoluto (gestisce anche le note di credito, negative)
-  // Una nota di credito collegata a questa fattura (via nc.ftId===it.num, o ncf.ftfId===it.num per le
+  // Una nota di credito collegata a questa fattura (via nc.ftId/nc.ftIds, o ncf.ftfId===it.num per le
   // fatture fornitore) riduce quanto resta da incassare/pagare, come se fosse un incasso/pagamento:
   // non tocca il registro "Incassi"/"Pagamenti" (pagato resta il contante versato per davvero).
-  const creditato=it.num?(DB.noteCredito||[]).filter(nc=>nc.ftId===it.num).reduce((s,nc)=>s+tot(nc.righe),0)
+  const creditato=it.num?(DB.noteCredito||[]).reduce((s,nc)=>s+ncCreditoFor(nc,it.num,DB.fattureCliente),0)
     +(DB.noteCreditoFornitore||[]).filter(ncf=>ncf.ftfId===it.num).reduce((s,ncf)=>s+tot(ncf.righe),0):0;
   const pagato=(payTot(it)+creditato)*sign;
   const state=pagato<=0.004?'aperto':pagato>=totale-0.01?'completo':'parziale';
@@ -1708,7 +1729,8 @@ function detailView(){
   }else if(coll==='fattureCliente'){
     actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureCliente','${item.id}')">↺ Riapri (segna da incassare)</button>`:''}<button class="btn" onclick="openFTEdit('${item.id}')">✎ Modifica righe</button><button class="btn" onclick="openNCForm('${item.id}')">↩ Crea nota di credito</button><button class="btn" onclick="downloadFatturaPAXml('${item.id}')" title="Genera il file XML da caricare su Fatture e Corrispettivi o inviare via PEC">⬇ XML FatturaPA</button>`;
   }else if(coll==='noteCredito'){
-    actions=`<button class="btn" onclick="openNCEdit('${item.id}')">✎ Modifica righe</button>${item.ftId?`<button class="btn" onclick="openByNum('${item.ftId}')">🔗 Vai alla fattura ${item.ftId}</button>`:''}`;
+    const ncLinks=(item.ftIds&&item.ftIds.length)?item.ftIds:(item.ftId?[item.ftId]:[]);
+    actions=`<button class="btn" onclick="openNCEdit('${item.id}')">✎ Modifica righe</button>${ncLinks.map(n=>`<button class="btn" onclick="openByNum('${n}')">🔗 Vai alla fattura ${n}</button>`).join('')}`;
   }else if(coll==='fattureFornitore'){
     actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureFornitore','${item.id}')">↺ Riapri (segna da pagare)</button>`:''}<button class="btn" onclick="openFTFEdit('${item.id}')">✎ Modifica righe</button><button class="btn" onclick="openNCFForm('${item.id}')">↩ Crea nota di credito</button>${item.ofId?`<button class="btn" onclick="unlinkFTF('${item.id}')">🔗 Scollega da ${item.ofId}</button>`:`<button class="btn" onclick="openFTFLink('${item.id}')">🔗 Collega a ordine fornitore</button>`}`;
   }else if(coll==='noteCreditoFornitore'){
@@ -1759,7 +1781,7 @@ function lineage(item,coll){
   const cur=item.num;
   const node=(label,obj)=>`<div class="fnode ${obj.num===cur?'cur':''}" onclick="openByNum('${obj.num}')"><span class="fl">${label}</span><span class="fv">${obj.num}</span></div>`;
   const arrow='<span class="farrow">→</span>';
-  const ncNodesFor=ftNum=>(DB.noteCredito||[]).filter(nc=>nc.ftId===ftNum).map(nc=>arrow+node('Nota di credito',nc)).join('');
+  const ncNodesFor=ftNum=>(DB.noteCredito||[]).filter(nc=>((nc.ftIds&&nc.ftIds.length)?nc.ftIds:(nc.ftId?[nc.ftId]:[])).includes(ftNum)).map(nc=>arrow+node('Nota di credito',nc)).join('');
   const ncfNodesFor=ftfNum=>(DB.noteCreditoFornitore||[]).filter(ncf=>ncf.ftfId===ftfNum).map(ncf=>arrow+node('Nota di credito fornitore',ncf)).join('');
   // OC radice (se esiste)
   let ocNum=null;
@@ -1809,7 +1831,7 @@ function lineage(item,coll){
     if(ddt)chain.push(['DDT',ddt]);
     if(ft)chain.push(['Fattura cliente',ft]);
     if(t==='NC')chain.push(['Nota di credito',item]);
-    else if(ft)(DB.noteCredito||[]).filter(nc=>nc.ftId===ft.num).forEach(nc=>chain.push(['Nota di credito',nc]));
+    else if(ft)(DB.noteCredito||[]).filter(nc=>((nc.ftIds&&nc.ftIds.length)?nc.ftIds:(nc.ftId?[nc.ftId]:[])).includes(ft.num)).forEach(nc=>chain.push(['Nota di credito',nc]));
   }
   if(chain.length<2)return '<div class="flow"><span class="t-mut">Nessun altro documento collegato.</span></div>';
   return `<div class="flow"><div class="flow-row">${chain.map(c=>node(c[0],c[1])).join(arrow)}</div></div>`;
@@ -2094,7 +2116,7 @@ function removeDoc(coll,id){
   if(coll==='ordiniCliente'&&((it.ofIds&&it.ofIds.length)||it.ofId||(it.ddtIds&&it.ddtIds.length)||it.ddtId||it.ftId)){toast('Elimina prima i documenti collegati (OF / DDT / Fattura)');return;}
   if(coll==='ordiniFornitore'&&((it.ftfIds&&it.ftfIds.length)||it.ftfId)){toast('Elimina prima le fatture fornitore collegate');return;}
   if(coll==='ddt'&&it.ftId){toast('Elimina prima la fattura collegata');return;}
-  if(coll==='fattureCliente'&&(DB.noteCredito||[]).some(nc=>nc.ftId===it.num)){toast('Elimina prima le note di credito collegate a questa fattura');return;}
+  if(coll==='fattureCliente'&&(DB.noteCredito||[]).some(nc=>((nc.ftIds&&nc.ftIds.length)?nc.ftIds:(nc.ftId?[nc.ftId]:[])).includes(it.num))){toast('Elimina prima le note di credito collegate a questa fattura');return;}
   if(coll==='fattureFornitore'&&(DB.noteCreditoFornitore||[]).some(ncf=>ncf.ftfId===it.num)){toast('Elimina prima le note di credito collegate a questa fattura fornitore');return;}
   const tipo={ordiniCliente:'l\'ordine cliente',ordiniFornitore:'l\'ordine fornitore',ddt:'il DDT',fattureCliente:'la fattura',fattureFornitore:'la fattura fornitore',noteCredito:'la nota di credito',noteCreditoFornitore:'la nota di credito fornitore'}[coll];
   askConfirm(`Vuoi eliminare definitivamente ${tipo} <b>${it.num}</b>?<br>L'operazione non è reversibile.`,()=>doRemove(coll,id));
@@ -2660,35 +2682,87 @@ async function saveFTNew(){
   DB.fattureCliente.push(f);await persist();closeModal();toast('Fattura '+f.num+' creata');MOD='ft';VIEW='list';SEL={coll:'fattureCliente',item:f};render();
 }
 /* ===== Note di credito ===== */
+let NC_MODE='righe';
 function openNCForm(ftId){
   const ft=ftId?DB.fattureCliente.find(f=>f.id===ftId):null;
   FR=ft?ft.righe.map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||'',_man:true})):[];
-  FRMODE='cliente';OFEDIT=null;LOTE=true;
+  FRMODE='cliente';OFEDIT=null;LOTE=true;NC_MODE='righe';
   const opts=[...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>`<option value="${c.id}" ${ft&&c.id===ft.clienteId?'selected':''}>${c.nome}</option>`).join('');
+  // Da una fattura specifica: comportamento invariato (storno righe di quella fattura).
+  // Da zero (nessuna fattura di partenza): possibilità di inserire l'importo direttamente (es. per
+  // uno storno concordato su un saldo complessivo) e di collegare più fatture aperte dello stesso
+  // cliente, invece di dover per forza ricostruire lo storno riga per riga su un solo documento.
+  const modeTabs=ft?'':`<div class="field"><div class="dash-period"><button type="button" class="on" id="nc-mode-righe-btn" onclick="ncSetMode('righe')">Storno righe prodotto</button><button type="button" id="nc-mode-importo-btn" onclick="ncSetMode('importo')">Importo diretto</button></div></div>`;
+  const importoBlock=ft?'':`<div class="field" id="nc-importo-block" style="display:none">
+      <label>Importo da stornare (IVA inclusa)</label>
+      <div class="row2"><input type="number" step="0.01" id="nc-importo" placeholder="0,00" oninput="ncTotUpdate()">
+        <select id="nc-iva" onchange="ncTotUpdate()"><option value="22" selected>IVA 22%</option><option value="10">IVA 10%</option><option value="4">IVA 4%</option><option value="0">Esente/0%</option></select></div>
+      <p class="ai-intro" style="margin-top:6px">Verrà creata una riga unica con la descrizione indicata nel campo "Motivo" qui sotto.</p>
+    </div>`;
+  const ftLinksBlock=ft?'':`<div class="field"><label>Fatture collegate (opzionale)</label>
+      <p class="ai-intro" style="margin:0 0 6px">Seleziona le fatture aperte a cui si riferisce questo storno (es. un accordo su un saldo complessivo). Se ne selezioni più di una, l'importo viene applicato alle fatture collegate partendo dalla più vecchia.</p>
+      <div id="nc-ftlinks"></div></div>`;
   document.getElementById('modal').innerHTML=`
     <div class="modal-head"><h3>Nuova nota di credito${ft?' — da '+ft.num:''}</h3><button class="x" onclick="closeModal()">×</button></div>
     <div class="modal-body">
       ${ft?`<p class="ai-intro">Righe riprese dalla fattura ${ft.num}: elimina quelle che non vanno stornate o correggi le quantità, poi salva.</p>`:''}
-      <div class="field"><label>Cliente</label><select id="f-cli" ${ft?'disabled':''} onchange="onClientePick()">${opts}</select></div>
+      <div class="field"><label>Cliente</label><select id="f-cli" ${ft?'disabled':''} onchange="onClientePick();ncUpdateInvoiceList()">${opts}</select></div>
       <div class="row2"><div class="field"><label>Numero nota di credito</label><input id="f-num" value="${peekNum('FT')}"></div>
         <div class="field"><label>Data</label><input type="date" id="f-data" value="${today()}"></div></div>
-      <div class="field"><label>Motivo</label><input id="f-note" placeholder="es. Errore di fatturazione, reso merce…" value="${ft?('A storno (parziale) della fattura '+ft.num).replace(/"/g,'&quot;'):''}"></div>
-      <div class="field"><label>Aggiungi prodotto</label>
-        <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
-      <div class="field"><label>Righe da stornare</label><div id="le"></div></div>
+      <div class="field"><label>Motivo</label><input id="f-note" placeholder="es. Errore di fatturazione, reso merce, accordo transattivo…" value="${ft?('A storno (parziale) della fattura '+ft.num).replace(/"/g,'&quot;'):''}"></div>
+      ${modeTabs}
+      ${ftLinksBlock}
+      <div id="nc-righe-block">
+        <div class="field"><label>Aggiungi prodotto</label>
+          <div style="position:relative"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…" oninput="prodSearch(this.value);PROD_IDX=-1" onkeydown="prodKeyNav(event)"><div class="prod-sugg" id="prodsugg"></div></div></div>
+        <div class="field"><label>Righe da stornare</label><div id="le"></div></div>
+      </div>
+      ${importoBlock}
     </div>
     <div class="modal-foot"><button class="btn ghost" style="border:1px solid var(--border2)" onclick="closeModal()">Annulla</button>
       <span class="tot" id="f-tot"><small>Totale storno</small> ${eur(ft?tot(FR):0)}</span>
       <button class="btn primary" onclick="saveNC('${ft?ft.id:''}')">Crea nota di credito</button></div>`;
-  renderLE();document.getElementById('overlay').classList.add('show');
+  renderLE();if(!ft)ncUpdateInvoiceList();document.getElementById('overlay').classList.add('show');
 }
+function ncSetMode(m){
+  NC_MODE=m;
+  const rb=document.getElementById('nc-righe-block'),ib=document.getElementById('nc-importo-block');
+  if(rb)rb.style.display=m==='righe'?'':'none';
+  if(ib)ib.style.display=m==='importo'?'':'none';
+  const rBtn=document.getElementById('nc-mode-righe-btn'),iBtn=document.getElementById('nc-mode-importo-btn');
+  if(rBtn)rBtn.classList.toggle('on',m==='righe');
+  if(iBtn)iBtn.classList.toggle('on',m==='importo');
+  ncTotUpdate();
+}
+function ncTotUpdate(){
+  const el=document.getElementById('f-tot');if(!el)return;
+  const t=NC_MODE==='importo'?(parseFloat((document.getElementById('nc-importo')||{}).value)||0):tot(FR);
+  el.innerHTML=`<small>Totale storno</small> ${eur(t)}`;
+}
+function ncUpdateInvoiceList(){
+  const box=document.getElementById('nc-ftlinks');if(!box)return;
+  const clienteId=(document.getElementById('f-cli')||{}).value;
+  if(!clienteId){box.innerHTML='';return;}
+  const open=DB.fattureCliente.filter(f=>f.clienteId===clienteId&&payState(f).state!=='completo').sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  box.innerHTML=open.length?open.map(f=>{const p=payState(f);return `<label class="nc-ftlink-row"><input type="checkbox" value="${f.num}"> ${f.num} <span class="t-mut">— ${fdate(f.data)} · residuo ${eur(p.residuo)}</span></label>`;}).join(''):'<div class="t-mut" style="font-size:12.5px;padding:2px 0">Nessuna fattura aperta per questo cliente.</div>';
+}
+function ncSelectedFtIds(){return[...document.querySelectorAll('#nc-ftlinks input:checked')].map(c=>c.value);}
 async function saveNC(ftId){
   const clienteId=document.getElementById('f-cli').value,data=document.getElementById('f-data').value;
-  const righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
-  if(!righe.length){toast('Aggiungi almeno una riga');return;}
   const note=(document.getElementById('f-note')||{}).value.trim();
   const ft=ftId?DB.fattureCliente.find(f=>f.id===ftId):null;
-  const nc={id:uid('nc'),num:consumeNum('FT',(document.getElementById('f-num')||{}).value),data,clienteId,righe,ftId:ft?ft.num:null,note};
+  let righe;
+  if(!ft&&NC_MODE==='importo'){
+    const importo=parseFloat((document.getElementById('nc-importo')||{}).value)||0;
+    if(importo<=0){toast('Inserisci un importo valido');return;}
+    const iva=parseFloat((document.getElementById('nc-iva')||{}).value)||0;
+    righe=[{cod:'VARIE',descr:note||'Storno per accordo transattivo',qty:1,prezzo:+(importo/(1+iva/100)).toFixed(2),sconto:0,iva}];
+  }else{
+    righe=FR.filter(r=>r.cod&&r.qty>0).map(r=>({cod:r.cod,descr:r.descr,qty:r.qty,prezzo:r.prezzo,sconto:r.sconto||0,iva:r.iva,lotto:r.lotto||'',scad:r.scad||''}));
+  }
+  if(!righe.length){toast('Aggiungi almeno una riga (o un importo)');return;}
+  const ftIds=ft?[ft.num]:ncSelectedFtIds();
+  const nc={id:uid('nc'),num:consumeNum('FT',(document.getElementById('f-num')||{}).value),data,clienteId,righe,ftId:ftIds.length?ftIds[ftIds.length-1]:null,ftIds,note};
   DB.noteCredito.push(nc);await persist();closeModal();toast('Nota di credito '+nc.num+' creata');MOD='nc';VIEW='list';SEL={coll:'noteCredito',item:nc};render();document.getElementById('content').scrollTo(0,0);
 }
 function openNCEdit(id){
@@ -2699,7 +2773,7 @@ function openNCEdit(id){
   document.getElementById('modal').innerHTML=`
     <div class="modal-head"><h3>Modifica nota di credito ${nc.num}</h3><button class="x" onclick="closeModal()">×</button></div>
     <div class="modal-body">
-      ${nc.ftId?`<p class="ai-intro">Collegata alla fattura ${nc.ftId}.</p>`:''}
+      ${(nc.ftIds&&nc.ftIds.length)?`<p class="ai-intro">Collegata a${nc.ftIds.length>1?' più fatture:':' '} ${nc.ftIds.join(', ')}.</p>`:(nc.ftId?`<p class="ai-intro">Collegata alla fattura ${nc.ftId}.</p>`:'')}
       <div class="field"><label>Cliente</label><select id="f-cli">${opts}</select></div>
       <div class="row2"><div class="field"><label>Numero</label><input id="f-num" value="${nc.num}"></div>
         <div class="field"><label>Data</label><input type="date" id="f-data" value="${nc.data}"></div></div>

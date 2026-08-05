@@ -1002,7 +1002,7 @@ let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'da
 const NAV=[
   {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'}]},
   {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'},{id:'nc',ic:'↩',label:'Note di credito',coll:'noteCredito'},{id:'incassi',ic:'💰',label:'Incassi'}]},
-  {grp:'Acquisti',items:[{id:'of',ic:'📦',label:'Ordini fornitore',coll:'ordiniFornitore'},{id:'ftf',ic:'📑',label:'Fatture fornitore',coll:'fattureFornitore'},{id:'ncf',ic:'↩',label:'Note credito fornitori',coll:'noteCreditoFornitore'}]},
+  {grp:'Acquisti',items:[{id:'of',ic:'📦',label:'Ordini fornitore',coll:'ordiniFornitore'},{id:'ftf',ic:'📑',label:'Fatture fornitore',coll:'fattureFornitore'},{id:'ncf',ic:'↩',label:'Note credito fornitori',coll:'noteCreditoFornitore'},{id:'pagamenti',ic:'💳',label:'Pagamenti'}]},
   {grp:'Anagrafiche',items:[{id:'clienti',ic:'🏥',label:'Clienti',coll:'clienti'},{id:'fornitori',ic:'🏢',label:'Fornitori',coll:'fornitori'},{id:'prodotti',ic:'⊞',label:'Prodotti',coll:'prodotti'}]},
   {grp:'Impostazioni',items:[{id:'azienda',ic:'⚙',label:'Impostazioni'}]},
 ];
@@ -1013,6 +1013,7 @@ const META={
   evadere:{title:'Prodotti da evadere',sub:'Elenco dettagliato di tutti i prodotti ordinati e non ancora consegnati.'},
   ricevere:{title:'Prodotti da ricevere',sub:'Elenco dettagliato di tutti i prodotti ordinati a fornitore e non ancora ricevuti.'},
   incassi:{title:'Incassi',sub:'Storico di tutti gli incassi registrati sulle fatture clienti.'},
+  pagamenti:{title:'Pagamenti',sub:'Storico di tutti i pagamenti registrati sulle fatture fornitore.'},
   report:{title:'Report & Analisi',sub:'Statistiche prodotti, margine per cliente, esportazioni Excel.'},
   prev:{title:'Preventivi',sub:'Crea preventivi e trasformali in ordini cliente con un clic.',coll:'preventivi'},
   oc:{title:'Ordini cliente',sub:'Inserisci ordini e trasformali nei documenti collegati.',coll:'ordiniCliente'},
@@ -1097,6 +1098,7 @@ function renderContent(){
   if(MOD==='evadere'){c.innerHTML=evadereView();return;}
   if(MOD==='ricevere'){c.innerHTML=ricevereView();return;}
   if(MOD==='incassi'){c.innerHTML=incassiView();return;}
+  if(MOD==='pagamenti'){c.innerHTML=pagamentiView();return;}
   if(MOD==='report'){c.innerHTML=reportView();return;}
   if(MOD==='ai'){c.innerHTML=aiView();bindAI();return;}
   if(MOD==='azienda'){c.innerHTML=aziendaView();return;}
@@ -5271,6 +5273,73 @@ function exportIncassiXLS(){
   const out=rows.map(r=>({Data:fdate(r.data),Cliente:(cl[r.clienteId]||{}).nome||'',Fattura:r.ftNum,'Importo €':parseFloat(r.importo.toFixed(2))}));
   const suffix=INC_FILT.cli?'_'+(cl[INC_FILT.cli]?.nome||'cliente').replace(/[^a-z0-9]/gi,'_'):'';
   xlsDownload(out,'Incassi'+suffix+'_'+today()+'.xlsx','Incassi');
+}
+
+/* ===== PAGAMENTI (fornitori) ===== */
+let PAG_FILT={forn:'',from:'',to:''};
+let PAG_SORT={key:'data',dir:'desc'};
+// Stesso principio di allIncassi() ma sul lato fatture fornitore: un rigo per ogni pagamento
+// registrato nello storico, più un pagamento "sintetico" per le fatture segnate pagate col vecchio
+// sistema (paid=true, senza storico pagamenti esplicito).
+function allPagamenti(){
+  const out=[];
+  DB.fattureFornitore.forEach(f=>{
+    if(f.pagamenti&&f.pagamenti.length){
+      f.pagamenti.forEach(p=>out.push({data:p.data,fornitoreId:f.fornitoreId,ffNum:f.num,ffId:f.id,importo:p.importo||0}));
+    }else if(f.paid){
+      out.push({data:f.paidDate||f.data,fornitoreId:f.fornitoreId,ffNum:f.num,ffId:f.id,importo:tot(f.righe),legacy:true});
+    }
+  });
+  return out;
+}
+function pagamentiSort(key){if(PAG_SORT.key===key)PAG_SORT.dir=PAG_SORT.dir==='asc'?'desc':'asc';else{PAG_SORT.key=key;PAG_SORT.dir=key==='fornitore'||key==='fattura'?'asc':'desc';}renderContent();}
+function setPagFilt(k,v){PAG_FILT[k]=v;renderContent();}
+function clearPagFilt(){PAG_FILT={forn:'',from:'',to:''};renderContent();}
+function pagamentiFiltered(){
+  let rows=allPagamenti();
+  if(PAG_FILT.forn)rows=rows.filter(r=>r.fornitoreId===PAG_FILT.forn);
+  if(PAG_FILT.from)rows=rows.filter(r=>(r.data||'')>=PAG_FILT.from);
+  if(PAG_FILT.to)rows=rows.filter(r=>(r.data||'')<=PAG_FILT.to);
+  return rows;
+}
+function pagamentiView(){
+  if(!DB||!DB.fattureFornitore)return '<div class="t-mut" style="padding:32px">Caricamento…</div>';
+  const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f]));
+  const s=PAG_SORT,dir=s.dir==='asc'?1:-1;
+  const valOf=(r,key)=>{switch(key){case 'data':return r.data;case 'fornitore':return (fo[r.fornitoreId]||{}).nome||'';case 'fattura':return r.ffNum;case 'importo':return r.importo;}return '';};
+  const rows=pagamentiFiltered().sort((a,b)=>{const va=valOf(a,s.key),vb=valOf(b,s.key);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dir;return String(va).localeCompare(String(vb),'it',{numeric:true})*dir;});
+  const totPagato=rows.reduce((s2,r)=>s2+r.importo,0);
+  const ffActive=!!(PAG_FILT.forn||PAG_FILT.from||PAG_FILT.to);
+  const th=(key,label)=>{const on=s.key===key,ar=on?(s.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${on?'on':''}" onclick="pagamentiSort('${key}')">${label}${ar}</th>`;};
+  const trs=rows.map(r=>`<tr onclick="openByNum('${r.ffNum}')" style="cursor:pointer">
+      <td>${fdate(r.data)}</td>
+      <td>${aiEsc((fo[r.fornitoreId]||{}).nome||'?')}</td>
+      <td class="code" style="color:var(--blue)">${r.ffNum}</td>
+      <td class="num"><b>${eur(r.importo)}</b></td>
+    </tr>`).join('');
+  const fornOpts=`<option value="">Tutti i fornitori</option>`+[...DB.fornitori].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>`<option value="${f.id}" ${PAG_FILT.forn===f.id?'selected':''}>${f.nome}</option>`).join('');
+  return `<div class="page-head"><div class="page-title">Pagamenti</div>
+    <button class="btn" onclick="exportPagamentiXLS()">⬇ Excel</button></div>
+    <div class="filterbar">
+      <select onchange="setPagFilt('forn',this.value)">${fornOpts}</select>
+      <div class="fdate-group">
+        <label class="fdate">Dal <input type="date" value="${PAG_FILT.from}" onchange="setPagFilt('from',this.value)"></label>
+        <label class="fdate">Al <input type="date" value="${PAG_FILT.to}" onchange="setPagFilt('to',this.value)"></label>
+      </div>
+      ${ffActive?`<button class="ffclear" onclick="clearPagFilt()">✕ Azzera filtri</button>`:''}
+    </div>
+    <div class="stats" style="margin:14px 0;grid-template-columns:repeat(2,1fr)">
+      ${stat('Totale pagato',eur0(totPagato),rows.length+' pagament'+(rows.length===1?'o':'i')+(ffActive?' (filtro attivo)':''),'var(--violet)','')}
+      ${stat('Da pagare ai fornitori',eur0(DB.fattureFornitore.filter(f=>payState(f).state!=='completo').reduce((s2,f)=>s2+payState(f).residuo,0)),'ad oggi, tutte le fatture aperte','var(--red)','')}
+    </div>
+    <div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${th('data','Data')}${th('fornitore','Fornitore')}${th('fattura','Fattura')}${th('importo','Importo')}</tr></thead><tbody>${trs||'<tr><td colspan="4" class="t-mut" style="text-align:center;padding:24px">Nessun pagamento registrato'+(ffActive?' per questo filtro':'')+'</td></tr>'}</tbody></table></div>`;
+}
+function exportPagamentiXLS(){
+  const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f]));
+  const rows=pagamentiFiltered();
+  const out=rows.map(r=>({Data:fdate(r.data),Fornitore:(fo[r.fornitoreId]||{}).nome||'',Fattura:r.ffNum,'Importo €':parseFloat(r.importo.toFixed(2))}));
+  const suffix=PAG_FILT.forn?'_'+(fo[PAG_FILT.forn]?.nome||'fornitore').replace(/[^a-z0-9]/gi,'_'):'';
+  xlsDownload(out,'Pagamenti'+suffix+'_'+today()+'.xlsx','Pagamenti');
 }
 
 /* ===== REPORT ===== */

@@ -1001,7 +1001,7 @@ function findByNum(num){
 let MOD='dashboard',VIEW='list',SEL=null,Q='',QRAW='',PENDING=null,SORT={key:'data',dir:'desc'},PICK=new Set(),PSORT={key:'codice',dir:'asc'},MONTHLY=[],PLIMIT=300,PRODTOTAL=0,FFILT={forn:'',paid:'',from:'',to:'',dest:''},DASHY=today().slice(0,4),LOTE=false;
 const NAV=[
   {grp:null,items:[{id:'dashboard',ic:'◫',label:'Dashboard'},{id:'ai',ic:'✦',label:'Assistente AI'},{id:'scadenziario',ic:'📅',label:'Scadenziario'},{id:'report',ic:'📊',label:'Report'}]},
-  {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'},{id:'nc',ic:'↩',label:'Note di credito',coll:'noteCredito'}]},
+  {grp:'Vendite',items:[{id:'prev',ic:'📝',label:'Preventivi',coll:'preventivi'},{id:'oc',ic:'🛒',label:'Ordini cliente',coll:'ordiniCliente'},{id:'ddt',ic:'🚚',label:'DDT',coll:'ddt'},{id:'ft',ic:'🧾',label:'Fatture cliente',coll:'fattureCliente'},{id:'nc',ic:'↩',label:'Note di credito',coll:'noteCredito'},{id:'incassi',ic:'💰',label:'Incassi'}]},
   {grp:'Acquisti',items:[{id:'of',ic:'📦',label:'Ordini fornitore',coll:'ordiniFornitore'},{id:'ftf',ic:'📑',label:'Fatture fornitore',coll:'fattureFornitore'},{id:'ncf',ic:'↩',label:'Note credito fornitori',coll:'noteCreditoFornitore'}]},
   {grp:'Anagrafiche',items:[{id:'clienti',ic:'🏥',label:'Clienti',coll:'clienti'},{id:'fornitori',ic:'🏢',label:'Fornitori',coll:'fornitori'},{id:'prodotti',ic:'⊞',label:'Prodotti',coll:'prodotti'}]},
   {grp:'Impostazioni',items:[{id:'azienda',ic:'⚙',label:'Impostazioni'}]},
@@ -1012,6 +1012,7 @@ const META={
   scadenziario:{title:'Scadenziario',sub:'Tutte le fatture clienti non incassate, ordinate per data di scadenza.'},
   evadere:{title:'Prodotti da evadere',sub:'Elenco dettagliato di tutti i prodotti ordinati e non ancora consegnati.'},
   ricevere:{title:'Prodotti da ricevere',sub:'Elenco dettagliato di tutti i prodotti ordinati a fornitore e non ancora ricevuti.'},
+  incassi:{title:'Incassi',sub:'Storico di tutti gli incassi registrati sulle fatture clienti.'},
   report:{title:'Report & Analisi',sub:'Statistiche prodotti, margine per cliente, esportazioni Excel.'},
   prev:{title:'Preventivi',sub:'Crea preventivi e trasformali in ordini cliente con un clic.',coll:'preventivi'},
   oc:{title:'Ordini cliente',sub:'Inserisci ordini e trasformali nei documenti collegati.',coll:'ordiniCliente'},
@@ -1095,6 +1096,7 @@ function renderContent(){
   if(MOD==='scadenziario'){c.innerHTML=scadenziarioView();return;}
   if(MOD==='evadere'){c.innerHTML=evadereView();return;}
   if(MOD==='ricevere'){c.innerHTML=ricevereView();return;}
+  if(MOD==='incassi'){c.innerHTML=incassiView();return;}
   if(MOD==='report'){c.innerHTML=reportView();return;}
   if(MOD==='ai'){c.innerHTML=aiView();bindAI();return;}
   if(MOD==='azienda'){c.innerHTML=aziendaView();return;}
@@ -5202,6 +5204,73 @@ function exportScadenziarioXLS(){
   });
   const suffix=SCAD_CLI?'_'+(cl[SCAD_CLI]?.nome||'cliente').replace(/[^a-z0-9]/gi,'_'):'';
   xlsDownload(rows,'Scadenziario'+suffix+'_'+today()+'.xlsx','Scadenziario');
+}
+
+/* ===== INCASSI ===== */
+let INC_FILT={cli:'',from:'',to:''};
+let INC_SORT={key:'data',dir:'desc'};
+// Elenco piatto di tutti gli incassi registrati sulle fatture clienti: uno per ogni pagamento nello
+// storico (it.pagamenti), oppure un incasso "sintetico" per le fatture segnate pagate col vecchio
+// sistema (paid=true, senza storico pagamenti) usando l'intero importo e la data di incasso salvata.
+function allIncassi(){
+  const out=[];
+  DB.fattureCliente.forEach(f=>{
+    if(f.pagamenti&&f.pagamenti.length){
+      f.pagamenti.forEach(p=>out.push({data:p.data,clienteId:f.clienteId,ftNum:f.num,ftId:f.id,importo:p.importo||0}));
+    }else if(f.paid){
+      out.push({data:f.paidDate||f.data,clienteId:f.clienteId,ftNum:f.num,ftId:f.id,importo:tot(f.righe),legacy:true});
+    }
+  });
+  return out;
+}
+function incassiSort(key){if(INC_SORT.key===key)INC_SORT.dir=INC_SORT.dir==='asc'?'desc':'asc';else{INC_SORT.key=key;INC_SORT.dir=key==='cliente'||key==='fattura'?'asc':'desc';}renderContent();}
+function setIncFilt(k,v){INC_FILT[k]=v;renderContent();}
+function clearIncFilt(){INC_FILT={cli:'',from:'',to:''};renderContent();}
+function incassiFiltered(){
+  let rows=allIncassi();
+  if(INC_FILT.cli)rows=rows.filter(r=>r.clienteId===INC_FILT.cli);
+  if(INC_FILT.from)rows=rows.filter(r=>(r.data||'')>=INC_FILT.from);
+  if(INC_FILT.to)rows=rows.filter(r=>(r.data||'')<=INC_FILT.to);
+  return rows;
+}
+function incassiView(){
+  if(!DB||!DB.fattureCliente)return '<div class="t-mut" style="padding:32px">Caricamento…</div>';
+  const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
+  const s=INC_SORT,dir=s.dir==='asc'?1:-1;
+  const valOf=(r,key)=>{switch(key){case 'data':return r.data;case 'cliente':return (cl[r.clienteId]||{}).nome||'';case 'fattura':return r.ftNum;case 'importo':return r.importo;}return '';};
+  const rows=incassiFiltered().sort((a,b)=>{const va=valOf(a,s.key),vb=valOf(b,s.key);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dir;return String(va).localeCompare(String(vb),'it',{numeric:true})*dir;});
+  const totIncassato=rows.reduce((s2,r)=>s2+r.importo,0);
+  const ffActive=!!(INC_FILT.cli||INC_FILT.from||INC_FILT.to);
+  const th=(key,label)=>{const on=s.key===key,ar=on?(s.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${on?'on':''}" onclick="incassiSort('${key}')">${label}${ar}</th>`;};
+  const trs=rows.map(r=>`<tr onclick="openByNum('${r.ftNum}')" style="cursor:pointer">
+      <td>${fdate(r.data)}</td>
+      <td>${aiEsc((cl[r.clienteId]||{}).nome||'?')}</td>
+      <td class="code" style="color:var(--blue)">${r.ftNum}</td>
+      <td class="num"><b>${eur(r.importo)}</b></td>
+    </tr>`).join('');
+  const cliOpts=`<option value="">Tutti i clienti</option>`+[...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>`<option value="${c.id}" ${INC_FILT.cli===c.id?'selected':''}>${c.nome}</option>`).join('');
+  return `<div class="page-head"><div class="page-title">Incassi</div>
+    <button class="btn" onclick="exportIncassiXLS()">⬇ Excel</button></div>
+    <div class="filterbar">
+      <select onchange="setIncFilt('cli',this.value)">${cliOpts}</select>
+      <div class="fdate-group">
+        <label class="fdate">Dal <input type="date" value="${INC_FILT.from}" onchange="setIncFilt('from',this.value)"></label>
+        <label class="fdate">Al <input type="date" value="${INC_FILT.to}" onchange="setIncFilt('to',this.value)"></label>
+      </div>
+      ${ffActive?`<button class="ffclear" onclick="clearIncFilt()">✕ Azzera filtri</button>`:''}
+    </div>
+    <div class="stats" style="margin:14px 0;grid-template-columns:repeat(2,1fr)">
+      ${stat('Totale incassato',eur0(totIncassato),rows.length+' incass'+(rows.length===1?'o':'i')+(ffActive?' (filtro attivo)':''),'var(--accent-d)','')}
+      ${stat('Da incassare dai clienti',eur0(DB.fattureCliente.filter(f=>payState(f).state!=='completo').reduce((s2,f)=>s2+payState(f).residuo,0)),'ad oggi, tutte le fatture aperte','var(--amber)','')}
+    </div>
+    <div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${th('data','Data')}${th('cliente','Cliente')}${th('fattura','Fattura')}${th('importo','Importo')}</tr></thead><tbody>${trs||'<tr><td colspan="4" class="t-mut" style="text-align:center;padding:24px">Nessun incasso registrato'+(ffActive?' per questo filtro':'')+'</td></tr>'}</tbody></table></div>`;
+}
+function exportIncassiXLS(){
+  const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
+  const rows=incassiFiltered();
+  const out=rows.map(r=>({Data:fdate(r.data),Cliente:(cl[r.clienteId]||{}).nome||'',Fattura:r.ftNum,'Importo €':parseFloat(r.importo.toFixed(2))}));
+  const suffix=INC_FILT.cli?'_'+(cl[INC_FILT.cli]?.nome||'cliente').replace(/[^a-z0-9]/gi,'_'):'';
+  xlsDownload(out,'Incassi'+suffix+'_'+today()+'.xlsx','Incassi');
 }
 
 /* ===== REPORT ===== */

@@ -1541,8 +1541,12 @@ function listView(){
       sImp=rows.reduce((s,r)=>s+r.it.righe.reduce((rs,rl)=>rs+Math.max(0,(rl.qty||0)-(rl.qtyEv||0))*rl.prezzo*scFactor(rl.sconto||0),0),0);
       sTot=rows.reduce((s,r)=>s+r.it.righe.reduce((rs,rl)=>rs+Math.max(0,(rl.qty||0)-(rl.qtyEv||0))*rl.prezzo*scFactor(rl.sconto||0)*(1+(rl.iva||22)/100),0),0);
     }else{
-      sImp=rows.reduce((s,r)=>s+imp(r.it.righe),0);
-      sTot=rows.reduce((s,r)=>s+tot(r.it.righe),0);
+      // Le note di credito riducono quanto fatturato al cliente/dal fornitore: vanno sottratte,
+      // non sommate, altrimenti il totale di un cliente/fornitore con una nota di credito risulta
+      // gonfiato invece che corretto.
+      const ncSign=r=>(r.coll==='noteCredito'||r.coll==='noteCreditoFornitore')?-1:1;
+      sImp=rows.reduce((s,r)=>s+ncSign(r)*imp(r.it.righe),0);
+      sTot=rows.reduce((s,r)=>s+ncSign(r)*tot(r.it.righe),0);
     }
     head+=`<div class="search-sum"><b>${rows.length}</b> ${rows.length===1?'documento':'documenti'} · Imponibile <b>${eur(sImp)}</b> · Totale <b>${eur(sTot)}</b>${isOCResidue?` <span class="t-mut">(residuo da ${MOD==='of'?'ricevere':'evadere'})</span>`:''}</div>`;
   }
@@ -1551,10 +1555,12 @@ function listView(){
   if(inv&&PICK.size){
     const canPaid=MOD==='ft'||MOD==='ftf';
     const lbl=MOD==='ft'?['incassate','da incassare']:['pagate','da pagare'];
-    const selItems=rows.filter(r=>PICK.has(r.it.id)).map(r=>r.it);
+    const selRows=rows.filter(r=>PICK.has(r.it.id));
+    const selItems=selRows.map(r=>r.it);
     const anyUnpaid=selItems.some(x=>x.paid===false);
     const anyPaid=selItems.some(x=>x.paid===true);
-    const selTot=selItems.reduce((s,x)=>s+tot(x.righe),0);
+    // Le note di credito riducono il totale (vanno sottratte), non sommate.
+    const selTot=selRows.reduce((s,r)=>s+((r.coll==='noteCredito'||r.coll==='noteCreditoFornitore')?-1:1)*tot(r.it.righe),0);
     bulk=`<div class="bulkbar"><span>${PICK.size} selezionat${PICK.size===1?'o':'i'} · Totale ${eur(selTot)}</span><div style="flex:1"></div>
       ${canPaid&&anyUnpaid?`<button class="btn sm primary" onclick="bulkPaid(true)">✓ Segna ${lbl[0]}</button>`:''}
       ${canPaid&&anyPaid?`<button class="btn sm" onclick="bulkPaid(false)">↺ Segna ${lbl[1]}</button>`:''}
@@ -5182,7 +5188,11 @@ function buildExportRows(){
       const destObj=(!isForn&&it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
       const row={Numero:it.num,Data:it.data,Controparte:party};
       if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
-      row['Totale €']=parseFloat(tot(it.righe||[]).toFixed(2));
+      // Nell'export misto fatture+note di credito (liste Fatture cliente/fornitore) il segno del
+      // totale deve riflettere che una nota di credito riduce il fatturato, altrimenti una somma
+      // della colonna "Totale €" risulta gonfiata (stesso bug corretto nella barra riepilogo).
+      const isMergedNC=(MOD==='ft'||MOD==='ftf')&&(r.coll==='noteCredito'||r.coll==='noteCreditoFornitore');
+      row['Totale €']=parseFloat(((isMergedNC?-1:1)*tot(it.righe||[])).toFixed(2));
       if(r.coll==='noteCredito'||r.coll==='noteCreditoFornitore')row.Stato='Nota di credito';
       else if(MOD!=='prev'&&MOD!=='nc'&&MOD!=='ncf')row.Stato=it.paid?'Pagata':'Aperta';
       return row;

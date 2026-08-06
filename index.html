@@ -1412,93 +1412,34 @@ async function bulkDownloadPDF(){
   toast('Generazione PDF in corso…');
   try{
     const JsPDF=await loadJsPDF();
+    await loadHtml2Canvas();
     let n=0;
     for(const{it:item,coll} of rows){
-      const doc=new JsPDF({unit:'mm',format:'a4'});
-      buildDocPDFPage(doc,coll,item);
-      doc.save(String(item.num).replace(/\//g,'-')+'.pdf');
+      await docPDFFromPrintHTML(JsPDF,coll,item);
       n++;
-      await new Promise(r=>setTimeout(r,250));
     }
     toast('✅ '+n+' PDF scaricati');
   }catch(e){toast('Errore PDF: '+(e.message||e));console.error(e);}
 }
-
-function buildDocPDFPage(doc,coll,item){
-  const W=210,M=15;let y=16;
-  const az=DB.azienda||{};
-  const isForn=coll==='ordiniFornitore'||coll==='fattureFornitore'||coll==='noteCreditoFornitore';
-  const party=isForn?fornitore(item.fornitoreId):cliente(item.clienteId);
-  const titles={ordiniCliente:'ORDINE CLIENTE',ordiniFornitore:'ORDINE FORNITORE',ddt:'DOCUMENTO DI TRASPORTO',fattureCliente:'FATTURA',fattureFornitore:'FATTURA FORNITORE',preventivi:'PREVENTIVO',noteCredito:'NOTA DI CREDITO',noteCreditoFornitore:'NOTA DI CREDITO FORNITORE'};
-  // Intestazione azienda
-  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(az.nome||'Ipsofarma S.r.l.',M,y);
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(titles[coll]||coll,W-M,y,{align:'right'});
-  y+=5;doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(90);
-  const azl=[az.via,[az.cap,az.citta,az.prov?'('+az.prov+')':''].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
-  if(azl){doc.text(azl,M,y);y+=4;}
-  const azm=[az.piva?'P.IVA '+az.piva:'',az.tel?'Tel '+az.tel:'',az.email||''].filter(Boolean).join(' · ');
-  if(azm){doc.text(azm,M,y);}
-  doc.setTextColor(20);
-  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text(item.num,W-M,y-3,{align:'right'});
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(fdate(item.data),W-M,y+2,{align:'right'});
-  y+=7;doc.setDrawColor(14,163,113);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);doc.setLineWidth(0.2);y+=6;
-  // Controparte
-  doc.setFontSize(7.5);doc.setTextColor(110);doc.text(isForn?'FORNITORE':'CLIENTE',M,y);y+=4;
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(20);doc.text(party.nome||'',M,y);y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(90);
-  const pl=[party.via,[party.cap,party.citta,party.prov?'('+party.prov+')':''].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
-  if(pl){doc.text(pl,M,y);y+=4;}
-  const pm=[party.piva?'P.IVA '+party.piva:'',party.sdi?'SDI '+party.sdi:'',party.pec||''].filter(Boolean).join(' · ');
-  if(pm){doc.text(pm,M,y);y+=4;}
-  doc.setTextColor(20);y+=4;
-  // Tabella righe
-  const isDDT=coll==='ddt';
-  const hasSc=!isDDT&&item.righe.some(r=>scEff(r.sconto)>0);
-  const hasLot=['ddt','fattureCliente','fattureFornitore'].includes(coll)&&item.righe.some(r=>r.lotto||r.scad);
-  const cols=[];
-  cols.push({h:'Codice',w:28,r:false,v:r=>r.cod||''});
-  cols.push({h:'Descrizione',w:hasLot?40:60,r:false,v:r=>r.descr||''});
-  if(hasLot){cols.push({h:'Lotto',w:22,r:false,v:r=>r.lotto||'—'});cols.push({h:'Scadenza',w:20,r:true,v:r=>r.scad?fdate(r.scad):'—'});}
-  cols.push({h:'Q.tà',w:12,r:true,v:r=>String(r.qty)});
-  if(!isDDT){
-    cols.push({h:'Prezzo',w:22,r:true,v:r=>eur(r.prezzo)});
-    cols.push({h:'Imponibile',w:24,r:true,v:r=>eur(lineNet(r))});
-    if(hasSc)cols.push({h:'Sconto',w:14,r:true,v:r=>scLabel(r.sconto||0)});
-    cols.push({h:'IVA',w:10,r:true,v:r=>(r.iva||22)+'%'});
-    cols.push({h:'Totale',w:24,r:true,v:r=>eur(lineNet(r)*(1+(r.iva||22)/100))});
-  }
-  // Header
-  doc.setFillColor(240,244,241);doc.rect(M,y,W-2*M,6,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80);
-  let x=M+1;cols.forEach(c=>{doc.text(c.h,c.r?x+c.w-1:x,y+4,{align:c.r?'right':'left'});x+=c.w;});
-  doc.setTextColor(20);y+=8;
-  // Righe
-  doc.setFont('helvetica','normal');doc.setFontSize(8.5);
-  item.righe.forEach(r=>{
-    if(y>272){doc.addPage();y=16;}
-    let rx=M+1;
-    cols.forEach(c=>{
-      const v=c.v(r);
-      if(c.h==='Descrizione'){const lines=doc.splitTextToSize(v,c.w-2);doc.text(lines[0],rx,y);}
-      else doc.text(v,c.r?rx+c.w-1:rx,y,{align:c.r?'right':'left'});
-      rx+=c.w;
+// Genera il PDF di un documento usando LO STESSO template HTML della stampa (buildPrintHTML),
+// invece di un layout ridisegnato a mano: così il file scaricato è sempre identico a quello
+// che si vede stampando, senza dover mantenere due template in parallelo.
+async function docPDFFromPrintHTML(JsPDF,coll,item){
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:fixed;left:-10000px;top:0;width:780px;background:#fff';
+  wrap.innerHTML=buildPrintHTML(coll,item);
+  document.body.appendChild(wrap);
+  try{
+    const doc=new JsPDF({unit:'mm',format:'a4'});
+    await doc.html(wrap,{
+      x:0,y:0,width:210,windowWidth:780,
+      html2canvas:{scale:2,backgroundColor:'#ffffff'},
+      autoPaging:'text'
     });
-    y+=5;doc.setDrawColor(230);doc.line(M,y-1,W-M,y-1);
-  });
-  // Totali (non su DDT: documento di trasporto, senza valori)
-  if(!isDDT){
-    y+=5;const tx=W-M-55;
-    const fImp=imp(item.righe),fIva=ivaT(item.righe),fTot=tot(item.righe);
-    doc.setFontSize(8.5);doc.setTextColor(90);
-    doc.text('Imponibile',tx,y);doc.setTextColor(20);doc.text(eur(fImp),W-M,y,{align:'right'});y+=5;
-    doc.setTextColor(90);doc.text('IVA',tx,y);doc.setTextColor(20);doc.text(eur(fIva),W-M,y,{align:'right'});y+=5;
-    doc.setDrawColor(14,163,113);doc.setLineWidth(0.4);doc.line(tx,y-1,W-M,y-1);doc.setLineWidth(0.2);
-    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,163,113);
-    doc.text('TOTALE',tx,y+4);doc.text(eur(fTot),W-M,y+4,{align:'right'});doc.setTextColor(20);
+    doc.save(String(item.num).replace(/\//g,'-')+'.pdf');
+  }finally{
+    wrap.remove();
   }
-  // Footer
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160);
-  doc.text((az.iso||'')+' Ipsofarma Gestionale',M,290);
 }
 async function bulkPaid(val){
   const coll=META[MOD].coll;let n=0;
@@ -2508,6 +2449,9 @@ async function saveOCEdit(id){
   await persist();closeModal();toast('Ordine '+oc.num+' aggiornato');SEL={coll:'ordiniCliente',item:oc};render();
 }
 function loadJsPDF(){return new Promise((res,rej)=>{if(window.jspdf&&window.jspdf.jsPDF){res(window.jspdf.jsPDF);return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';s.onload=()=>res(window.jspdf.jsPDF);s.onerror=()=>rej(new Error('Impossibile caricare il generatore PDF (serve internet)'));document.head.appendChild(s);});}
+// jsPDF usa internamente html2canvas per il metodo .html() (rendering del template di stampa in PDF):
+// va caricato separatamente, non è incluso nel bundle di jsPDF.
+function loadHtml2Canvas(){return new Promise((res,rej)=>{if(window.html2canvas){res(window.html2canvas);return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';s.onload=()=>res(window.html2canvas);s.onerror=()=>rej(new Error('Impossibile caricare il generatore PDF (serve internet)'));document.head.appendChild(s);});}
 async function ofBuildPDF(of){
   const JsPDF=await loadJsPDF();const az=DB.azienda||{};const forn=fornitore(of.fornitoreId);
   const doc=new JsPDF({unit:'mm',format:'a4'});const W=210,M=15;let y=18;

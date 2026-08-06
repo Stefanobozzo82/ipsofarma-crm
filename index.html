@@ -84,17 +84,17 @@ button{font-family:inherit;cursor:pointer}
 .content{flex:1;overflow-y:auto;padding:clamp(14px,1.6vw,32px);width:100%;max-width:1760px;margin:0 auto}
 /* Dashboard schermo intero */
 .content.dash-view{overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding:clamp(10px,1.2vw,22px)}
-.dash-layout{display:flex;flex-direction:column;flex:1;min-height:0;gap:8px}
+/* Niente min-height:0 qui: se il contenuto non entra nello spazio disponibile, l'intera pagina
+   scorre (grazie a overflow-y:auto su .content.dash-view sopra) invece di comprimere il grafico
+   fino a tagliarlo o farlo scorrere lui solo dentro il suo riquadro. */
+.dash-layout{display:flex;flex-direction:column;flex:1;gap:8px}
 .dash-layout .page-head{flex-shrink:0;margin-bottom:0}
 .dash-layout .stats{margin-bottom:0;gap:8px}
 .dash-layout .stat{padding:10px 14px}
 .dash-layout .sl{font-size:12px}
 .dash-layout .sv{font-size:clamp(16px,1.6vw,22px);line-height:1.2}
 .dash-layout .sx{font-size:11px}
-/* Il pannello base ha overflow:hidden (per gli angoli arrotondati): qui va sovrascritto, altrimenti
-   quando il grafico non entra nello spazio disponibile (vedi min-height sotto) viene tagliato via
-   invece di poter scorrere. */
-.dash-layout .panel{flex:1;min-height:0;margin-bottom:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+.dash-layout .panel{flex:1;margin-bottom:0;display:flex;flex-direction:column}
 .dash-layout .panel-h{flex-shrink:0}
 /* Il grafico non scende mai sotto un'altezza leggibile: su schermi bassi (es. molti laptop
    aziendali) si preferisce far scorrere la pagina piuttosto che rimpicciolirlo fino a renderlo

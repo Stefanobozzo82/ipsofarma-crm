@@ -57,6 +57,12 @@ button{font-family:inherit;cursor:pointer}
 .crumb .back{background:none;border:none;color:var(--muted);font-size:13px;margin-right:4px;padding:4px 8px;border-radius:6px}
 .crumb .back:hover{background:var(--bg);color:var(--txt)}
 .topbar .sp{flex:1}
+/* Quando non c'è né il pulsante "indietro" né azioni da mostrare, la topbar si azzera e il
+   contenuto sale fino al bordo superiore invece di lasciare una barra vuota. Solo da desktop
+   in su: sotto i 900px serve comunque il pulsante ☰ per aprire il menu laterale. */
+@media(min-width:901px){
+  .topbar.empty{height:0;min-height:0;padding-top:0;padding-bottom:0;overflow:hidden;border:none}
+}
 @media(max-width:760px){
   .topbar{height:auto;min-height:46px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;row-gap:8px}
   .topbar .sp{flex-basis:100%;height:0}
@@ -549,7 +555,7 @@ table.lines tr:last-child td{border-bottom:none}
     </div>
   </aside>
   <div class="workspace">
-    <div class="topbar">
+    <div class="topbar" id="topbar">
       <button class="btn ghost menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
       <div class="crumb" id="crumb"></div>
       <div class="sp"></div>
@@ -1078,21 +1084,26 @@ function renderTop(){
   if(SEL){crumb.innerHTML=`<button class="back" onclick="backList()">← ${m.title}</button>`;}
   else crumb.innerHTML='';
   const ta=document.getElementById('topActions');
-  if(SEL){ta.innerHTML='';return;}
   let h='';
-  if(!isAdmin()){ta.innerHTML='';return;}
+  // Le liste con selezione a checkbox (ft, ftf, ddt) offrono già l'export (PDF/Excel) dal
+  // pulsante "Scarica" della barra di selezione multipla: qui il pulsante "Esporta" a parte
+  // è ridondante e viene tolto, così la pagina sale fino al bordo superiore quando la topbar
+  // resta vuota (vedi .topbar.empty). Le altre liste (oc, of, nc, prev, anagrafiche…) non hanno
+  // un equivalente e mantengono il pulsante.
   const exportBtn=`<div class="export-menu-wrap"><button class="btn" onclick="toggleExportMenu(event)">⬇ Esporta ▾</button><div class="export-menu" id="exportMenu"><button onclick="closeExportMenu();exportListXLS()">📊 Excel</button><button onclick="closeExportMenu();exportListPDF()">📄 PDF</button></div></div>`;
-  if(MOD==='oc'){h+=exportBtn+`<button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
-  if(MOD==='ddt'){h+=exportBtn;}
-  if(MOD==='of'){h+=exportBtn;}
-  if(MOD==='ft'){h+=exportBtn;}
-  if(MOD==='nc'){h+=exportBtn;}
-  if(MOD==='ftf'){h+=exportBtn+`<button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button>`;}
-  if(MOD==='prev'){h+=exportBtn;}
-  if(MOD==='clienti'){h+=exportBtn;}
-  if(MOD==='fornitori'){h+=exportBtn;}
-  if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button>`+exportBtn;}
+  if(!SEL&&isAdmin()){
+    if(MOD==='oc'){h+=exportBtn+`<button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
+    if(MOD==='of'){h+=exportBtn;}
+    if(MOD==='nc'){h+=exportBtn;}
+    if(MOD==='ftf'){h+=`<button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button>`;}
+    if(MOD==='prev'){h+=exportBtn;}
+    if(MOD==='clienti'){h+=exportBtn;}
+    if(MOD==='fornitori'){h+=exportBtn;}
+    if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button>`+exportBtn;}
+  }
   ta.innerHTML=h;
+  const topbarEl=document.getElementById('topbar');
+  if(topbarEl)topbarEl.classList.toggle('empty',!crumb.innerHTML.trim()&&!h.trim());
 }
 function setView(v){VIEW=v;render();}
 
@@ -1458,6 +1469,14 @@ async function docPDFFromPrintHTML(JsPDF,coll,item){
     wrap.remove();
   }
 }
+// Esporta in Excel solo i documenti selezionati (checkbox), con lo stesso formato riga usato
+// dall'"Esporta" generale, ma limitato alla selezione invece che a tutto l'elenco filtrato.
+function bulkExportXLS(){
+  const rows=filteredDocRows().filter(r=>PICK.has(r.it.id));
+  const out=docExportRows(rows);
+  if(!out.length){toast('Nessun documento selezionato');return;}
+  xlsDownload(out,exportFilenameBase()+'_selezione_'+today()+'.xlsx',META[MOD].title||MOD);
+}
 async function bulkPaid(val){
   const coll=META[MOD].coll;let n=0;
   DB[coll].forEach(f=>{if(PICK.has(f.id)){f.paid=val;f.paidDate=val?today():null;f.pagamenti=val?[{data:today(),importo:tot(f.righe)}]:[];n++;}});
@@ -1553,7 +1572,7 @@ function listView(){
     bulk=`<div class="bulkbar"><span>${PICK.size} selezionat${PICK.size===1?'o':'i'} · Totale ${eur(selTot)}</span><div style="flex:1"></div>
       ${canPaid&&anyUnpaid?`<button class="btn sm primary" onclick="bulkPaid(true)">✓ Segna ${lbl[0]}</button>`:''}
       ${canPaid&&anyPaid?`<button class="btn sm" onclick="bulkPaid(false)">↺ Segna ${lbl[1]}</button>`:''}
-      <button class="btn sm" style="background:#1a5c40;border:none;color:#cfe9dd" onclick="bulkDownloadPDF()">📄 Scarica PDF</button>
+      <div class="export-menu-wrap"><button class="btn sm" style="background:#1a5c40;border:none;color:#cfe9dd" onclick="toggleExportMenu(event)">⬇ Scarica ▾</button><div class="export-menu" id="exportMenu"><button onclick="closeExportMenu();bulkDownloadPDF()">📄 PDF<small>un file per documento</small></button><button onclick="closeExportMenu();bulkExportXLS()">📊 Excel<small>elenco dei selezionati</small></button></div></div>
       <button class="btn sm ghost" style="border:1px solid #1a6b4d;color:#cfe9dd;background:transparent" onclick="clearPick()">✕ Deseleziona</button></div>`;}
   const allCk=inv&&rows.length>0&&rows.every(r=>PICK.has(r.it.id));
   const chkHead=inv?`<div class="dr-check"><input type="checkbox" ${allCk?'checked':''} onclick="event.stopPropagation();toggleAll(this.checked)"></div>`:'';
@@ -5356,30 +5375,34 @@ function exportCliXLS(){
   DB.fattureCliente.forEach(f=>{const k=f.clienteId;if(!cliStats[k])cliStats[k]={Cliente:(cl[k]||{}).nome||'?','Imponibile €':0};cliStats[k]['Imponibile €']=parseFloat((cliStats[k]['Imponibile €']+imp(f.righe)).toFixed(2));});
   xlsDownload(Object.values(cliStats).sort((a,b)=>b['Imponibile €']-a['Imponibile €']),'Fatturato_clienti_'+today()+'.xlsx','Clienti');
 }
+/* Converte un elenco di righe-documento ({it,party,coll}, come da filteredDocRows()) nel
+   formato generico {Colonna:valore} per l'export. Riusata sia per "esporta tutto l'elenco"
+   sia per "esporta solo i documenti selezionati". */
+function docExportRows(rows){
+  if(!rows.length)return [];
+  const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
+  const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f.nome]));
+  const isForn=MOD==='ftf'||MOD==='of'||MOD==='ncf';
+  return rows.map(r=>{
+    const it=r.it;
+    const partyObj=isForn?null:cl[it.clienteId];
+    const party=isForn?fo[it.fornitoreId]||'':(partyObj?partyObj.nome:'');
+    const destObj=(!isForn&&it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
+    const row={Numero:it.num,Data:it.data,Controparte:party};
+    if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
+    // Nell'export misto fatture+note di credito (liste Fatture cliente/fornitore) il segno del
+    // totale deve riflettere che una nota di credito riduce il fatturato, altrimenti una somma
+    // della colonna "Totale €" risulta gonfiata (stesso bug corretto nella barra riepilogo).
+    const isMergedNC=(MOD==='ft'||MOD==='ftf')&&(r.coll==='noteCredito'||r.coll==='noteCreditoFornitore');
+    row['Totale €']=parseFloat(((isMergedNC?-1:1)*tot(it.righe||[])).toFixed(2));
+    if(r.coll==='noteCredito'||r.coll==='noteCreditoFornitore')row.Stato='Nota di credito';
+    else if(MOD!=='prev'&&MOD!=='nc'&&MOD!=='ncf')row.Stato=it.paid?'Pagata':'Aperta';
+    return row;
+  });
+}
 /* Righe da esportare per la sezione corrente, in formato generico {Colonna:valore}. */
 function buildExportRows(){
-  if(FMODS.includes(MOD)||MOD==='prev'){
-    const rows=filteredDocRows();if(!rows.length)return [];
-    const cl=Object.fromEntries(DB.clienti.map(c=>[c.id,c]));
-    const fo=Object.fromEntries(DB.fornitori.map(f=>[f.id,f.nome]));
-    const isForn=MOD==='ftf'||MOD==='of'||MOD==='ncf';
-    return rows.map(r=>{
-      const it=r.it;
-      const partyObj=isForn?null:cl[it.clienteId];
-      const party=isForn?fo[it.fornitoreId]||'':(partyObj?partyObj.nome:'');
-      const destObj=(!isForn&&it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
-      const row={Numero:it.num,Data:it.data,Controparte:party};
-      if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
-      // Nell'export misto fatture+note di credito (liste Fatture cliente/fornitore) il segno del
-      // totale deve riflettere che una nota di credito riduce il fatturato, altrimenti una somma
-      // della colonna "Totale €" risulta gonfiata (stesso bug corretto nella barra riepilogo).
-      const isMergedNC=(MOD==='ft'||MOD==='ftf')&&(r.coll==='noteCredito'||r.coll==='noteCreditoFornitore');
-      row['Totale €']=parseFloat(((isMergedNC?-1:1)*tot(it.righe||[])).toFixed(2));
-      if(r.coll==='noteCredito'||r.coll==='noteCreditoFornitore')row.Stato='Nota di credito';
-      else if(MOD!=='prev'&&MOD!=='nc'&&MOD!=='ncf')row.Stato=it.paid?'Pagata':'Aperta';
-      return row;
-    });
-  }
+  if(FMODS.includes(MOD)||MOD==='prev')return docExportRows(filteredDocRows());
   if(MOD==='clienti'){
     return [...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>({
       'Ragione sociale':c.nome||'','P.IVA/CF':c.piva||c.cf||'','Città':c.citta||'','Prov.':c.prov||'',

@@ -144,6 +144,7 @@ table.tbl tbody tr:hover{background:var(--surface2)}
 .tbl th.thsort{cursor:pointer;user-select:none;white-space:nowrap}
 .tbl th.thsort:hover{color:var(--muted)}
 .tbl th.thsort.on{color:var(--accent-d)}
+.tbl th.chk,.tbl td.chk{width:1%;padding-right:0;white-space:nowrap}
 .dr-tot{font-family:var(--mono);font-weight:600}
 .dr-imp,.dr-iva{font-family:var(--mono);color:var(--muted);font-size:12.5px}
 .dlist.with-check .dhead,.dlist.with-check .drow{grid-template-columns:34px 150px 1fr 100px 130px 120px 105px 120px}
@@ -1085,21 +1086,15 @@ function renderTop(){
   else crumb.innerHTML='';
   const ta=document.getElementById('topActions');
   let h='';
-  // Le liste con selezione a checkbox (ft, ftf, ddt) offrono già l'export (PDF/Excel) dal
-  // pulsante "Scarica" della barra di selezione multipla: qui il pulsante "Esporta" a parte
-  // è ridondante e viene tolto, così la pagina sale fino al bordo superiore quando la topbar
-  // resta vuota (vedi .topbar.empty). Le altre liste (oc, of, nc, prev, anagrafiche…) non hanno
-  // un equivalente e mantengono il pulsante.
-  const exportBtn=`<div class="export-menu-wrap"><button class="btn" onclick="toggleExportMenu(event)">⬇ Esporta ▾</button><div class="export-menu" id="exportMenu"><button onclick="closeExportMenu();exportListXLS()">📊 Excel</button><button onclick="closeExportMenu();exportListPDF()">📄 PDF</button></div></div>`;
+  // Ogni elenco (documenti e anagrafiche) ha ormai la selezione a checkbox con il proprio
+  // pulsante "Scarica" (PDF/Excel) nella barra di selezione multipla: il pulsante "Esporta" a
+  // parte in topbar è quindi ridondante ovunque ed è stato tolto, così la pagina sale fino al
+  // bordo superiore quando la topbar resta vuota (vedi .topbar.empty). Restano solo i pulsanti
+  // che non c'entrano con l'export (import, sincronizzazione).
   if(!SEL&&isAdmin()){
-    if(MOD==='oc'){h+=exportBtn+`<button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
-    if(MOD==='of'){h+=exportBtn;}
-    if(MOD==='nc'){h+=exportBtn;}
+    if(MOD==='oc'){h+=`<button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
     if(MOD==='ftf'){h+=`<button class="btn" onclick="openXmlImport()">⭱ Importa fattura (XML/PDF)</button><button class="btn" onclick="gmailSyncButton()">📧 Sincronizza da Gmail${GMAIL_NEW_COUNT?' ('+GMAIL_NEW_COUNT+')':''}</button>`;}
-    if(MOD==='prev'){h+=exportBtn;}
-    if(MOD==='clienti'){h+=exportBtn;}
-    if(MOD==='fornitori'){h+=exportBtn;}
-    if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button>`+exportBtn;}
+    if(MOD==='prodotti'){h+=`<button class="btn" onclick="openListinoImport()">⭱ Carica listino</button>`;}
   }
   ta.innerHTML=h;
   const topbarEl=document.getElementById('topbar');
@@ -1472,10 +1467,20 @@ async function docPDFFromPrintHTML(JsPDF,coll,item){
 // Esporta in Excel solo i documenti selezionati (checkbox), con lo stesso formato riga usato
 // dall'"Esporta" generale, ma limitato alla selezione invece che a tutto l'elenco filtrato.
 function bulkExportXLS(){
-  const rows=filteredDocRows().filter(r=>PICK.has(r.it.id));
-  const out=docExportRows(rows);
-  if(!out.length){toast('Nessun documento selezionato');return;}
+  const out=pickedExportRows();
+  if(!out.length){toast('Nessun elemento selezionato');return;}
   xlsDownload(out,exportFilenameBase()+'_selezione_'+today()+'.xlsx',META[MOD].title||MOD);
+}
+// "Seleziona tutto" generico per le anagrafiche (clienti/fornitori/prodotti), che non passano da
+// filteredDocRows()/toggleAll() come le liste documento: ogni MOD usa una chiave diversa per
+// riga (id per clienti/fornitori, codice per prodotti, essendo righe derivate non record DB).
+function toggleAllAnagrafica(ch){
+  let ids=[];
+  if(MOD==='clienti')ids=DB.clienti.map(c=>c.id);
+  else if(MOD==='fornitori')ids=DB.fornitori.map(f=>f.id);
+  else if(MOD==='prodotti')ids=prodottiListFiltered().map(p=>p.codice);
+  if(ch)ids.forEach(id=>PICK.add(id));else PICK.clear();
+  renderContent();
 }
 async function bulkPaid(val){
   const coll=META[MOD].coll;let n=0;
@@ -1509,7 +1514,9 @@ function primaryActionBtn(){
 function listView(){
   const m=META[MOD];
   const isForn=(MOD==='of'||MOD==='ftf'||MOD==='ncf');
-  const inv=(MOD==='ft'||MOD==='ftf'||MOD==='ddt');
+  // Selezione a checkbox uniforme su tutte le liste documento (non solo ft/ftf/ddt), così ognuna
+  // ha lo stesso pulsante "Scarica" (PDF/Excel) al posto dell'Esporta separato in topbar.
+  const inv=FMODS.includes(MOD)||MOD==='prev';
   let rows=filteredDocRows();
   const dir=SORT.dir==='asc'?1:-1;
   rows.sort((a,b)=>{const va=sortVal(SORT.key,a.it,a.party,a.coll),vb=sortVal(SORT.key,b.it,b.party,b.coll);
@@ -1642,6 +1649,15 @@ function setASort(mod,key){
   const s=ASORT[mod];if(s.key===key)s.dir=s.dir==='asc'?'desc':'asc';else{s.key=key;s.dir='asc';}
   renderContent();
 }
+/* Barra di selezione multipla condivisa dalle tre anagrafiche (clienti/fornitori/prodotti):
+   qui non esiste un "documento" da stampare per singolo record, quindi il pulsante "Scarica"
+   offre solo un riepilogo tabellare (PDF/Excel) di quanto selezionato. */
+function anagraficaBulkBar(){
+  if(!PICK.size)return '';
+  return `<div class="bulkbar"><span>${PICK.size} selezionat${PICK.size===1?'o':'i'}</span><div style="flex:1"></div>
+    <div class="export-menu-wrap"><button class="btn sm" style="background:#1a5c40;border:none;color:#cfe9dd" onclick="toggleExportMenu(event)">⬇ Scarica ▾</button><div class="export-menu" id="exportMenu"><button onclick="closeExportMenu();bulkExportPDFTable()">📄 PDF<small>elenco dei selezionati</small></button><button onclick="closeExportMenu();bulkExportXLS()">📊 Excel<small>elenco dei selezionati</small></button></div></div>
+    <button class="btn sm ghost" style="border:1px solid #1a6b4d;color:#cfe9dd;background:transparent" onclick="clearPick()">✕ Deseleziona</button></div>`;
+}
 function anagrafica(){
   const m=META[MOD];
   let head=`<div class="page-title">${m.title}</div>${primaryActionBtn()}`;
@@ -1649,8 +1665,11 @@ function anagrafica(){
     const s=ASORT.clienti;const dir=s.dir==='asc'?1:-1;
     const list=[...DB.clienti].sort((a,b)=>{const va=aSortVal('clienti',a,s.key),vb=aSortVal('clienti',b,s.key);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dir;return String(va).localeCompare(String(vb),'it',{numeric:true})*dir;});
     const ath=(key,label)=>{const on=s.key===key,ar=on?(s.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${on?'on':''}" onclick="setASort('clienti','${key}')">${label}${ar}</th>`;};
-    return head+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${ath('nome','Ragione sociale')}${ath('piva','P.IVA / C.F.')}${ath('sede','Sede')}${ath('dest','Consegne')}${ath('term','Pagam.')}${ath('sdi','Fatt. elettronica')}</tr></thead><tbody>
+    const allCk=list.length>0&&list.every(c=>PICK.has(c.id));
+    const chkHead=`<th class="chk"><input type="checkbox" ${allCk?'checked':''} onclick="event.stopPropagation();toggleAllAnagrafica(this.checked)"></th>`;
+    return head+anagraficaBulkBar()+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${chkHead}${ath('nome','Ragione sociale')}${ath('piva','P.IVA / C.F.')}${ath('sede','Sede')}${ath('dest','Consegne')}${ath('term','Pagam.')}${ath('sdi','Fatt. elettronica')}</tr></thead><tbody>
     ${list.map(c=>`<tr onclick="openClienteForm('${c.id}')">
+      <td class="chk"><input type="checkbox" ${PICK.has(c.id)?'checked':''} onclick="event.stopPropagation();togglePick('${c.id}')"></td>
       <td class="t-party">${c.nome}${c.tipo==='PA'?' <span class="pill p-violet">PA</span>':''}${c.split==='si'?' <span class="pill p-amber">split</span>':''}</td>
       <td class="t-mut">${c.piva||c.cf||'—'}</td>
       <td class="t-mut">${c.citta||'—'}${c.prov?' ('+c.prov+')':''}</td>
@@ -1661,24 +1680,28 @@ function anagrafica(){
     </tbody></table></div>`;
   }
   if(MOD==='prodotti'){
-    const all=allProdotti();
-    let list=Q?all.filter(p=>p.codice.toLowerCase().includes(Q)||(p.descrizione||'').toLowerCase().includes(Q)||(p.cnd||'').toLowerCase().includes(Q)):all.slice();
+    const list=prodottiListFiltered();
     const pdir=PSORT.dir==='asc'?1:-1;
     list.sort((a,b)=>{const va=psortVal(PSORT.key,a),vb=psortVal(PSORT.key,b);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*pdir;return String(va).localeCompare(String(vb),'it',{numeric:true})*pdir;});
     const cap=PLIMIT,shown=list.slice(0,cap);PRODTOTAL=list.length;
     const phead=`<div class="page-head"><div class="page-title" style="margin:0">Prodotti</div><div class="search prod-search"><span class="si">⌕</span><input id="psearch" value="${QRAW.replace(/"/g,'&quot;')}" placeholder="Cerca per codice, descrizione o CND…" oninput="onSearch(this.value)"></div></div>${primaryActionBtn()}`;
     const bar=`<div class="prod-bar">${list.length.toLocaleString('it-IT')} prodotti${Q?' trovati':''}${list.length>cap?` · visualizzati ${cap.toLocaleString('it-IT')}, scorri per caricarne altri`:''}</div>`;
     const th=(k,l,cls)=>{const on=PSORT.key===k,ar=on?(PSORT.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${cls||''} ${on?'on':''}" onclick="setPSort('${k}')">${l}${ar}</th>`;};
-    return phead+bar+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${th('codice','Codice')}${th('descrizione','Descrizione')}${th('ven','Listino','right')}${th('acq','Acquisto','right')}${th('conf','Pz./Conf.','right')}${th('iva','IVA','right')}</tr></thead><tbody>
-    ${shown.map(p=>{const la=lastFattAcqPrice(p.codice);return `<tr onclick="openProdottoForm('${(p.codice||'').replace(/'/g,"\\'")}')"><td class="code">${p.codice}</td><td class="t-party">${p.descrizione}</td><td class="t-amt">${eur(p.ven)}</td><td class="t-amt">${la?eur(la.prezzo):'—'}</td><td class="t-mut right">${p.conf||'—'}</td><td class="t-mut right">${p.iva}%</td></tr>`;}).join('')}
+    const allCk=shown.length>0&&shown.every(p=>PICK.has(p.codice));
+    const chkHead=`<th class="chk"><input type="checkbox" ${allCk?'checked':''} onclick="event.stopPropagation();toggleAllAnagrafica(this.checked)"></th>`;
+    return phead+bar+anagraficaBulkBar()+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${chkHead}${th('codice','Codice')}${th('descrizione','Descrizione')}${th('ven','Listino','right')}${th('acq','Acquisto','right')}${th('conf','Pz./Conf.','right')}${th('iva','IVA','right')}</tr></thead><tbody>
+    ${shown.map(p=>{const la=lastFattAcqPrice(p.codice);return `<tr onclick="openProdottoForm('${(p.codice||'').replace(/'/g,"\\'")}')"><td class="chk"><input type="checkbox" ${PICK.has(p.codice)?'checked':''} onclick="event.stopPropagation();togglePick('${(p.codice||'').replace(/'/g,"\\'")}')"></td><td class="code">${p.codice}</td><td class="t-party">${p.descrizione}</td><td class="t-amt">${eur(p.ven)}</td><td class="t-amt">${la?eur(la.prezzo):'—'}</td><td class="t-mut right">${p.conf||'—'}</td><td class="t-mut right">${p.iva}%</td></tr>`;}).join('')}
     </tbody></table></div>`;
   }
   const arr=DB[m.coll];
   const sF=ASORT.fornitori;const dirF=sF.dir==='asc'?1:-1;
   const listF=[...DB.fornitori].sort((a,b)=>{const va=aSortVal('fornitori',a,sF.key),vb=aSortVal('fornitori',b,sF.key);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dirF;return String(va).localeCompare(String(vb),'it',{numeric:true})*dirF;});
   const athF=(key,label)=>{const on=sF.key===key,ar=on?(sF.dir==='asc'?' ↑':' ↓'):'';return `<th class="thsort ${on?'on':''}" onclick="setASort('fornitori','${key}')">${label}${ar}</th>`;};
-  return head+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${athF('nome','Ragione sociale')}${athF('piva','P.IVA / C.F.')}${athF('sede','Sede')}${athF('term','Pagam.')}${athF('contatti','Contatti')}</tr></thead><tbody>
+  const allCkF=listF.length>0&&listF.every(f=>PICK.has(f.id));
+  const chkHeadF=`<th class="chk"><input type="checkbox" ${allCkF?'checked':''} onclick="event.stopPropagation();toggleAllAnagrafica(this.checked)"></th>`;
+  return head+anagraficaBulkBar()+`<div class="tbl-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="tablecard"><table class="tbl"><thead><tr>${chkHeadF}${athF('nome','Ragione sociale')}${athF('piva','P.IVA / C.F.')}${athF('sede','Sede')}${athF('term','Pagam.')}${athF('contatti','Contatti')}</tr></thead><tbody>
   ${listF.map(f=>`<tr onclick="openFornitoreForm('${f.id}')">
+    <td class="chk"><input type="checkbox" ${PICK.has(f.id)?'checked':''} onclick="event.stopPropagation();togglePick('${f.id}')"></td>
     <td class="t-party">${f.nome}</td>
     <td class="t-mut">${f.piva||f.cf||'—'}</td>
     <td class="t-mut">${f.citta||'—'}${f.prov?' ('+f.prov+')':''}</td>
@@ -5400,26 +5423,33 @@ function docExportRows(rows){
     return row;
   });
 }
-/* Righe da esportare per la sezione corrente, in formato generico {Colonna:valore}. */
-function buildExportRows(){
-  if(FMODS.includes(MOD)||MOD==='prev')return docExportRows(filteredDocRows());
-  if(MOD==='clienti'){
-    return [...DB.clienti].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(c=>({
-      'Ragione sociale':c.nome||'','P.IVA/CF':c.piva||c.cf||'','Città':c.citta||'','Prov.':c.prov||'',
-      'Consegne':c.dest&&c.dest.length?c.dest.length+' sedi':'sede legale','Pagamento gg':c.term||'','SDI/PEC':c.sdi||c.pec||''
-    }));
-  }
-  if(MOD==='fornitori'){
-    return [...DB.fornitori].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it',{sensitivity:'base'})).map(f=>({
-      'Ragione sociale':f.nome||'','P.IVA/CF':f.piva||f.cf||'','Città':f.citta||'','Prov.':f.prov||'',
-      'Pagamento gg':f.term||'','Contatti':f.email||f.tel||f.pec||''
-    }));
-  }
-  if(MOD==='prodotti'){
-    const all=allProdotti();
-    const list=Q?all.filter(p=>p.codice.toLowerCase().includes(Q)||(p.descrizione||'').toLowerCase().includes(Q)||(p.cnd||'').toLowerCase().includes(Q)):all;
-    return list.map(p=>({Codice:p.codice,Descrizione:p.descrizione||'','Listino €':p.ven||0,'Acquisto €':p.acq||0,'Pz/Conf':p.conf||'','IVA %':p.iva}));
-  }
+/* Riga export per un singolo record anagrafico, riusata da pickedExportRows() per l'export
+   Excel/PDF della selezione (unico export ora esistente, non c'è più un "esporta tutto"
+   separato dalla selezione). */
+function clienteExportRow(c){
+  return {'Ragione sociale':c.nome||'','P.IVA/CF':c.piva||c.cf||'','Città':c.citta||'','Prov.':c.prov||'',
+    'Consegne':c.dest&&c.dest.length?c.dest.length+' sedi':'sede legale','Pagamento gg':c.term||'','SDI/PEC':c.sdi||c.pec||''};
+}
+function fornitoreExportRow(f){
+  return {'Ragione sociale':f.nome||'','P.IVA/CF':f.piva||f.cf||'','Città':f.citta||'','Prov.':f.prov||'',
+    'Pagamento gg':f.term||'','Contatti':f.email||f.tel||f.pec||''};
+}
+function prodottoExportRow(p){
+  return {Codice:p.codice,Descrizione:p.descrizione||'','Listino €':p.ven||0,'Acquisto €':p.acq||0,'Pz/Conf':p.conf||'','IVA %':p.iva};
+}
+/* Elenco prodotti coerente col filtro di ricerca applicato nella schermata "Prodotti". */
+function prodottiListFiltered(){
+  const all=allProdotti();
+  return Q?all.filter(p=>p.codice.toLowerCase().includes(Q)||(p.descrizione||'').toLowerCase().includes(Q)||(p.cnd||'').toLowerCase().includes(Q)):all;
+}
+/* Righe da esportare per la sezione corrente, in formato generico {Colonna:valore}, limitate
+   ai soli elementi selezionati (PICK) — usata dal pulsante "Scarica" della barra di selezione
+   multipla, presente in ogni elenco (documenti e anagrafiche). */
+function pickedExportRows(){
+  if(FMODS.includes(MOD)||MOD==='prev')return docExportRows(filteredDocRows().filter(r=>PICK.has(r.it.id)));
+  if(MOD==='clienti')return DB.clienti.filter(c=>PICK.has(c.id)).map(clienteExportRow);
+  if(MOD==='fornitori')return DB.fornitori.filter(f=>PICK.has(f.id)).map(fornitoreExportRow);
+  if(MOD==='prodotti')return prodottiListFiltered().filter(p=>PICK.has(p.codice)).map(prodottoExportRow);
   return [];
 }
 /* Nome file: aggiunge un suffisso col cliente/fornitore filtrato, se presente. */
@@ -5437,12 +5467,13 @@ function exportFilenameBase(){
   }
   return m.title||MOD;
 }
-function exportListXLS(){
-  const rows=buildExportRows();if(!rows.length){toast('Nessun dato da esportare');return;}
-  xlsDownload(rows,exportFilenameBase()+'_'+today()+'.xlsx',META[MOD].title||MOD);
-}
-async function exportListPDF(){
-  const rows=buildExportRows();if(!rows.length){toast('Nessun dato da esportare');return;}
+// Tabella generica (righe {Colonna:valore} qualsiasi) disegnata in un unico PDF: usata dal
+// pulsante "Scarica → PDF" della selezione (bulkExportPDFTable) — a differenza di
+// bulkDownloadPDF, che genera un documento per fattura/ordine/ecc. col template di stampa, qui
+// serve un riepilogo tabellare (adatto alle anagrafiche clienti/fornitori/prodotti, che non
+// hanno un "documento" da stampare).
+async function docTablePDF(rows,filenameBase){
+  if(!rows.length){toast('Nessun dato da esportare');return;}
   try{
     const JsPDF=await loadJsPDF();
     const cols=Object.keys(rows[0]);
@@ -5478,11 +5509,14 @@ async function exportListPDF(){
       y+=rowH;doc.setDrawColor(234);doc.line(M,y-1,M+usableW,y-1);
     });
     doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(150);doc.text('Documento generato con Ipsofarma Gestionale',M,H-6);
-    const filename=exportFilenameBase()+'_'+today()+'.pdf';
+    const filename=filenameBase+'_'+today()+'.pdf';
     doc.save(filename);
     toast('✅ PDF scaricato: '+filename);
   }catch(e){toast('Errore export PDF: '+(e.message||e));}
 }
+// PDF tabellare della sola selezione, per le schermate che non hanno un template di stampa per
+// singolo elemento (anagrafiche clienti/fornitori/prodotti).
+async function bulkExportPDFTable(){await docTablePDF(pickedExportRows(),exportFilenameBase()+'_selezione');}
 async function xlsDownload(rows,filename,sheetName){
   if(!rows||!rows.length){toast('Nessun dato da esportare');return;}
   try{

@@ -1566,9 +1566,9 @@ function listView(){
       <div class="dr-party t-party">${party}${destSub}</div>
       <div class="dr-date t-mut">${fdate(it.data)}</div>
       <div class="dr-status"><span class="pill ${c}">${l}</span></div>
-      <div class="dr-imp">${eur(imp(it.righe))}</div>
-      <div class="dr-iva">${eur(ivaT(it.righe))}</div>
-      <div class="dr-tot">${eur(tot(it.righe))}</div>
+      <div class="dr-imp">${eur((isNC?-1:1)*imp(it.righe))}</div>
+      <div class="dr-iva">${eur((isNC?-1:1)*ivaT(it.righe))}</div>
+      <div class="dr-tot">${eur((isNC?-1:1)*tot(it.righe))}</div>
     </div>`;}).join('')}
   </div>`;
 }
@@ -1670,6 +1670,9 @@ function anagrafica(){
 /* ----- Detail ----- */
 function detailView(){
   const {coll,item}=SEL;const mod=Object.keys(META).find(k=>META[k].coll===coll);
+  // Le note di credito riducono quanto dovuto: mostrarne l'importo con il segno "-" le fa
+  // riconoscere a colpo d'occhio anche nella vista di dettaglio, non solo negli elenchi.
+  const ncSignD=coll==='noteCredito'||coll==='noteCreditoFornitore'?-1:1;
   const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore'||coll==='noteCreditoFornitore');
   const party=isForn?fornitore(item.fornitoreId):cliente(item.clienteId);
   const dst=(coll==='ddt'||coll==='ordiniCliente')?docDest(item,party):null;
@@ -1711,7 +1714,7 @@ function detailView(){
           ${dst?`<div class="d-dest">📍 <b>Consegna presso:</b> ${aiEsc(dst.nome||party.nome)} — ${aiEsc([dst.via,[dst.cap,dst.citta,dst.prov&&'('+dst.prov+')'].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</div>`:''}
           <div style="margin-top:9px"><span class="pill ${pc}">${pl}</span></div></div>
         <div class="sp"></div>
-        <div class="d-tot"><div class="v">${eur(tot(item.righe))}</div><div class="l">imponibile ${eur(imp(item.righe))} + IVA ${eur(ivaT(item.righe))}</div></div>
+        <div class="d-tot"><div class="v">${eur(ncSignD*tot(item.righe))}</div><div class="l">imponibile ${eur(ncSignD*imp(item.righe))} + IVA ${eur(ncSignD*ivaT(item.righe))}</div></div>
       </div>
       <div class="d-actions">${isAdmin()?actions:'<span style="font-size:12px;color:var(--muted)">👁 Sola lettura</span>'}<div style="flex:1"></div>
         <div class="print-menu-wrap">
@@ -1729,7 +1732,7 @@ function detailView(){
       ${(()=>{const hs=item.righe.some(r=>scEff(r.sconto)>0);const hl=['ddt','fattureCliente','fattureFornitore','noteCredito'].includes(coll)&&item.righe.some(r=>r.lotto||r.scad);const colL=isF?'Ricevuta':'Consegnata';const linkedOF=coll==='fattureFornitore'&&item.ofId?DB.ordiniFornitore.find(o=>o.num===item.ofId):null;return `<div class="lines-scroll-hint">⇆ scorri per vedere tutte le colonne</div><div class="lines-scroll"><table class="lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hl?'<th>Lotto</th><th class="right">Scadenza</th>':''}<th class="right">${isOrder?'Ordinata':'Q.tà'}</th>${isOrder?`<th class="right">${colL}</th><th class="right">Residuo</th><th class="right">Stato</th>`:''}<th class="right">Prezzo</th><th class="right">Imponibile</th>${hs?'<th class="right">Sconto</th>':''}<th class="right">IVA</th><th class="right">Totale</th></tr></thead>
       <tbody>${item.righe.map((r,i)=>{const evd=Math.min(r.qtyEv||0,r.qty),done=evd>=r.qty;const evc=isOrder?`<td class="num"><input class="evin" type="number" min="0" max="${r.qty}" value="${r.qtyEv||0}" onchange="updEv('${coll}','${item.id}',${i},this.value)"></td><td class="num">${r.qty-evd}</td><td class="right" style="white-space:nowrap">${done?'<span class="pill p-green">ok</span>':evd>0?'<span class="pill p-blue">parziale</span>':'<span class="pill p-amber">in&nbsp;attesa</span>'}</td>`:'';const cmp=linkedOF?(()=>{const ol=linkedOF.righe.find(x=>x.cod===r.cod);if(!ol)return '<td class="right"><span class="t-mut">—</span></td>';return Math.abs((ol.prezzo||0)-(r.prezzo||0))<0.005?'<td class="right"><span class="pill p-green">= ordine</span></td>':`<td class="right"><span class="pill p-red">ordine ${eur(ol.prezzo)}</span></td>`;})():'';return `<tr><td class="code cod-link" onclick="openProdByCode('${r.cod}')" title="Apri scheda prodotto">${r.cod}</td><td>${r.descr}</td>${hl?`<td>${r.lotto||'—'}</td><td class="num">${r.scad?fdate(r.scad):'—'}</td>`:''}<td class="num">${r.qty}</td>${evc}<td class="num" style="white-space:nowrap">${eur(r.prezzo)}</td><td class="num">${eur(lineNet(r))}</td>${hs?`<td class="num">${scLabel(r.sconto)}</td>`:''}<td class="num">${r.iva}%</td><td class="num">${eur(lineNet(r)*(1+(r.iva||22)/100))}</td></tr>`;}).join('')}</tbody></table></div>`;})()}
       ${isOrder?`<div style="display:flex;gap:9px;padding:13px 18px;background:var(--surface2);border-top:1px solid var(--border)"><button class="btn sm" onclick="markAllEv('${coll}','${item.id}',true)">Segna tutto ${isF?'ricevuto':'consegnato'}</button><button class="btn sm ghost" style="border:1px solid var(--border2)" onclick="markAllEv('${coll}','${item.id}',false)">Azzera</button></div>`:''}
-      <div class="lines-foot"><span class="it">Imponibile<b>${eur(imp(item.righe))}</b></span><span class="it">IVA<b>${eur(ivaT(item.righe))}</b></span><span class="grand">${eur(tot(item.righe))}</span></div>
+      <div class="lines-foot"><span class="it">Imponibile<b>${eur(ncSignD*imp(item.righe))}</b></span><span class="it">IVA<b>${eur(ncSignD*ivaT(item.righe))}</b></span><span class="grand">${eur(ncSignD*tot(item.righe))}</span></div>
     </div>
     ${(coll==='fattureCliente'||coll==='fattureFornitore')?pagamentiPanel(coll,item):''}
     ${coll==='preventivi'?'':`<div class="panel"><div class="panel-h">Documenti collegati</div>${lineage(item,coll)}</div>`}

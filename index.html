@@ -91,7 +91,10 @@ button{font-family:inherit;cursor:pointer}
 .dash-layout .sl{font-size:12px}
 .dash-layout .sv{font-size:clamp(16px,1.6vw,22px);line-height:1.2}
 .dash-layout .sx{font-size:11px}
-.dash-layout .panel{flex:1;min-height:0;margin-bottom:0;display:flex;flex-direction:column}
+/* Il pannello base ha overflow:hidden (per gli angoli arrotondati): qui va sovrascritto, altrimenti
+   quando il grafico non entra nello spazio disponibile (vedi min-height sotto) viene tagliato via
+   invece di poter scorrere. */
+.dash-layout .panel{flex:1;min-height:0;margin-bottom:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
 .dash-layout .panel-h{flex-shrink:0}
 /* Il grafico non scende mai sotto un'altezza leggibile: su schermi bassi (es. molti laptop
    aziendali) si preferisce far scorrere la pagina piuttosto che rimpicciolirlo fino a renderlo

@@ -21,7 +21,10 @@
 html,body{height:100%}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:clamp(14px,0.25vw + 12.4px,16px);line-height:1.5;-webkit-font-smoothing:antialiased;zoom:var(--zoom)}
 button{font-family:inherit;cursor:pointer}
-::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#c4ccd5;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+/* Barre di scorrimento nascoste ovunque: lo scroll (rotella, touch, trascinamento) resta attivo,
+   sparisce solo la barra visibile. */
+*{scrollbar-width:none;-ms-overflow-style:none}
+::-webkit-scrollbar{width:0;height:0;display:none}
 
 /* zoom (sopra) non ridimensiona vh/vw come lo zoom nativo del browser: senza questo calc,
    100vh renderizzerebbe il 10% più alto del vero schermo e farebbe scomparire in basso

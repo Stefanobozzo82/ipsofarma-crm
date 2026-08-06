@@ -58,16 +58,24 @@ button{font-family:inherit;cursor:pointer}
 .crumb .back:hover{background:var(--bg);color:var(--txt)}
 .topbar .sp{flex:1}
 /* Quando non c'è né il pulsante "indietro" né azioni da mostrare, la topbar si azzera e il
-   contenuto sale fino al bordo superiore invece di lasciare una barra vuota. Solo da desktop
-   in su: sotto i 900px serve comunque il pulsante ☰ per aprire il menu laterale. */
+   contenuto sale fino al bordo superiore invece di lasciare una barra vuota. Il nome della
+   classe è "topbar-empty" (non solo "empty") apposta per non scontrarsi con ".empty", già
+   usata altrove per i riquadri "nessun risultato": scontro di nomi che in passato ha fatto
+   ereditare al topbar padding/bordo pensati per quei riquadri, gonfiandolo enormemente su
+   mobile. Da desktop in su la barra sparisce del tutto; sotto i 900px serve comunque il
+   pulsante ☰ per aprire il menu laterale, quindi resta ma si riduce al minimo indispensabile. */
 @media(min-width:901px){
-  .topbar.empty{height:0;min-height:0;padding-top:0;padding-bottom:0;overflow:hidden;border:none}
+  .topbar-empty{height:0;min-height:0;padding-top:0;padding-bottom:0;overflow:hidden;border:none}
 }
 @media(max-width:760px){
   .topbar{height:auto;min-height:46px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px;row-gap:8px}
   .topbar .sp{flex-basis:100%;height:0}
   #topActions{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px}
   #topActions .btn{flex:1 1 auto;justify-content:center;white-space:nowrap}
+  /* Solo il pulsante ☰: niente più righe vuote per crumb/topActions né il padding pensato per
+     una barra con più elementi impilati. */
+  .topbar-empty{flex-wrap:nowrap;min-height:0;padding-top:6px;padding-bottom:6px;row-gap:0}
+  .topbar-empty .sp{flex-basis:0;height:auto}
 }
 .search{position:relative}
 .search input{width:230px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 11px 7px 30px;font-size:13px;color:var(--txt)}
@@ -1089,7 +1097,7 @@ function renderTop(){
   // Ogni elenco (documenti e anagrafiche) ha ormai la selezione a checkbox con il proprio
   // pulsante "Scarica" (PDF/Excel) nella barra di selezione multipla: il pulsante "Esporta" a
   // parte in topbar è quindi ridondante ovunque ed è stato tolto, così la pagina sale fino al
-  // bordo superiore quando la topbar resta vuota (vedi .topbar.empty). Restano solo i pulsanti
+  // bordo superiore quando la topbar resta vuota (vedi .topbar-empty). Restano solo i pulsanti
   // che non c'entrano con l'export (import, sincronizzazione).
   if(!SEL&&isAdmin()){
     if(MOD==='oc'){h+=`<button class="btn" onclick="openGSheetImport()">📋 Importa ordini (Google Sheet)</button>`;}
@@ -1098,7 +1106,7 @@ function renderTop(){
   }
   ta.innerHTML=h;
   const topbarEl=document.getElementById('topbar');
-  if(topbarEl)topbarEl.classList.toggle('empty',!crumb.innerHTML.trim()&&!h.trim());
+  if(topbarEl)topbarEl.classList.toggle('topbar-empty',!crumb.innerHTML.trim()&&!h.trim());
 }
 function setView(v){VIEW=v;render();}
 

@@ -21,10 +21,13 @@
 html,body{height:100%}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:clamp(14px,0.25vw + 12.4px,16px);line-height:1.5;-webkit-font-smoothing:antialiased;zoom:var(--zoom)}
 button{font-family:inherit;cursor:pointer}
-/* Barre di scorrimento nascoste ovunque: lo scroll (rotella, touch, trascinamento) resta attivo,
-   sparisce solo la barra visibile. */
-*{scrollbar-width:none;-ms-overflow-style:none}
-::-webkit-scrollbar{width:0;height:0;display:none}
+/* Barre di scorrimento nascoste solo su mobile (dove si scorre col dito, la barra è solo
+   ingombro): da desktop in su restano visibili per scorrere la finestra col mouse/trackpad,
+   sullo stesso confine di larghezza già usato per il menu ☰ e il resto del layout mobile. */
+@media(max-width:900px){
+  *{scrollbar-width:none;-ms-overflow-style:none}
+  ::-webkit-scrollbar{width:0;height:0;display:none}
+}
 
 /* zoom (sopra) non ridimensiona vh/vw come lo zoom nativo del browser: senza questo calc,
    100vh renderizzerebbe il 10% più alto del vero schermo e farebbe scomparire in basso

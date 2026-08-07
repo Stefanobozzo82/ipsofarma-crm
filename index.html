@@ -1216,9 +1216,18 @@ function barChart(data){
 function chartTip(e,i){
   const wrap=document.querySelector('.chart-wrap'),tip=document.getElementById('chartTip'),d=MONTHLY[i];
   if(!wrap||!tip||!d)return;
+  // Il body è reso a zoom:var(--zoom) (110%): clientX/clientY e getBoundingClientRect()
+  // restituiscono coordinate "schermo" già scalate dallo zoom, ma le proprietà CSS left/top
+  // di un elemento dentro un antenato con zoom vengono interpretate in coordinate "locali"
+  // (pre-zoom) e poi scalate di nuovo in fase di rendering. Assegnando direttamente il valore
+  // schermo a style.left si otteneva un doppio scaling: il tooltip finiva sempre più a destra/
+  // in basso rispetto al mouse quanto più ci si allontanava dal bordo sinistro del grafico.
+  // Dividiamo per il fattore di zoom per riportarci in coordinate locali.
+  const z=parseFloat(getComputedStyle(document.body).zoom)||1;
   const r=wrap.getBoundingClientRect();
-  const px=(e.touches&&e.touches[0]?e.touches[0].clientX:e.clientX)-r.left;
-  const py=(e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY)-r.top;
+  const px=((e.touches&&e.touches[0]?e.touches[0].clientX:e.clientX)-r.left)/z;
+  const py=((e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY)-r.top)/z;
+  const wrapW=r.width/z;
   const mg=d.vend-d.acq;
   tip.innerHTML=`<div class="ct-m">${d.label}</div>
     <div class="ct-r"><span><i style="background:#0ea371"></i>Fatturato</span><b>${eur(d.vend)}</b></div>
@@ -1231,8 +1240,9 @@ function chartTip(e,i){
   // se "top" è più basso della sua altezza reale, il bordo superiore (dove sta il
   // mese) finisce sopra al contenitore e viene tagliato dall'overflow:hidden del
   // grafico. Misuriamo larghezza e altezza reali invece di usare margini fissi.
+  // (offsetWidth/offsetHeight sono già in coordinate locali, coerenti con px/py/wrapW qui sopra.)
   const half=tip.offsetWidth/2+8;
-  tip.style.left=Math.max(half,Math.min(px,r.width-half))+'px';
+  tip.style.left=Math.max(half,Math.min(px,wrapW-half))+'px';
   tip.style.top=Math.max(tip.offsetHeight+8,py-16)+'px';
   document.querySelectorAll('.hit.act').forEach(h=>h.classList.remove('act'));
   const hit=document.getElementById('hit'+i);if(hit)hit.classList.add('act');

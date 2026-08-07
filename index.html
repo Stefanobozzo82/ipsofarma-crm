@@ -1490,11 +1490,11 @@ function bulkExportXLS(){
   if(!out.length){toast('Nessun elemento selezionato');return;}
   xlsDownload(out,exportFilenameBase()+'_selezione_'+today()+'.xlsx',META[MOD].title||MOD);
 }
-// Scarica il documento aperto nella vista di dettaglio (PDF con lo stesso template della
-// stampa, o Excel di quella sola riga) — stesso pulsante "Scarica" già presente negli elenchi,
-// ma qui va bene un percorso a sé perché la vista di dettaglio conosce "coll" direttamente e
-// non deve dipendere da MOD/filteredDocRows() (che potrebbero non corrispondere al documento
-// aperto, es. arrivandoci da un collegamento nella filiera).
+// Scarica il PDF del documento aperto nella vista di dettaglio, con lo stesso template della
+// stampa (l'Excel resta riservato agli elenchi con più documenti selezionati: per un singolo
+// documento non ha molto senso). Percorso a sé perché la vista di dettaglio conosce "coll"
+// direttamente e non deve dipendere da MOD/filteredDocRows() (che potrebbero non corrispondere
+// al documento aperto, es. arrivandoci da un collegamento nella filiera).
 async function downloadDetailPDF(coll,id){
   const it=DB[coll].find(x=>x.id===id);if(!it)return;
   toast('Generazione PDF in corso…');
@@ -1503,20 +1503,6 @@ async function downloadDetailPDF(coll,id){
     await loadHtml2Canvas();
     await docPDFFromPrintHTML(JsPDF,coll,it);
   }catch(e){toast('Errore PDF: '+(e.message||e));console.error(e);}
-}
-function downloadDetailXLS(coll,id){
-  const it=DB[coll].find(x=>x.id===id);if(!it)return;
-  const m=Object.keys(META).find(k=>META[k].coll===coll);if(!m)return;
-  const isForn=(coll==='ordiniFornitore'||coll==='fattureFornitore'||coll==='noteCreditoFornitore');
-  const isNC=(coll==='noteCredito'||coll==='noteCreditoFornitore');
-  const partyObj=isForn?fornitore(it.fornitoreId):cliente(it.clienteId);
-  const destObj=(!isForn&&it.destId&&partyObj&&partyObj.dest)?partyObj.dest.find(d=>d.id===it.destId):null;
-  const row={Numero:it.num,Data:it.data,Controparte:partyObj.nome||''};
-  if(!isForn)row.Sede=destObj?(destObj.nome||destObj.citta||'Sede'):'Sede legale';
-  row['Totale €']=parseFloat(((isNC?-1:1)*tot(it.righe||[])).toFixed(2));
-  if(isNC)row.Stato='Nota di credito';
-  else if(coll!=='preventivi')row.Stato=it.paid?'Pagata':'Aperta';
-  xlsDownload([row],(META[m].title||m)+'_'+String(it.num).replace(/\//g,'-')+'.xlsx',META[m].title||m);
 }
 // "Seleziona tutto" generico per le anagrafiche (clienti/fornitori/prodotti), che non passano da
 // filteredDocRows()/toggleAll() come le liste documento: ogni MOD usa una chiave diversa per
@@ -1814,7 +1800,7 @@ function detailView(){
       </div>
       <div class="d-actions">${isAdmin()?actions:'<span style="font-size:12px;color:var(--muted)">👁 Sola lettura</span>'}<div style="flex:1"></div>
         ${isAdmin()?sendBtn:''}
-        <div class="export-menu-wrap"><button class="btn" onclick="toggleExportMenu(event)">⬇ Scarica ▾</button><div class="export-menu" id="exportMenu"><button onclick="closeExportMenu();downloadDetailPDF('${coll}','${item.id}')">📄 PDF</button><button onclick="closeExportMenu();downloadDetailXLS('${coll}','${item.id}')">📊 Excel</button></div></div>
+        <button class="btn" onclick="downloadDetailPDF('${coll}','${item.id}')">⬇ Scarica PDF</button>
         <div class="print-menu-wrap">
           <button class="btn" onclick="togglePrintMenu(event)">🖨 Stampa ▾</button>
           <div class="print-menu" id="printMenu">

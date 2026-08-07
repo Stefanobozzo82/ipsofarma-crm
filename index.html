@@ -1741,8 +1741,12 @@ function detailView(){
   const dst=(coll==='ddt'||coll==='ordiniCliente')?docDest(item,party):null;
   const[pc,pl]=statusOf(mod,item);
   let actions='';
+  // Il pulsante di invio (email) sta vicino a "Stampa" invece che mescolato alle altre azioni:
+  // sono entrambe azioni "sul documento finito" (mandarlo fuori, in un modo o nell'altro).
+  let sendBtn='';
   if(coll==='preventivi'){
-    actions=`${item.ocId?'':`<button class="btn" onclick="openPrevEdit('${item.id}')">✎ Modifica</button>`}<button class="btn" onclick="openPrevEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${item.ocId?'':'primary'}" ${item.ocId?'disabled':''} onclick="genOCfromPrev('${item.id}')">${item.ocId?'✓ Convertito in '+item.ocId:'→ Trasforma in ordine cliente'}</button>`;
+    sendBtn=`<button class="btn" onclick="openPrevEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button>`;
+    actions=`${item.ocId?'':`<button class="btn" onclick="openPrevEdit('${item.id}')">✎ Modifica</button>`}<button class="btn ${item.ocId?'':'primary'}" ${item.ocId?'disabled':''} onclick="genOCfromPrev('${item.id}')">${item.ocId?'✓ Convertito in '+item.ocId:'→ Trasforma in ordine cliente'}</button>`;
   }else if(coll==='ordiniCliente'){
     const fullyShip=item.righe.length>0&&item.righe.every(r=>(r.qtyEv||0)>=r.qty);
     const ofNums=(item.ofIds&&item.ofIds.length?item.ofIds:(item.ofId?[item.ofId]:[]));
@@ -1757,7 +1761,8 @@ function detailView(){
   }else if(coll==='ordiniFornitore'){
     const hasInv=(item.ftfIds&&item.ftfIds.length)||item.ftfId;
     const fullyInv=item.righe.length>0&&item.righe.every(r=>(r.qtyFatt||0)>=r.qty);
-    actions=`<button class="btn" onclick="openOFEdit('${item.id}')">✎ Modifica ordine</button><button class="btn" onclick="openOFEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button><button class="btn ${fullyInv?'':'primary'}" ${fullyInv?'disabled':''} onclick="openFTFForm('${item.id}')">${fullyInv?'✓ Fatturato':(hasInv?'+ Registra altra fattura':'→ Registra fattura fornitore')}</button>`;
+    sendBtn=`<button class="btn" onclick="openOFEmail('${item.id}')">${item.emailSent?'✓ Inviato '+fdate(item.emailSent.slice(0,10)):'✉ Invia per email'}</button>`;
+    actions=`<button class="btn" onclick="openOFEdit('${item.id}')">✎ Modifica ordine</button><button class="btn ${fullyInv?'':'primary'}" ${fullyInv?'disabled':''} onclick="openFTFForm('${item.id}')">${fullyInv?'✓ Fatturato':(hasInv?'+ Registra altra fattura':'→ Registra fattura fornitore')}</button>`;
   }else if(coll==='fattureCliente'){
     actions=`${item.paid?`<button class="btn" onclick="togglePaid('fattureCliente','${item.id}')">↺ Riapri (segna da incassare)</button>`:''}<button class="btn" onclick="openFTEdit('${item.id}')">✎ Modifica righe</button><button class="btn" onclick="openNCForm('${item.id}')">↩ Crea nota di credito</button><button class="btn" onclick="downloadFatturaPAXml('${item.id}')" title="Genera il file XML da caricare su Fatture e Corrispettivi o inviare via PEC">⬇ XML FatturaPA</button>`;
   }else if(coll==='noteCredito'){
@@ -1780,6 +1785,7 @@ function detailView(){
         <div class="d-tot"><div class="v">${eur(ncSignD*tot(item.righe))}</div><div class="l">imponibile ${eur(ncSignD*imp(item.righe))} + IVA ${eur(ncSignD*ivaT(item.righe))}</div></div>
       </div>
       <div class="d-actions">${isAdmin()?actions:'<span style="font-size:12px;color:var(--muted)">👁 Sola lettura</span>'}<div style="flex:1"></div>
+        ${isAdmin()?sendBtn:''}
         <div class="print-menu-wrap">
           <button class="btn" onclick="togglePrintMenu(event)">🖨 Stampa ▾</button>
           <div class="print-menu" id="printMenu">

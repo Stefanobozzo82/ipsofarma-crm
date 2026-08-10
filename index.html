@@ -604,11 +604,19 @@ function gdScheduleSave(){ghScheduleSave();}
 function fbScheduleSave(){ghScheduleSave();}
 
 /* ===== GITHUB BACKUP AUTOMATICO ===== */
-let GH_USER=localStorage.getItem('gh_user')||null,GH_SHA=null,GH_TIMER=null;
+let GH_USER=localStorage.getItem('gh_user')||null,GH_SHA=null,GH_SHA_CAT=null,GH_TIMER=null;
 const GH_REPO='ipsofarma-crm';
 const GH_FILE='backup.json';
+/* Il catalogo prodotti (~20000 articoli) da solo pesa circa il 98% dell'intero backup: tenerlo in
+   un file a parte, riscritto solo quando i prodotti cambiano davvero (import listino, modifica/
+   cancellazione di una scheda prodotto), rende molto più veloci e leggeri i salvataggi "di
+   routine" (un ordine, una fattura, un pagamento) e riduce la finestra in cui due dispositivi
+   possono lavorare "alla cieca" l'uno dall'altro prima di vedersi. CAT_DIRTY segna quando i
+   prodotti locali sono cambiati e il file catalogo va ripubblicato. */
+const GH_FILE_CAT='catalogo.json';
+let CAT_DIRTY=false;
 
-/* ===== Merge intelligente multi-dispositivo (ordini, DDT, fatture) =====
+/* ===== Merge intelligente multi-dispositivo (ordini, DDT, fatture, prodotti, azienda) =====
  * Invece di sovrascrivere tutto il backup ad ogni salvataggio, confrontiamo
  * la versione "base" (l'ultima scaricata/salvata con successo su questo
  * dispositivo) con la versione locale attuale e quella remota su GitHub:
@@ -620,16 +628,31 @@ const GH_FILE='backup.json';
 const MERGE_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','noteCredito','noteCreditoFornitore','clienti','fornitori','preventivi','prodotti'];
 // I prodotti non hanno un id stabile come gli altri documenti: sono tenuti per 'codice'.
 const MERGE_KEY={prodotti:'codice'};
+// L'anagrafica azienda non è un elenco di documenti ma un singolo oggetto: usiamo lo stesso
+// confronto a 3 vie (vedi mergeSingleField) per non perdere una modifica fatta in contemporanea
+// su due dispositivi (es. IBAN aggiornato su un PC, note ISO aggiornate su un altro).
+const MERGE_SINGLE=['azienda'];
 let GH_BASE=null;
 function snapshotMergeColls(db){
-  const s={};MERGE_COLLS.forEach(c=>{s[c]=JSON.parse(JSON.stringify((db&&db[c])||[]));});return s;
+  const s={};MERGE_COLLS.forEach(c=>{s[c]=JSON.parse(JSON.stringify((db&&db[c])||[]));});
+  MERGE_SINGLE.forEach(k=>{s[k]=JSON.parse(JSON.stringify((db&&db[k])||null));});
+  return s;
 }
 function loadGhBase(){
   try{const raw=localStorage.getItem('gh_base_docs');GH_BASE=raw?JSON.parse(raw):null;}catch(e){GH_BASE=null;}
 }
 function saveGhBase(snap){
-  GH_BASE=snap;
-  try{localStorage.setItem('gh_base_docs',JSON.stringify(snap));}catch(e){/* storage pieno: pazienza, si riallinea al prossimo giro */}
+  GH_BASE=snap; // in memoria, con i prodotti: usato per i merge di questa sessione
+  try{
+    // Non salviamo i prodotti in localStorage: da soli (~4-5MB) sono già vicini o oltre la quota
+    // tipica di localStorage (5MB su Chrome/Safari), col rischio di far fallire in silenzio il
+    // salvataggio dell'INTERA base di riferimento (non solo dei prodotti). Alla riapertura della
+    // pagina si riparte senza una base "prodotti" precisa per il merge (mergeCollection userà
+    // base=[] per quella sola collezione): nel peggiore dei casi qualche avviso di conflitto in
+    // più sui prodotti, mai una perdita di documenti.
+    const slim=Object.assign({},snap);delete slim.prodotti;
+    localStorage.setItem('gh_base_docs',JSON.stringify(slim));
+  }catch(e){/* storage pieno: pazienza, si riallinea al prossimo giro */}
 }
 function deepEq(a,b){return JSON.stringify(a)===JSON.stringify(b);}
 function mergeCollection(base,local,remote,keyName){
@@ -638,7 +661,7 @@ function mergeCollection(base,local,remote,keyName){
   const lMap=new Map((local||[]).map(x=>[k(x),x]));
   const rMap=new Map((remote||[]).map(x=>[k(x),x]));
   const ids=new Set([...bMap.keys(),...lMap.keys(),...rMap.keys()]);
-  const out=[];let conflict=false;
+  const out=[];let conflict=false;const conflictItems=[];
   ids.forEach(id=>{
     const b=bMap.get(id),l=lMap.get(id),r=rMap.get(id);
     if(!b){ // non c'era nella base: nuovo su un lato o entrambi
@@ -662,12 +685,21 @@ function mergeCollection(base,local,remote,keyName){
     if(!lc&&!rc)out.push(l);
     else if(lc&&!rc)out.push(l);
     else if(!lc&&rc)out.push(r);
-    else{out.push(l);conflict=true;} // modificato da entrambi: vince locale, segnaliamo
+    else{out.push(l);conflict=true;conflictItems.push(l.num||l.nome||l.descrizione||id);} // modificato da entrambi: vince locale, segnaliamo
   });
-  return{result:out,conflict};
+  return{result:out,conflict,conflictItems};
+}
+// Confronto a 3 vie per un singolo oggetto (non un elenco): stessa logica di mergeCollection ma
+// per un campo come "azienda", che non ha voci con un id proprio da poter unire una per una.
+function mergeSingleField(base,local,remote){
+  if(deepEq(local,remote))return{value:local,conflict:false};
+  if(deepEq(local,base))return{value:remote,conflict:false}; // non toccato in locale: prendi il remoto
+  if(deepEq(remote,base))return{value:local,conflict:false}; // non toccato da remoto: tieni il locale
+  return{value:local,conflict:true}; // modificato da entrambi: vince locale, segnaliamo
 }
 function mergeAllDocs(base,localDB,remoteDB){
   let anyConflict=false;
+  const conflictDocs=[]; // {coll,num} dei documenti in conflitto, per un avviso utile all'utente
   MERGE_COLLS.forEach(c=>{
     // Se il lato remoto o quello locale non hanno affatto questa chiave (es. una scheda/dispositivo
     // rimasto aperto con una versione più vecchia del gestionale, che non conosce ancora una
@@ -677,11 +709,47 @@ function mergeAllDocs(base,localDB,remoteDB){
     if(remoteDB[c]===undefined&&localDB[c]===undefined)return; // nessuno dei due la conosce
     if(remoteDB[c]===undefined)return; // il remoto non la conosce ancora: tieni il locale così com'è
     if(localDB[c]===undefined){localDB[c]=JSON.parse(JSON.stringify(remoteDB[c]));return;} // il locale non la conosce ancora: prendi il remoto
-    const{result,conflict}=mergeCollection(base?base[c]:[],localDB[c],remoteDB[c],MERGE_KEY[c]);
-    localDB[c]=result;if(conflict)anyConflict=true;
+    const{result,conflict,conflictItems}=mergeCollection(base?base[c]:[],localDB[c],remoteDB[c],MERGE_KEY[c]);
+    localDB[c]=result;
+    if(conflict){anyConflict=true;conflictItems.forEach(num=>conflictDocs.push({coll:c,num}));}
+  });
+  MERGE_SINGLE.forEach(k=>{
+    if(remoteDB[k]===undefined)return;
+    if(localDB[k]===undefined){localDB[k]=JSON.parse(JSON.stringify(remoteDB[k]));return;}
+    const{value,conflict}=mergeSingleField(base?base[k]:null,localDB[k],remoteDB[k]);
+    localDB[k]=value;if(conflict)anyConflict=true;
   });
   _allProd=null; // il catalogo prodotti può essere stato toccato dal merge: invalida la cache dei prezzi
-  return anyConflict;
+  return{conflict:anyConflict,conflictDocs};
+}
+// Cerca numeri di documento duplicati all'interno dello stesso tipo (es. due FT/2026/0135 con id
+// diversi): può succedere se due dispositivi creano un documento dello stesso tipo quasi in
+// contemporanea, prima che uno dei due veda la novità dell'altro. Il merge non lo rileva da solo
+// perché ogni documento ha un id proprio univoco: qui controlliamo il numero visibile all'utente,
+// quello che conta ai fini fiscali.
+const NUMBERED_COLLS=['ordiniCliente','ordiniFornitore','ddt','fattureCliente','fattureFornitore','preventivi','noteCredito','noteCreditoFornitore'];
+function findDuplicateDocNums(db){
+  const dups=[];
+  NUMBERED_COLLS.forEach(c=>{
+    const seen=new Map();
+    (db[c]||[]).forEach(d=>{if(!d.num)return;seen.set(d.num,(seen.get(d.num)||0)+1);});
+    seen.forEach((count,num)=>{if(count>1)dups.push({coll:c,num});});
+  });
+  return dups;
+}
+function warnMergeConflict(conflictDocs){
+  if(!conflictDocs||!conflictDocs.length)return;
+  const nums=conflictDocs.map(x=>x.num);
+  const list=nums.slice(0,6).join(', ')+(nums.length>6?` e altri ${nums.length-6}`:'');
+  const msg='⚠️ Modificati in contemporanea su un altro dispositivo (mantenuta la versione di questo PC): '+list;
+  gdSetStatus(msg);
+  toast(msg,9000);
+}
+function warnDuplicateDocNums(db){
+  const dups=findDuplicateDocNums(db);
+  if(!dups.length)return;
+  const list=dups.slice(0,6).map(d=>d.num).join(', ')+(dups.length>6?` e altri ${dups.length-6}`:'');
+  toast('⚠️ Numeri documento duplicati (creati su due dispositivi): '+list+' — verifica e rinumera',9000);
 }
 function ghToken(){return localStorage.getItem('gh_token')||'';}
 function ghUser(){return localStorage.getItem('gh_user')||'';}
@@ -704,7 +772,13 @@ async function ghInit(){
 function toB64(str){return btoa(unescape(encodeURIComponent(str)));}
 function fromB64(str){return decodeURIComponent(escape(atob(str.replace(/\n/g,''))));}
 
-async function ghFetchRemote(){
+// Scarica un singolo file dal repo. Ritorna {sha,data} se trovato, {sha:null,data:null,missing:true}
+// se il file non esiste (404: caso normale per catalogo.json prima della prima migrazione), oppure
+// null per un errore vero (rete, token, ecc.) — la distinzione è importante: un 404 è "sicuro da
+// creare da zero", un errore di rete NON lo è (rischierebbe di far credere che un file non esista
+// e quindi di sovrascriverlo, quando invece esiste ma non siamo riusciti a leggerlo).
+async function ghFetchRemote(file){
+  file=file||GH_FILE;
   const tok=ghToken();if(!tok)return null;
   if(!GH_USER){
     let ru;
@@ -713,10 +787,11 @@ async function ghFetchRemote(){
     if(!ru.ok)return null;
     const du=await ru.json();GH_USER=du.login;localStorage.setItem('gh_user',GH_USER);
   }
-  const url='https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+GH_FILE;
+  const url='https://api.github.com/repos/'+GH_USER+'/'+GH_REPO+'/contents/'+file;
   let r;
   try{r=await fetch(url,{headers:{Authorization:'token '+tok,'User-Agent':'Ipsofarma-CRM'}});}
   catch(e){return null;}
+  if(r.status===404)return{sha:null,data:null,missing:true};
   if(!r.ok)return null;
   let d;
   try{d=await r.json();}catch(e){return null;}
@@ -745,15 +820,40 @@ async function ghFetchRemote(){
     data=JSON.parse(jsonText);
   }catch(e){return null;}
   if(!data||typeof data!=='object')return null;
-  return{sha:d.sha,data};
+  return{sha:d.sha,data,missing:false};
 }
+// Scarica backup.json (dati operativi) e catalogo.json (prodotti) e li ricompone in un unico
+// oggetto: per il resto dell'app il catalogo prodotti fa sempre parte di un solo DB, la
+// separazione in due file riguarda solo il trasporto verso GitHub. Se catalogo.json non esiste
+// ancora (dispositivo/repo non ancora migrato al file separato) i prodotti vengono letti da
+// quelli eventualmente ancora presenti in backup.json (formato precedente), così la transizione
+// è trasparente. Se catalogo.json esiste ma non riusciamo a leggerlo per un errore vero (non un
+// 404) E backup.json non porta più i prodotti (siamo già passati al formato nuovo), l'intera
+// operazione fallisce piuttosto che rischiare di far vedere/salvare un catalogo vuoto.
+async function ghFetchBoth(){
+  const[b,c]=await Promise.all([ghFetchRemote(GH_FILE),ghFetchRemote(GH_FILE_CAT)]);
+  if(!b||!b.data)return null;
+  const data=JSON.parse(JSON.stringify(b.data));
+  const backupHasProdotti=Array.isArray(data.prodotti)&&data.prodotti.length>0;
+  if(c&&!c.missing&&c.data){
+    data.prodotti=c.data.prodotti||[]; // catalogo.json presente: è la fonte di verità dei prodotti
+  }else if(c&&c.missing){
+    if(!Array.isArray(data.prodotti))data.prodotti=[]; // formato precedente: tieni quelli del backup (se ce ne sono)
+  }else{
+    if(!backupHasProdotti)return null; // errore di lettura del catalogo e nessun fallback affidabile
+  }
+  return{shaB:b.sha,shaC:(c&&!c.missing)?c.sha:null,catMissing:!!(c&&c.missing),data};
+}
+// Carico esplicito da GitHub (pulsante "Carica da GitHub" nelle impostazioni): sovrascrive
+// intenzionalmente il DB locale, l'utente lo sta chiedendo di proposito.
 async function ghLoad(){
   const tok=ghToken();
   if(!tok){toast('⚠️ Inserisci il token GitHub nelle impostazioni');return false;}
   gdSetStatus('download backup…');
-  const fetched=await ghFetchRemote();
+  const fetched=await ghFetchBoth();
   if(!fetched){toast('❌ Errore caricamento backup da GitHub');return false;}
-  GH_SHA=fetched.sha;localStorage.setItem('gh_sha',GH_SHA);
+  GH_SHA=fetched.shaB;localStorage.setItem('gh_sha',GH_SHA);
+  if(fetched.shaC){GH_SHA_CAT=fetched.shaC;localStorage.setItem('gh_sha_cat',GH_SHA_CAT);}
   const data=fetched.data;
   // Ripristina hash password (sincronizza su tutti i dispositivi)
   if(data._security){
@@ -770,6 +870,71 @@ async function ghLoad(){
   saveGhBase(snapshotMergeColls(DB));
   return true;
 }
+/* Sincronizzazione all'avvio dell'app: a differenza di ghLoad() (che sovrascrive tutto, usata dal
+   pulsante "Carica da GitHub" quando lo si chiede esplicitamente), qui il DB locale può già
+   contenere modifiche fatte in questa scheda ma non ancora salvate su GitHub — per esempio la
+   pagina è stata chiusa o ricaricata prima che il salvataggio in background (fino a pochi secondi
+   dopo l'ultima modifica) facesse in tempo a finire. Se questo dispositivo ha già una base di
+   riferimento da un sincronismo precedente, uniamo il remoto al locale con lo stesso merge a 3
+   vie della sincronizzazione periodica invece di sovrascrivere: così una modifica non ancora
+   pubblicata non sparisce solo perché si è riaperta la pagina. Se non c'è ancora una base (primo
+   avvio su questo dispositivo/browser) non c'è nulla da confrontare: si scarica e basta, come
+   prima. */
+async function ghBootSync(){
+  const tok=ghToken();if(!tok)return false;
+  gdSetStatus('download backup…');
+  const fetched=await ghFetchBoth();
+  if(!fetched){toast('❌ Errore caricamento backup da GitHub');return false;}
+  const data=fetched.data;
+  if(data._security){
+    if(data._security.pwdHash)localStorage.setItem('app_pwd_hash',data._security.pwdHash);
+    else if(data._security.pwdHash==='')localStorage.removeItem('app_pwd_hash');
+    if(data._security.viewerHash)localStorage.setItem('app_pwd_viewer_hash',data._security.viewerHash);
+    else if(data._security.viewerHash==='')localStorage.removeItem('app_pwd_viewer_hash');
+    delete data._security;
+  }
+  const SENSITIVE=['aiKey','aiOkey','aiProvider','aiModel','aiBase','gdClientId'];
+  if(DB&&DB.azienda&&data.azienda)SENSITIVE.forEach(k=>{if(DB.azienda[k])data.azienda[k]=DB.azienda[k];});
+  let mergedLocalChanges=false;
+  if(GH_BASE&&DB){
+    const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,data);
+    mergedLocalChanges=true;
+    if(conflict)warnMergeConflict(conflictDocs);
+  }else{
+    DB=data;
+  }
+  GH_SHA=fetched.shaB;localStorage.setItem('gh_sha',GH_SHA);
+  if(fetched.shaC){GH_SHA_CAT=fetched.shaC;localStorage.setItem('gh_sha_cat',GH_SHA_CAT);}
+  _allProd=null;gdSetStatus('caricato ✅');
+  await initCatalog();
+  warnDuplicateDocNums(DB);
+  if(mergedLocalChanges||fetched.catMissing){
+    // Il risultato unito include modifiche non ancora confermate su GitHub: NON aggiorniamo
+    // ancora GH_BASE qui. Se lo facessimo, al salvataggio successivo un documento "nuovo ma non
+    // ancora pubblicato" sembrerebbe "cancellato da remoto" (la base direbbe che esiste, il
+    // remoto non lo ha ancora) e verrebbe perso. Ci pensa ghSave() (chiamato da persist() qui
+    // sotto) ad aggiornare la base, solo dopo che la scrittura su GitHub è andata a buon fine.
+    await persist();
+  }else{
+    saveGhBase(snapshotMergeColls(DB));
+  }
+  return true;
+}
+// Controlla se qualcosa è cambiato su GitHub senza scaricare il contenuto: la lista dei file
+// nella cartella principale del repo include lo sha di ciascun file. Evita di riscaricare il
+// catalogo prodotti (alcuni MB) ogni minuto solo per controllare se è cambiato.
+async function ghListRoot(){
+  const tok=ghToken();if(!tok||!GH_USER)return null;
+  try{
+    const r=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/`,
+      {headers:{Authorization:'token '+tok,'User-Agent':'Ipsofarma-CRM'}});
+    if(!r.ok)return null;
+    const arr=await r.json();
+    if(!Array.isArray(arr))return null;
+    const m={};arr.forEach(f=>{if(f&&f.name)m[f.name]=f.sha;});
+    return m;
+  }catch(e){return null;}
+}
 /* Controlla periodicamente se un altro dispositivo ha salvato novità (nuovi ordini/DDT/fatture)
    e le unisce in silenzio, senza sovrascrivere modifiche locali non ancora salvate: usa lo stesso
    merge a 3 vie di ghSave(), quindi è sicuro anche se scatta a metà di una modifica non ancora
@@ -778,23 +943,32 @@ async function autoPullSync(){
   if(!ghToken()||!DB)return;
   if(document.getElementById('overlay')?.classList.contains('show'))return;
   try{
-    const fetched=await ghFetchRemote();
-    if(!fetched||fetched.sha===GH_SHA)return;
+    const heads=await ghListRoot();
+    if(heads){
+      const bChanged=!heads[GH_FILE]||heads[GH_FILE]!==GH_SHA;
+      const cChanged=heads[GH_FILE_CAT]?heads[GH_FILE_CAT]!==GH_SHA_CAT:!!GH_SHA_CAT;
+      if(!bChanged&&!cChanged)return; // nulla di nuovo: risparmia il download del catalogo
+    }
+    const fetched=await ghFetchBoth();
+    if(!fetched)return;
+    if(fetched.shaB===GH_SHA&&(fetched.shaC||null)===(GH_SHA_CAT||null))return;
     const data=fetched.data;delete data._security;
-    const conflict=mergeAllDocs(GH_BASE,DB,data);
-    GH_SHA=fetched.sha;localStorage.setItem('gh_sha',GH_SHA);
+    const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,data);
+    GH_SHA=fetched.shaB;localStorage.setItem('gh_sha',GH_SHA);
+    if(fetched.shaC){GH_SHA_CAT=fetched.shaC;localStorage.setItem('gh_sha_cat',GH_SHA_CAT);}
     saveGhBase(snapshotMergeColls(DB));
     if(SEL&&MERGE_COLLS.includes(SEL.coll)){
       const found=(DB[SEL.coll]||[]).find(x=>x.id===SEL.item.id);
       SEL=found?{coll:SEL.coll,item:found}:null;
     }
     render();
-    if(conflict)toast('⚠️ Alcuni documenti sono stati modificati anche da un altro dispositivo: ha vinto la versione locale');
+    if(conflict)warnMergeConflict(conflictDocs);
+    warnDuplicateDocNums(DB);
   }catch(e){console.warn('Auto-sync GitHub:',e);}
 }
 
 async function ghTestConn(){
-  GH_USER=null;GH_SHA=null;localStorage.removeItem('gh_sha');
+  GH_USER=null;GH_SHA=null;GH_SHA_CAT=null;localStorage.removeItem('gh_sha');localStorage.removeItem('gh_sha_cat');
   const tok=(document.getElementById('gh-token-inp')||{}).value||ghToken();
   localStorage.setItem('gh_token',tok);
   try{
@@ -810,8 +984,47 @@ async function ghTestConn(){
   }catch(e){toast('❌ Errore: '+e.message);}
   nav('azienda');
 }
-async function ghSave(isRetry,hadMergeConflict){
+// Scrive un file (già pronto come oggetto JS) sul repo con la Contents API.
+async function ghPutFile(file,sha,contentObj,commitMsg){
+  const body={message:commitMsg,content:toB64(JSON.stringify(contentObj))};
+  if(sha)body.sha=sha;
+  let r;
+  try{
+    r=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${file}`,
+      {method:'PUT',headers:{Authorization:'token '+ghToken(),'Content-Type':'application/json','User-Agent':'Ipsofarma-CRM'},
+       body:JSON.stringify(body)});
+  }catch(e){return{ok:false,status:0,msg:String(e)};}
+  if(!r.ok){
+    let msg=String(r.status);
+    try{const e=await r.json();msg=e.message||msg;}catch(err){}
+    return{ok:false,status:r.status,msg};
+  }
+  const d=await r.json();
+  return{ok:true,sha:d.content?.sha};
+}
+// Pubblica catalogo.json solo quando serve (vedi catChanged in ghSave). Non blocca il salvataggio
+// dei dati operativi se fallisce: ci riproverà al prossimo giro perché CAT_DIRTY resta true.
+async function ghSaveCatalog(sha){
+  const commitMsg='Catalogo '+new Date().toLocaleString('it-IT');
+  const body={prodotti:DB.prodotti||[]};
+  let res=await ghPutFile(GH_FILE_CAT,sha,body,commitMsg);
+  if(!res.ok&&res.status===409){
+    // qualcuno ha salvato il catalogo nel frattempo: riprendi il suo sha più recente e riprova una
+    // volta sola (i prodotti da scrivere sono già quelli uniti dal merge in ghSave)
+    let latestSha=null;
+    try{
+      const sr=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE_CAT}`,
+        {headers:{Authorization:'token '+ghToken(),'User-Agent':'Ipsofarma-CRM'}});
+      if(sr.ok){const sd=await sr.json();latestSha=sd.sha;}
+    }catch(e){}
+    res=await ghPutFile(GH_FILE_CAT,latestSha,body,commitMsg);
+  }
+  if(res.ok){GH_SHA_CAT=res.sha;if(GH_SHA_CAT)localStorage.setItem('gh_sha_cat',GH_SHA_CAT);CAT_DIRTY=false;return true;}
+  return false;
+}
+async function ghSave(isRetry,hadMergeConflict,conflictDocsAcc){
   if(!DB)return;const ok=await ghInit();if(!ok)return;
+  conflictDocsAcc=conflictDocsAcc||[];
   try{
     // Merge intelligente: confronta la nostra base di riferimento con lo stato
     // remoto attuale, e unisce eventuali modifiche fatte da un altro dispositivo
@@ -820,21 +1033,26 @@ async function ghSave(isRetry,hadMergeConflict){
     // salvato nel frattempo), dobbiamo riprendere lo sha più recente e
     // rifare il merge contro l'ultimissima versione remota, non riprovare
     // con lo sha ormai superato.
+    let shaB=GH_SHA,shaC=GH_SHA_CAT,catNeedsCreate=false,remoteCatProd=null;
     {
-      const fetched=await ghFetchRemote();
+      const fetched=await ghFetchBoth();
       if(fetched){
-        GH_SHA=fetched.sha;localStorage.setItem('gh_sha',GH_SHA);
-        const conflict=mergeAllDocs(GH_BASE,DB,fetched.data);
-        if(conflict)hadMergeConflict=true;
+        shaB=fetched.shaB;GH_SHA=shaB;localStorage.setItem('gh_sha',GH_SHA);
+        shaC=fetched.shaC;if(shaC){GH_SHA_CAT=shaC;localStorage.setItem('gh_sha_cat',GH_SHA_CAT);}
+        catNeedsCreate=fetched.catMissing;
+        remoteCatProd=fetched.catMissing?[]:(fetched.data.prodotti||[]);
+        const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,fetched.data);
+        if(conflict){hadMergeConflict=true;conflictDocsAcc=conflictDocsAcc.concat(conflictDocs);}
       }
     }
     // Se non abbiamo il SHA, recuperalo (il file potrebbe già esistere)
-    if(!GH_SHA){
+    if(!shaB){
       const sr=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`,
         {headers:{Authorization:'token '+ghToken(),'User-Agent':'Ipsofarma-CRM'}});
-      if(sr.ok){const sd=await sr.json();GH_SHA=sd.sha;localStorage.setItem('gh_sha',GH_SHA);}
+      if(sr.ok){const sd=await sr.json();shaB=sd.sha;GH_SHA=shaB;localStorage.setItem('gh_sha',GH_SHA);}
     }
-    // Rimuovi dati sensibili prima di salvare su GitHub
+    // Rimuovi dati sensibili prima di salvare su GitHub. Il catalogo prodotti viene tolto qui:
+    // va su catalogo.json, vedi sotto.
     const saveData=JSON.parse(JSON.stringify(DB));
     if(saveData.azienda){
       delete saveData.azienda.ghToken;
@@ -847,29 +1065,29 @@ async function ghSave(isRetry,hadMergeConflict){
       pwdHash:localStorage.getItem('app_pwd_hash')||'',
       viewerHash:localStorage.getItem('app_pwd_viewer_hash')||''
     };
-    const content=toB64(JSON.stringify(saveData));
-    const sha=GH_SHA||localStorage.getItem('gh_sha');
-    const body={message:'Backup '+new Date().toLocaleString('it-IT'),content};
-    if(sha)body.sha=sha;
-    const r=await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`,
-      {method:'PUT',headers:{Authorization:'token '+ghToken(),'Content-Type':'application/json','User-Agent':'Ipsofarma-CRM'},
-       body:JSON.stringify(body)});
-    if(!r.ok){
-      const e=await r.json().catch(()=>({}));
-      const msg=e.message||String(r.status);
+    delete saveData.prodotti;
+    const put=await ghPutFile(GH_FILE,shaB,saveData,'Backup '+new Date().toLocaleString('it-IT'));
+    if(!put.ok){
       // Conflitto di scrittura residuo (raro: qualcuno ha salvato nel frattempo tra il nostro
       // merge e il push). Rifà merge+push una volta sola.
-      if(!isRetry&&(r.status===409||/does not match|sha/i.test(msg))){
-        return ghSave(true,hadMergeConflict);
+      if(!isRetry&&(put.status===409||/does not match|sha/i.test(put.msg||''))){
+        return ghSave(true,hadMergeConflict,conflictDocsAcc);
       }
-      gdSetStatus('errore salvataggio: '+msg);return;
+      gdSetStatus('errore salvataggio: '+put.msg);return;
     }
-    const d=await r.json();
-    GH_SHA=d.content?.sha;if(GH_SHA)localStorage.setItem('gh_sha',GH_SHA);
+    GH_SHA=put.sha;if(GH_SHA)localStorage.setItem('gh_sha',GH_SHA);
+
+    // Pubblica il catalogo prodotti solo se serve: modificato in locale (CAT_DIRTY), il merge ha
+    // prodotto un risultato diverso da quello attualmente su GitHub (es. prodotti diversi
+    // aggiunti su due dispositivi), oppure il file non esiste ancora (prima migrazione dal
+    // vecchio formato con i prodotti dentro backup.json).
+    const catChanged=CAT_DIRTY||catNeedsCreate||(remoteCatProd!=null&&!deepEq(DB.prodotti,remoteCatProd));
+    if(catChanged)await ghSaveCatalog(shaC);
+
     saveGhBase(snapshotMergeColls(DB));
+    warnDuplicateDocNums(DB);
     if(hadMergeConflict){
-      gdSetStatus('⚠️ salvato: una stessa riga era stata modificata anche da un altro dispositivo — verifica');
-      toast('⚠️ Un documento è stato modificato in contemporanea su un altro dispositivo: è stata mantenuta la versione di questo PC. Controlla che nell\'altro PC non ci fossero modifiche da recuperare.');
+      warnMergeConflict(conflictDocsAcc);
     }else{
       gdSetStatus('salvato '+new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' ✅');
     }
@@ -879,7 +1097,9 @@ async function ghSave(isRetry,hadMergeConflict){
 
 function ghScheduleSave(){
   if(!ghToken())return;
-  clearTimeout(GH_TIMER);GH_TIMER=setTimeout(()=>ghSave().catch(console.error),8000);
+  // Debounce breve (era 8s): più veloce si pubblica una modifica, più piccola è la finestra in
+  // cui un altro dispositivo può lavorare "alla cieca" senza saperla ancora.
+  clearTimeout(GH_TIMER);GH_TIMER=setTimeout(()=>ghSave().catch(console.error),3000);
 }
 window.addEventListener('beforeunload',()=>{if(ghToken()&&DB&&GH_SHA)try{ghSave();}catch(e){};});
 /* 'visibilitychange' (scheda nascosta: cambio tab, minimizzazione, chiusura su mobile) è molto più
@@ -1011,7 +1231,7 @@ function prodMatches(q,limit){
   for(let k=0;k<arr.length;k++){const p=arr[k];if(p.codice.toLowerCase().includes(q)||(p.descrizione||'').toLowerCase().includes(q)){out.push(p);if(out.length>=(limit||10))break;}}
   return out;
 }
-function toast(m){const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500);}
+function toast(m,ms){const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),ms||2500);}
 function findByNum(num){
   if(!num)return null;
   const t=num.split('/')[0];
@@ -3364,7 +3584,7 @@ async function listinoImport(){
     if(p.iva==null)p.iva=22;
     isnew?add++:upd++;
   });
-  await persist();closeModal();PLIMIT=300;toast('Listino importato: '+add+' nuovi, '+upd+' aggiornati'+(skip?', '+skip+' righe saltate':''));nav('prodotti');
+  CAT_DIRTY=true;await persist();closeModal();PLIMIT=300;toast('Listino importato: '+add+' nuovi, '+upd+' aggiornati'+(skip?', '+skip+' righe saltate':''));nav('prodotti');
 }
 let ORDIMP={cols:[],rows:[]};
 function ordNorm(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
@@ -4116,13 +4336,13 @@ async function saveProdotto(origCodice){
   const acq=acqInput?(parseFloat(acqInput.value)||0):(ex?(ex.acq||0):0);
   const obj={codice,descrizione,tipologia:g('tipologia'),fornitoreId:g('fornitore')||null,acq,ven:parseFloat(g('ven'))||0,iva:parseInt(g('iva'))||0,cnd:g('cnd'),rdm:g('rdm'),conf:g('conf'),note:g('note')};
   if(ex)Object.assign(ex,obj);else DB.prodotti.push({id:uid('p'),...obj});
-  _allProd=null;await persist();closeModal();toast('Prodotto salvato');render();
+  CAT_DIRTY=true;_allProd=null;await persist();closeModal();toast('Prodotto salvato');render();
 }
 async function delProdotto(codice){
   const ex=DB.prodotti.find(p=>p.codice===codice);if(!ex)return;
   const used=[...DB.ordiniCliente,...DB.ordiniFornitore,...DB.ddt,...DB.fattureCliente,...DB.fattureFornitore].some(d=>d.righe.some(r=>r.cod===codice));
   if(used){toast('Prodotto presente in documenti: non eliminabile');return;}
-  DB.prodotti=DB.prodotti.filter(p=>p.codice!==codice);_allProd=null;await persist();closeModal();toast('Prodotto eliminato');render();
+  DB.prodotti=DB.prodotti.filter(p=>p.codice!==codice);CAT_DIRTY=true;_allProd=null;await persist();closeModal();toast('Prodotto eliminato');render();
 }
 
 /* ===== Intestazione azienda ===== */
@@ -4261,7 +4481,7 @@ async function importDB(input){
   if(!data||!Array.isArray(data.fattureFornitore)||!Array.isArray(data.fornitori)){toast('File di backup non valido');input.value='';return;}
   input.value='';
   askConfirm('Importare il backup <b>'+file.name+'</b>?<br>I dati attualmente presenti verranno sostituiti con quelli del backup.',async()=>{
-    DB=data;_allProd=null;await ensureSchema();await persist();toast('Backup importato · '+(DB.prodotti?DB.prodotti.length:0)+' prodotti');MOD='dashboard';SEL=null;render();
+    DB=data;CAT_DIRTY=true;_allProd=null;await ensureSchema();await persist();toast('Backup importato · '+(DB.prodotti?DB.prodotti.length:0)+' prodotti');MOD='dashboard';SEL=null;render();
   });
 }
 function openAziendaForm(){
@@ -5686,7 +5906,7 @@ if('serviceWorker' in navigator){
     // stavolta ha solo un problema di rete transitorio.
     await initCatalog();
     try{
-      const loaded=await ghLoad();
+      const loaded=await ghBootSync();
       if(loaded)await ensureSchema();
     }catch(e){console.warn('GitHub boot sync:',e);}
   }

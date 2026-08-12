@@ -11,7 +11,11 @@ export function createApp(): Express {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+  // CORS_ORIGIN accetta una lista separata da virgole: in sviluppo mobile
+  // (Expo, porta 8081) e admin (Vite, porta 5173) girano insieme contro lo
+  // stesso backend, un'unica origin fissa avrebbe bloccato uno dei due.
+  const corsOrigins = env.CORS_ORIGIN.split(",").map((origin) => origin.trim());
+  app.use(cors({ origin: corsOrigins.length > 1 ? corsOrigins : corsOrigins[0], credentials: true }));
 
   // Il webhook Stripe verifica la firma sul raw body: va montato PRIMA di
   // express.json(), altrimenti il body arriverebbe già parsato/riserializzato

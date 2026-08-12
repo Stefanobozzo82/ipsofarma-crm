@@ -26,6 +26,25 @@ function mapPayoutRow(row: any): Payout {
   };
 }
 
+/**
+ * Accounts v2 (`stripe.v2.core.accounts`), non v1 `stripe.accounts.create`:
+ * gli account nuovi creati su piattaforme Stripe recenti rifiutano di
+ * default le richieste v1 ("Stripe no longer recommends Accounts v1 for new
+ * Connect integrations" — scoperto testando dal vivo, non nella
+ * documentazione originale). Il resto del modulo Stripe (PaymentIntent con
+ * transfer_data.destination, account_links di onboarding, balance/payouts)
+ * resta v1: l'id di un account v2 è interoperabile con quegli endpoint senza
+ * modifiche, vedi https://docs.stripe.com/connect/accounts-v2.
+ *
+ * Configurazione `recipient`, non `merchant`: il sitter non è mai il
+ * "merchant of record" (non processa carte direttamente, non impostiamo
+ * on_behalf_of) — riceve solo il transfer residuo dopo la commissione
+ * trattenuta dalla piattaforma. È esattamente il caso d'uso che la
+ * documentazione Stripe indica per `recipient` invece di `merchant`.
+ * `dashboard: "express"` richiede fees_collector e losses_collector
+ * entrambi "application" (platform liability, come i vecchi account Express
+ * v1) — combinazione validata direttamente dai codici di errore Stripe.
+ */
 async function getOrCreateConnectAccountId(userId: string, email: string | undefined): Promise<string> {
   const { data: existing } = await supabaseAdmin
     .from("sitter_payment_accounts")
@@ -36,14 +55,28 @@ async function getOrCreateConnectAccountId(userId: string, email: string | undef
   if (existing?.stripe_account_id) return existing.stripe_account_id;
 
   const stripe = getStripe();
-  const account = await stripe.accounts.create({
-    type: "express",
-    country: "IT",
-    email,
-    business_type: "individual",
-    capabilities: {
-      card_payments: { requested: true },
-      transfers: { requested: true },
+  const account = await stripe.v2.core.accounts.create({
+    contact_email: email,
+    dashboard: "express",
+    identity: {
+      country: "it",
+      entity_type: "individual",
+    },
+    configuration: {
+      recipient: {
+        capabilities: {
+          stripe_balance: {
+            stripe_transfers: { requested: true },
+          },
+        },
+      },
+    },
+    defaults: {
+      currency: "eur",
+      responsibilities: {
+        fees_collector: "application",
+        losses_collector: "application",
+      },
     },
   });
 
@@ -88,7 +121,7 @@ export async function getPayoutSummary(supabase: SupabaseClient, userId: string)
   let pendingBalance: number | null = null;
   if (account?.stripe_account_id && account.stripe_onboarding_complete) {
     const stripe = getStripe();
-    const balance = await stripe.balance.retrieve({ stripeAccount: account.stripe_account_id });
+    const balance = await stripe.balance.retrieve({}, { stripeAccount: account.stripe_account_id });
     const eurAvailable = balance.available.find((b) => b.currency === "eur");
     const eurPending = balance.pending.find((b) => b.currency === "eur");
     availableBalance = (eurAvailable?.amount ?? 0) / 100;
@@ -115,7 +148,7 @@ export async function requestPayout(userId: string, input: RequestPayoutInput): 
   }
 
   const stripe = getStripe();
-  const balance = await stripe.balance.retrieve({ stripeAccount: account.stripe_account_id });
+  const balance = await stripe.balance.retrieve({}, { stripeAccount: account.stripe_account_id });
   const availableCents = balance.available.find((b) => b.currency === "eur")?.amount ?? 0;
 
   const requestedCents = input.amount ? Math.round(input.amount * 100) : availableCents;

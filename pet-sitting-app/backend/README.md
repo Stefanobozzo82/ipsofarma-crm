@@ -235,3 +235,40 @@ containerizzati per una restrizione OCI/runc del sandbox
 REST/Auth/Storage/DB funzionano regolarmente; solo le sottoscrizioni
 Realtime via WebSocket (chat, GPS live) non sono testabili in quell'ambiente
 specifico.
+
+## Stripe: Accounts v2, non più v1
+
+Punto B del piano di test: con una chiave test reale, la creazione
+dell'account Connect del sitter falliva con *"Stripe no longer recommends
+Accounts v1 for new Connect integrations"* — gli account Stripe creati di
+recente rifiutano di default `stripe.accounts.create()` (v1) e richiedono
+`stripe.v2.core.accounts.create()`. Migrato **solo** questo punto:
+
+- `stripe` alzato da `^17.4.0` a `^22.5.0` (l'SDK v17 non espone affatto
+  `stripe.v2.core.*` — serve una versione molto più recente).
+- `getOrCreateConnectAccountId()` (`stripe-connect.service.ts`) ora crea
+  l'account con `stripe.v2.core.accounts.create()`, configurazione
+  `recipient` (non `merchant`: il sitter non è mai il merchant of record,
+  non impostiamo `on_behalf_of` — è esattamente il caso d'uso che Stripe
+  documenta per `recipient`), `dashboard: "express"` con
+  `fees_collector`/`losses_collector` entrambi `"application"` (unica
+  combinazione valida per `dashboard: "express"`, confermata dai codici di
+  errore dell'API Stripe stessa).
+- **Tutto il resto resta v1** senza modifiche: `accountLinks.create()`
+  (onboarding), `paymentIntents.create()` con `transfer_data.destination`,
+  `balance.retrieve()`, `payouts.create()`, il webhook — Stripe rende gli
+  id degli account v2 interoperabili con questi endpoint v1 invariati, vedi
+  [docs.stripe.com/connect/accounts-v2](https://docs.stripe.com/connect/accounts-v2).
+- Il bump di `stripe` ha reso più stretto il tipo di `balance.retrieve()`:
+  `{ stripeAccount: ... }` andava passato come secondo argomento (opzioni),
+  non nel primo (parametri) — un bug latente mai eseguito dal vivo prima
+  d'ora, corretto in entrambi i punti che lo chiamano.
+
+Verificato dal vivo contro Stripe test mode: onboarding-link risponde `200`
+con un vero URL `connect.stripe.com/setup/...`, l'account compare su Stripe
+(`GET /v2/core/accounts/:id` → `applied_configurations: ["recipient"]`,
+`dashboard: "express"`) ed è persistito in `sitter_payment_accounts`. Non
+completato in questo giro: l'onboarding KYC vero richiede di aprire l'URL in
+un browser e inserire dati d'identità — non simulabile qui — quindi
+`POST /bookings/:id/pay` resta bloccato con l'errore atteso
+`sitter_stripe_not_ready` finché non lo si completa manualmente.

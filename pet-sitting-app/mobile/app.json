@@ -30,7 +30,8 @@
           "merchantIdentifier": "merchant.app.fido.petsitting",
           "enableGooglePay": true
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "extra": {
       "router": {}

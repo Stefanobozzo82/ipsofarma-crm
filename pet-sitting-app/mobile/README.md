@@ -70,7 +70,7 @@ La chat usa Supabase Realtime (`postgres_changes` su `messages`, vedi `supabase/
 
 ## Cosa manca (prossime fasi)
 
-- Notifiche push (Firebase Cloud Messaging)
+- **Invio push reale**: il feed di notifiche in-app funziona già (`app/notifications/`), la registrazione del token è già collegata (`src/lib/push-notifications.ts`) — manca solo un progetto Firebase/EAS reale del cliente per completare la consegna (vedi `backend/src/lib/push.ts`)
 - Tracking GPS passeggiate, foto/note durante il servizio
 - Fasce di disponibilità multiple/per-servizio da mobile, gestione eccezioni (giorni bloccati) da UI
 - i18n multilingua (oggi solo italiano, vedi `src/i18n/strings.ts`)

@@ -9,6 +9,7 @@ import type {
 } from "@fido/shared";
 import { AppError } from "../../lib/app-error";
 import { supabaseAdmin } from "../../lib/supabase";
+import { notifyUser } from "../notifications/notification.service";
 import { mapDisputeRow } from "./admin.mapper";
 
 /** Tutte le funzioni qui usano supabaseAdmin (bypassa RLS) di proposito:
@@ -58,6 +59,12 @@ export async function approveSitter(adminId: string, sitterId: string, input: Ap
 
   if (error || !data) throw AppError.badRequest("Candidatura non trovata o già valutata");
   await logAdminAction(adminId, input.approve ? "sitter_approved" : "sitter_rejected", "sitter_profile", sitterId, input.reason);
+  await notifyUser(
+    sitterId,
+    input.approve ? "sitter_approved" : "sitter_rejected",
+    input.approve ? "Candidatura approvata!" : "Candidatura non approvata",
+    input.approve ? "Il tuo profilo sitter è ora attivo e visibile in ricerca." : "La tua candidatura non è stata approvata questa volta.",
+  );
 }
 
 export async function listReviewsForModeration(): Promise<AdminReview[]> {
@@ -123,6 +130,18 @@ export async function resolveDispute(adminId: string, disputeId: string, input: 
 
   if (error || !data) throw AppError.notFound("Dispute non trovata");
   await logAdminAction(adminId, `dispute_${input.status}`, "dispute", disputeId, input.resolution);
+
+  if (isTerminal) {
+    const { data: booking } = await supabaseAdmin.from("bookings").select("owner_id, sitter_id").eq("id", data.booking_id).maybeSingle();
+    if (booking) {
+      const title = input.status === "resolved" ? "Contestazione risolta" : "Contestazione chiusa";
+      await Promise.all([
+        notifyUser(booking.owner_id, `dispute_${input.status}`, title, input.resolution ?? "Controlla i dettagli in app."),
+        notifyUser(booking.sitter_id, `dispute_${input.status}`, title, input.resolution ?? "Controlla i dettagli in app."),
+      ]);
+    }
+  }
+
   return mapDisputeRow(data);
 }
 

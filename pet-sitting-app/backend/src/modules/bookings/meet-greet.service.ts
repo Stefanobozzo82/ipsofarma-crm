@@ -1,6 +1,7 @@
 import type { CreateMeetGreetInput, MeetGreetRequest, UpdateMeetGreetInput } from "@fido/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AppError } from "../../lib/app-error";
+import { notifyUser } from "../notifications/notification.service";
 import { mapMeetGreetRow } from "./meet-greet.mapper";
 
 const MEET_GREET_COLUMNS = "id, owner_id, sitter_id, proposed_datetime, status, notes, created_at, updated_at";
@@ -29,6 +30,9 @@ export async function createMeetGreet(
     .single();
 
   if (error || !data) throw AppError.badRequest("Impossibile inviare la richiesta di meet & greet");
+  await notifyUser(input.sitterId, "meet_greet_requested", "Richiesta Meet & Greet", "Un proprietario vuole conoscerti prima di prenotare.", {
+    meetGreetId: data.id,
+  });
   return mapMeetGreetRow(data);
 }
 
@@ -100,5 +104,17 @@ export async function updateMeetGreet(
     .single();
 
   if (error || !data) throw AppError.badRequest("Impossibile aggiornare la richiesta di meet & greet");
+
+  const otherParty = userId === current.owner_id ? current.sitter_id : current.owner_id;
+  const titles: Record<string, string> = {
+    cancel: "Meet & Greet cancellato",
+    propose: "Nuovo orario proposto",
+    accept: "Meet & Greet confermato",
+    decline: "Meet & Greet rifiutato",
+  };
+  await notifyUser(otherParty, `meet_greet_${input.action}`, titles[input.action], "Controlla i dettagli in app.", {
+    meetGreetId: id,
+  });
+
   return mapMeetGreetRow(data);
 }

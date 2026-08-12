@@ -1,10 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { useEffect } from "react";
 import { strings } from "@/i18n/strings";
+import { registerForPushNotifications } from "@/lib/push-notifications";
 import { useTheme } from "@/theme/use-theme";
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+
+  // Solo qui, non nel root layout: questo albero di rotte monta solo dopo
+  // il login, quando esiste un utente a cui associare il token.
+  useEffect(() => {
+    registerForPushNotifications();
+  }, []);
 
   return (
     <Tabs

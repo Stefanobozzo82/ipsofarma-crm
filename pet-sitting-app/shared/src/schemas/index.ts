@@ -6,3 +6,4 @@ export * from "./search.schema";
 export * from "./booking.schema";
 export * from "./review.schema";
 export * from "./admin.schema";
+export * from "./notification.schema";

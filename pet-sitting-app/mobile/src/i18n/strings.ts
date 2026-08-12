@@ -87,6 +87,11 @@ export const strings = {
     start: "Inizia servizio",
     complete: "Completa servizio",
   },
+  notifications: {
+    title: "Notifiche",
+    empty: "Nessuna notifica.",
+    markAllRead: "Segna tutte come lette",
+  },
   chat: {
     tabTitle: "Messaggi",
     empty: "Nessuna conversazione ancora.",

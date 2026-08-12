@@ -179,8 +179,12 @@ Dati Stripe sensibili (`stripe_account_id`) vivono in `sitter_payment_accounts`,
 
 `/admin/*` (stats, coda approvazione sitter, moderazione recensioni, gestione dispute) richiede `role = 'admin'` su `public.users` — vedi [`../admin/README.md`](../admin/README.md) per come promuovere un utente e per il pannello web che consuma questi endpoint. `POST /bookings/:id/disputes` è invece lato utente: un partecipante alla prenotazione può aprire una contestazione, che porta `bookings.status` a `disputed` e da lì la gestisce solo un admin.
 
+## Notifiche
+
+Feed in-app (`GET/PATCH /notifications`) pienamente funzionante — chiamato da `notifyUser()` (`modules/notifications/notification.service.ts`) su ogni evento rilevante: nuova richiesta, accept/decline/cancel, esito meet & greet, pagamento ricevuto, payout accreditato, esito candidatura sitter, risoluzione dispute, nuovo messaggio (quest'ultimo via trigger SQL, non da qui — la chat non passa da Express). **L'invio push reale** (Firebase/APNs) è uno stub in `lib/push.ts`: richiede un progetto Firebase del cliente, non esiste ancora in questo ambiente.
+
 ## Cosa manca (prossime fasi)
 
 - GPS tracking passeggiate, foto/note durante il servizio — in corso
-- Chat (`conversations`/`messages`), notifiche push — in corso
+- Invio push reale (richiede credenziali Firebase del cliente)
 - Un secondo giro di controproposta sui meet & greet (per l'MVP: un solo giro owner→sitter→owner)

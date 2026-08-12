@@ -3,6 +3,7 @@ import { AppError } from "../../lib/app-error";
 import { logger } from "../../lib/logger";
 import { getStripe, requireStripeWebhookSecret } from "../../lib/stripe";
 import { supabaseAdmin } from "../../lib/supabase";
+import { notifyUser } from "../notifications/notification.service";
 
 /**
  * Unico endpoint per eventi Stripe "piattaforma" e "account connesso" — nel
@@ -55,11 +56,19 @@ async function onPaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   });
   if (paymentError) logger.error("Impossibile registrare il pagamento", paymentError);
 
-  const { error: bookingError } = await supabaseAdmin
+  const { data: booking, error: bookingError } = await supabaseAdmin
     .from("bookings")
     .update({ payment_status: "captured" })
-    .eq("id", bookingId);
+    .eq("id", bookingId)
+    .select("sitter_id")
+    .maybeSingle();
   if (bookingError) logger.error("Impossibile aggiornare payment_status della prenotazione", bookingError);
+
+  if (booking) {
+    await notifyUser(booking.sitter_id, "booking_paid", "Pagamento ricevuto", "Il proprietario ha completato il pagamento.", {
+      bookingId,
+    });
+  }
 }
 
 async function onPaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
@@ -80,9 +89,20 @@ async function onAccountUpdated(account: Stripe.Account) {
 }
 
 async function onPayoutUpdated(payout: Stripe.Payout, status: "paid" | "failed") {
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("payouts")
     .update({ status, paid_at: status === "paid" ? new Date().toISOString() : null })
-    .eq("stripe_payout_id", payout.id);
+    .eq("stripe_payout_id", payout.id)
+    .select("sitter_id, amount")
+    .maybeSingle();
   if (error) logger.error("Impossibile aggiornare lo stato del payout", error);
+
+  if (data) {
+    await notifyUser(
+      data.sitter_id,
+      `payout_${status}`,
+      status === "paid" ? "Payout accreditato" : "Payout non riuscito",
+      status === "paid" ? `${Number(data.amount).toFixed(2)}€ accreditati sul tuo conto.` : "Controlla i dati del tuo conto Stripe.",
+    );
+  }
 }

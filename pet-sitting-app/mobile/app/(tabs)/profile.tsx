@@ -28,6 +28,10 @@ export default function ProfileScreen() {
         <Text style={[typography.subtitle, { color: colors.ink }]}>{strings.profile.myPets}</Text>
       </Card>
 
+      <Card onPress={() => router.push("/notifications")} style={{ marginBottom: spacing.md }}>
+        <Text style={[typography.subtitle, { color: colors.ink }]}>{strings.notifications.title}</Text>
+      </Card>
+
       {profile?.sitterProfile ? (
         <Card
           onPress={profile.sitterProfile.status === "approved" ? () => router.push("/sitter-dashboard") : undefined}

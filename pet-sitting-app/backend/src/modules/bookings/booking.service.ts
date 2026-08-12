@@ -10,9 +10,10 @@ import {
 } from "@fido/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AppError } from "../../lib/app-error";
-import { mapDisputeRow } from "../admin/admin.mapper";
 import { getStripe } from "../../lib/stripe";
 import { supabaseAdmin } from "../../lib/supabase";
+import { mapDisputeRow } from "../admin/admin.mapper";
+import { notifyUser } from "../notifications/notification.service";
 import { mapBookingRow } from "./booking.mapper";
 import { computeBreakdown, computeQuantity } from "./booking.pricing";
 
@@ -92,6 +93,14 @@ export async function createBooking(
     .insert(input.petIds.map((petId) => ({ booking_id: booking.id, pet_id: petId })));
   if (bookingPetsError) throw AppError.badRequest("Prenotazione creata ma impossibile collegare gli animali");
 
+  await notifyUser(
+    input.sitterId,
+    "booking_request",
+    "Nuova richiesta di prenotazione",
+    `Hai una nuova richiesta per ${input.serviceType.replace("_", " ")} il ${input.startDate}`,
+    { bookingId: booking.id },
+  );
+
   return mapBookingRow(booking, input.petIds);
 }
 
@@ -122,6 +131,9 @@ export async function acceptBooking(supabase: SupabaseClient, id: string, sitter
     .select(BOOKING_COLUMNS)
     .single();
   if (error || !data) throw AppError.badRequest("Impossibile accettare la prenotazione");
+  await notifyUser(data.owner_id, "booking_accepted", "Richiesta accettata", "Il sitter ha accettato — completa il pagamento per confermare.", {
+    bookingId: id,
+  });
   return mapBookingRow(data, await fetchPetIds(supabase, id));
 }
 
@@ -141,6 +153,9 @@ export async function declineBooking(
     .select(BOOKING_COLUMNS)
     .single();
   if (error || !data) throw AppError.badRequest("Impossibile rifiutare la prenotazione");
+  await notifyUser(data.owner_id, "booking_declined", "Richiesta rifiutata", "Il sitter non può accettare questa richiesta.", {
+    bookingId: id,
+  });
   return mapBookingRow(data, await fetchPetIds(supabase, id));
 }
 
@@ -326,6 +341,12 @@ export async function cancelBooking(
     .single();
 
   if (updateError || !data) throw AppError.badRequest("Impossibile cancellare la prenotazione");
+
+  const otherParty = cancelledByOwner ? data.sitter_id : data.owner_id;
+  await notifyUser(otherParty, "booking_cancelled", "Prenotazione cancellata", "Una prenotazione è stata cancellata.", {
+    bookingId: id,
+  });
+
   return mapBookingRow(data, await fetchPetIds(supabase, id));
 }
 

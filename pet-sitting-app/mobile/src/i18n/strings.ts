@@ -87,6 +87,13 @@ export const strings = {
     start: "Inizia servizio",
     complete: "Completa servizio",
   },
+  chat: {
+    tabTitle: "Messaggi",
+    empty: "Nessuna conversazione ancora.",
+    placeholder: "Scrivi un messaggio…",
+    send: "Invia",
+    contact: "Contatta",
+  },
   review: {
     leaveReview: "Lascia una recensione",
     rating: "Valutazione",

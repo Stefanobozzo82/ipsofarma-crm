@@ -2,7 +2,8 @@ import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-na
 import { useTheme } from "@/theme/use-theme";
 
 interface TextFieldProps extends TextInputProps {
-  label: string;
+  /** Omesso (es. barra di invio chat) = niente riga di etichetta sopra il campo. */
+  label?: string;
   error?: string;
 }
 
@@ -11,7 +12,7 @@ export function TextField({ label, error, style, ...inputProps }: TextFieldProps
 
   return (
     <View style={{ marginBottom: spacing.lg }}>
-      <Text style={[typography.label, { color: colors.inkFaint, marginBottom: spacing.xs }]}>{label}</Text>
+      {label ? <Text style={[typography.label, { color: colors.inkFaint, marginBottom: spacing.xs }]}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={colors.inkFaint}
         style={[

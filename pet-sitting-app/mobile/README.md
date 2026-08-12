@@ -54,7 +54,9 @@ src/
 └── i18n/strings.ts               # stringhe italiane centralizzate (nessuna libreria i18n per l'MVP)
 ```
 
-**Perché due client diversi verso il backend**: l'auth (signUp/signIn/refresh) passa direttamente dal client Supabase (`lib/supabase.ts`) — pattern raccomandato per app mobile, gestisce da solo il refresh dei token. Tutto il resto (profili, ricerca, prenotazioni, pagamenti) passa dal backend Express (`lib/api.ts`), che applica RLS via client scoped e la logica di business già scritta nelle Fasi 2-4.
+**Perché due client diversi verso il backend**: l'auth (signUp/signIn/refresh) e la **chat** (`features/chat/api.ts`) passano direttamente dal client Supabase (`lib/supabase.ts`) — nessuna logica di business da applicare, solo RLS, quindi non serve passare dal backend Express. Tutto il resto (profili, ricerca, prenotazioni, pagamenti, recensioni) passa da `lib/api.ts`, che applica la logica scritta nelle Fasi 2-4/6.
+
+La chat usa Supabase Realtime (`postgres_changes` su `messages`, vedi `supabase/migrations/20260812170000_chat.sql`): niente polling, i messaggi arrivano push-style anche per il mittente (l'invio non fa append ottimistico, aspetta l'evento realtime — una sola fonte di verità per messaggio).
 
 ## Semplificazioni della dashboard sitter (dichiarate, non bug)
 
@@ -68,7 +70,7 @@ src/
 
 ## Cosa manca (prossime fasi)
 
-- Chat in-app, notifiche push (Firebase Cloud Messaging)
+- Notifiche push (Firebase Cloud Messaging)
 - Tracking GPS passeggiate, foto/note durante il servizio
 - Fasce di disponibilità multiple/per-servizio da mobile, gestione eccezioni (giorni bloccati) da UI
 - i18n multilingua (oggi solo italiano, vedi `src/i18n/strings.ts`)

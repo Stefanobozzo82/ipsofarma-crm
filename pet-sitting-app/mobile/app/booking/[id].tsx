@@ -1,6 +1,6 @@
 import type { Booking } from "@fido/shared";
 import { useStripe } from "@stripe/stripe-react-native";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -13,6 +13,7 @@ import { bookingStatusTone, StatusBadge } from "@/components/StatusBadge";
 import { TextField } from "@/components/TextField";
 import { ApiError } from "@/lib/api";
 import { cancelBooking, completeBooking, getBooking, payBooking, startBooking } from "@/features/bookings/api";
+import { getOrCreateConversation } from "@/features/chat/api";
 import { createReview } from "@/features/reviews/api";
 import { strings } from "@/i18n/strings";
 import { formatDateIt } from "@/lib/date";
@@ -32,6 +33,7 @@ export default function BookingDetailScreen() {
   const [paying, setPaying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
@@ -137,6 +139,19 @@ export default function BookingDetailScreen() {
     }
   }
 
+  async function handleContact() {
+    if (!myId) return;
+    setOpeningChat(true);
+    try {
+      const conversation = await getOrCreateConversation(booking!.ownerId, booking!.sitterId);
+      router.push(`/chat/${conversation.id}`);
+    } catch {
+      Alert.alert(strings.common.genericError);
+    } finally {
+      setOpeningChat(false);
+    }
+  }
+
   const isSitter = booking.sitterId === myId;
   const canPay = booking.status === "confirmed" && booking.paymentStatus === "pending";
   const canCancel = CANCELLABLE_STATUSES.includes(booking.status);
@@ -177,9 +192,12 @@ export default function BookingDetailScreen() {
         </Text>
       )}
 
-      {canPay && <Button label={strings.booking.pay} onPress={handlePay} loading={paying} />}
-      {canStart && <Button label={strings.booking.start} onPress={handleStart} loading={transitioning} />}
-      {canComplete && <Button label={strings.booking.complete} onPress={handleComplete} loading={transitioning} />}
+      <Button label={strings.chat.contact} onPress={handleContact} variant="secondary" loading={openingChat} />
+      <View style={{ marginTop: spacing.sm }}>
+        {canPay && <Button label={strings.booking.pay} onPress={handlePay} loading={paying} />}
+        {canStart && <Button label={strings.booking.start} onPress={handleStart} loading={transitioning} />}
+        {canComplete && <Button label={strings.booking.complete} onPress={handleComplete} loading={transitioning} />}
+      </View>
 
       {canCancel && (
         <View style={{ marginTop: spacing.sm }}>

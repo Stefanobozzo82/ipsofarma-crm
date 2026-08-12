@@ -8,20 +8,24 @@ import { ErrorView } from "@/components/ErrorView";
 import { LoadingView } from "@/components/LoadingView";
 import { Screen } from "@/components/Screen";
 import { StarRating } from "@/components/StarRating";
+import { getOrCreateConversation } from "@/features/chat/api";
 import { createMeetGreet } from "@/features/meet-greets/api";
 import { listSitterReviews } from "@/features/reviews/api";
 import { getPublicSitterProfile } from "@/features/sitters/api";
 import { strings } from "@/i18n/strings";
+import { useAuthStore } from "@/store/auth-store";
 import { useTheme } from "@/theme/use-theme";
 
 export default function SitterProfileScreen() {
   const { colors, spacing, typography } = useTheme();
   const { id, service } = useLocalSearchParams<{ id: string; service?: string }>();
+  const myId = useAuthStore((s) => s.profile?.id);
 
   const [profile, setProfile] = useState<PublicSitterProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [requestingMeetGreet, setRequestingMeetGreet] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
 
   useEffect(() => {
     getPublicSitterProfile(id)
@@ -39,6 +43,19 @@ export default function SitterProfileScreen() {
   if (!profile) return <LoadingView />;
 
   const preselected = profile.services.find((s) => s.serviceType === service) ?? profile.services[0];
+
+  async function handleContact() {
+    if (!myId) return;
+    setOpeningChat(true);
+    try {
+      const conversation = await getOrCreateConversation(myId, id);
+      router.push(`/chat/${conversation.id}?partnerName=${encodeURIComponent(profile!.firstName)}`);
+    } catch {
+      Alert.alert(strings.common.genericError);
+    } finally {
+      setOpeningChat(false);
+    }
+  }
 
   async function handleMeetGreet() {
     setRequestingMeetGreet(true);
@@ -116,12 +133,16 @@ export default function SitterProfileScreen() {
         </View>
       )}
 
-      <Button
-        label={strings.sitter.requestMeetGreet}
-        onPress={handleMeetGreet}
-        variant="secondary"
-        loading={requestingMeetGreet}
-      />
+      <Button label={strings.chat.contact} onPress={handleContact} variant="secondary" loading={openingChat} />
+
+      <View style={{ marginTop: spacing.sm }}>
+        <Button
+          label={strings.sitter.requestMeetGreet}
+          onPress={handleMeetGreet}
+          variant="secondary"
+          loading={requestingMeetGreet}
+        />
+      </View>
 
       <View style={{ marginTop: spacing.sm }}>
         <Button

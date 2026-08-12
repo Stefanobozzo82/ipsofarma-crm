@@ -5,3 +5,4 @@ export * from "./sitter-service";
 export * from "./booking";
 export * from "./review";
 export * from "./admin";
+export * from "./chat";

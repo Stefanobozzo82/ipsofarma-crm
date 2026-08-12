@@ -1,7 +1,8 @@
-import { cancelBookingSchema, createBookingSchema, declineBookingSchema } from "@fido/shared";
+import { cancelBookingSchema, createBookingSchema, createReviewSchema, declineBookingSchema } from "@fido/shared";
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
+import * as reviewService from "../reviews/review.service";
 import * as bookingService from "./booking.service";
 
 export const bookingRoutes = Router();
@@ -67,6 +68,33 @@ bookingRoutes.post("/:id/pay", async (req, res, next) => {
   try {
     const result = await bookingService.createPaymentIntent(req.supabase!, req.params.id, req.user!.id);
     res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+bookingRoutes.patch("/:id/start", async (req, res, next) => {
+  try {
+    const booking = await bookingService.startBooking(req.supabase!, req.params.id, req.user!.id);
+    res.json({ data: booking });
+  } catch (err) {
+    next(err);
+  }
+});
+
+bookingRoutes.patch("/:id/complete", async (req, res, next) => {
+  try {
+    const booking = await bookingService.completeBooking(req.supabase!, req.params.id, req.user!.id);
+    res.json({ data: booking });
+  } catch (err) {
+    next(err);
+  }
+});
+
+bookingRoutes.post("/:id/reviews", validateBody(createReviewSchema), async (req, res, next) => {
+  try {
+    const review = await reviewService.createReview(req.supabase!, req.params.id, req.user!.id, req.body);
+    res.status(201).json({ data: review });
   } catch (err) {
     next(err);
   }

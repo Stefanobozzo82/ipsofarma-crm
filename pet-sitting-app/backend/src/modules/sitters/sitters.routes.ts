@@ -9,16 +9,26 @@ import {
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
+import * as reviewService from "../reviews/review.service";
 import * as stripeConnectService from "../stripe-connect/stripe-connect.service";
 import * as sittersService from "./sitters.service";
 
 export const sittersRoutes = Router();
 
-// Rotta pubblica: nessuna auth richiesta.
+// Rotte pubbliche: nessuna auth richiesta.
 sittersRoutes.get("/:id/public", async (req, res, next) => {
   try {
     const profile = await sittersService.getPublicSitterProfile(req.params.id);
     res.json({ data: profile });
+  } catch (err) {
+    next(err);
+  }
+});
+
+sittersRoutes.get("/:id/reviews", async (req, res, next) => {
+  try {
+    const reviews = await reviewService.listSitterReviews(req.params.id);
+    res.json({ data: reviews });
   } catch (err) {
     next(err);
   }

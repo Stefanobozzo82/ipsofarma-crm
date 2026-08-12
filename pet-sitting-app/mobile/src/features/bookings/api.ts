@@ -28,3 +28,11 @@ export function cancelBooking(id: string, input: CancelBookingInput): Promise<Bo
 export function payBooking(id: string): Promise<{ clientSecret: string }> {
   return apiFetch<{ clientSecret: string }>(`/bookings/${id}/pay`, { method: "POST" });
 }
+
+export function startBooking(id: string): Promise<Booking> {
+  return apiFetch<Booking>(`/bookings/${id}/start`, { method: "PATCH" });
+}
+
+export function completeBooking(id: string): Promise<Booking> {
+  return apiFetch<Booking>(`/bookings/${id}/complete`, { method: "PATCH" });
+}

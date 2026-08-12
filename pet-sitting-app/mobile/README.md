@@ -70,7 +70,6 @@ src/
 
 - Chat in-app, notifiche push (Firebase Cloud Messaging)
 - Tracking GPS passeggiate, foto/note durante il servizio
-- Recensioni
 - Fasce di disponibilità multiple/per-servizio da mobile, gestione eccezioni (giorni bloccati) da UI
 - i18n multilingua (oggi solo italiano, vedi `src/i18n/strings.ts`)
 - Icone/splash screen personalizzati (oggi si usano i default Expo)

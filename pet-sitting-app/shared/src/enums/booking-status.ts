@@ -23,6 +23,13 @@ export const PaymentStatus = {
 
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
 
+export const ReviewDirection = {
+  OwnerToSitter: "owner_to_sitter",
+  SitterToOwner: "sitter_to_owner",
+} as const;
+
+export type ReviewDirection = (typeof ReviewDirection)[keyof typeof ReviewDirection];
+
 export const MeetGreetStatus = {
   Requested: "requested",
   Proposed: "proposed",

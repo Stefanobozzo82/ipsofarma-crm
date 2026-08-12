@@ -1,6 +1,6 @@
 # backend
 
-API Express per Fido. Copre autenticazione, profili (owner, sitter, animali), listino servizi/disponibilità sitter, ricerca geografica, prenotazioni e pagamenti (Stripe Connect) — vedi [`docs/PHASE1-PROPOSAL.md`](../docs/PHASE1-PROPOSAL.md) per lo schema completo e la roadmap.
+API Express per Fido. Copre autenticazione, profili (owner, sitter, animali), listino servizi/disponibilità sitter, ricerca geografica, prenotazioni, pagamenti (Stripe Connect) e recensioni — vedi [`docs/PHASE1-PROPOSAL.md`](../docs/PHASE1-PROPOSAL.md) per lo schema completo e la roadmap.
 
 **Commissione**: il proprietario paga esattamente il prezzo mostrato dal sitter, nessuna fee aggiuntiva in checkout. La piattaforma trattiene il 18% dal payout del sitter (`shared/src/constants/platform.ts`).
 
@@ -171,9 +171,13 @@ Cancellazione: se cancella il **sitter**, rimborso sempre pieno (la policy tutel
 
 Dati Stripe sensibili (`stripe_account_id`) vivono in `sitter_payment_accounts`, tabella separata da `sitter_profiles` — quest'ultima ha una lettura pubblica per i sitter approvati, e la RLS di Postgres filtra le righe non le colonne (vedi commento nella migrazione `20260812135000_*`).
 
+## Booking → recensione
+
+`PATCH /bookings/:id/start` e `/complete` (solo sitter) portano la prenotazione a `completed`; solo allora `POST /bookings/:id/reviews` accetta una recensione (una per direzione: owner→sitter e sitter→owner, vincolo `unique(booking_id, direction)`). Le recensioni owner→sitter aggiornano `sitter_profiles.average_rating`/`review_count` via trigger e sono pubbliche (`GET /sitters/:id/reviews`); quelle sitter→owner restano private (nessun profilo pubblico proprietario ancora).
+
 ## Cosa manca (prossime fasi)
 
-- GPS tracking passeggiate, foto/note durante il servizio, dashboard guadagni sitter — Fase 5
-- Chat (`conversations`/`messages`), notifiche push, recensioni — Fase 5
-- Endpoint `/admin/*` (approvazione sitter, moderazione, dispute) — Fase 7
+- GPS tracking passeggiate, foto/note durante il servizio — in corso
+- Chat (`conversations`/`messages`), notifiche push — in corso
+- Endpoint `/admin/*` (approvazione sitter, moderazione, dispute) — in corso
 - Un secondo giro di controproposta sui meet & greet (per l'MVP: un solo giro owner→sitter→owner)

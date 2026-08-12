@@ -1,4 +1,4 @@
-import { CANCELLATION_RULES, type PublicSitterProfile } from "@fido/shared";
+import { CANCELLATION_RULES, type PublicSitterProfile, type Review } from "@fido/shared";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Text, View } from "react-native";
@@ -7,7 +7,9 @@ import { Card } from "@/components/Card";
 import { ErrorView } from "@/components/ErrorView";
 import { LoadingView } from "@/components/LoadingView";
 import { Screen } from "@/components/Screen";
+import { StarRating } from "@/components/StarRating";
 import { createMeetGreet } from "@/features/meet-greets/api";
+import { listSitterReviews } from "@/features/reviews/api";
 import { getPublicSitterProfile } from "@/features/sitters/api";
 import { strings } from "@/i18n/strings";
 import { useTheme } from "@/theme/use-theme";
@@ -17,6 +19,7 @@ export default function SitterProfileScreen() {
   const { id, service } = useLocalSearchParams<{ id: string; service?: string }>();
 
   const [profile, setProfile] = useState<PublicSitterProfile | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [requestingMeetGreet, setRequestingMeetGreet] = useState(false);
 
@@ -24,6 +27,12 @@ export default function SitterProfileScreen() {
     getPublicSitterProfile(id)
       .then(setProfile)
       .catch(() => setError(strings.common.genericError));
+    listSitterReviews(id)
+      .then(setReviews)
+      .catch(() => {
+        // Le recensioni sono un contenuto accessorio: se il caricamento
+        // fallisce non blocchiamo il resto del profilo.
+      });
   }, [id]);
 
   if (error) return <ErrorView message={error} />;
@@ -87,6 +96,25 @@ export default function SitterProfileScreen() {
           {CANCELLATION_RULES[profile.cancellationPolicy].labelIt}
         </Text>
       </View>
+
+      {reviews.length > 0 && (
+        <View style={{ marginBottom: spacing.lg }}>
+          <Text style={[typography.label, { color: colors.inkFaint, marginBottom: spacing.sm }]}>
+            {strings.sitter.reviewsCount(reviews.length)}
+          </Text>
+          {reviews.map((r) => (
+            <Card key={r.id} style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={[typography.body, { color: colors.ink }]}>{r.reviewerFirstName}</Text>
+                <StarRating value={r.rating} size={14} />
+              </View>
+              {r.comment ? (
+                <Text style={[typography.caption, { color: colors.inkMuted, marginTop: spacing.xs }]}>{r.comment}</Text>
+              ) : null}
+            </Card>
+          ))}
+        </View>
+      )}
 
       <Button
         label={strings.sitter.requestMeetGreet}

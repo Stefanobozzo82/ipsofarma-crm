@@ -1,4 +1,5 @@
 import type { Booking } from "@fido/shared";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, Text, View } from "react-native";
 import { Card } from "@/components/Card";
@@ -43,7 +44,7 @@ export default function SitterCalendarScreen() {
         data={bookings}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Card style={{ marginBottom: spacing.md }}>
+          <Card onPress={() => router.push(`/booking/${item.id}`)} style={{ marginBottom: spacing.md }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
               <Text style={[typography.subtitle, { color: colors.ink }]}>{strings.service[item.serviceType]}</Text>
               <StatusBadge label={strings.bookingStatus[item.status]} tone={bookingStatusTone(item.status)} />

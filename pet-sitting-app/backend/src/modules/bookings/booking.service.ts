@@ -141,6 +141,37 @@ export async function declineBooking(
   return mapBookingRow(data, await fetchPetIds(supabase, id));
 }
 
+/** Il sitter segna l'inizio del servizio — nessun vincolo sulla data (un
+ * walk può iniziare in anticipo/ritardo rispetto all'orario previsto),
+ * solo sullo stato: deve essere stato pagato e confermato. */
+export async function startBooking(supabase: SupabaseClient, id: string, sitterId: string): Promise<Booking> {
+  const current = await requireBookingStatus(supabase, id, "confirmed");
+  if (current.sitter_id !== sitterId) throw AppError.forbidden("Solo il sitter assegnato può avviare il servizio");
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ status: "in_progress" })
+    .eq("id", id)
+    .select(BOOKING_COLUMNS)
+    .single();
+  if (error || !data) throw AppError.badRequest("Impossibile avviare il servizio");
+  return mapBookingRow(data, await fetchPetIds(supabase, id));
+}
+
+export async function completeBooking(supabase: SupabaseClient, id: string, sitterId: string): Promise<Booking> {
+  const current = await requireBookingStatus(supabase, id, "in_progress");
+  if (current.sitter_id !== sitterId) throw AppError.forbidden("Solo il sitter assegnato può completare il servizio");
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ status: "completed" })
+    .eq("id", id)
+    .select(BOOKING_COLUMNS)
+    .single();
+  if (error || !data) throw AppError.badRequest("Impossibile completare il servizio");
+  return mapBookingRow(data, await fetchPetIds(supabase, id));
+}
+
 async function requireBookingStatus(supabase: SupabaseClient, id: string, expected: string) {
   const { data, error } = await supabase.from("bookings").select("status, owner_id, sitter_id").eq("id", id).single();
   if (error || !data) throw AppError.notFound("Prenotazione non trovata");

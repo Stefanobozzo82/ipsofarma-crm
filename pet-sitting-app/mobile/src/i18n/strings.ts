@@ -84,6 +84,17 @@ export const strings = {
     paySuccess: "Pagamento completato",
     cancelBooking: "Cancella prenotazione",
     cancelConfirm: "Sei sicuro di voler cancellare questa prenotazione?",
+    start: "Inizia servizio",
+    complete: "Completa servizio",
+  },
+  review: {
+    leaveReview: "Lascia una recensione",
+    rating: "Valutazione",
+    comment: "Commento (opzionale)",
+    submit: "Pubblica recensione",
+    thanks: "Grazie per la recensione!",
+    alreadyReviewed: "Hai già recensito questa prenotazione",
+    noReviews: "Nessuna recensione ancora",
   },
   bookingStatus: {
     pending_request: "In attesa di conferma",

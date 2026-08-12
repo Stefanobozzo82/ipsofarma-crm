@@ -1,0 +1,16 @@
+{
+  "name": "fido-pet-sitting",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Marketplace pet-sitting per il mercato italiano (nome di lavoro: Fido). Monorepo: mobile, backend, admin, shared.",
+  "packageManager": "pnpm@9.7.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev:backend": "pnpm --filter backend dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "seed:backend": "pnpm --filter backend seed"
+  }
+}

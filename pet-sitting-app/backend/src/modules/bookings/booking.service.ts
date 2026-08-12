@@ -4,10 +4,13 @@ import {
   type CancelBookingInput,
   type CancellationPolicyType,
   type CreateBookingInput,
+  type CreateDisputeInput,
   type DeclineBookingInput,
+  type Dispute,
 } from "@fido/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AppError } from "../../lib/app-error";
+import { mapDisputeRow } from "../admin/admin.mapper";
 import { getStripe } from "../../lib/stripe";
 import { supabaseAdmin } from "../../lib/supabase";
 import { mapBookingRow } from "./booking.mapper";
@@ -324,4 +327,33 @@ export async function cancelBooking(
 
   if (updateError || !data) throw AppError.badRequest("Impossibile cancellare la prenotazione");
   return mapBookingRow(data, await fetchPetIds(supabase, id));
+}
+
+/** Apre una dispute e porta la prenotazione in stato 'disputed' — da qui in
+ * poi la gestisce solo un admin (vedi modules/admin). */
+export async function openDispute(
+  supabase: SupabaseClient,
+  bookingId: string,
+  userId: string,
+  input: CreateDisputeInput,
+): Promise<Dispute> {
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("owner_id, sitter_id")
+    .eq("id", bookingId)
+    .single();
+  if (bookingError || !booking) throw AppError.notFound("Prenotazione non trovata");
+  if (booking.owner_id !== userId && booking.sitter_id !== userId) throw AppError.forbidden();
+
+  const { data, error } = await supabase
+    .from("disputes")
+    .insert({ booking_id: bookingId, opened_by: userId, reason: input.reason, description: input.description ?? null })
+    .select("id, booking_id, opened_by, reason, description, status, resolution, resolved_by, created_at, resolved_at")
+    .single();
+  if (error || !data) throw AppError.badRequest("Impossibile aprire la contestazione");
+
+  const { error: statusError } = await supabase.from("bookings").update({ status: "disputed" }).eq("id", bookingId);
+  if (statusError) throw AppError.badRequest("Contestazione aperta ma impossibile aggiornare lo stato della prenotazione");
+
+  return mapDisputeRow(data);
 }

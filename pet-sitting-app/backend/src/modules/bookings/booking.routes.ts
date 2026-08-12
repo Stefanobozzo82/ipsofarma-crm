@@ -1,4 +1,10 @@
-import { cancelBookingSchema, createBookingSchema, createReviewSchema, declineBookingSchema } from "@fido/shared";
+import {
+  cancelBookingSchema,
+  createBookingSchema,
+  createDisputeSchema,
+  createReviewSchema,
+  declineBookingSchema,
+} from "@fido/shared";
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
@@ -95,6 +101,15 @@ bookingRoutes.post("/:id/reviews", validateBody(createReviewSchema), async (req,
   try {
     const review = await reviewService.createReview(req.supabase!, req.params.id, req.user!.id, req.body);
     res.status(201).json({ data: review });
+  } catch (err) {
+    next(err);
+  }
+});
+
+bookingRoutes.post("/:id/disputes", validateBody(createDisputeSchema), async (req, res, next) => {
+  try {
+    const dispute = await bookingService.openDispute(req.supabase!, req.params.id, req.user!.id, req.body);
+    res.status(201).json({ data: dispute });
   } catch (err) {
     next(err);
   }

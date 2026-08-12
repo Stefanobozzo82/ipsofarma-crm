@@ -30,6 +30,15 @@ export const ReviewDirection = {
 
 export type ReviewDirection = (typeof ReviewDirection)[keyof typeof ReviewDirection];
 
+export const DisputeStatus = {
+  Open: "open",
+  Investigating: "investigating",
+  Resolved: "resolved",
+  Closed: "closed",
+} as const;
+
+export type DisputeStatus = (typeof DisputeStatus)[keyof typeof DisputeStatus];
+
 export const MeetGreetStatus = {
   Requested: "requested",
   Proposed: "proposed",

@@ -10,6 +10,7 @@
   "scripts": {
     "dev:backend": "pnpm --filter backend dev",
     "dev:mobile": "pnpm --filter mobile start",
+    "dev:admin": "pnpm --filter admin dev",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "seed:backend": "pnpm --filter backend seed"

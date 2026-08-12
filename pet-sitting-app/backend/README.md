@@ -175,9 +175,12 @@ Dati Stripe sensibili (`stripe_account_id`) vivono in `sitter_payment_accounts`,
 
 `PATCH /bookings/:id/start` e `/complete` (solo sitter) portano la prenotazione a `completed`; solo allora `POST /bookings/:id/reviews` accetta una recensione (una per direzione: owner→sitter e sitter→owner, vincolo `unique(booking_id, direction)`). Le recensioni owner→sitter aggiornano `sitter_profiles.average_rating`/`review_count` via trigger e sono pubbliche (`GET /sitters/:id/reviews`); quelle sitter→owner restano private (nessun profilo pubblico proprietario ancora).
 
+## Admin
+
+`/admin/*` (stats, coda approvazione sitter, moderazione recensioni, gestione dispute) richiede `role = 'admin'` su `public.users` — vedi [`../admin/README.md`](../admin/README.md) per come promuovere un utente e per il pannello web che consuma questi endpoint. `POST /bookings/:id/disputes` è invece lato utente: un partecipante alla prenotazione può aprire una contestazione, che porta `bookings.status` a `disputed` e da lì la gestisce solo un admin.
+
 ## Cosa manca (prossime fasi)
 
 - GPS tracking passeggiate, foto/note durante il servizio — in corso
 - Chat (`conversations`/`messages`), notifiche push — in corso
-- Endpoint `/admin/*` (approvazione sitter, moderazione, dispute) — in corso
 - Un secondo giro di controproposta sui meet & greet (per l'MVP: un solo giro owner→sitter→owner)

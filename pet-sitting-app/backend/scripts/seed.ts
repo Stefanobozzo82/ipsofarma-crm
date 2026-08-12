@@ -63,10 +63,40 @@ async function seed() {
     verification_status: "verified",
     approved_at: new Date().toISOString(),
   });
+  // Senza un servizio attivo il sitter non compare mai in GET /search/sitters.
+  await supabaseAdmin.from("sitter_services").upsert(
+    { sitter_id: sitterId, service_type: "dog_walking", price: 15, price_unit: "per_walk", duration_minutes: 30, max_pets: 2 },
+    { onConflict: "sitter_id,service_type" },
+  );
+  await supabaseAdmin.from("sitter_availability").upsert(
+    [1, 2, 3, 4, 5].map((dayOfWeek) => ({
+      sitter_id: sitterId,
+      day_of_week: dayOfWeek,
+      start_time: "09:00",
+      end_time: "18:00",
+    })),
+  );
+
+  // Un secondo sitter ancora in coda di approvazione, per testare il pannello admin.
+  const pendingSitterId = await createDemoUser("sitter-pending-demo@fido.local", "Luca", "Verdi");
+  await supabaseAdmin.from("sitter_profiles").upsert({
+    user_id: pendingSitterId,
+    bio: "Studente, disponibile nel weekend per passeggiate ed è la mia prima candidatura come sitter.",
+    experience_years: 1,
+    address: "Via Popilia 5, Cosenza",
+    base_latitude: 39.31,
+    base_longitude: 16.2489,
+    service_radius_km: 5,
+  });
+
+  const adminId = await createDemoUser("admin-demo@fido.local", "Admin", "Fido");
+  await supabaseAdmin.from("users").update({ role: "admin" }).eq("id", adminId);
 
   logger.info("Seed completato:");
-  logger.info(`  owner  -> owner-demo@fido.local  / ${DEMO_PASSWORD}`);
-  logger.info(`  sitter -> sitter-demo@fido.local / ${DEMO_PASSWORD} (già approvato)`);
+  logger.info(`  owner           -> owner-demo@fido.local           / ${DEMO_PASSWORD}`);
+  logger.info(`  sitter approvato -> sitter-demo@fido.local          / ${DEMO_PASSWORD}`);
+  logger.info(`  sitter in coda   -> sitter-pending-demo@fido.local  / ${DEMO_PASSWORD}`);
+  logger.info(`  admin            -> admin-demo@fido.local           / ${DEMO_PASSWORD}`);
 }
 
 seed()

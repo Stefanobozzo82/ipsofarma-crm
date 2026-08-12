@@ -192,3 +192,46 @@ Feed in-app (`GET/PATCH /notifications`) pienamente funzionante — chiamato da 
 - Invio push reale (richiede credenziali Firebase del cliente)
 - Picker foto lato mobile per gli aggiornamenti di servizio (il backend è pronto)
 - Un secondo giro di controproposta sui meet & greet (per l'MVP: un solo giro owner→sitter→owner)
+
+## Verificato con un Supabase vero, non solo mock
+
+Le fasi 1-10 erano state validate solo con `tsc --noEmit` e smoke test contro
+un `SUPABASE_URL` finto (verificava solo che le rotte protette rispondessero
+401, mai una vera query autenticata). Il primo giro contro un'istanza
+Supabase locale realmente in esecuzione (`supabase start`) ha fatto emergere
+tre bug reali, tutti mascherati fino a quel momento:
+
+1. **Nessuna migrazione concedeva GRANT a livello di tabella** ai ruoli
+   `anon`/`authenticated`/`service_role`. La RLS filtra le righe, ma senza un
+   `GRANT` esplicito Postgres nega l'operazione a monte con "permission
+   denied for table" — succede in automatico solo creando tabelle dalla
+   Table Editor di Supabase Studio, non scrivendo SQL a mano. Fix in
+   `supabase/migrations/20260812200000_grants.sql`.
+2. Conseguenza diretta del bug 1: gli upsert di `scripts/seed.ts` verso
+   `supabaseAdmin` (service role — bypassa la RLS ma non i grant di tabella)
+   fallivano silenziosamente perché il codice non controllava l'errore
+   restituito. Il seed "riusciva" senza aver scritto
+   `owner_profiles`/`sitter_profiles`/`sitter_services`/`sitter_availability`.
+   Ora ogni upsert passa da un helper `must()` che fa fallire lo script sul
+   primo errore reale.
+3. `sitter_profiles` ha due FK verso `users` (`user_id` e `approved_by`):
+   l'embed implicito `users(...)` in `sitters.service.ts`/`admin.service.ts`
+   è ambiguo per PostgREST (`PGRST201`). Disambiguato con il nome esplicito
+   del vincolo (`users!sitter_profiles_user_id_fkey`).
+
+Con i fix, verificato manualmente l'intero flusso con dati reali: login,
+`GET /users/me`, `/pets`, ricerca geografica (`nearby_sitters`), profilo
+pubblico sitter, creazione/accettazione prenotazione con calcolo
+prezzo/commissione lato server, completamento, recensione con aggregazione
+automatica del rating, ed endpoint admin (stats, coda approvazione, approve).
+Non testato in questo giro: pagamento Stripe reale (richiede chiavi test),
+realtime/edge-runtime (esclusi dall'ambiente locale usato per il test — vedi
+nota sotto), invio push.
+
+**Nota sull'ambiente di test**: `supabase start --exclude realtime,edge-runtime`
+— i container `realtime` ed `edge-runtime` non partono in alcuni ambienti
+containerizzati per una restrizione OCI/runc del sandbox
+(`error setting rlimits for ready process`), non un problema del progetto.
+REST/Auth/Storage/DB funzionano regolarmente; solo le sottoscrizioni
+Realtime via WebSocket (chat, GPS live) non sono testabili in quell'ambiente
+specifico.

@@ -1,6 +1,6 @@
 # backend
 
-API Express per Fido. Copre autenticazione e gestione profili (owner, sitter, animali) — vedi [`docs/PHASE1-PROPOSAL.md`](../docs/PHASE1-PROPOSAL.md) per lo schema completo e la roadmap. Stripe Connect, ricerca e prenotazioni arrivano nelle fasi successive.
+API Express per Fido. Copre autenticazione, gestione profili (owner, sitter, animali), listino servizi/disponibilità sitter e ricerca geografica — vedi [`docs/PHASE1-PROPOSAL.md`](../docs/PHASE1-PROPOSAL.md) per lo schema completo e la roadmap. Stripe Connect e prenotazioni arrivano in Fase 4.
 
 ## Prerequisiti
 
@@ -69,6 +69,28 @@ curl -X POST http://localhost:4000/api/v1/sitters/apply \
   -d '{"bio":"Amo gli animali, esperienza pluriennale con cani di ogni taglia","experienceYears":3,"address":"Via Test 1, Cosenza","latitude":39.30,"longitude":16.25,"serviceRadiusKm":10}'
 ```
 
+Nota: `POST /sitters/apply` crea il profilo con `status = 'pending'` — non compare in ricerca finché non lo approvi manualmente in Supabase (`update sitter_profiles set status = 'approved' where user_id = '<id>'`) o non usi `pnpm seed:backend`, che crea già un sitter approvato.
+
+## Prova servizi, disponibilità e ricerca (Fase 3)
+
+```bash
+# Imposta il listino (sostituisce l'intero set esistente)
+curl -X PUT http://localhost:4000/api/v1/sitters/me/services \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" -H "Content-Type: application/json" \
+  -d '[{"serviceType":"dog_walking","price":15,"priceUnit":"per_walk","durationMinutes":30,"maxPets":2}]'
+
+# Imposta disponibilità settimanale (lun-ven 9-13, dow: 0=domenica...6=sabato) + un'eccezione
+curl -X PUT http://localhost:4000/api/v1/sitters/me/availability \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" -H "Content-Type: application/json" \
+  -d '{"slots":[{"dayOfWeek":1,"startTime":"09:00","endTime":"13:00"}],"exceptions":[{"date":"2026-08-20","isAvailable":false,"note":"Ferie"}]}'
+
+# Ricerca per raggio — nessuna auth richiesta (richiede un sitter approvato con servizi attivi, es. quello creato da pnpm seed:backend)
+curl "http://localhost:4000/api/v1/search/sitters?lat=39.30&lng=16.25&service=dog_walking&radiusKm=15"
+
+# Profilo pubblico, ora include il listino
+curl http://localhost:4000/api/v1/sitters/<SITTER_ID>/public
+```
+
 ## Struttura
 
 ```
@@ -86,7 +108,8 @@ src/
 │   ├── auth/               # signup, login, refresh, scambio OAuth (Google/Apple ID token)
 │   ├── users/               # GET/PATCH /users/me
 │   ├── pets/                 # CRUD animali (soft delete)
-│   └── sitters/               # candidatura, profilo sitter, upload documenti, pagina pubblica
+│   ├── sitters/                # candidatura, profilo, listino servizi, disponibilità, upload documenti, pagina pubblica
+│   └── search/                  # GET /search/sitters — ricerca geografica via RPC nearby_sitters()
 ├── routes/index.ts          # monta i moduli sotto /api/v1
 ├── app.ts                    # factory Express (middleware, rotte, error handling)
 └── server.ts                  # entrypoint — avvia il listener
@@ -98,6 +121,6 @@ Ogni handler autenticato riceve `req.supabase`, un client Supabase creato con il
 
 ## Cosa manca (prossime fasi)
 
-- `sitter_services`, `sitter_availability`, ricerca geografica (`/search/sitters`) — Fase 3
-- `bookings`, `meet_greet_requests`, Stripe Connect, webhook — Fase 4
+- `bookings`, `meet_greet_requests`, Stripe Connect, webhook, dashboard guadagni sitter — Fase 4
+- Chat (`conversations`/`messages`), notifiche push, recensioni — Fase 4-5
 - Endpoint `/admin/*` (approvazione sitter, moderazione, dispute) — Fase 7

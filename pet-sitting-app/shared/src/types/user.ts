@@ -1,4 +1,5 @@
 import type { SitterStatus, UserRole, VerificationStatus } from "../enums";
+import type { SitterService } from "./sitter-service";
 
 /** Riga public.users — estende auth.users di Supabase con i campi applicativi. */
 export interface User {
@@ -65,4 +66,5 @@ export interface PublicSitterProfile {
   experienceYears: number | null;
   averageRating: number | null;
   reviewCount: number;
+  services: SitterService[];
 }

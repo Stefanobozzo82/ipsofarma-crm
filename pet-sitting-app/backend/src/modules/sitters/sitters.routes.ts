@@ -1,4 +1,10 @@
-import { requestDocumentUploadSchema, sitterApplySchema, updateSitterProfileSchema } from "@fido/shared";
+import {
+  requestDocumentUploadSchema,
+  setSitterAvailabilitySchema,
+  setSitterServicesSchema,
+  sitterApplySchema,
+  updateSitterProfileSchema,
+} from "@fido/shared";
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
@@ -51,6 +57,47 @@ sittersRoutes.post(
     try {
       const result = await sittersService.requestDocumentUpload(req.supabase!, req.user!.id, req.body);
       res.status(201).json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+sittersRoutes.get("/me/services", requireAuth, async (req, res, next) => {
+  try {
+    const services = await sittersService.listMyServices(req.supabase!, req.user!.id);
+    res.json({ data: services });
+  } catch (err) {
+    next(err);
+  }
+});
+
+sittersRoutes.put("/me/services", requireAuth, validateBody(setSitterServicesSchema), async (req, res, next) => {
+  try {
+    const services = await sittersService.setMyServices(req.supabase!, req.user!.id, req.body);
+    res.json({ data: services });
+  } catch (err) {
+    next(err);
+  }
+});
+
+sittersRoutes.get("/me/availability", requireAuth, async (req, res, next) => {
+  try {
+    const availability = await sittersService.listMyAvailability(req.supabase!, req.user!.id);
+    res.json({ data: availability });
+  } catch (err) {
+    next(err);
+  }
+});
+
+sittersRoutes.put(
+  "/me/availability",
+  requireAuth,
+  validateBody(setSitterAvailabilitySchema),
+  async (req, res, next) => {
+    try {
+      const availability = await sittersService.setMyAvailability(req.supabase!, req.user!.id, req.body);
+      res.json({ data: availability });
     } catch (err) {
       next(err);
     }

@@ -1,8 +1,12 @@
 import type {
   PublicSitterProfile,
   RequestDocumentUploadInput,
+  SetSitterAvailabilityInput,
+  SetSitterServicesInput,
   SitterApplyInput,
+  SitterAvailabilitySlot,
   SitterProfile,
+  SitterService,
   UpdateSitterProfileInput,
   VerificationDocument,
 } from "@fido/shared";
@@ -10,6 +14,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { AppError } from "../../lib/app-error";
 import { supabaseAnon } from "../../lib/supabase";
 import { mapSitterProfileRow } from "../users/users.mapper";
+import {
+  mapAvailabilityExceptionRow,
+  mapAvailabilitySlotRow,
+  mapSitterServiceRow,
+} from "./sitters.mapper";
 
 const SITTER_COLUMNS =
   "user_id, bio, experience_years, status, verification_status, service_radius_km, base_latitude, base_longitude, address, stripe_account_id, stripe_onboarding_complete, average_rating, review_count, approved_at, approved_by, created_at, updated_at";
@@ -77,11 +86,18 @@ export async function updateMySitterProfile(
  * Le policy RLS "…_public_read_approved" filtrano già ai soli sitter con
  * status = 'approved', quindi qui non serve un controllo aggiuntivo. */
 export async function getPublicSitterProfile(sitterId: string): Promise<PublicSitterProfile> {
-  const { data, error } = await supabaseAnon
-    .from("users")
-    .select("id, first_name, avatar_url, city, sitter_profiles(bio, experience_years, average_rating, review_count)")
-    .eq("id", sitterId)
-    .single();
+  const [{ data, error }, { data: serviceRows }] = await Promise.all([
+    supabaseAnon
+      .from("users")
+      .select("id, first_name, avatar_url, city, sitter_profiles(bio, experience_years, average_rating, review_count)")
+      .eq("id", sitterId)
+      .single(),
+    supabaseAnon
+      .from("sitter_services")
+      .select("id, sitter_id, service_type, price, price_unit, duration_minutes, max_pets, is_active")
+      .eq("sitter_id", sitterId)
+      .eq("is_active", true),
+  ]);
 
   if (error || !data) throw AppError.notFound("Sitter non trovato o non ancora approvato");
 
@@ -103,6 +119,7 @@ export async function getPublicSitterProfile(sitterId: string): Promise<PublicSi
     experienceYears: sitterProfile.experience_years,
     averageRating: sitterProfile.average_rating === null ? null : Number(sitterProfile.average_rating),
     reviewCount: sitterProfile.review_count,
+    services: (serviceRows ?? []).map(mapSitterServiceRow),
   };
 }
 
@@ -147,5 +164,109 @@ export async function requestDocumentUpload(
       reviewedAt: docRow.reviewed_at,
       createdAt: docRow.created_at,
     },
+  };
+}
+
+const SERVICE_COLUMNS = "id, sitter_id, service_type, price, price_unit, duration_minutes, max_pets, is_active";
+
+export async function listMyServices(supabase: SupabaseClient, userId: string): Promise<SitterService[]> {
+  const { data, error } = await supabase.from("sitter_services").select(SERVICE_COLUMNS).eq("sitter_id", userId);
+  if (error) throw AppError.badRequest("Impossibile recuperare i servizi");
+  return (data ?? []).map(mapSitterServiceRow);
+}
+
+/**
+ * Sostituisce l'intero listino del sitter (semantica PUT). Cancellazione +
+ * inserimento sequenziali con il client scoped all'utente: per l'MVP è
+ * accettabile una finestra non atomica di pochi millisecondi; se in futuro
+ * servisse una vera transazione conviene spostare la logica in una funzione
+ * Postgres richiamata via RPC.
+ */
+export async function setMyServices(
+  supabase: SupabaseClient,
+  userId: string,
+  input: SetSitterServicesInput,
+): Promise<SitterService[]> {
+  const { error: deleteError } = await supabase.from("sitter_services").delete().eq("sitter_id", userId);
+  if (deleteError) throw AppError.badRequest("Impossibile aggiornare il listino servizi");
+
+  if (input.length === 0) return [];
+
+  const rows = input.map((service) => ({
+    sitter_id: userId,
+    service_type: service.serviceType,
+    price: service.price,
+    price_unit: service.priceUnit,
+    duration_minutes: service.durationMinutes ?? null,
+    max_pets: service.maxPets,
+    is_active: service.isActive,
+  }));
+
+  const { data, error } = await supabase.from("sitter_services").insert(rows).select(SERVICE_COLUMNS);
+  if (error || !data) throw AppError.badRequest("Impossibile salvare il listino servizi");
+  return data.map(mapSitterServiceRow);
+}
+
+export async function listMyAvailability(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ slots: SitterAvailabilitySlot[]; exceptions: ReturnType<typeof mapAvailabilityExceptionRow>[] }> {
+  const [slotsRes, exceptionsRes] = await Promise.all([
+    supabase
+      .from("sitter_availability")
+      .select("day_of_week, start_time, end_time, service_type")
+      .eq("sitter_id", userId)
+      .order("day_of_week", { ascending: true }),
+    supabase
+      .from("availability_exceptions")
+      .select("date, is_available, note")
+      .eq("sitter_id", userId)
+      .order("date", { ascending: true }),
+  ]);
+
+  if (slotsRes.error || exceptionsRes.error) throw AppError.badRequest("Impossibile recuperare la disponibilità");
+
+  return {
+    slots: (slotsRes.data ?? []).map(mapAvailabilitySlotRow),
+    exceptions: (exceptionsRes.data ?? []).map(mapAvailabilityExceptionRow),
+  };
+}
+
+/** Sostituisce interamente il pattern settimanale e le eccezioni (semantica PUT). */
+export async function setMyAvailability(supabase: SupabaseClient, userId: string, input: SetSitterAvailabilityInput) {
+  const [deleteSlots, deleteExceptions] = await Promise.all([
+    supabase.from("sitter_availability").delete().eq("sitter_id", userId),
+    supabase.from("availability_exceptions").delete().eq("sitter_id", userId),
+  ]);
+  if (deleteSlots.error || deleteExceptions.error) throw AppError.badRequest("Impossibile aggiornare la disponibilità");
+
+  const slotRows = input.slots.map((slot) => ({
+    sitter_id: userId,
+    day_of_week: slot.dayOfWeek,
+    start_time: slot.startTime,
+    end_time: slot.endTime,
+    service_type: slot.serviceType,
+  }));
+  const exceptionRows = input.exceptions.map((exception) => ({
+    sitter_id: userId,
+    date: exception.date,
+    is_available: exception.isAvailable,
+    note: exception.note ?? null,
+  }));
+
+  const [slotsInsert, exceptionsInsert] = await Promise.all([
+    slotRows.length > 0
+      ? supabase.from("sitter_availability").insert(slotRows).select("day_of_week, start_time, end_time, service_type")
+      : Promise.resolve({ data: [], error: null }),
+    exceptionRows.length > 0
+      ? supabase.from("availability_exceptions").insert(exceptionRows).select("date, is_available, note")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (slotsInsert.error || exceptionsInsert.error) throw AppError.badRequest("Impossibile salvare la disponibilità");
+
+  return {
+    slots: (slotsInsert.data ?? []).map(mapAvailabilitySlotRow),
+    exceptions: (exceptionsInsert.data ?? []).map(mapAvailabilityExceptionRow),
   };
 }

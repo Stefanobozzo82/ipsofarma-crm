@@ -29,7 +29,10 @@ export default function ProfileScreen() {
       </Card>
 
       {profile?.sitterProfile ? (
-        <Card style={{ marginBottom: spacing.md }}>
+        <Card
+          onPress={profile.sitterProfile.status === "approved" ? () => router.push("/sitter-dashboard") : undefined}
+          style={{ marginBottom: spacing.md }}
+        >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={[typography.subtitle, { color: colors.ink }]}>{strings.profile.sitterStatusTitle}</Text>
             <StatusBadge

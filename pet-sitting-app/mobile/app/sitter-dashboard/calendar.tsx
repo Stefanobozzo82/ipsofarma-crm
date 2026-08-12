@@ -1,0 +1,68 @@
+import type { Booking } from "@fido/shared";
+import { useEffect, useState } from "react";
+import { FlatList, Text, View } from "react-native";
+import { Card } from "@/components/Card";
+import { ErrorView } from "@/components/ErrorView";
+import { LoadingView } from "@/components/LoadingView";
+import { Screen } from "@/components/Screen";
+import { bookingStatusTone, StatusBadge } from "@/components/StatusBadge";
+import { listMyBookings } from "@/features/bookings/api";
+import { strings } from "@/i18n/strings";
+import { formatDateIt } from "@/lib/date";
+import { useAuthStore } from "@/store/auth-store";
+import { useTheme } from "@/theme/use-theme";
+
+const VISIBLE_STATUSES = ["confirmed", "in_progress", "completed"];
+
+export default function SitterCalendarScreen() {
+  const { colors, spacing, typography } = useTheme();
+  const myId = useAuthStore((s) => s.profile?.id);
+
+  const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    listMyBookings()
+      .then((data) => {
+        const mine = data
+          .filter((b) => b.sitterId === myId && VISIBLE_STATUSES.includes(b.status))
+          .sort((a, b) => a.startDate.localeCompare(b.startDate));
+        setBookings(mine);
+      })
+      .catch(() => setError(strings.common.genericError));
+  }
+
+  useEffect(load, [myId]);
+
+  if (error) return <ErrorView message={error} onRetry={load} />;
+  if (bookings === null) return <LoadingView />;
+
+  return (
+    <Screen>
+      <FlatList
+        data={bookings}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Card style={{ marginBottom: spacing.md }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <Text style={[typography.subtitle, { color: colors.ink }]}>{strings.service[item.serviceType]}</Text>
+              <StatusBadge label={strings.bookingStatus[item.status]} tone={bookingStatusTone(item.status)} />
+            </View>
+            <Text style={[typography.caption, { color: colors.inkFaint, marginTop: spacing.xs }]}>
+              {formatDateIt(item.startDate)}
+              {item.endDate ? ` → ${formatDateIt(item.endDate)}` : ""}
+            </Text>
+            <Text style={[typography.body, { color: colors.accent, marginTop: spacing.sm }]}>
+              {item.sitterPayout.toFixed(2)}€
+            </Text>
+          </Card>
+        )}
+        ListEmptyComponent={
+          <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.xl, textAlign: "center" }]}>
+            {strings.sitterDashboard.calendarEmpty}
+          </Text>
+        }
+      />
+    </Screen>
+  );
+}

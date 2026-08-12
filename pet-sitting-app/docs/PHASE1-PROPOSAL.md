@@ -2,7 +2,7 @@
 
 > Proposta di architettura per il marketplace pet-sitting italiano (nome di lavoro: "Fido"). Bozza per revisione — versione interattiva con diagramma: vedi artifact pubblicato in chat.
 >
-> **Nota sul repository:** questo repo contiene attualmente un CRM farmaceutico non correlato (`index.html`, `catalogo.json`, script Gmail/agente di stampa). Il progetto pet-sitting viene aggiunto in cartelle nuove (`mobile/`, `backend/`, `admin/`, `shared/`) senza toccare quei file.
+> **Nota sul repository:** questo repo contiene attualmente un CRM farmaceutico non correlato (`index.html`, `catalogo.json`, script Gmail/agente di stampa) nella root. Il progetto pet-sitting vive interamente dentro `pet-sitting-app/` — due cose ben distinte nello stesso repository, nessun file esistente toccato.
 
 ## §00 Raccomandazione di stack backend
 
@@ -187,64 +187,72 @@ erDiagram
 
 ## §02 Struttura del progetto
 
-Monorepo con workspace npm/pnpm. Le cartelle esistenti nella root del repository (CRM farmaceutico) restano invariate.
+Monorepo con workspace npm/pnpm, interamente contenuto in `pet-sitting-app/` — separato in modo netto dal CRM farmaceutico esistente nella root del repo, che resta invariato.
 
 ```
-# root del repo — contenuto CRM esistente non toccato
-mobile/                     # React Native (Expo)
-├── app/                    # Expo Router — rotte/schermate
-│   ├── (auth)/
-│   ├── (owner)/            # ricerca, prenotazioni, chat
-│   ├── (sitter)/           # dashboard, calendario, guadagni
-│   └── (shared)/           # profilo, notifiche, impostazioni
-├── src/
-│   ├── features/           # auth, pets, search, booking, chat, reviews, payments
-│   ├── components/
-│   ├── services/           # client Supabase, client API, SDK Stripe
-│   ├── store/               # stato globale (Zustand)
-│   ├── navigation/
-│   ├── theme/
-│   └── i18n/                # it.json (default), en.json
-├── app.json / eas.json
-└── package.json
-
-backend/                    # Node + Express + TS — servizi complementari a Supabase
-├── src/
-│   ├── modules/
-│   │   ├── stripe-connect/  # onboarding sitter, payment intent, split commissione
-│   │   ├── webhooks/         # eventi Stripe (payment, payout, account)
-│   │   ├── bookings/         # macchina a stati, prenotazioni ricorrenti
-│   │   └── admin/             # operazioni privilegiate (approvazione sitter, dispute)
-│   ├── middleware/            # auth guard (verifica JWT Supabase), rate limit
-│   ├── lib/                    # client Supabase (service role), utility geo
-│   └── server.ts
-├── supabase/
-│   ├── migrations/            # schema SQL versionato
-│   ├── functions/              # Edge Function (alternativa leggera a Express)
-│   └── seed.sql
-└── package.json
-
-admin/                      # pannello web — React + Vite
-├── src/
-│   ├── pages/                 # utenti, sitter, recensioni, dispute, statistiche
-│   ├── components/
-│   └── api/
-└── package.json
-
-shared/                     # tipi/interfacce TypeScript condivisi
-├── src/
-│   ├── types/                 # User, Pet, Booking, SitterProfile, Review...
-│   ├── enums/                 # ServiceType, BookingStatus, PaymentStatus...
-│   ├── schemas/                # validazione Zod condivisa FE/BE
-│   └── constants/              # commissione, valuta, limiti
-└── package.json
-
-docs/
-└── PHASE1-PROPOSAL.md        # questo documento
-
-pnpm-workspace.yaml
-package.json                  # root workspace
+ipsofarma-crm/                  # root repo — contenuto CRM esistente, non toccato
+├── index.html                  # ipsofarma, invariato
+├── catalogo.json                # ipsofarma, invariato
+├── apps-script/                  # ipsofarma, invariato
+├── windows-agent/                 # ipsofarma, invariato
+│
+└── pet-sitting-app/             # NUOVO — tutto il progetto pet-sitting vive qui
+    ├── mobile/                   # React Native (Expo)
+    │   ├── app/                  # Expo Router — rotte/schermate
+    │   │   ├── (auth)/
+    │   │   ├── (owner)/          # ricerca, prenotazioni, chat
+    │   │   ├── (sitter)/         # dashboard, calendario, guadagni
+    │   │   └── (shared)/         # profilo, notifiche, impostazioni
+    │   ├── src/
+    │   │   ├── features/         # auth, pets, search, booking, chat, reviews, payments
+    │   │   ├── components/
+    │   │   ├── services/         # client Supabase, client API, SDK Stripe
+    │   │   ├── store/             # stato globale (Zustand)
+    │   │   ├── navigation/
+    │   │   ├── theme/
+    │   │   └── i18n/              # it.json (default), en.json
+    │   ├── app.json / eas.json
+    │   └── package.json
+    │
+    ├── backend/                  # Node + Express + TS — servizi complementari a Supabase
+    │   ├── src/
+    │   │   ├── modules/
+    │   │   │   ├── stripe-connect/  # onboarding sitter, payment intent, split commissione
+    │   │   │   ├── webhooks/         # eventi Stripe (payment, payout, account)
+    │   │   │   ├── bookings/         # macchina a stati, prenotazioni ricorrenti
+    │   │   │   └── admin/             # operazioni privilegiate (approvazione sitter, dispute)
+    │   │   ├── middleware/            # auth guard (verifica JWT Supabase), rate limit
+    │   │   ├── lib/                    # client Supabase (service role), utility geo
+    │   │   └── server.ts
+    │   ├── supabase/
+    │   │   ├── migrations/            # schema SQL versionato
+    │   │   ├── functions/              # Edge Function (alternativa leggera a Express)
+    │   │   └── seed.sql
+    │   └── package.json
+    │
+    ├── admin/                    # pannello web — React + Vite
+    │   ├── src/
+    │   │   ├── pages/             # utenti, sitter, recensioni, dispute, statistiche
+    │   │   ├── components/
+    │   │   └── api/
+    │   └── package.json
+    │
+    ├── shared/                   # tipi/interfacce TypeScript condivisi
+    │   ├── src/
+    │   │   ├── types/             # User, Pet, Booking, SitterProfile, Review...
+    │   │   ├── enums/             # ServiceType, BookingStatus, PaymentStatus...
+    │   │   ├── schemas/            # validazione Zod condivisa FE/BE
+    │   │   └── constants/          # commissione, valuta, limiti
+    │   └── package.json
+    │
+    ├── docs/
+    │   └── PHASE1-PROPOSAL.md    # questo documento
+    │
+    ├── pnpm-workspace.yaml
+    └── package.json               # workspace root del progetto pet-sitting
 ```
+
+`pet-sitting-app/` è un workspace autonomo (proprio `package.json`/`pnpm-workspace.yaml`), non dipende da nulla nella root del CRM. Se in futuro si vuole estrarlo in un repository separato, è un `git subtree split -P pet-sitting-app` diretto, senza districare storia condivisa.
 
 ## §03 API REST principali
 

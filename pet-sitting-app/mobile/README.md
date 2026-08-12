@@ -68,10 +68,16 @@ La chat usa Supabase Realtime (`postgres_changes` su `messages`, vedi `supabase/
 
 `pnpm install`, `tsc --noEmit` puliti, e `npx expo config` risolto correttamente (ha anche fatto emergere un bug reale: il plugin `@stripe/stripe-react-native` richiede `merchantIdentifier` esplicito in `app.json`, altrimenti la build nativa fallisce — corretto). Non è stato possibile in questo ambiente headless avviare e ispezionare visivamente l'app su simulatore/device: fallo in locale con `pnpm dev:mobile` per il primo giro di QA manuale.
 
+## Tracking GPS e aggiornamenti servizio
+
+Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.
+
 ## Cosa manca (prossime fasi)
 
 - **Invio push reale**: il feed di notifiche in-app funziona già (`app/notifications/`), la registrazione del token è già collegata (`src/lib/push-notifications.ts`) — manca solo un progetto Firebase/EAS reale del cliente per completare la consegna (vedi `backend/src/lib/push.ts`)
-- Tracking GPS passeggiate, foto/note durante il servizio
+- **Foto negli aggiornamenti di servizio**: il backend espone già l'URL di upload firmato, manca il picker lato mobile (`expo-image-picker` + upload + visualizzazione con URL firmati, dato che il bucket è privato)
+- Mappa/percorso visuale del tracking GPS (richiede una API key Maps)
+- Tracking GPS in background (oggi solo foreground — se l'app va in background durante la passeggiata, il tracking si ferma)
 - Fasce di disponibilità multiple/per-servizio da mobile, gestione eccezioni (giorni bloccati) da UI
 - i18n multilingua (oggi solo italiano, vedi `src/i18n/strings.ts`)
 - Icone/splash screen personalizzati (oggi si usano i default Expo)

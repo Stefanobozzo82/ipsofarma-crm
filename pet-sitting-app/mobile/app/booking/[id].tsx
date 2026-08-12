@@ -1,4 +1,4 @@
-import type { Booking } from "@fido/shared";
+import type { Booking, ServiceUpdate } from "@fido/shared";
 import { useStripe } from "@stripe/stripe-react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -8,6 +8,8 @@ import { Card } from "@/components/Card";
 import { ErrorView } from "@/components/ErrorView";
 import { LoadingView } from "@/components/LoadingView";
 import { Screen } from "@/components/Screen";
+import { ServiceTrackingPanel } from "@/components/ServiceTrackingPanel";
+import { ServiceUpdatesList } from "@/components/ServiceUpdatesList";
 import { StarRating } from "@/components/StarRating";
 import { bookingStatusTone, StatusBadge } from "@/components/StatusBadge";
 import { TextField } from "@/components/TextField";
@@ -15,6 +17,7 @@ import { ApiError } from "@/lib/api";
 import { cancelBooking, completeBooking, getBooking, payBooking, startBooking } from "@/features/bookings/api";
 import { getOrCreateConversation } from "@/features/chat/api";
 import { createReview } from "@/features/reviews/api";
+import { listServiceUpdates } from "@/features/tracking/api";
 import { strings } from "@/i18n/strings";
 import { formatDateIt } from "@/lib/date";
 import { useAuthStore } from "@/store/auth-store";
@@ -29,6 +32,7 @@ export default function BookingDetailScreen() {
   const myId = useAuthStore((s) => s.profile?.id);
 
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [updates, setUpdates] = useState<ServiceUpdate[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -47,9 +51,14 @@ export default function BookingDetailScreen() {
       .catch(() => setError(strings.common.genericError));
   }, [id]);
 
+  const loadUpdates = useCallback(() => {
+    listServiceUpdates(id).then(setUpdates).catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadUpdates();
+  }, [load, loadUpdates]);
 
   if (error) return <ErrorView message={error} onRetry={load} />;
   if (!booking) return <LoadingView />;
@@ -190,6 +199,14 @@ export default function BookingDetailScreen() {
         <Text style={[typography.caption, { color: colors.inkFaint, marginBottom: spacing.lg, textAlign: "center" }]}>
           {strings.booking.payWaiting}
         </Text>
+      )}
+
+      {isSitter && booking.status === "in_progress" && (
+        <ServiceTrackingPanel bookingId={booking.id} serviceType={booking.serviceType} onUpdateSent={loadUpdates} />
+      )}
+
+      {(["in_progress", "completed"].includes(booking.status) || updates.length > 0) && (
+        <ServiceUpdatesList updates={updates} />
       )}
 
       <Button label={strings.chat.contact} onPress={handleContact} variant="secondary" loading={openingChat} />

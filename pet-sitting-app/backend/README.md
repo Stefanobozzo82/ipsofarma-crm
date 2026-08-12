@@ -183,8 +183,12 @@ Dati Stripe sensibili (`stripe_account_id`) vivono in `sitter_payment_accounts`,
 
 Feed in-app (`GET/PATCH /notifications`) pienamente funzionante — chiamato da `notifyUser()` (`modules/notifications/notification.service.ts`) su ogni evento rilevante: nuova richiesta, accept/decline/cancel, esito meet & greet, pagamento ricevuto, payout accreditato, esito candidatura sitter, risoluzione dispute, nuovo messaggio (quest'ultimo via trigger SQL, non da qui — la chat non passa da Express). **L'invio push reale** (Firebase/APNs) è uno stub in `lib/push.ts`: richiede un progetto Firebase del cliente, non esiste ancora in questo ambiente.
 
+## Tracking GPS e aggiornamenti servizio
+
+`gps_tracks` (un percorso per prenotazione, punti come array JSONB — non una tabella normalizzata, vedi `docs/PHASE1-PROPOSAL.md`) e `service_updates` (foto/note). Endpoint sotto `/bookings/:id/gps/*` e `/bookings/:id/updates*`, solo il sitter assegnato scrive. La distanza si calcola lato server allo `stop` (haversine sulla sequenza di punti), non ad ogni `ping`. Bucket Storage `service-photos` privato, scoped alla singola prenotazione (entrambe le parti leggono, solo il sitter scrive) — l'endpoint di upload firmato esiste, il picker lato mobile non è ancora collegato.
+
 ## Cosa manca (prossime fasi)
 
-- GPS tracking passeggiate, foto/note durante il servizio — in corso
 - Invio push reale (richiede credenziali Firebase del cliente)
+- Picker foto lato mobile per gli aggiornamenti di servizio (il backend è pronto)
 - Un secondo giro di controproposta sui meet & greet (per l'MVP: un solo giro owner→sitter→owner)

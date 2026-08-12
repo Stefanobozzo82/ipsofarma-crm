@@ -22,3 +22,13 @@ export const PaymentStatus = {
 } as const;
 
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
+
+export const MeetGreetStatus = {
+  Requested: "requested",
+  Proposed: "proposed",
+  Accepted: "accepted",
+  Declined: "declined",
+  Cancelled: "cancelled",
+} as const;
+
+export type MeetGreetStatus = (typeof MeetGreetStatus)[keyof typeof MeetGreetStatus];

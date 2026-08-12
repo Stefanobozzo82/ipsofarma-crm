@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DocumentType } from "../enums";
+import { CancellationPolicyType, DocumentType, PetSpecies } from "../enums";
 
 export const sitterApplySchema = z.object({
   bio: z.string().min(20, "Racconta qualcosa in più di te (almeno 20 caratteri)").max(2000),
@@ -11,7 +11,10 @@ export const sitterApplySchema = z.object({
 });
 export type SitterApplyInput = z.infer<typeof sitterApplySchema>;
 
-export const updateSitterProfileSchema = sitterApplySchema.partial();
+export const updateSitterProfileSchema = sitterApplySchema.partial().extend({
+  acceptedSpecies: z.array(z.nativeEnum(PetSpecies)).min(1).optional(),
+  cancellationPolicy: z.nativeEnum(CancellationPolicyType).optional(),
+});
 export type UpdateSitterProfileInput = z.infer<typeof updateSitterProfileSchema>;
 
 /** Richiede un URL di upload firmato per un documento di identità;

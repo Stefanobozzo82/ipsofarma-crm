@@ -1,15 +1,20 @@
-/** Costanti di piattaforma. I valori di commissione sono placeholder —
- * DA CONFERMARE con il business prima di collegare Stripe Connect (Fase 4):
- * il brief chiede una commissione "trasparente fin dall'inizio", quindi va
- * decisa e comunicata prima del lancio, non lasciata a un default silenzioso. */
+/**
+ * Costanti di piattaforma.
+ *
+ * Modello di commissione (confermato prima della Fase 4): il proprietario
+ * paga esattamente il prezzo mostrato nel profilo del sitter, nessuna fee
+ * aggiuntiva in checkout. La commissione è trattenuta solo dal payout del
+ * sitter — evita la percezione di "doppia commissione" lamentata su Rover,
+ * ed è il modello più semplice da comunicare ("il prezzo che vedi è il
+ * prezzo che paghi"). Vedi backend/src/modules/bookings per il calcolo.
+ */
 export const PLATFORM = {
   CURRENCY: "EUR",
   DEFAULT_LOCALE: "it-IT",
   DEFAULT_COUNTRY: "IT",
   LAUNCH_REGION: "Calabria",
   LAUNCH_CITY: "Cosenza",
-  /** @todo confermare prima della Fase 4 (pagamenti) */
-  SITTER_COMMISSION_PERCENT: null as number | null,
+  SITTER_COMMISSION_PERCENT: 0.18,
   MEET_GREET_IS_FREE: true,
 } as const;
 

@@ -1,5 +1,6 @@
 import {
   requestDocumentUploadSchema,
+  requestPayoutSchema,
   setSitterAvailabilitySchema,
   setSitterServicesSchema,
   sitterApplySchema,
@@ -8,6 +9,7 @@ import {
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth";
 import { validateBody } from "../../middleware/validate";
+import * as stripeConnectService from "../stripe-connect/stripe-connect.service";
 import * as sittersService from "./sitters.service";
 
 export const sittersRoutes = Router();
@@ -103,3 +105,30 @@ sittersRoutes.put(
     }
   },
 );
+
+sittersRoutes.post("/me/stripe/onboarding-link", requireAuth, async (req, res, next) => {
+  try {
+    const result = await stripeConnectService.createOnboardingLink(req.user!.id, req.user!.email);
+    res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+sittersRoutes.get("/me/payouts", requireAuth, async (req, res, next) => {
+  try {
+    const summary = await stripeConnectService.getPayoutSummary(req.supabase!, req.user!.id);
+    res.json({ data: summary });
+  } catch (err) {
+    next(err);
+  }
+});
+
+sittersRoutes.post("/me/payouts/request", requireAuth, validateBody(requestPayoutSchema), async (req, res, next) => {
+  try {
+    const payout = await stripeConnectService.requestPayout(req.user!.id, req.body);
+    res.status(201).json({ data: payout });
+  } catch (err) {
+    next(err);
+  }
+});

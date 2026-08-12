@@ -1,4 +1,4 @@
-import type { SitterStatus, UserRole, VerificationStatus } from "../enums";
+import type { CancellationPolicyType, PetSpecies, SitterStatus, UserRole, VerificationStatus } from "../enums";
 import type { SitterService } from "./sitter-service";
 
 /** Riga public.users — estende auth.users di Supabase con i campi applicativi. */
@@ -38,12 +38,23 @@ export interface SitterProfile {
   baseLatitude: number | null;
   baseLongitude: number | null;
   address: string | null;
-  stripeAccountId: string | null;
-  stripeOnboardingComplete: boolean;
+  acceptedSpecies: PetSpecies[];
+  cancellationPolicy: CancellationPolicyType;
   averageRating: number | null;
   reviewCount: number;
   approvedAt: string | null;
   approvedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Stato dell'account Stripe Connect del sitter — tabella separata e privata
+ * (mai esposta dalla lettura pubblica del profilo, a differenza di
+ * sitter_profiles). Vedi supabase/migrations/20260812135000_*. */
+export interface SitterPaymentAccount {
+  sitterId: string;
+  stripeAccountId: string | null;
+  stripeOnboardingComplete: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,5 +77,6 @@ export interface PublicSitterProfile {
   experienceYears: number | null;
   averageRating: number | null;
   reviewCount: number;
+  cancellationPolicy: CancellationPolicyType;
   services: SitterService[];
 }

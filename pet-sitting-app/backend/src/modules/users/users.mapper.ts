@@ -1,4 +1,4 @@
-import type { OwnerProfile, SitterProfile, User } from "@fido/shared";
+import type { OwnerProfile, SitterPaymentAccount, SitterProfile, User } from "@fido/shared";
 
 /** Le tabelle Postgres usano snake_case, i tipi condivisi usano camelCase —
  * questi mapper sono il confine esplicito tra i due mondi. */
@@ -45,12 +45,23 @@ export function mapSitterProfileRow(row: any): SitterProfile {
     baseLatitude: row.base_latitude,
     baseLongitude: row.base_longitude,
     address: row.address,
-    stripeAccountId: row.stripe_account_id,
-    stripeOnboardingComplete: row.stripe_onboarding_complete,
+    acceptedSpecies: row.accepted_species ?? [],
+    cancellationPolicy: row.cancellation_policy,
     averageRating: row.average_rating === null ? null : Number(row.average_rating),
     reviewCount: row.review_count,
     approvedAt: row.approved_at,
     approvedBy: row.approved_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapSitterPaymentAccountRow(row: any): SitterPaymentAccount {
+  return {
+    sitterId: row.sitter_id,
+    stripeAccountId: row.stripe_account_id,
+    stripeOnboardingComplete: row.stripe_onboarding_complete,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

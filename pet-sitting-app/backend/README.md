@@ -1,6 +1,8 @@
 # backend
 
-API Express per Fido. Copre autenticazione, gestione profili (owner, sitter, animali), listino servizi/disponibilità sitter e ricerca geografica — vedi [`docs/PHASE1-PROPOSAL.md`](../docs/PHASE1-PROPOSAL.md) per lo schema completo e la roadmap. Stripe Connect e prenotazioni arrivano in Fase 4.
+API Express per Fido. Copre autenticazione, profili (owner, sitter, animali), listino servizi/disponibilità sitter, ricerca geografica, prenotazioni e pagamenti (Stripe Connect) — vedi [`docs/PHASE1-PROPOSAL.md`](../docs/PHASE1-PROPOSAL.md) per lo schema completo e la roadmap.
+
+**Commissione**: il proprietario paga esattamente il prezzo mostrato dal sitter, nessuna fee aggiuntiva in checkout. La piattaforma trattiene il 18% dal payout del sitter (`shared/src/constants/platform.ts`).
 
 ## Prerequisiti
 
@@ -91,6 +93,45 @@ curl "http://localhost:4000/api/v1/search/sitters?lat=39.30&lng=16.25&service=do
 curl http://localhost:4000/api/v1/sitters/<SITTER_ID>/public
 ```
 
+## Prova prenotazioni e pagamenti (Fase 4)
+
+Richiede `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` compilati in `.env` (chiavi di test) e un sitter con onboarding Stripe completato — senza queste variabili le rotte sotto rispondono `503 stripe_not_configured` invece di rompere il resto dell'API.
+
+```bash
+# Il sitter avvia l'onboarding Stripe Connect Express
+curl -X POST http://localhost:4000/api/v1/sitters/me/stripe/onboarding-link \
+  -H "Authorization: Bearer <SITTER_ACCESS_TOKEN>"
+# → { data: { url } } — apri l'URL nel browser, completa il flusso Stripe di test
+
+# L'owner crea una richiesta di prenotazione
+curl -X POST http://localhost:4000/api/v1/bookings \
+  -H "Authorization: Bearer <OWNER_ACCESS_TOKEN>" -H "Content-Type: application/json" \
+  -d '{"sitterId":"<SITTER_ID>","serviceType":"dog_walking","petIds":["<PET_ID>"],"startDate":"2026-09-01"}'
+
+# Il sitter accetta → status passa a "confirmed"
+curl -X PATCH http://localhost:4000/api/v1/bookings/<BOOKING_ID>/accept \
+  -H "Authorization: Bearer <SITTER_ACCESS_TOKEN>"
+
+# L'owner avvia il pagamento → crea il PaymentIntent, restituisce il client secret
+# da confermare lato client con Stripe SDK (PaymentSheet su mobile, Fase 5/6)
+curl -X POST http://localhost:4000/api/v1/bookings/<BOOKING_ID>/pay \
+  -H "Authorization: Bearer <OWNER_ACCESS_TOKEN>"
+
+# Test webhook locale: usa la Stripe CLI (stripe listen --forward-to localhost:4000/api/v1/webhooks/stripe)
+```
+
+Meet & Greet:
+
+```bash
+curl -X POST http://localhost:4000/api/v1/meet-greets \
+  -H "Authorization: Bearer <OWNER_ACCESS_TOKEN>" -H "Content-Type: application/json" \
+  -d '{"sitterId":"<SITTER_ID>","proposedDatetime":"2026-08-25T17:00:00Z"}'
+
+curl -X PATCH http://localhost:4000/api/v1/meet-greets/<ID> \
+  -H "Authorization: Bearer <SITTER_ACCESS_TOKEN>" -H "Content-Type: application/json" \
+  -d '{"action":"accept"}'
+```
+
 ## Struttura
 
 ```
@@ -108,8 +149,11 @@ src/
 │   ├── auth/               # signup, login, refresh, scambio OAuth (Google/Apple ID token)
 │   ├── users/               # GET/PATCH /users/me
 │   ├── pets/                 # CRUD animali (soft delete)
-│   ├── sitters/                # candidatura, profilo, listino servizi, disponibilità, upload documenti, pagina pubblica
-│   └── search/                  # GET /search/sitters — ricerca geografica via RPC nearby_sitters()
+│   ├── sitters/                # candidatura, profilo, listino servizi, disponibilità, upload documenti, pagina pubblica, onboarding Stripe, payout
+│   ├── search/                  # GET /search/sitters — ricerca geografica via RPC nearby_sitters()
+│   ├── bookings/                 # prenotazioni + meet & greet: calcolo prezzo, accept/decline/cancel, PaymentIntent
+│   ├── stripe-connect/            # account Connect Express, payout su richiesta (usato da sitters.routes)
+│   └── webhooks/                   # eventi Stripe (pagamento, onboarding account, payout)
 ├── routes/index.ts          # monta i moduli sotto /api/v1
 ├── app.ts                    # factory Express (middleware, rotte, error handling)
 └── server.ts                  # entrypoint — avvia il listener
@@ -119,8 +163,17 @@ src/
 
 Ogni handler autenticato riceve `req.supabase`, un client Supabase creato con il JWT dell'utente (non con la service role key). Le query eseguite con questo client passano dalla Row Level Security come se le facesse l'utente stesso — è la stessa garanzia di sicurezza che avrebbe una query fatta direttamente dal client mobile, senza dover reimplementare i controlli di ownership in ogni handler. `supabaseAdmin` (service role, bypassa RLS) va riservato a operazioni davvero privilegiate: al momento solo `scripts/seed.ts` e la generazione di URL di upload firmati lo usano indirettamente tramite `req.supabase`, che comunque rispetta le policy Storage.
 
+## Modello di prenotazione e pagamento
+
+`accept` (decisione del sitter) e `pay` (azione del proprietario) sono due passi separati — non un'unica chiamata: evita che dati di pagamento (client secret) finiscano nella risposta della chiamata del sitter, e rende `pay` idempotente su retry di rete lato client (idempotency key = booking id).
+
+Cancellazione: se cancella il **sitter**, rimborso sempre pieno (la policy tutela il sitter dalle disdette tardive dell'owner, non il contrario). Se cancella l'**owner**, si applica il preset di cancellazione del sitter al momento della prenotazione (`shared/src/constants/cancellation.ts`).
+
+Dati Stripe sensibili (`stripe_account_id`) vivono in `sitter_payment_accounts`, tabella separata da `sitter_profiles` — quest'ultima ha una lettura pubblica per i sitter approvati, e la RLS di Postgres filtra le righe non le colonne (vedi commento nella migrazione `20260812135000_*`).
+
 ## Cosa manca (prossime fasi)
 
-- `bookings`, `meet_greet_requests`, Stripe Connect, webhook, dashboard guadagni sitter — Fase 4
-- Chat (`conversations`/`messages`), notifiche push, recensioni — Fase 4-5
+- GPS tracking passeggiate, foto/note durante il servizio, dashboard guadagni sitter — Fase 5
+- Chat (`conversations`/`messages`), notifiche push, recensioni — Fase 5
 - Endpoint `/admin/*` (approvazione sitter, moderazione, dispute) — Fase 7
+- Un secondo giro di controproposta sui meet & greet (per l'MVP: un solo giro owner→sitter→owner)

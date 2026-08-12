@@ -51,3 +51,14 @@ export const PetSpecies = {
 } as const;
 
 export type PetSpecies = (typeof PetSpecies)[keyof typeof PetSpecies];
+
+/** I 3 preset di cancellazione tra cui il sitter sceglie — non regole
+ * arbitrarie per-sitter, per restare semplici da confrontare in ricerca.
+ * Regole di rimborso: shared/src/constants/cancellation.ts */
+export const CancellationPolicyType = {
+  Flexible: "flexible",
+  Moderate: "moderate",
+  Strict: "strict",
+} as const;
+
+export type CancellationPolicyType = (typeof CancellationPolicyType)[keyof typeof CancellationPolicyType];

@@ -31,6 +31,9 @@ importers:
       morgan:
         specifier: ^1.10.0
         version: 1.11.0
+      stripe:
+        specifier: ^17.4.0
+        version: 17.7.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -584,6 +587,10 @@ packages:
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
+
+  stripe@17.7.0:
+    resolution: {integrity: sha512-aT2BU9KkizY9SATf14WhhYVv2uOapBWX0OFWF4xvcj1mPaNotlSc2CsxpS4DS46ZueSppmCF5BX1sNYBtwBvfw==}
+    engines: {node: '>=12.*'}
 
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
@@ -1142,6 +1149,11 @@ snapshots:
       side-channel-weakmap: 1.0.2
 
   statuses@2.0.2: {}
+
+  stripe@17.7.0:
+    dependencies:
+      '@types/node': 20.19.43
+      qs: 6.15.3
 
   toidentifier@1.0.1: {}
 

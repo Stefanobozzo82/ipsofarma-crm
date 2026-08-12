@@ -21,7 +21,7 @@ import {
 } from "./sitters.mapper";
 
 const SITTER_COLUMNS =
-  "user_id, bio, experience_years, status, verification_status, service_radius_km, base_latitude, base_longitude, address, stripe_account_id, stripe_onboarding_complete, average_rating, review_count, approved_at, approved_by, created_at, updated_at";
+  "user_id, bio, experience_years, status, verification_status, service_radius_km, base_latitude, base_longitude, address, accepted_species, cancellation_policy, average_rating, review_count, approved_at, approved_by, created_at, updated_at";
 
 export async function applyAsSitter(
   supabase: SupabaseClient,
@@ -70,6 +70,8 @@ export async function updateMySitterProfile(
   if (input.latitude !== undefined) patch.base_latitude = input.latitude;
   if (input.longitude !== undefined) patch.base_longitude = input.longitude;
   if (input.serviceRadiusKm !== undefined) patch.service_radius_km = input.serviceRadiusKm;
+  if (input.acceptedSpecies !== undefined) patch.accepted_species = input.acceptedSpecies;
+  if (input.cancellationPolicy !== undefined) patch.cancellation_policy = input.cancellationPolicy;
 
   const { data, error } = await supabase
     .from("sitter_profiles")
@@ -89,7 +91,9 @@ export async function getPublicSitterProfile(sitterId: string): Promise<PublicSi
   const [{ data, error }, { data: serviceRows }] = await Promise.all([
     supabaseAnon
       .from("users")
-      .select("id, first_name, avatar_url, city, sitter_profiles(bio, experience_years, average_rating, review_count)")
+      .select(
+        "id, first_name, avatar_url, city, sitter_profiles(bio, experience_years, average_rating, review_count, cancellation_policy)",
+      )
       .eq("id", sitterId)
       .single(),
     supabaseAnon
@@ -119,6 +123,7 @@ export async function getPublicSitterProfile(sitterId: string): Promise<PublicSi
     experienceYears: sitterProfile.experience_years,
     averageRating: sitterProfile.average_rating === null ? null : Number(sitterProfile.average_rating),
     reviewCount: sitterProfile.review_count,
+    cancellationPolicy: sitterProfile.cancellation_policy,
     services: (serviceRows ?? []).map(mapSitterServiceRow),
   };
 }

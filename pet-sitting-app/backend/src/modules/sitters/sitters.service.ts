@@ -91,8 +91,12 @@ export async function getPublicSitterProfile(sitterId: string): Promise<PublicSi
   const [{ data, error }, { data: serviceRows }] = await Promise.all([
     supabaseAnon
       .from("users")
+      // sitter_profiles ha due FK verso users (user_id e approved_by): serve
+      // disambiguare l'embed, altrimenti PostgREST risponde PGRST201 —
+      // scoperto solo con un test end-to-end reale, il primo che ha eseguito
+      // questa query contro un vero PostgREST.
       .select(
-        "id, first_name, avatar_url, city, sitter_profiles(bio, experience_years, average_rating, review_count, cancellation_policy)",
+        "id, first_name, avatar_url, city, sitter_profiles!sitter_profiles_user_id_fkey(bio, experience_years, average_rating, review_count, cancellation_policy)",
       )
       .eq("id", sitterId)
       .single(),

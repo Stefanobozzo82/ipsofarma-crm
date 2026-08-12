@@ -25,9 +25,15 @@ async function logAdminAction(adminId: string, action: string, targetType: strin
 }
 
 export async function listPendingSitters(): Promise<PendingSitterApplication[]> {
+  // sitter_profiles ha due FK verso users (user_id e approved_by): serve
+  // disambiguare l'embed con il nome esplicito del vincolo, altrimenti
+  // PostgREST risponde PGRST201 — stesso bug di sitters.service.ts,
+  // scoperto solo con un test end-to-end reale.
   const { data, error } = await supabaseAdmin
     .from("sitter_profiles")
-    .select("user_id, bio, experience_years, address, service_radius_km, created_at, users!inner(first_name, last_name, email)")
+    .select(
+      "user_id, bio, experience_years, address, service_radius_km, created_at, users!sitter_profiles_user_id_fkey!inner(first_name, last_name, email)",
+    )
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 

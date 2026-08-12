@@ -10,9 +10,9 @@ Marketplace pet-sitting per il mercato italiano, lancio pilota a Cosenza/Calabri
 
 | Cartella | Stato | Descrizione |
 |---|---|---|
-| [`shared/`](./shared) | ✅ Fase 2-4 | Tipi, enum e schemi Zod condivisi tra backend/mobile/admin |
+| [`shared/`](./shared) | ✅ Fase 2-5 | Tipi, enum e schemi Zod condivisi tra backend/mobile/admin |
 | [`backend/`](./backend) | ✅ Fase 2-4 | Autenticazione, profili, ricerca geografica, prenotazioni, Stripe Connect |
-| `mobile/` | 🔜 Fase 5-6 | App React Native (Expo) |
+| [`mobile/`](./mobile) | ✅ Fase 5 (owner) | App React Native (Expo): percorso proprietario completo — ricerca, Meet & Greet, prenotazione, pagamento, animali, candidatura sitter |
 | `admin/` | 🔜 Fase 7 | Pannello web di amministrazione |
 
 **Fase 3** (ricerca): tabelle `sitter_services`/`sitter_availability`/`availability_exceptions`, colonna `accepted_species` su `sitter_profiles`, funzione PostGIS `nearby_sitters()`, endpoint `PUT/GET /sitters/me/services`, `PUT/GET /sitters/me/availability`, `GET /search/sitters`.

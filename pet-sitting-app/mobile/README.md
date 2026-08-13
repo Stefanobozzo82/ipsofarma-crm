@@ -135,6 +135,26 @@ nuova palette automaticamente dal tema senza bisogno di modifiche, prova
 diretta che investire nei componenti/token base prima delle schermate
 riduce il lavoro dopo.
 
+**Fase 3b — Profilo sitter** (`app/sitter/[id].tsx`), dove il brief del
+redesign chiede di costruire fiducia:
+
+- **Header**: da un blocco di solo testo (nome + città/esperienza/voto su
+  un'unica riga) a un hero con foto grande (o iniziale su sfondo sfumato
+  come fallback, stessa logica di `SitterCard`), nome, e il voto con lo
+  stesso componente `StarRating` — prima anche qui un glifo `★` di testo,
+  incoerente col resto dell'app.
+- **Badge "Sitter verificato"** (`VerifiedBadge`, Lucide `BadgeCheck` +
+  token `success`): primo punto in cui compare — ogni profilo pubblico
+  appartiene per forza a un sitter già approvato, quindi qui è sempre
+  vero, non condizionale. Pensato per essere riusato identico ovunque
+  serva più avanti (dashboard sitter, admin), come chiede il brief.
+
+Servizi, politica di cancellazione e recensioni erano già strutturati bene
+(card per servizio, `StarRating` già in uso nelle recensioni) — nessuna
+modifica strutturale, solo eredità automatica della nuova palette. Bottoni
+di azione (`Contatta` / `Meet & Greet` secondari, `Prenota` primario)
+invariati nella gerarchia, migliorati automaticamente dal nuovo `Button`.
+
 ## Tracking GPS e aggiornamenti servizio
 
 Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.

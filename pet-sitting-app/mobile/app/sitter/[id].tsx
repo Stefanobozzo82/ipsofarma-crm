@@ -1,7 +1,8 @@
 import { CANCELLATION_RULES, type PublicSitterProfile, type Review } from "@fido/shared";
 import { router, useLocalSearchParams } from "expo-router";
+import { BadgeCheck } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, Image, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ErrorView } from "@/components/ErrorView";
@@ -15,6 +16,38 @@ import { getPublicSitterProfile } from "@/features/sitters/api";
 import { strings } from "@/i18n/strings";
 import { useAuthStore } from "@/store/auth-store";
 import { useTheme } from "@/theme/use-theme";
+
+/** Il badge "verificato" che il brief del redesign chiede di riusare
+ * identico ovunque serva — qui è il primo punto in cui compare (ogni
+ * profilo pubblico appartiene per forza a un sitter già approvato, quindi
+ * qui è sempre vero, non condizionale). */
+function VerifiedBadge() {
+  const { colors, spacing, typography } = useTheme();
+  return (
+    <View style={[styles.verifiedRow, { marginTop: spacing.xs }]}>
+      <BadgeCheck size={15} color={colors.success} strokeWidth={2.25} />
+      <Text style={[typography.caption, { color: colors.success, marginLeft: 4, fontWeight: "600" }]}>
+        {strings.sitter.verifiedBadge}
+      </Text>
+    </View>
+  );
+}
+
+function SitterHeroAvatar({ profile }: { profile: PublicSitterProfile }) {
+  const { colors, radius, typography } = useTheme();
+
+  if (profile.avatarUrl) {
+    return <Image source={{ uri: profile.avatarUrl }} style={[styles.hero, { borderRadius: radius.lg }]} />;
+  }
+
+  return (
+    <View style={[styles.hero, styles.heroFallback, { borderRadius: radius.lg, backgroundColor: colors.accent }]}>
+      <Text style={[typography.display, { color: colors.accentInk, fontSize: 44 }]}>
+        {profile.firstName.charAt(0).toUpperCase()}
+      </Text>
+    </View>
+  );
+}
 
 export default function SitterProfileScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -74,13 +107,29 @@ export default function SitterProfileScreen() {
 
   return (
     <Screen scroll>
-      <Text style={[typography.display, { color: colors.ink }]}>{profile.firstName}</Text>
-      <Text style={[typography.body, { color: colors.inkFaint, marginBottom: spacing.lg }]}>
-        {profile.city ?? ""} · {profile.experienceYears ?? 0} anni di esperienza ·{" "}
-        {profile.reviewCount > 0
-          ? `★ ${profile.averageRating?.toFixed(1) ?? "–"} (${strings.sitter.reviewsCount(profile.reviewCount)})`
-          : strings.sitter.noReviews}
+      <SitterHeroAvatar profile={profile} />
+
+      <Text style={[typography.display, { color: colors.ink, marginTop: spacing.md }]}>{profile.firstName}</Text>
+      <VerifiedBadge />
+
+      <Text style={[typography.body, { color: colors.inkMuted, marginTop: spacing.xs }]}>
+        {profile.city ?? ""}
+        {profile.city ? " · " : ""}
+        {profile.experienceYears ?? 0} anni di esperienza
       </Text>
+
+      <View style={[styles.verifiedRow, { marginTop: spacing.xs, marginBottom: spacing.lg }]}>
+        {profile.reviewCount > 0 ? (
+          <>
+            <StarRating value={Math.round(profile.averageRating ?? 0)} size={16} />
+            <Text style={[typography.caption, { color: colors.inkFaint, marginLeft: spacing.xs }]}>
+              {profile.averageRating?.toFixed(1)} · {strings.sitter.reviewsCount(profile.reviewCount)}
+            </Text>
+          </>
+        ) : (
+          <Text style={[typography.caption, { color: colors.inkFaint }]}>{strings.sitter.noReviews}</Text>
+        )}
+      </View>
 
       {profile.bio ? (
         <View style={{ marginBottom: spacing.lg }}>
@@ -154,3 +203,9 @@ export default function SitterProfileScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  hero: { width: "100%", height: 220 },
+  heroFallback: { alignItems: "center", justifyContent: "center" },
+  verifiedRow: { flexDirection: "row", alignItems: "center" },
+});

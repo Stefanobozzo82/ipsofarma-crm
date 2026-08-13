@@ -64,6 +64,7 @@ export const strings = {
     requestMeetGreet: "Richiedi un Meet & Greet gratuito",
     bookCta: "Prenota",
     notApproved: "Profilo non ancora disponibile",
+    verifiedBadge: "Sitter verificato",
   },
   booking: {
     newTitle: "Nuova prenotazione",

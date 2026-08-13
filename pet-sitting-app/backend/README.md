@@ -272,3 +272,30 @@ completato in questo giro: l'onboarding KYC vero richiede di aprire l'URL in
 un browser e inserire dati d'identità — non simulabile qui — quindi
 `POST /bookings/:id/pay` resta bloccato con l'errore atteso
 `sitter_stripe_not_ready` finché non lo si completa manualmente.
+
+## Bug reale: il backend non era mai stato distribuibile in produzione
+
+Scoperto preparando un vero deploy (Render) per far testare l'app a un
+utente senza tenere il PC acceso — `pnpm build` non era mai stato eseguito
+sul serio prima d'ora, `dev` ha sempre usato `tsx watch` che compila
+TypeScript al volo e non ne ha mai esposto i problemi. Due bug, entrambi
+avrebbero fatto crashare qualunque deploy reale al primo avvio:
+
+1. `tsconfig.json` ha `rootDir: "."` con `include: ["src", "scripts"]`: `tsc`
+   preserva quei due prefissi nell'output, quindi il file emesso finiva in
+   `dist/src/server.js`, non `dist/server.js` come si aspettava
+   `package.json` (`main`/`start`).
+2. Anche corretto il percorso, `node dist/src/server.js` puro falliva
+   comunque con `ERR_UNSUPPORTED_DIR_IMPORT` su `@fido/shared`: il pacchetto
+   condiviso ha `"main": "src/index.ts"` (sorgente TypeScript grezza, mai
+   compilata) — Metro e Vite (mobile/admin) lo gestiscono con la propria
+   pipeline di transform, ma Node puro no, e `tsc` non lo ricompila perché
+   vive fuori dal `rootDir` di backend.
+
+Fix pragmatico: `start` ora usa `tsx src/server.ts` invece di
+`node dist/server.js` — lo stesso identico meccanismo già testato in `dev`,
+solo senza `--watch`. `tsx` spostato da devDependencies a dependencies
+(serve a runtime, non solo in sviluppo). `build` è rimasto come gate di
+typecheck pre-deploy (`tsc --noEmit`), ma il suo output non viene più usato
+per avviare il server. Verificato lanciando `pnpm build && pnpm start` da
+zero e interrogando `/health`.

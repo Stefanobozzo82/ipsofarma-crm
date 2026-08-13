@@ -113,6 +113,28 @@ completo da `node_modules` rimossi, per escludere falsi positivi di cache)
 ma richiedendo i bundle `platform=ios`/`platform=android` a un vero Metro
 con le nuove dipendenze (font, `react-native-svg`, icone) — entrambi `200`.
 
+**Fase 3a — Ricerca/Home** (`app/(tabs)/index.tsx`, `SitterCard.tsx`), la
+prima schermata vera aggiornata dopo i componenti base:
+
+- **`SitterCard`**: prima mostrava solo nome/città/prezzo/un glifo `★` di
+  testo per il voto — ora una card "protagonista" con avatar (foto del
+  sitter se presente, iniziale su sfondo sfumato terracotta→miele come
+  fallback, mai un placeholder grigio anonimo), il componente `StarRating`
+  vero al posto del glifo (coerenza — lo stesso pattern usato ovunque nel
+  resto dell'app, non reinventato qui), e il prezzo con l'unità di tariffa
+  visibile (`per_walk`/`per_hour`/..., prima assente).
+- **Header di ricerca**: icona di posizione (Lucide `MapPin`) accanto al
+  sottotitolo "A Cosenza e dintorni" — un piccolo segnale di luogo che
+  prima era solo testo.
+- **Stato vuoto**: icona (`SearchX`) invece di solo testo grigio quando la
+  ricerca non trova sitter — meno "errore muto", più intenzionale.
+
+I filtri a chip per servizio (`dog_walking`/`boarding`/...) erano già
+corretti nella forma (pill, bordo, stato selezionato pieno) — ereditano la
+nuova palette automaticamente dal tema senza bisogno di modifiche, prova
+diretta che investire nei componenti/token base prima delle schermate
+riduce il lavoro dopo.
+
 ## Tracking GPS e aggiornamenti servizio
 
 Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.

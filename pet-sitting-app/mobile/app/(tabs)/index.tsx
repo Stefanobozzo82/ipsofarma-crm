@@ -1,5 +1,6 @@
 import { ServiceType, type SitterSearchResult } from "@fido/shared";
 import { router } from "expo-router";
+import { MapPin, SearchX } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { ErrorView } from "@/components/ErrorView";
@@ -57,9 +58,10 @@ export default function SearchScreen() {
   return (
     <Screen>
       <Text style={[typography.display, { color: colors.ink }]}>{strings.search.title}</Text>
-      <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.lg }]}>
-        {strings.search.subtitle}
-      </Text>
+      <View style={[styles.locationRow, { marginBottom: spacing.lg }]}>
+        <MapPin size={14} color={colors.inkFaint} strokeWidth={2.25} />
+        <Text style={[typography.body, { color: colors.inkMuted, marginLeft: 4 }]}>{strings.search.subtitle}</Text>
+      </View>
 
       <View style={styles.chipsRow}>
         {SERVICES.map((s) => {
@@ -79,7 +81,7 @@ export default function SearchScreen() {
                 },
               ]}
             >
-              <Text style={[typography.caption, { color: selected ? colors.accentInk : colors.ink }]}>
+              <Text style={[typography.bodyStrong, { color: selected ? colors.accentInk : colors.ink, fontSize: 13 }]}>
                 {strings.service[s]}
               </Text>
             </Pressable>
@@ -99,9 +101,12 @@ export default function SearchScreen() {
             <SitterCard sitter={item} onPress={() => router.push(`/sitter/${item.sitterId}?service=${service}`)} />
           )}
           ListEmptyComponent={
-            <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.xl, textAlign: "center" }]}>
-              {strings.search.noResults}
-            </Text>
+            <View style={styles.emptyState}>
+              <SearchX size={36} color={colors.inkFaint} strokeWidth={1.5} />
+              <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.sm, textAlign: "center" }]}>
+                {strings.search.noResults}
+              </Text>
+            </View>
           }
           contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.xxl }}
         />
@@ -111,6 +116,8 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
+  locationRow: { flexDirection: "row", alignItems: "center" },
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
   chip: { borderWidth: 1 },
+  emptyState: { alignItems: "center", marginTop: 48, paddingHorizontal: 32 },
 });

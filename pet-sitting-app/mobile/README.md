@@ -196,6 +196,31 @@ transizioni di stato): solo presentazione. `PetPicker` non ha richiesto
 modifiche — usava già i token `accentSoft`/`accent`/`line` corretti,
 stessa conclusione delle chip servizio in Fase 3a.
 
+**Fase 3d — Servizio in corso** (`ServiceTrackingPanel.tsx`,
+`ServiceUpdatesList.tsx`), la schermata che il brief chiede di rendere
+"viva": qualcuno deve sentire che il servizio è davvero monitorato mentre
+è in corso, non solo vedere una lista di controlli.
+
+- **Tracking GPS attivo**: prima solo una riga di testo "Tracking in
+  corso…". Ora un pallino che pulsa accanto al testo (`PulseDot`, con
+  `Animated` già incluso in React Native — nessuna libreria aggiunta) —
+  lo stesso linguaggio di "live indicator" usato da Rover/Wag durante una
+  passeggiata in corso.
+- **Distanza percorsa** (a tracking concluso): da una riga di testo a uno
+  stat con icona `Footprints` in un chip circolare terracotta chiaro e
+  numero in evidenza — lo stesso pattern icona+chip già usato nell'header
+  di `booking/[id].tsx` in Fase 3c, non reinventato qui.
+- **Lista aggiornamenti**: da una sequenza di card scollegate a una vera
+  timeline — pallino + linea connettrice a sinistra di ogni card (la
+  linea si allunga automaticamente all'altezza della card grazie al
+  comportamento di default di `flexDirection: "row"` in RN, senza
+  bisogno di misurare nulla a mano). Stato vuoto con icona (`Inbox`)
+  invece di solo testo, coerente con gli altri stati vuoti dell'app.
+
+Nessuna modifica alla logica di tracking (permessi posizione,
+`watchPositionAsync`, invio update al backend) o ai limiti già noti (solo
+`dog_walking`, solo foreground — vedi "Cosa manca" più sotto).
+
 ## Tracking GPS e aggiornamenti servizio
 
 Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.

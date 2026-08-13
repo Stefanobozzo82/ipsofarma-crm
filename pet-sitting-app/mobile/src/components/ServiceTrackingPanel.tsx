@@ -1,7 +1,8 @@
 import type { GpsTrack, ServiceType } from "@fido/shared";
 import * as Location from "expo-location";
+import { Footprints } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, Animated, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { TextField } from "@/components/TextField";
@@ -15,6 +16,32 @@ interface ServiceTrackingPanelProps {
   onUpdateSent: () => void;
 }
 
+/** Pallino che pulsa mentre il GPS è attivo — il segnale "live" che rende
+ * questa schermata rassicurante invece di un semplice pannello di controlli
+ * (brief: la schermata "durante il servizio" deve comunicare che qualcuno
+ * la sta seguendo davvero). `Animated` è già incluso in React Native,
+ * nessuna libreria di animazione aggiunta solo per questo. */
+function PulseDot({ color }: { color: string }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color, opacity, marginRight: 6 }}
+    />
+  );
+}
+
 /** Controlli lato sitter durante un servizio 'in_progress': tracking GPS
  * (solo dog_walking — un house sitting non ha un percorso da tracciare) e
  * invio di un aggiornamento testuale, sempre disponibile. Niente foto in
@@ -22,7 +49,7 @@ interface ServiceTrackingPanelProps {
  * (POST /bookings/:id/updates/upload-url) ma il picker lato mobile non è
  * ancora collegato — vedi mobile/README.md. */
 export function ServiceTrackingPanel({ bookingId, serviceType, onUpdateSent }: ServiceTrackingPanelProps) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const watchRef = useRef<Location.LocationSubscription | null>(null);
 
   const [track, setTrack] = useState<GpsTrack | null>(null);
@@ -101,18 +128,35 @@ export function ServiceTrackingPanel({ bookingId, serviceType, onUpdateSent }: S
       {serviceType === "dog_walking" && (
         <View style={{ marginBottom: spacing.md }}>
           {track?.distanceKm != null ? (
-            <Text style={[typography.body, { color: colors.accent }]}>
-              {strings.tracking.distanceLabel}: {track.distanceKm.toFixed(2)} km
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.md }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.accentSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: spacing.md,
+                }}
+              >
+                <Footprints size={22} color={colors.accent} strokeWidth={2} />
+              </View>
+              <View>
+                <Text style={[typography.title, { color: colors.ink }]}>{track.distanceKm.toFixed(2)} km</Text>
+                <Text style={[typography.caption, { color: colors.inkFaint }]}>{strings.tracking.distanceLabel}</Text>
+              </View>
+            </View>
           ) : isTracking ? (
-            <>
-              <Text style={[typography.body, { color: colors.accent, marginBottom: spacing.xs }]}>
-                {strings.tracking.gpsActive}
-              </Text>
-              <Text style={[typography.caption, { color: colors.inkFaint, marginBottom: spacing.sm }]}>
+            <View style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.xs }}>
+                <PulseDot color={colors.success} />
+                <Text style={[typography.bodyStrong, { color: colors.success }]}>{strings.tracking.gpsActive}</Text>
+              </View>
+              <Text style={[typography.caption, { color: colors.inkFaint }]}>
                 {strings.tracking.pointsLabel(track?.points.length ?? 0)}
               </Text>
-            </>
+            </View>
           ) : null}
 
           <Button

@@ -299,3 +299,30 @@ solo senza `--watch`. `tsx` spostato da devDependencies a dependencies
 typecheck pre-deploy (`tsc --noEmit`), ma il suo output non viene più usato
 per avviare il server. Verificato lanciando `pnpm build && pnpm start` da
 zero e interrogando `/health`.
+
+**Aggiornamento — due bug in più, scoperti da un deploy reale su Render.dev**:
+
+1. **`NODE_ENV=production` fa saltare tutte le devDependencies durante
+   `pnpm install`** (comportamento normale di pnpm/npm, non un bug loro) —
+   incluse `typescript` e le `@types/*`, necessarie al gate di typecheck
+   (`pnpm build`). Mai visto prima perché in locale/dev non si imposta mai
+   `NODE_ENV=production` prima di installare. Fix: spostate da
+   `devDependencies` a `dependencies` in questo package — semanticamente
+   un po' insolito (sono pacchetti "da build", non da runtime — `tsx` non
+   ne ha bisogno per girare), ma è il modo standard di far funzionare un
+   gate di typecheck su una piattaforma che salta le devDependencies in
+   produzione.
+2. **`tsconfig.base.json` aveva `moduleResolution: "Node"`** (il nome
+   legacy) — la versione di TypeScript risolta sull'ambiente di build di
+   Render è abbastanza recente da aver rimosso il supporto (`TS5108: has
+   been removed`), mentre in locale con una versione leggermente più
+   vecchia era solo deprecato. Corretto al nome moderno `"node10"`
+   (stesso comportamento, non deprecato) — e già che c'eravamo, la
+   versione di `typescript` è stata fissata a `5.9.3` **esatta** (non più
+   `^5.7.2`) in tutti e quattro i package del monorepo, per evitare che
+   ambienti diversi risolvano patch diverse con comportamenti diversi su
+   opzioni deprecate.
+
+Verificato non solo in locale ma simulando l'esatto scenario di Render:
+`rm -rf` di tutti i `node_modules`, poi `NODE_ENV=production pnpm install`
++ `pnpm --filter backend build` da zero — puliti entrambi.

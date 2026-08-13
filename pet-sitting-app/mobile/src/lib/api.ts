@@ -46,6 +46,13 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const { method = "GET", body, query, auth = true } = options;
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // Solo per test locali con un tunnel (localtunnel/loca.lt, usato per esporre
+  // il backend in HTTPS a un device fisico quando la LAN/HTTP diretto non
+  // basta — vedi mobile/README.md): senza questo header, loca.lt risponde con
+  // una pagina HTML di avviso "Click to Continue" al posto della risposta
+  // vera, e qui sotto response.json() la interpreta come errore di rete.
+  // Innocuo in produzione: non fa nulla contro un dominio reale.
+  if (env.API_URL.includes(".loca.lt")) headers["Bypass-Tunnel-Reminder"] = "true";
   if (auth) {
     const { data } = await supabase.auth.getSession();
     if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;

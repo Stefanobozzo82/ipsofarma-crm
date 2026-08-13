@@ -221,6 +221,43 @@ Nessuna modifica alla logica di tracking (permessi posizione,
 `watchPositionAsync`, invio update al backend) o ai limiti già noti (solo
 `dog_walking`, solo foreground — vedi "Cosa manca" più sotto).
 
+**Fase 3e — Dashboard sitter** (`app/sitter-dashboard/*`), le sei
+schermate con cui un sitter gestisce la sua attività — la parte del
+brief più vicina a un "pannello di controllo" che a un marketplace, ma
+che deve restare nello stesso linguaggio visivo del resto dell'app:
+
+- **`StatTile`** (componente condiviso da dashboard/payout): ora accetta
+  un'icona opzionale in un chip circolare sopra il numero — stesso
+  pattern icona+chip di Fase 3c/3d, riusato qui invece di reinventato.
+  Voto (`Star`), recensioni (`MessageSquare`), saldo disponibile
+  (`Wallet`), in lavorazione (`Clock`).
+- **`DashboardLink`** (home dashboard): da una riga "titolo + puntino
+  ambra" a una vera riga di navigazione — icona in chip a sinistra,
+  titolo/sottotitolo, `ChevronRight` a destra. Il puntino che segnalava
+  "ci sono richieste in attesa" è diventato un badge numerico (quante,
+  non solo che ce ne sono).
+- **Banner "Attiva i pagamenti"**: icona `CreditCard` accanto al titolo,
+  prima solo testo su sfondo ambra.
+- **Richieste in arrivo / Calendario**: riga data con icona
+  (`CalendarDays`), importo del payout portato da `body` a `subtitle`
+  per coerenza con l'enfasi data al totale in `booking/[id].tsx`, stati
+  vuoti con icona (`Inbox`/`CalendarX`) invece di solo testo.
+- **Guadagni**: storico payout con stato vuoto illustrato (`Receipt`).
+- **Listino servizi**: azione "Rimuovi" da solo testo a icona+testo
+  (`Trash2`), stato vuoto illustrato (`PackageOpen`). Corretto anche un
+  piccolo difetto pre-esistente nelle chip di selezione servizio/tariffa:
+  il `<Text>` non aveva alcuno stile tipografico e cadeva sul font di
+  sistema invece di Inter — unica incoerenza di font rimasta nell'app
+  rispetto al design system, ora sistemata.
+- **Disponibilità settimanale**: le due chip orario (inizio/fine) ora
+  hanno un'icona `Clock` — lo stesso linguaggio "questo è un selettore di
+  orario" già stabilito per `DateField` in Fase 3c — e il giorno
+  attivato ha uno sfondo leggermente rilevato (`colors.surfaceMuted`) per
+  distinguere a colpo d'occhio quali giorni sono già impostati.
+
+Nessuna modifica alla logica (accetta/rifiuta prenotazione, richiesta
+payout, upsert servizi, salvataggio disponibilità settimanale).
+
 ## Tracking GPS e aggiornamenti servizio
 
 Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.

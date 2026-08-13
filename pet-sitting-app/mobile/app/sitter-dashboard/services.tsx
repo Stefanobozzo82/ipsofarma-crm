@@ -1,4 +1,5 @@
 import { PriceUnit, ServiceType, type SitterService } from "@fido/shared";
+import { PackageOpen, Trash2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -87,9 +88,12 @@ export default function ServicesScreen() {
   return (
     <Screen scroll>
       {services.length === 0 ? (
-        <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.lg }]}>
-          {strings.sitterDashboard.servicesEmpty}
-        </Text>
+        <View style={{ alignItems: "center", marginBottom: spacing.lg, paddingVertical: spacing.md }}>
+          <PackageOpen size={32} color={colors.inkFaint} strokeWidth={1.5} />
+          <Text style={[typography.body, { color: colors.inkMuted, marginTop: spacing.sm, textAlign: "center" }]}>
+            {strings.sitterDashboard.servicesEmpty}
+          </Text>
+        </View>
       ) : (
         services.map((s) => (
           <Card key={s.id} style={{ marginBottom: spacing.sm }}>
@@ -99,8 +103,14 @@ export default function ServicesScreen() {
                 {s.price.toFixed(2)}€ {strings.search.perUnit[s.priceUnit]}
               </Text>
             </View>
-            <Pressable onPress={() => handleRemove(s.serviceType)} style={{ marginTop: spacing.sm }}>
-              <Text style={[typography.caption, { color: colors.danger }]}>{strings.sitterDashboard.servicesRemove}</Text>
+            <Pressable
+              onPress={() => handleRemove(s.serviceType)}
+              style={{ flexDirection: "row", alignItems: "center", marginTop: spacing.sm }}
+            >
+              <Trash2 size={13} color={colors.danger} strokeWidth={2.25} />
+              <Text style={[typography.caption, { color: colors.danger, marginLeft: 4 }]}>
+                {strings.sitterDashboard.servicesRemove}
+              </Text>
             </Pressable>
           </Card>
         ))
@@ -156,7 +166,7 @@ function ChipRow<T extends string>({
   onChange: (v: T) => void;
   labels: Record<string, string>;
 }) {
-  const { colors, spacing, radius } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.lg }}>
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
@@ -175,7 +185,12 @@ function ChipRow<T extends string>({
                 paddingVertical: spacing.sm,
               }}
             >
-              <Text style={{ color: selected ? colors.accentInk : colors.ink }}>{labels[opt]}</Text>
+              {/* Prima mancava lo style tipografico: le chip cadevano sul
+               * font di sistema invece di Inter, unica incoerenza rimasta
+               * nell'app rispetto al design system — corretto qui. */}
+              <Text style={[typography.bodyStrong, { color: selected ? colors.accentInk : colors.ink, fontSize: 13 }]}>
+                {labels[opt]}
+              </Text>
             </Pressable>
           );
         })}

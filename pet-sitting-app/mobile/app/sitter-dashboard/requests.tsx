@@ -1,4 +1,5 @@
 import type { Booking } from "@fido/shared";
+import { CalendarDays, Inbox } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -78,11 +79,14 @@ export default function SitterRequestsScreen() {
         renderItem={({ item }) => (
           <Card style={{ marginBottom: spacing.md }}>
             <Text style={[typography.subtitle, { color: colors.ink }]}>{strings.service[item.serviceType]}</Text>
-            <Text style={[typography.caption, { color: colors.inkFaint, marginTop: spacing.xs }]}>
-              {formatDateIt(item.startDate)}
-              {item.endDate ? ` → ${formatDateIt(item.endDate)}` : ""}
-            </Text>
-            <Text style={[typography.body, { color: colors.accent, marginTop: spacing.sm, marginBottom: spacing.md }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginTop: spacing.xs }}>
+              <CalendarDays size={13} color={colors.inkFaint} strokeWidth={2.25} />
+              <Text style={[typography.caption, { color: colors.inkFaint, marginLeft: 4 }]}>
+                {formatDateIt(item.startDate)}
+                {item.endDate ? ` → ${formatDateIt(item.endDate)}` : ""}
+              </Text>
+            </View>
+            <Text style={[typography.subtitle, { color: colors.accent, marginTop: spacing.sm, marginBottom: spacing.md }]}>
               {item.sitterPayout.toFixed(2)}€ a te
             </Text>
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
@@ -101,9 +105,12 @@ export default function SitterRequestsScreen() {
           </Card>
         )}
         ListEmptyComponent={
-          <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.xl, textAlign: "center" }]}>
-            {strings.sitterDashboard.requestsEmpty}
-          </Text>
+          <View style={{ alignItems: "center", marginTop: spacing.xl }}>
+            <Inbox size={32} color={colors.inkFaint} strokeWidth={1.5} />
+            <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.sm, textAlign: "center" }]}>
+              {strings.sitterDashboard.requestsEmpty}
+            </Text>
+          </View>
         }
       />
     </Screen>

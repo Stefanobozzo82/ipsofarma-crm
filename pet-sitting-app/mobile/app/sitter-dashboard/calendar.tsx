@@ -1,5 +1,6 @@
 import type { Booking } from "@fido/shared";
 import { router } from "expo-router";
+import { CalendarDays, CalendarX } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { FlatList, Text, View } from "react-native";
 import { Card } from "@/components/Card";
@@ -49,19 +50,25 @@ export default function SitterCalendarScreen() {
               <Text style={[typography.subtitle, { color: colors.ink }]}>{strings.service[item.serviceType]}</Text>
               <StatusBadge label={strings.bookingStatus[item.status]} tone={bookingStatusTone(item.status)} />
             </View>
-            <Text style={[typography.caption, { color: colors.inkFaint, marginTop: spacing.xs }]}>
-              {formatDateIt(item.startDate)}
-              {item.endDate ? ` → ${formatDateIt(item.endDate)}` : ""}
-            </Text>
-            <Text style={[typography.body, { color: colors.accent, marginTop: spacing.sm }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginTop: spacing.xs }}>
+              <CalendarDays size={13} color={colors.inkFaint} strokeWidth={2.25} />
+              <Text style={[typography.caption, { color: colors.inkFaint, marginLeft: 4 }]}>
+                {formatDateIt(item.startDate)}
+                {item.endDate ? ` → ${formatDateIt(item.endDate)}` : ""}
+              </Text>
+            </View>
+            <Text style={[typography.subtitle, { color: colors.accent, marginTop: spacing.sm }]}>
               {item.sitterPayout.toFixed(2)}€
             </Text>
           </Card>
         )}
         ListEmptyComponent={
-          <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.xl, textAlign: "center" }]}>
-            {strings.sitterDashboard.calendarEmpty}
-          </Text>
+          <View style={{ alignItems: "center", marginTop: spacing.xl }}>
+            <CalendarX size={32} color={colors.inkFaint} strokeWidth={1.5} />
+            <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.sm, textAlign: "center" }]}>
+              {strings.sitterDashboard.calendarEmpty}
+            </Text>
+          </View>
         }
       />
     </Screen>

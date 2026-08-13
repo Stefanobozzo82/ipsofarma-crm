@@ -1,5 +1,6 @@
 import type { AvailabilityException } from "@fido/shared";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Clock } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, Switch, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -108,42 +109,61 @@ export default function AvailabilityScreen() {
               flexDirection: "row",
               alignItems: "center",
               paddingVertical: spacing.sm,
-              borderBottomWidth: 1,
+              paddingHorizontal: day.enabled ? spacing.sm : 0,
+              marginHorizontal: day.enabled ? -spacing.sm : 0,
+              borderRadius: radius.sm,
+              backgroundColor: day.enabled ? colors.surfaceMuted : "transparent",
+              borderBottomWidth: day.enabled ? 0 : 1,
               borderBottomColor: colors.line,
             }}
           >
-            <Text style={[typography.body, { color: colors.ink, width: 90 }]}>{label}</Text>
+            <Text
+              style={[
+                day.enabled ? typography.bodyStrong : typography.body,
+                { color: day.enabled ? colors.ink : colors.inkMuted, width: 90 },
+              ]}
+            >
+              {label}
+            </Text>
             <Switch
               value={day.enabled}
               onValueChange={(v) => updateDay(idx, { enabled: v })}
               trackColor={{ true: colors.accent }}
             />
             {day.enabled && (
-              <View style={{ flexDirection: "row", marginLeft: spacing.md, gap: spacing.sm, flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginLeft: spacing.md, gap: spacing.sm, flex: 1 }}>
                 <Pressable
                   onPress={() => setPicker({ dayIndex: idx, field: "start" })}
                   style={{
+                    flexDirection: "row",
+                    alignItems: "center",
                     borderWidth: 1,
                     borderColor: colors.line,
                     borderRadius: radius.sm,
+                    backgroundColor: colors.surface,
                     paddingHorizontal: spacing.sm,
                     paddingVertical: 6,
                   }}
                 >
-                  <Text style={[typography.caption, { color: colors.ink }]}>{toTimeString(day.start)}</Text>
+                  <Clock size={12} color={colors.inkFaint} strokeWidth={2.25} />
+                  <Text style={[typography.caption, { color: colors.ink, marginLeft: 4 }]}>{toTimeString(day.start)}</Text>
                 </Pressable>
-                <Text style={[typography.caption, { color: colors.inkFaint, alignSelf: "center" }]}>—</Text>
+                <Text style={[typography.caption, { color: colors.inkFaint }]}>—</Text>
                 <Pressable
                   onPress={() => setPicker({ dayIndex: idx, field: "end" })}
                   style={{
+                    flexDirection: "row",
+                    alignItems: "center",
                     borderWidth: 1,
                     borderColor: colors.line,
                     borderRadius: radius.sm,
+                    backgroundColor: colors.surface,
                     paddingHorizontal: spacing.sm,
                     paddingVertical: 6,
                   }}
                 >
-                  <Text style={[typography.caption, { color: colors.ink }]}>{toTimeString(day.end)}</Text>
+                  <Clock size={12} color={colors.inkFaint} strokeWidth={2.25} />
+                  <Text style={[typography.caption, { color: colors.ink, marginLeft: 4 }]}>{toTimeString(day.end)}</Text>
                 </Pressable>
               </View>
             )}

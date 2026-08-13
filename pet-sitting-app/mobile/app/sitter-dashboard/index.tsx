@@ -1,6 +1,18 @@
 import type { Booking } from "@fido/shared";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
+import {
+  CalendarDays,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Inbox,
+  MessageSquare,
+  Star,
+  Tag,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -59,8 +71,13 @@ export default function SitterDashboardScreen() {
     <Screen scroll>
       {!payoutSummary.onboardingComplete && (
         <Card style={{ marginBottom: spacing.lg, borderColor: colors.amber, borderWidth: 1.5 }}>
-          <Text style={[typography.subtitle, { color: colors.amber }]}>{strings.sitterDashboard.stripeBannerTitle}</Text>
-          <Text style={[typography.body, { color: colors.inkMuted, marginTop: spacing.xs, marginBottom: spacing.md }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.xs }}>
+            <CreditCard size={17} color={colors.amber} strokeWidth={2.25} />
+            <Text style={[typography.subtitle, { color: colors.amber, marginLeft: spacing.xs }]}>
+              {strings.sitterDashboard.stripeBannerTitle}
+            </Text>
+          </View>
+          <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.md }]}>
             {strings.sitterDashboard.stripeBannerBody}
           </Text>
           <Button label={strings.sitterDashboard.stripeBannerCta} onPress={handleStripeOnboarding} loading={openingStripe} />
@@ -68,30 +85,34 @@ export default function SitterDashboardScreen() {
       )}
 
       <StatRow>
-        <StatTile label={strings.sitterDashboard.rating} value={sitterProfile.averageRating?.toFixed(1) ?? "–"} />
-        <StatTile label={strings.sitterDashboard.reviews} value={String(sitterProfile.reviewCount)} />
+        <StatTile label={strings.sitterDashboard.rating} value={sitterProfile.averageRating?.toFixed(1) ?? "–"} icon={Star} />
+        <StatTile label={strings.sitterDashboard.reviews} value={String(sitterProfile.reviewCount)} icon={MessageSquare} />
       </StatRow>
 
       <DashboardLink
+        icon={Inbox}
         title={strings.sitterDashboard.requestsTitle}
         subtitle={pendingCount > 0 ? strings.sitterDashboard.requestsCount(pendingCount) : strings.sitterDashboard.requestsEmpty}
-        highlight={pendingCount > 0}
+        badge={pendingCount > 0 ? pendingCount : undefined}
         onPress={() => router.push("/sitter-dashboard/requests")}
       />
       <DashboardLink
+        icon={CalendarDays}
         title={strings.sitterDashboard.calendarTitle}
         subtitle={strings.sitterDashboard.calendarSubtitle(upcomingCount)}
         onPress={() => router.push("/sitter-dashboard/calendar")}
       />
       <DashboardLink
+        icon={Wallet}
         title={strings.sitterDashboard.payoutsTitle}
         subtitle={
           payoutSummary.availableBalance !== null ? `${payoutSummary.availableBalance.toFixed(2)}€ disponibili` : "—"
         }
         onPress={() => router.push("/sitter-dashboard/payouts")}
       />
-      <DashboardLink title={strings.sitterDashboard.servicesTitle} onPress={() => router.push("/sitter-dashboard/services")} />
+      <DashboardLink icon={Tag} title={strings.sitterDashboard.servicesTitle} onPress={() => router.push("/sitter-dashboard/services")} />
       <DashboardLink
+        icon={Clock}
         title={strings.sitterDashboard.availabilityTitle}
         onPress={() => router.push("/sitter-dashboard/availability")}
       />
@@ -99,25 +120,63 @@ export default function SitterDashboardScreen() {
   );
 }
 
+/** Da riga "titolo + puntino" a una vera riga di navigazione (icona, testo,
+ * badge numerico se c'è qualcosa che richiede attenzione, freccia finale)
+ * — lo stesso vocabolario di "riga cliccabile" già stabilito in Fase 3c per
+ * i campi data. Il puntino ambra è diventato un badge con il numero delle
+ * richieste in attesa: comunica quante, non solo che ce n'è almeno una. */
 function DashboardLink({
   title,
   subtitle,
   onPress,
-  highlight = false,
+  icon: Icon,
+  badge,
 }: {
   title: string;
   subtitle?: string;
   onPress: () => void;
-  highlight?: boolean;
+  icon: LucideIcon;
+  badge?: number;
 }) {
   const { colors, spacing, radius, typography } = useTheme();
   return (
     <Card onPress={onPress} style={{ marginBottom: spacing.sm }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={[typography.subtitle, { color: colors.ink }]}>{title}</Text>
-        {highlight && <View style={{ backgroundColor: colors.amber, borderRadius: radius.pill, width: 10, height: 10 }} />}
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: radius.md,
+            backgroundColor: colors.accentSoft,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: spacing.md,
+          }}
+        >
+          <Icon size={19} color={colors.accent} strokeWidth={2} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.subtitle, { color: colors.ink }]}>{title}</Text>
+          {subtitle ? <Text style={[typography.caption, { color: colors.inkFaint, marginTop: 2 }]}>{subtitle}</Text> : null}
+        </View>
+        {badge ? (
+          <View
+            style={{
+              backgroundColor: colors.amber,
+              borderRadius: radius.pill,
+              minWidth: 22,
+              height: 22,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 6,
+              marginRight: spacing.xs,
+            }}
+          >
+            <Text style={[typography.caption, { color: colors.accentInk, fontSize: 12 }]}>{badge}</Text>
+          </View>
+        ) : null}
+        <ChevronRight size={18} color={colors.inkFaint} strokeWidth={2} />
       </View>
-      {subtitle ? <Text style={[typography.caption, { color: colors.inkFaint, marginTop: 2 }]}>{subtitle}</Text> : null}
     </Card>
   );
 }

@@ -1,3 +1,4 @@
+import { Clock, Receipt, Wallet } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -49,10 +50,12 @@ export default function PayoutsScreen() {
         <StatTile
           label={strings.sitterDashboard.payoutsAvailable}
           value={summary.availableBalance !== null ? `${summary.availableBalance.toFixed(2)}€` : "—"}
+          icon={Wallet}
         />
         <StatTile
           label={strings.sitterDashboard.payoutsPending}
           value={summary.pendingBalance !== null ? `${summary.pendingBalance.toFixed(2)}€` : "—"}
+          icon={Clock}
         />
       </StatRow>
 
@@ -82,7 +85,12 @@ export default function PayoutsScreen() {
           </Card>
         )}
         ListEmptyComponent={
-          <Text style={[typography.body, { color: colors.inkFaint }]}>{strings.sitterDashboard.payoutsHistoryEmpty}</Text>
+          <View style={{ alignItems: "center", paddingVertical: spacing.md }}>
+            <Receipt size={28} color={colors.inkFaint} strokeWidth={1.5} />
+            <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.xs }]}>
+              {strings.sitterDashboard.payoutsHistoryEmpty}
+            </Text>
+          </View>
         }
       />
     </Screen>

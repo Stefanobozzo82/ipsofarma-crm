@@ -258,6 +258,36 @@ che deve restare nello stesso linguaggio visivo del resto dell'app:
 Nessuna modifica alla logica (accetta/rifiuta prenotazione, richiesta
 payout, upsert servizi, salvataggio disponibilità settimanale).
 
+**Fase 3f — Chat e notifiche** (`app/(tabs)/messages.tsx`,
+`app/chat/[id].tsx`, `app/notifications/index.tsx`), l'ultima area del
+brief e l'ultima di questo redesign:
+
+- **Lista conversazioni**: da un semplice nome+data a una riga con
+  avatar del contatto (foto o iniziale su sfondo terracotta — stessa
+  logica di `SitterAvatar`/`SitterHeroAvatar`, qui non condivisa in un
+  componente comune perché la dimensione compatta da lista, 44px, non
+  coincide con nessuno dei due casi esistenti). Stato vuoto illustrato
+  (`MessagesSquare`) invece di solo testo.
+- **Conversazione**: ogni bubble ora ha un orario sotto (allineato allo
+  stesso lato della bubble) — prima l'ora del messaggio non si vedeva da
+  nessuna parte. Il bottone "Invia" testuale è diventato un bottone
+  rotondo con icona (`Send`), il pattern standard delle app di
+  messaggistica invece di un pulsante-pillola con scritta.
+- **Notifiche**: ogni notifica ora ha un'icona coerente con il tipo di
+  evento — richiesta di prenotazione, accettata/rifiutata/cancellata,
+  pagamento ricevuto, Meet & Greet, aggiornamento di servizio, disputa —
+  mappata dal prefisso di `type` che il backend già invia (vedi
+  `notifyUser(...)` lato backend), non un'icona generica per tutto. Il
+  pallino "non letta" resta accanto al titolo, ma ora affiancato
+  dall'icona invece che unico segnale. Stato vuoto illustrato
+  (`BellOff`).
+
+Nessuna modifica alla logica (invio/ricezione realtime dei messaggi via
+Supabase Realtime, segna-come-letta delle notifiche). Con questa fase si
+chiude il redesign UI/UX richiesto: tutte le sei aree del brief (design
+system, ricerca/home, profilo sitter, prenotazione, servizio in corso,
+dashboard sitter, chat/notifiche) sono state applicate.
+
 ## Tracking GPS e aggiornamenti servizio
 
 Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.

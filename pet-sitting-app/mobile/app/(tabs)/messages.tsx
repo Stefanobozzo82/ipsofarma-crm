@@ -1,6 +1,7 @@
 import { router } from "expo-router";
+import { MessagesSquare } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { FlatList, Text, View } from "react-native";
+import { FlatList, Image, Text, View } from "react-native";
 import { Card } from "@/components/Card";
 import { ErrorView } from "@/components/ErrorView";
 import { LoadingView } from "@/components/LoadingView";
@@ -9,6 +10,40 @@ import { listMyConversations, type ConversationWithPartner } from "@/features/ch
 import { strings } from "@/i18n/strings";
 import { useAuthStore } from "@/store/auth-store";
 import { useTheme } from "@/theme/use-theme";
+
+/** Stessa logica foto-o-iniziale di SitterAvatar/SitterHeroAvatar (Fase 3a/
+ * 3b): un contatto senza foto resta comunque "vivo", non un placeholder
+ * grigio anonimo — non condivisa in un componente comune perché qui la
+ * dimensione (44px, lista compatta) è diversa da entrambi i casi esistenti. */
+function PartnerAvatar({ conversation }: { conversation: ConversationWithPartner }) {
+  const { colors, radius, typography } = useTheme();
+
+  if (conversation.partnerAvatarUrl) {
+    return (
+      <Image
+        source={{ uri: conversation.partnerAvatarUrl }}
+        style={{ width: 44, height: 44, borderRadius: radius.pill }}
+      />
+    );
+  }
+
+  return (
+    <View
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: radius.pill,
+        backgroundColor: colors.accent,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={[typography.title, { color: colors.accentInk }]}>
+        {conversation.partnerName.charAt(0).toUpperCase()}
+      </Text>
+    </View>
+  );
+}
 
 export default function MessagesScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -38,8 +73,11 @@ export default function MessagesScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Card onPress={() => router.push(`/chat/${item.id}`)} style={{ marginBottom: spacing.sm }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={[typography.subtitle, { color: colors.ink }]}>{item.partnerName}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <PartnerAvatar conversation={item} />
+              <View style={{ flex: 1, marginLeft: spacing.md }}>
+                <Text style={[typography.subtitle, { color: colors.ink }]}>{item.partnerName}</Text>
+              </View>
               {item.lastMessageAt && (
                 <Text style={[typography.caption, { color: colors.inkFaint }]}>
                   {new Date(item.lastMessageAt).toLocaleDateString("it-IT")}
@@ -49,9 +87,12 @@ export default function MessagesScreen() {
           </Card>
         )}
         ListEmptyComponent={
-          <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.xl, textAlign: "center" }]}>
-            {strings.chat.empty}
-          </Text>
+          <View style={{ alignItems: "center", marginTop: spacing.xl }}>
+            <MessagesSquare size={32} color={colors.inkFaint} strokeWidth={1.5} />
+            <Text style={[typography.body, { color: colors.inkFaint, marginTop: spacing.sm, textAlign: "center" }]}>
+              {strings.chat.empty}
+            </Text>
+          </View>
         }
       />
     </Screen>

@@ -1,5 +1,6 @@
 import type { Message } from "@fido/shared";
 import { Stack, useLocalSearchParams } from "expo-router";
+import { Send } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { ErrorView } from "@/components/ErrorView";
@@ -71,19 +72,33 @@ export default function ChatScreen() {
             renderItem={({ item }) => {
               const isMine = item.senderId === myId;
               return (
-                <View
-                  style={[
-                    styles.bubble,
-                    {
-                      alignSelf: isMine ? "flex-end" : "flex-start",
-                      backgroundColor: isMine ? colors.accent : colors.surface,
-                      borderColor: colors.line,
-                      borderRadius: radius.lg,
-                      marginBottom: spacing.sm,
-                    },
-                  ]}
-                >
-                  <Text style={[typography.body, { color: isMine ? colors.accentInk : colors.ink }]}>{item.body}</Text>
+                <View style={{ alignSelf: isMine ? "flex-end" : "flex-start", marginBottom: spacing.sm }}>
+                  <View
+                    style={[
+                      styles.bubble,
+                      {
+                        backgroundColor: isMine ? colors.accent : colors.surface,
+                        borderColor: colors.line,
+                        borderRadius: radius.lg,
+                      },
+                    ]}
+                  >
+                    <Text style={[typography.body, { color: isMine ? colors.accentInk : colors.ink }]}>{item.body}</Text>
+                  </View>
+                  <Text
+                    style={[
+                      typography.caption,
+                      {
+                        color: colors.inkFaint,
+                        fontSize: 11,
+                        marginTop: 2,
+                        textAlign: isMine ? "right" : "left",
+                        marginHorizontal: 4,
+                      },
+                    ]}
+                  >
+                    {new Date(item.createdAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                  </Text>
                 </View>
               );
             }}
@@ -103,15 +118,18 @@ export default function ChatScreen() {
           <Pressable
             onPress={handleSend}
             disabled={sending || !body.trim()}
-            style={{
-              backgroundColor: colors.accent,
+            accessibilityLabel={strings.chat.send}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
               borderRadius: radius.pill,
-              paddingHorizontal: spacing.lg,
-              paddingVertical: spacing.sm + 4,
-              opacity: sending || !body.trim() ? 0.5 : 1,
-            }}
+              backgroundColor: colors.accent,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: sending || !body.trim() ? 0.5 : pressed ? 0.85 : 1,
+            })}
           >
-            <Text style={{ color: colors.accentInk, fontWeight: "600" }}>{strings.chat.send}</Text>
+            <Send size={18} color={colors.accentInk} strokeWidth={2.25} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>

@@ -1,37 +1,52 @@
-/** Stessa identità dell'artifact di progettazione (verde cipresso, ambra
- * come accento secondario) — vedi il blueprint pubblicato in Fase 1. */
+/** Design system "caldo" (terracotta/miele) — Fase redesign UI/UX,
+ * ispirato ai marketplace pet-care USA (Rover/Wag/PetBnb) reinterpretato con
+ * identità propria. Sostituisce la palette verde cipresso/ambra originale:
+ * quella comunicava "corporate/fintech", qui vogliamo fiducia e calore.
+ *
+ * `accent` (terracotta) è il colore di brand — usato per azioni primarie,
+ * elementi attivi, link. `success` (salvia) è un token separato per gli
+ * stati "positivi" (prenotazione confermata, sitter approvato): prima
+ * dell'unificazione qui, quel significato viveva sullo stesso token
+ * dell'accento di brand, il che avrebbe reso ogni badge di successo
+ * arancione invece che verde — un problema di leggibilità reale, non solo
+ * estetico (il verde per "ok" è una convenzione che gli utenti si aspettano).
+ */
 const light = {
-  bg: "#F5F7F3",
-  surface: "#FFFFFF",
-  surfaceMuted: "#EEF2EC",
-  ink: "#182018",
-  inkMuted: "#4D5B4E",
-  inkFaint: "#7C8A7C",
-  line: "#DBE2D8",
-  accent: "#2F6F52",
-  accentInk: "#F3FBF5",
-  accentSoft: "#E3EEE6",
-  amber: "#A8611F",
-  amberSoft: "#F4E6D6",
-  danger: "#B23B3B",
-  dangerSoft: "#F5E4E4",
+  bg: "#FBF6F0",
+  surface: "#FFFDF9",
+  surfaceMuted: "#F3EAE0",
+  ink: "#2B211C",
+  inkMuted: "#6B5D53",
+  inkFaint: "#A89A8E",
+  line: "#EAD9C8",
+  accent: "#E8603C",
+  accentInk: "#FFF8F2",
+  accentSoft: "#FBE4DA",
+  amber: "#B5761F",
+  amberSoft: "#FBEDD4",
+  success: "#4F8B6B",
+  successSoft: "#E1EEE6",
+  danger: "#D64545",
+  dangerSoft: "#F9DEDE",
 };
 
 const dark = {
-  bg: "#10140F",
-  surface: "#171D17",
-  surfaceMuted: "#1D251E",
-  ink: "#E9EFE7",
-  inkMuted: "#9DB19F",
-  inkFaint: "#6D8073",
-  line: "#29342A",
-  accent: "#5BB98A",
-  accentInk: "#0B1610",
-  accentSoft: "#1E2E24",
-  amber: "#E2A25C",
-  amberSoft: "#332318",
-  danger: "#E08787",
-  dangerSoft: "#3A1F1F",
+  bg: "#1A1512",
+  surface: "#241E1A",
+  surfaceMuted: "#2C2420",
+  ink: "#F2EAE3",
+  inkMuted: "#C4B6AC",
+  inkFaint: "#8A7A6E",
+  line: "#3A2F28",
+  accent: "#F0755A",
+  accentInk: "#241109",
+  accentSoft: "#3D2A22",
+  amber: "#F0B85C",
+  amberSoft: "#3D2F1A",
+  success: "#6FAE8A",
+  successSoft: "#22322A",
+  danger: "#E37070",
+  dangerSoft: "#3D2020",
 };
 
 export const palettes = { light, dark };

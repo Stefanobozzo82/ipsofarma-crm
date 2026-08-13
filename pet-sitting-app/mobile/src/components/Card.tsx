@@ -5,12 +5,17 @@ import { useTheme } from "@/theme/use-theme";
 interface CardProps extends PropsWithChildren {
   onPress?: () => void;
   style?: ViewStyle;
+  /** "raised" (default) per card protagoniste in lista (profilo sitter,
+   * animale): ombra più marcata. "flat" per card dentro contenuti già
+   * sollevati (es. righe in un modale) dove un'altra ombra sarebbe rumore. */
+  elevation?: "raised" | "flat";
 }
 
-export function Card({ children, onPress, style }: CardProps) {
-  const { colors, spacing, radius } = useTheme();
+export function Card({ children, onPress, style, elevation = "raised" }: CardProps) {
+  const { colors, spacing, radius, shadow } = useTheme();
   const cardStyle = [
     styles.base,
+    elevation === "raised" ? shadow.sm : undefined,
     {
       backgroundColor: colors.surface,
       borderColor: colors.line,

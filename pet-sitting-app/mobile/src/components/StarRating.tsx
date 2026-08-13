@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Star } from "lucide-react-native";
 import { Pressable, View } from "react-native";
 import { useTheme } from "@/theme/use-theme";
 
@@ -16,15 +16,19 @@ export function StarRating({ value, onChange, size = 20 }: StarRatingProps) {
 
   return (
     <View style={{ flexDirection: "row", gap: spacing.xs }}>
-      {stars.map((star) =>
-        onChange ? (
+      {stars.map((star) => {
+        const filled = star <= value;
+        const icon = (
+          <Star size={size} color={colors.amber} fill={filled ? colors.amber : "transparent"} strokeWidth={1.75} />
+        );
+        return onChange ? (
           <Pressable key={star} onPress={() => onChange(star)} hitSlop={6}>
-            <Ionicons name={star <= value ? "star" : "star-outline"} size={size} color={colors.amber} />
+            {icon}
           </Pressable>
         ) : (
-          <Ionicons key={star} name={star <= value ? "star" : "star-outline"} size={size} color={colors.amber} />
-        ),
-      )}
+          <View key={star}>{icon}</View>
+        );
+      })}
     </View>
   );
 }

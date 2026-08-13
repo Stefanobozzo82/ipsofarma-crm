@@ -4,7 +4,12 @@ import { useTheme } from "@/theme/use-theme";
 interface ButtonProps {
   label: string;
   onPress: () => void;
-  variant?: "primary" | "secondary" | "danger";
+  /** "secondary" ora è un bordo terracotta su fondo trasparente (azione
+   * secondaria ma comunque rilevante), "text" è solo testo colorato senza
+   * bordo/sfondo (azioni minori, es. "Annulla" dentro un form già chiaro
+   * dal contesto) — prima esisteva solo un "secondary" pieno grigio, che
+   * confondeva visivamente le azioni secondarie con quelle disabilitate. */
+  variant?: "primary" | "secondary" | "text" | "danger";
   loading?: boolean;
   disabled?: boolean;
 }
@@ -13,16 +18,13 @@ export function Button({ label, onPress, variant = "primary", loading = false, d
   const { colors, spacing, radius, typography } = useTheme();
   const isDisabled = disabled || loading;
 
-  const backgrounds = {
-    primary: colors.accent,
-    secondary: colors.surfaceMuted,
-    danger: colors.danger,
+  const variants = {
+    primary: { bg: colors.accent, border: colors.accent, fg: colors.accentInk },
+    secondary: { bg: "transparent", border: colors.accent, fg: colors.accent },
+    text: { bg: "transparent", border: "transparent", fg: colors.accent },
+    danger: { bg: colors.danger, border: colors.danger, fg: "#FFFFFF" },
   };
-  const textColors = {
-    primary: colors.accentInk,
-    secondary: colors.ink,
-    danger: "#FFFFFF",
-  };
+  const { bg, border, fg } = variants[variant];
 
   return (
     <Pressable
@@ -31,17 +33,23 @@ export function Button({ label, onPress, variant = "primary", loading = false, d
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: backgrounds[variant],
+          backgroundColor: bg,
+          borderColor: border,
+          borderWidth: variant === "secondary" ? 1.5 : 0,
           borderRadius: radius.md,
-          paddingVertical: spacing.md,
-          opacity: isDisabled ? 0.6 : pressed ? 0.85 : 1,
+          paddingVertical: variant === "text" ? spacing.sm : spacing.md,
+          opacity: isDisabled ? 0.5 : 1,
+          // Leggera scala al tocco invece del solo cambio opacità: la
+          // micro-interazione richiesta dal design system, senza librerie
+          // di animazione aggiuntive — Pressable la gestisce nativamente.
+          transform: [{ scale: pressed && !isDisabled ? 0.97 : 1 }],
         },
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={textColors[variant]} />
+        <ActivityIndicator color={fg} />
       ) : (
-        <Text style={[typography.subtitle, { color: textColors[variant] }]}>{label}</Text>
+        <Text style={[variant === "text" ? typography.bodyStrong : typography.subtitle, { color: fg }]}>{label}</Text>
       )}
     </Pressable>
   );

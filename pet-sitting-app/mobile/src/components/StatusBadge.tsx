@@ -12,7 +12,7 @@ export function StatusBadge({ label, tone }: StatusBadgeProps) {
   const { colors, spacing, radius, typography } = useTheme();
 
   const tones: Record<StatusTone, { bg: string; fg: string }> = {
-    positive: { bg: colors.accentSoft, fg: colors.accent },
+    positive: { bg: colors.successSoft, fg: colors.success },
     neutral: { bg: colors.surfaceMuted, fg: colors.inkFaint },
     warning: { bg: colors.amberSoft, fg: colors.amber },
     negative: { bg: colors.dangerSoft, fg: colors.danger },

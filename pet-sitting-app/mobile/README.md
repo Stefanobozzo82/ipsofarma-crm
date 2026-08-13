@@ -74,6 +74,45 @@ La chat usa Supabase Realtime (`postgres_changes` su `messages`, vedi `supabase/
 
 **Aggiornamento — bug reale trovato solo eseguendo l'app su un device vero**: "bundle torna 200 da Metro" non vuol dire "il JS gira senza errori" — gap nel test sopra, scoperto dall'utente che ha effettivamente aperto l'app su Android dopo l'aggiornamento SDK 54. Schermata rossa immediata: `TypeError: getDevServer is not a function (it is Object)` nella connessione WebSocket di debug. Causa: `@expo/metro-runtime` non era mai stato un dependency diretto — arrivava solo transitivamente da `expo`, fermo alla `4.0.1` (compatibile con SDK 52), mentre `expo-router@6` (SDK 54) richiede `^6.1.2`; `expo install --fix` non lo aveva toccato perché non è nel nostro `package.json`. Fix: `npx expo install @expo/metro-runtime` per fissarlo esplicitamente alla versione giusta. Verificato non solo con `pnpm why` (una sola risoluzione, `6.1.2`, ovunque nell'albero — prima ce n'erano tre diverse coesistenti) ma ispezionando il bundle scaricato da Metro: nessun riferimento residuo a `4.0.1`.
 
+## Design system (redesign UI/UX)
+
+Ripartenza dell'identità visiva su ispirazione Rover/Wag/PetBnb (reinterpretata,
+non copiata) — da un tema verde cipresso/ambra piuttosto freddo/corporate a
+uno caldo terracotta/miele, coerente con un prodotto emotivo legato alla
+fiducia verso sitter e animali. Fase 1 di un lavoro incrementale: prima i
+token e i componenti base (qui), poi le schermate una alla volta.
+
+- **Palette** (`src/theme/colors.ts`): `accent` (terracotta, brand/azioni
+  primarie) separato da un nuovo token `success` (salvia) — prima
+  "positivo" nei badge di stato viveva sullo stesso token del brand, quindi
+  ogni badge "confermato/completato" sarebbe finito arancione invece che
+  verde: una vera perdita di leggibilità, non solo estetica, corretta in
+  `StatusBadge.tsx`.
+- **Tipografia** (`src/theme/tokens.ts`): *Nunito* (titoli, arrotondato e
+  caldo) + *Inter* (corpo testo, leggibile) via `@expo-google-fonts/*`,
+  caricati in `app/_layout.tsx` con `expo-splash-screen` a coprire il
+  caricamento (niente flash col font di sistema).
+- **Ombre** (`src/theme/tokens.ts` → `shadow`): non esisteva alcun token
+  ombra prima — ogni card si distingueva solo con un bordo sottile, più
+  piatto di quanto il redesign richieda. `Card.tsx` ora usa `shadow.sm`
+  di default (`elevation="flat"` per disattivarla dentro contenuti già
+  sollevati, es. righe in un modale).
+- **Bottoni** (`Button.tsx`): `secondary` passa da pieno grigio a bordo
+  terracotta trasparente (si distingueva poco da uno stato disabilitato),
+  aggiunta una variante `text` per azioni minori. Micro-interazione al
+  tocco: leggera scala (0.97) via `Pressable`, nessuna libreria di
+  animazione aggiuntiva.
+- **Input** (`TextField.tsx`): bordo che vira sull'accento a fuoco — prima
+  zero riscontro visivo di campo attivo oltre al cursore.
+- **Icone**: da Ionicons (solo tab bar + stelle recensione, migrazione a
+  basso rischio) a `lucide-react-native` — stroke uniforme, coerente in
+  tutta l'app.
+
+Verificato non solo con `tsc --noEmit` su tutto il monorepo (incluso un giro
+completo da `node_modules` rimossi, per escludere falsi positivi di cache)
+ma richiedendo i bundle `platform=ios`/`platform=android` a un vero Metro
+con le nuove dipendenze (font, `react-native-svg`, icone) — entrambi `200`.
+
 ## Tracking GPS e aggiornamenti servizio
 
 Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.

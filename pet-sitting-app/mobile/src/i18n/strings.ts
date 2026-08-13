@@ -87,6 +87,8 @@ export const strings = {
     cancelConfirm: "Sei sicuro di voler cancellare questa prenotazione?",
     start: "Inizia servizio",
     complete: "Completa servizio",
+    securePayment: "Pagamento sicuro gestito da Stripe",
+    bookingWith: (name: string) => `Con ${name}`,
   },
   tracking: {
     title: "Durante il servizio",

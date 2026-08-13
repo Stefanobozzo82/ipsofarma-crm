@@ -1,9 +1,11 @@
 import { PriceUnit, type Pet, type PublicSitterProfile } from "@fido/shared";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, useLocalSearchParams } from "expo-router";
+import { CalendarDays, ChevronRight, Clock, PawPrint } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
 import { ErrorView } from "@/components/ErrorView";
 import { LoadingView } from "@/components/LoadingView";
 import { PetPicker } from "@/components/PetPicker";
@@ -93,6 +95,38 @@ export default function NewBookingScreen() {
         {strings.booking.newTitle}
       </Text>
 
+      {/* Riepilogo servizio/sitter in cima: il brief chiede che il flusso di
+       * prenotazione sia "il più semplice e rassicurante possibile" — sapere
+       * subito con chi e a quale tariffa si sta prenotando, prima ancora di
+       * compilare il resto, va in quella direzione. */}
+      <Card style={{ marginBottom: spacing.lg }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View
+            style={[
+              styles.serviceIcon,
+              { borderRadius: 12, backgroundColor: colors.accentSoft, marginRight: spacing.md },
+            ]}
+          >
+            <PawPrint size={20} color={colors.accent} strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[typography.label, { color: colors.inkFaint, marginBottom: 2 }]}>
+              {strings.service[selectedService.serviceType]}
+            </Text>
+            <Text style={[typography.subtitle, { color: colors.ink }]}>
+              {strings.booking.bookingWith(sitterProfile.firstName)}
+            </Text>
+          </View>
+          <Text style={[typography.title, { color: colors.accent }]}>
+            {selectedService.price.toFixed(0)}€
+            <Text style={[typography.caption, { color: colors.inkFaint }]}>
+              {" "}
+              {strings.search.perUnit[selectedService.priceUnit]}
+            </Text>
+          </Text>
+        </View>
+      </Card>
+
       {pets.length === 0 ? (
         <View style={{ marginBottom: spacing.lg }}>
           <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.md }]}>
@@ -101,36 +135,38 @@ export default function NewBookingScreen() {
           <Button label={strings.pets.addCta} onPress={() => router.push("/pets")} variant="secondary" />
         </View>
       ) : (
-        <View style={{ marginBottom: spacing.lg }}>
+        <Card style={{ marginBottom: spacing.lg }}>
           <Text style={[typography.label, { color: colors.inkFaint, marginBottom: spacing.sm }]}>
             {strings.booking.selectPets}
           </Text>
           <PetPicker pets={pets} selectedIds={selectedPetIds} onToggle={togglePet} />
-        </View>
+        </Card>
       )}
 
-      <DateField
-        label={strings.booking.startDate}
-        value={startDate}
-        onPress={() => setShowPicker("start")}
-      />
-      {showEndDate && (
+      <Card style={{ marginBottom: spacing.lg }}>
         <DateField
-          label={strings.booking.endDate + (endDateRequired ? "" : " (opzionale)")}
-          value={endDate}
-          onPress={() => setShowPicker("end")}
+          label={strings.booking.startDate}
+          value={startDate}
+          onPress={() => setShowPicker("start")}
         />
-      )}
-      {showTimeRange && (
-        <View style={{ flexDirection: "row", gap: spacing.md }}>
-          <View style={{ flex: 1 }}>
-            <DateField label="Dalle" value={startTime} onPress={() => setShowPicker("startTime")} isTime />
+        {showEndDate && (
+          <DateField
+            label={strings.booking.endDate + (endDateRequired ? "" : " (opzionale)")}
+            value={endDate}
+            onPress={() => setShowPicker("end")}
+          />
+        )}
+        {showTimeRange && (
+          <View style={{ flexDirection: "row", gap: spacing.md }}>
+            <View style={{ flex: 1 }}>
+              <DateField label="Dalle" value={startTime} onPress={() => setShowPicker("startTime")} isTime />
+            </View>
+            <View style={{ flex: 1 }}>
+              <DateField label="Alle" value={endTime} onPress={() => setShowPicker("endTime")} isTime />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <DateField label="Alle" value={endTime} onPress={() => setShowPicker("endTime")} isTime />
-          </View>
-        </View>
-      )}
+        )}
+      </Card>
 
       {showPicker && (
         <DateTimePicker
@@ -158,13 +194,20 @@ export default function NewBookingScreen() {
         />
       )}
 
-      <TextField label={strings.booking.notes} value={notes} onChangeText={setNotes} multiline />
+      <Card style={{ marginBottom: spacing.lg }}>
+        <TextField label={strings.booking.notes} value={notes} onChangeText={setNotes} multiline />
+      </Card>
 
       <Button label={strings.booking.submit} onPress={handleSubmit} loading={submitting} disabled={!canSubmit} />
     </Screen>
   );
 }
 
+/** Il resto del form ha già l'aspetto "cliccabile" grazie a bordo+sfondo
+ * card, ma un semplice riquadro vuoto poteva ancora leggersi come testo
+ * statico. Icona iniziale (tipo di dato) + chevron finale (c'è altro dietro,
+ * tocca per cambiare) sono lo stesso linguaggio visivo già usato per le
+ * righe interattive nel resto del redesign. */
 function DateField({
   label,
   value,
@@ -177,24 +220,39 @@ function DateField({
   isTime?: boolean;
 }) {
   const { colors, spacing, radius, typography } = useTheme();
+  const Icon = isTime ? Clock : CalendarDays;
   return (
-    <View style={{ marginBottom: spacing.lg }}>
+    <View style={{ marginBottom: spacing.md }}>
       <Text style={[typography.label, { color: colors.inkFaint, marginBottom: spacing.xs }]}>{label}</Text>
       <Pressable
         onPress={onPress}
-        style={{
-          borderWidth: 1,
-          borderColor: colors.line,
-          borderRadius: radius.md,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm + 4,
-          backgroundColor: colors.surface,
-        }}
+        style={({ pressed }) => [
+          styles.dateField,
+          {
+            borderColor: colors.line,
+            borderRadius: radius.md,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm + 4,
+            backgroundColor: pressed ? colors.surfaceMuted : colors.bg,
+          },
+        ]}
       >
-        <Text style={[typography.body, { color: value ? colors.ink : colors.inkFaint }]}>
+        <Icon size={17} color={colors.inkFaint} strokeWidth={2} />
+        <Text
+          style={[
+            typography.body,
+            { color: value ? colors.ink : colors.inkFaint, flex: 1, marginLeft: spacing.sm },
+          ]}
+        >
           {value ? (isTime ? toTimeString(value) : formatDateIt(toDateString(value))) : "Seleziona"}
         </Text>
+        <ChevronRight size={17} color={colors.inkFaint} strokeWidth={2} />
       </Pressable>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  serviceIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  dateField: { flexDirection: "row", alignItems: "center", borderWidth: 1 },
+});

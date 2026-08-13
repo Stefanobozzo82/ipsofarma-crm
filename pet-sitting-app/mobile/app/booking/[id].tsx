@@ -1,6 +1,8 @@
 import type { Booking, ServiceUpdate } from "@fido/shared";
 import { useStripe } from "@stripe/stripe-react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { CalendarDays, Lock, NotebookText, PawPrint } from "lucide-react-native";
+import type { ComponentType } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Button } from "@/components/Button";
@@ -26,7 +28,7 @@ import { useTheme } from "@/theme/use-theme";
 const CANCELLABLE_STATUSES = ["pending_request", "confirmed"];
 
 export default function BookingDetailScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const myId = useAuthStore((s) => s.profile?.id);
@@ -170,15 +172,34 @@ export default function BookingDetailScreen() {
 
   return (
     <Screen scroll>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: spacing.lg }}>
-        <Text style={[typography.display, { color: colors.ink }]}>{strings.service[booking.serviceType]}</Text>
-        <StatusBadge label={strings.bookingStatus[booking.status]} tone={bookingStatusTone(booking.status)} />
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.lg }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: radius.md,
+            backgroundColor: colors.accentSoft,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: spacing.md,
+          }}
+        >
+          <PawPrint size={22} color={colors.accent} strokeWidth={2} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.display, { color: colors.ink }]}>{strings.service[booking.serviceType]}</Text>
+          <View style={{ marginTop: 4, alignSelf: "flex-start" }}>
+            <StatusBadge label={strings.bookingStatus[booking.status]} tone={bookingStatusTone(booking.status)} />
+          </View>
+        </View>
       </View>
 
       <Card style={{ marginBottom: spacing.lg }}>
-        <Row label={strings.booking.startDate} value={formatDateIt(booking.startDate)} />
-        {booking.endDate ? <Row label={strings.booking.endDate} value={formatDateIt(booking.endDate)} /> : null}
-        {booking.notes ? <Row label={strings.booking.notes} value={booking.notes} /> : null}
+        <Row label={strings.booking.startDate} value={formatDateIt(booking.startDate)} icon={CalendarDays} />
+        {booking.endDate ? (
+          <Row label={strings.booking.endDate} value={formatDateIt(booking.endDate)} icon={CalendarDays} />
+        ) : null}
+        {booking.notes ? <Row label={strings.booking.notes} value={booking.notes} icon={NotebookText} /> : null}
       </Card>
 
       <Text style={[typography.label, { color: colors.inkFaint, marginBottom: spacing.sm }]}>
@@ -188,11 +209,21 @@ export default function BookingDetailScreen() {
         <Row label={strings.booking.unitPrice} value={`${booking.unitPrice.toFixed(2)}€ ${strings.search.perUnit[booking.priceUnit]}`} />
         <Row label={strings.booking.quantity} value={String(booking.quantity)} />
         <View style={{ height: 1, backgroundColor: colors.line, marginVertical: spacing.sm }} />
-        <Row
-          label={strings.booking.total}
-          value={`${(isSitter ? booking.sitterPayout : booking.priceTotal).toFixed(2)}€`}
-          emphasize
-        />
+        <View
+          style={{
+            backgroundColor: colors.accentSoft,
+            borderRadius: radius.sm,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            marginTop: spacing.xs,
+          }}
+        >
+          <Row
+            label={strings.booking.total}
+            value={`${(isSitter ? booking.sitterPayout : booking.priceTotal).toFixed(2)}€`}
+            emphasize
+          />
+        </View>
       </Card>
 
       {booking.status === "pending_request" && !isSitter && (
@@ -211,7 +242,17 @@ export default function BookingDetailScreen() {
 
       <Button label={strings.chat.contact} onPress={handleContact} variant="secondary" loading={openingChat} />
       <View style={{ marginTop: spacing.sm }}>
-        {canPay && <Button label={strings.booking.pay} onPress={handlePay} loading={paying} />}
+        {canPay && (
+          <>
+            <Button label={strings.booking.pay} onPress={handlePay} loading={paying} />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: spacing.sm }}>
+              <Lock size={12} color={colors.inkFaint} strokeWidth={2.25} />
+              <Text style={[typography.caption, { color: colors.inkFaint, marginLeft: 4 }]}>
+                {strings.booking.securePayment}
+              </Text>
+            </View>
+          </>
+        )}
         {canStart && <Button label={strings.booking.start} onPress={handleStart} loading={transitioning} />}
         {canComplete && <Button label={strings.booking.complete} onPress={handleComplete} loading={transitioning} />}
       </View>
@@ -253,11 +294,24 @@ export default function BookingDetailScreen() {
   );
 }
 
-function Row({ label, value, emphasize = false }: { label: string; value: string; emphasize?: boolean }) {
+function Row({
+  label,
+  value,
+  emphasize = false,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  emphasize?: boolean;
+  icon?: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+}) {
   const { colors, spacing, typography } = useTheme();
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.xs }}>
-      <Text style={[typography.body, { color: colors.inkFaint }]}>{label}</Text>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xs }}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        {Icon ? <Icon size={14} color={colors.inkFaint} strokeWidth={2.25} /> : null}
+        <Text style={[typography.body, { color: colors.inkFaint, marginLeft: Icon ? spacing.xs : 0 }]}>{label}</Text>
+      </View>
       <Text style={[emphasize ? typography.subtitle : typography.body, { color: emphasize ? colors.accent : colors.ink }]}>
         {value}
       </Text>

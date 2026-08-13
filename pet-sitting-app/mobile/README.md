@@ -155,6 +155,47 @@ modifica strutturale, solo eredità automatica della nuova palette. Bottoni
 di azione (`Contatta` / `Meet & Greet` secondari, `Prenota` primario)
 invariati nella gerarchia, migliorati automaticamente dal nuovo `Button`.
 
+**Fase 3c — Flusso di prenotazione** (`app/booking/new.tsx`,
+`app/booking/[id].tsx`), la parte del brief che chiede esplicitamente di
+essere "il più semplice e rassicurante possibile":
+
+- **Creazione prenotazione** (`booking/new.tsx`):
+  - Nuova card di riepilogo in cima al form — icona `PawPrint` su sfondo
+    terracotta chiaro, servizio, nome del sitter e tariffa: prima si
+    scopriva "con chi e a che prezzo" solo tornando indietro al profilo,
+    ora è la prima cosa visibile aprendo il form.
+  - Animali coinvolti e date/orari ora raggruppati in `Card` distinte
+    invece di essere testo/controlli sciolti nella pagina — il form si
+    legge come una sequenza di passaggi, non un modulo unico indistinto.
+  - `DateField` (selezione data/ora): prima un riquadro con solo testo,
+    poteva leggersi come un'etichetta statica invece che un controllo.
+    Ora ha un'icona iniziale (`CalendarDays`/`Clock` a seconda che sia
+    data o orario) e una `ChevronRight` finale — lo stesso linguaggio
+    "c'è altro dietro, tocca per cambiare" già usato altrove nel
+    redesign — più un feedback di sfondo al tocco (`Pressable`).
+- **Dettaglio/pagamento prenotazione** (`booking/[id].tsx`):
+  - Header trasformato da riga di solo testo (titolo + badge a destra) a
+    un piccolo hero coerente col resto dell'app: icona `PawPrint` in un
+    chip circolare terracotta chiaro accanto al nome del servizio, badge
+    di stato spostato sotto il titolo invece che schiacciato a destra.
+  - Righe data/note nella card di riepilogo ora hanno un'icona coerente
+    col contenuto (`CalendarDays` per le date, `NotebookText` per le
+    note) invece di essere solo etichetta+valore.
+  - **Totale prezzo**: prima un'ultima riga enfatizzata solo dal colore,
+    ora dentro un riquadro con sfondo terracotta chiaro — la cifra più
+    importante della schermata (quanto si paga/si incassa) è isolata
+    visivamente dal resto del riepilogo, non solo dal font.
+  - **Rassicurazione al pagamento**: sotto il bottone "Paga ora" (quando
+    visibile) una riga con icona `Lock` e "Pagamento sicuro gestito da
+    Stripe" — un pattern standard nei marketplace (Airbnb/Rover) per
+    ridurre l'ansia del primo pagamento in un'app nuova, prima assente.
+
+Nessuna modifica alla logica di prenotazione/pagamento (creazione, step
+di date/orari per tipo di tariffa, integrazione `stripe-react-native`,
+transizioni di stato): solo presentazione. `PetPicker` non ha richiesto
+modifiche — usava già i token `accentSoft`/`accent`/`line` corretti,
+stessa conclusione delle chip servizio in Fase 3a.
+
 ## Tracking GPS e aggiornamenti servizio
 
 Su `booking/[id].tsx`, quando il sitter è nella prenotazione `in_progress`: `ServiceTrackingPanel` avvia/ferma il tracking GPS (solo per `dog_walking` — usa `expo-location` in foreground, un `watchPositionAsync` ogni ~10s/15m che manda un ping al backend, niente tracking in background) e invia aggiornamenti testuali, sempre disponibili per qualunque servizio. `ServiceUpdatesList` mostra lo storico a entrambe le parti. Niente mappa (richiederebbe una API key Google/Apple Maps che non c'è) — solo distanza finale e conteggio punti mentre è in corso.

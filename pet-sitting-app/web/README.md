@@ -29,7 +29,8 @@ src/
 │   ├── BookingStatusPage.tsx       # /prenotazioni/:id — riepilogo, cancellazione, pagamento (Stripe Elements)
 │   ├── MessagesPage.tsx            # /messaggi — elenco conversazioni
 │   ├── ChatPage.tsx                # /messaggi/:id — thread realtime
-│   └── BecomeSitterPage.tsx        # /diventa-sitter — candidatura sitter (POST /sitters/apply)
+│   ├── BecomeSitterPage.tsx        # /diventa-sitter — candidatura sitter (POST /sitters/apply)
+│   └── SitterServicesPage.tsx      # /diventa-sitter/servizi — listino servizi/tariffe (PUT /sitters/me/services)
 ├── data/                          # contenuto editabile senza toccare i componenti
 │   ├── services.ts                # le 5 categorie (riusa ServiceType da @fido/shared)
 │   ├── cities.ts                  # directory città per SEO
@@ -133,6 +134,8 @@ Verificato con screenshot reali (Playwright) a viewport desktop (1440px) e mobil
 ## Candidatura sitter: form vero, stessa API di mobile
 
 "Diventa un sitter" porta a `BecomeSitterPage` (`/diventa-sitter`), porting web di `mobile/app/sitter-onboarding/apply.tsx`: bio, anni di esperienza, indirizzo, raggio di servizio, `POST /sitters/apply` (autenticato — richiede login, stesso pattern `state.from` delle altre pagine protette). Un'unica differenza voluta rispetto a mobile: niente GPS del telefono per le coordinate, il sito riusa lo stesso geocoding via Nominatim già usato da `SearchForm` (indirizzo testuale digitato → lat/lng). La candidatura finisce nella stessa coda di approvazione che vede il pannello admin (`admin/` → pagina sitter in stato "pending") — nessuna nuova logica di revisione, solo un nuovo modo di arrivarci.
+
+Candidarsi da solo non basta a comparire in ricerca: serve anche un listino servizi/tariffe (`sitter_services`), altrimenti `nearby_sitters()` non ha nulla da restituire per quel sitter. `SitterServicesPage` (`/diventa-sitter/servizi`, porting web di `mobile/app/sitter-dashboard/services.tsx`) copre questo passo — `PUT /sitters/me/services` **sostituisce l'intero listino** (semantica upsert lato client: si compone l'elenco completo in `services` e lo si rimanda per intero ad ogni salvataggio, non un endpoint per singola riga). Nessun controllo sullo stato della candidatura lato backend: si può già impostare il listino subito dopo essersi candidati, anche prima dell'approvazione admin — così tutto è pronto appena il profilo viene attivato. Raggiungibile dalla conferma di `BecomeSitterPage` e da `AccountPage` ("Sei già un sitter? Gestisci servizi e tariffe").
 
 ## Cosa manca (prossime fasi)
 

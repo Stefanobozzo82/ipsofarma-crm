@@ -1,0 +1,6 @@
+packages:
+  - "mobile"
+  - "backend"
+  - "admin"
+  - "shared"
+  - "web"

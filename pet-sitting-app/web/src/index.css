@@ -1,0 +1,35 @@
+/* Pesi effettivamente usati nel sito — non l'intera famiglia, per non
+ * scaricare più font del necessario (vedi @fontsource, self-hosted così non
+ * c'è nessuna richiesta esterna a Google Fonts). */
+@import "@fontsource/nunito/600.css";
+@import "@fontsource/nunito/700.css";
+@import "@fontsource/nunito/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 88px; /* altezza header sticky, per gli anchor link */
+    /* Il drawer mobile è fuori schermo via translate-x-full quando chiuso:
+     * senza overflow-x:hidden qui, quel pannello traslato allarga la
+     * larghezza scrollabile dell'intera pagina (anche su desktop, dove il
+     * drawer non è mai visibile) — un gotcha CSS classico dei pannelli
+     * off-canvas con position:fixed. */
+    overflow-x: hidden;
+  }
+  body {
+    @apply bg-bg text-ink font-body antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+}

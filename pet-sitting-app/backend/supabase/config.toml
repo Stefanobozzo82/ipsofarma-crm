@@ -1,0 +1,25 @@
+# Configurazione minima per `supabase start` / `supabase db push` in locale.
+# Vedi https://supabase.com/docs/guides/local-development per l'elenco completo.
+project_id = "fido-pet-sitting"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:8081"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_signup = true
+
+[storage]
+enabled = true

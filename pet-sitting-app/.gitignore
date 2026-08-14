@@ -1,0 +1,23 @@
+# dipendenze
+node_modules/
+
+# build
+dist/
+build/
+.expo/
+.turbo/
+
+# variabili d'ambiente
+.env
+.env.local
+.env.*.local
+
+# log ed editor
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+
+# supabase locale
+backend/supabase/.branches
+backend/supabase/.temp

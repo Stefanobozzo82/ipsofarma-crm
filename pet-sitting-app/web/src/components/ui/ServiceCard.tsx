@@ -1,14 +1,18 @@
-import { ArrowRight } from "lucide-react";
 import type { ServiceContent } from "@/data/services";
 
+/**
+ * Solo informativa, non un link: non c'è (ancora) una pagina di dettaglio
+ * dietro ogni servizio, e tutto quello che il sito sa (dove si svolge, per
+ * quali animali, descrizione) è già scritto qui per intero — un "Scopri di
+ * più" avrebbe portato solo a se stesso (era un'ancora #servizi-{slug} che
+ * puntava alla card stessa, vedi ServicesGrid.tsx). Gli anchor da Header/
+ * MobileNavDrawer verso #servizi-{slug} restano validi: scorrono qui da
+ * un'altra parte della pagina, un caso diverso dal self-link rimosso. */
 export function ServiceCard({ service }: { service: ServiceContent }) {
   const Icon = service.icon;
 
   return (
-    <a
-      href={`#servizi-${service.slug}`}
-      className="group flex flex-col gap-4 rounded-2xl border border-line bg-surface p-6 shadow-soft transition hover:-translate-y-1 hover:shadow-lifted"
-    >
+    <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-6 shadow-soft">
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft">
         <Icon size={24} strokeWidth={2} className="text-accent" />
       </div>
@@ -21,11 +25,6 @@ export function ServiceCard({ service }: { service: ServiceContent }) {
       </div>
 
       <p className="text-sm text-ink-muted">{service.description}</p>
-
-      <span className="mt-auto inline-flex items-center gap-1 text-sm font-display font-bold text-accent">
-        Scopri di più
-        <ArrowRight size={15} className="transition group-hover:translate-x-1" />
-      </span>
-    </a>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { services } from "@/data/services";
 import { preventPlaceholderNav } from "@/lib/placeholder-link";
 import { useAuthStore } from "@/store/auth-store";
+import { useUnreadMessagesStore } from "@/store/unread-messages-store";
 import { Button } from "@/components/ui/Button";
 
 interface MobileNavDrawerProps {
@@ -21,6 +22,7 @@ interface MobileNavDrawerProps {
 export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
   const status = useAuthStore((s) => s.status);
   const signOut = useAuthStore((s) => s.signOut);
+  const hasUnreadMessages = useUnreadMessagesStore((s) => s.hasUnread);
 
   // Per le voci senza destinazione reale: chiude comunque il drawer (il
   // tocco deve sempre dare un feedback), ma non lascia che il semplice
@@ -98,9 +100,12 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
               <Link
                 to="/messaggi"
                 onClick={onClose}
-                className="text-center font-display font-bold text-ink"
+                className="relative text-center font-display font-bold text-ink"
               >
                 Messaggi
+                {hasUnreadMessages ? (
+                  <span className="absolute -right-3 top-0 h-2 w-2 rounded-full bg-accent" aria-label="Nuovi messaggi" />
+                ) : null}
               </Link>
               <Link
                 to="/account"

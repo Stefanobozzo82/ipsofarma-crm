@@ -123,3 +123,28 @@ export function subscribeToMessages(conversationId: string, onInsert: (message: 
     supabase.removeChannel(channel);
   };
 }
+
+/**
+ * Come subscribeToMessages, ma senza filtro su una conversazione: usata
+ * per il segnale globale "ti è arrivato un messaggio" (badge/suono/notifica
+ * desktop in NotificationsWatcher), che deve reagire a un messaggio in
+ * QUALSIASI conversazione dell'utente, non solo in quella aperta in questo
+ * momento. Nessun filtro applicato = nessun problema di sicurezza: la RLS
+ * "messages_participants_read" (vedi supabase/migrations/20260812170000_chat.sql)
+ * fa comunque arrivare solo le righe delle conversazioni di cui l'utente
+ * autenticato è owner o sitter — Realtime la rispetta come una SELECT normale. */
+export function subscribeToAnyNewMessage(onInsert: (message: Message) => void): () => void {
+  const channel = supabase
+    .channel("messages:all")
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (payload: any) => onInsert(mapMessageRow(payload.new)),
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

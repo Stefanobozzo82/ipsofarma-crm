@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { listMessages, sendMessage, subscribeToMessages } from "@/features/chat/api";
 import { useAuthStore } from "@/store/auth-store";
+import { useUnreadMessagesStore } from "@/store/unread-messages-store";
 import { LoadingView } from "@/components/ui/LoadingView";
 
 /** Porting web di mobile/app/chat/[id].tsx: stessa logica realtime
@@ -16,6 +17,8 @@ export function ChatPage() {
   const navigate = useNavigate();
   const listEndRef = useRef<HTMLDivElement>(null);
 
+  const clearUnread = useUnreadMessagesStore((s) => s.clear);
+
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -24,6 +27,13 @@ export function ChatPage() {
   useEffect(() => {
     if (status === "signedOut") navigate("/accedi", { state: { from: `/messaggi/${id ?? ""}` } });
   }, [status, id, navigate]);
+
+  // Aprire una chat specifica conta come "letto" anche per le altre —
+  // stesso comportamento minimale del badge in Header/MobileNavDrawer
+  // (un solo booleano globale, non un conteggio per conversazione).
+  useEffect(() => {
+    clearUnread();
+  }, [id, clearUnread]);
 
   useEffect(() => {
     if (!id || !session) return;

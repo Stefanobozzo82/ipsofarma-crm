@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { listMyConversations, type ConversationWithPartner } from "@/features/chat/api";
 import { useAuthStore } from "@/store/auth-store";
+import { useUnreadMessagesStore } from "@/store/unread-messages-store";
 import { LoadingView } from "@/components/ui/LoadingView";
+import { NotificationPermissionBanner } from "@/components/notifications/NotificationPermissionBanner";
 
 function Avatar({ conversation }: { conversation: ConversationWithPartner }) {
   if (conversation.partnerAvatarUrl) {
@@ -21,12 +23,18 @@ export function MessagesPage() {
   const status = useAuthStore((s) => s.status);
   const navigate = useNavigate();
 
+  const clearUnread = useUnreadMessagesStore((s) => s.clear);
+
   const [conversations, setConversations] = useState<ConversationWithPartner[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "signedOut") navigate("/accedi", { state: { from: "/messaggi" } });
   }, [status, navigate]);
+
+  useEffect(() => {
+    clearUnread();
+  }, [clearUnread]);
 
   useEffect(() => {
     if (!session) return;
@@ -47,12 +55,14 @@ export function MessagesPage() {
 
   return (
     <div className="mx-auto max-w-xl px-6 py-12">
-      <h1 className="font-display text-2xl font-extrabold text-ink">Messaggi</h1>
+      <h1 className="mb-6 font-display text-2xl font-extrabold text-ink">Messaggi</h1>
+
+      <NotificationPermissionBanner />
 
       {conversations.length === 0 ? (
-        <p className="mt-6 text-sm text-ink-faint">Nessuna conversazione ancora.</p>
+        <p className="text-sm text-ink-faint">Nessuna conversazione ancora.</p>
       ) : (
-        <div className="mt-6 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {conversations.map((conversation) => (
             <Link
               key={conversation.id}

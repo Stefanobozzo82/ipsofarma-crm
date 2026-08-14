@@ -12,6 +12,7 @@ import { BookingNewPage } from "@/pages/BookingNewPage";
 import { MessagesPage } from "@/pages/MessagesPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { LoadingView } from "@/components/ui/LoadingView";
+import { NotificationsWatcher } from "@/components/notifications/NotificationsWatcher";
 
 // Solo questa pagina importa @stripe/stripe-js (~150kB gzip) — lazy così
 // chi visita solo la homepage o la scheda sitter non lo scarica mai. Le
@@ -29,6 +30,7 @@ export function App() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <NotificationsWatcher />
       <Header />
       <main className="flex-1">
         <Routes>

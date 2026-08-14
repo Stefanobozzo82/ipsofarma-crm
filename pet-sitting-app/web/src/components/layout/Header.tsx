@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { services } from "@/data/services";
 import { preventPlaceholderNav } from "@/lib/placeholder-link";
 import { useAuthStore } from "@/store/auth-store";
+import { useUnreadMessagesStore } from "@/store/unread-messages-store";
 import { Button } from "@/components/ui/Button";
 import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
 
@@ -13,6 +14,7 @@ export function Header() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const status = useAuthStore((s) => s.status);
   const signOut = useAuthStore((s) => s.signOut);
+  const hasUnreadMessages = useUnreadMessagesStore((s) => s.hasUnread);
 
   // Ombra che compare dopo i primi px di scroll, non da subito — un header
   // sticky con ombra fissa sembra "attaccato" anche quando si è in cima
@@ -98,8 +100,11 @@ export function Header() {
         <div className="hidden items-center gap-4 lg:flex">
           {status === "signedIn" ? (
             <>
-              <Link to="/messaggi" className="font-display font-bold text-ink hover:text-accent">
+              <Link to="/messaggi" className="relative font-display font-bold text-ink hover:text-accent">
                 Messaggi
+                {hasUnreadMessages ? (
+                  <span className="absolute -right-2.5 -top-1 h-2 w-2 rounded-full bg-accent" aria-label="Nuovi messaggi" />
+                ) : null}
               </Link>
               <Link
                 to="/account"

@@ -47,14 +47,20 @@ src/
 │   │   ├── Faq.tsx
 │   │   ├── AppPromo.tsx
 │   │   └── CityDirectory.tsx
-│   └── ui/                        # Button, ServiceCard, Accordion, SearchForm, SitterResultCard, SectionHeading
+│   ├── ui/                        # Button, ServiceCard, Accordion, SearchForm, SitterResultCard, SectionHeading
+│   └── notifications/
+│       ├── NotificationsWatcher.tsx           # listener globale nuovi messaggi (suono/badge/Notification), montato in App.tsx
+│       └── NotificationPermissionBanner.tsx   # richiede il permesso Notification solo su click esplicito, mostrato in MessagesPage
 ├── features/chat/api.ts            # porting 1:1 di mobile/src/features/chat/api.ts (Supabase diretto, non backend)
-├── store/auth-store.ts             # sessione Supabase (stesso pattern di mobile/admin)
+├── store/
+│   ├── auth-store.ts               # sessione Supabase (stesso pattern di mobile/admin)
+│   └── unread-messages-store.ts    # badge "nuovi messaggi", un booleano globale
 ├── lib/
 │   ├── env.ts                     # VITE_API_URL + VITE_SUPABASE_URL/ANON_KEY + VITE_STRIPE_PUBLISHABLE_KEY
 │   ├── supabase.ts                # client Supabase, solo auth (+ chat, vedi features/chat/api.ts)
 │   ├── api.ts                     # client HTTP autenticato verso il backend (porting di mobile/src/lib/api.ts)
 │   ├── date.ts                    # date locali (no toISOString) + etichette stato prenotazione/prezzo in italiano
+│   ├── notification-sound.ts      # "ding" generato via Web Audio API, nessun file audio da servire
 │   ├── geocode.ts                 # indirizzo testuale → lat/lng via Nominatim
 │   └── placeholder-link.ts        # onClick condiviso per i link "#" senza destinazione reale
 └── index.css                      # font @fontsource + direttive Tailwind
@@ -92,6 +98,16 @@ Fino a questa fase il sito era una "vetrina": la ricerca era reale ma le card ri
 - **Stato prenotazione + pagamento** (`BookingStatusPage`, `/prenotazioni/:id`): riepilogo, cancellazione (`PATCH /bookings/:id/cancel`), e pagamento quando confermata dal sitter (`POST /bookings/:id/pay` + **Stripe Elements** via `@stripe/stripe-js`/`@stripe/react-stripe-js` — l'equivalente web di `@stripe/stripe-react-native` in mobile; richiede `VITE_STRIPE_PUBLISHABLE_KEY`, vedi `.env.example`). Avvio/completamento servizio, tracking GPS e recensioni restano solo nell'app: sono azioni lato sitter o post-servizio, fuori scope di questo giro.
 - **Autenticazione dell'API**: `lib/api.ts` è stato riscritto come porting di `mobile/src/lib/api.ts` — un `apiFetch` unico che allega il JWT Supabase quando serve (`auth: true`, default) o lo salta per le rotte pubbliche (`auth: false`, es. ricerca/profilo/recensioni).
 
+## Notifica di un nuovo messaggio: solo a sito aperto, niente push vero
+
+Prima di questa fase un messaggio in arrivo non si notava in nessun modo se non si aveva `/messaggi/:id` aperto in quel momento. `NotificationsWatcher` (montato una sola volta in `App.tsx`, nessun elemento visibile) copre il caso "sito aperto in una scheda":
+
+- Si iscrive a **tutti** gli INSERT sulla tabella `messages` via `subscribeToAnyNewMessage` (`features/chat/api.ts`), senza filtro su una conversazione — a differenza di `subscribeToMessages` usato in `ChatPage`. Non è un problema di sicurezza: la RLS `messages_participants_read` (vedi `supabase/migrations/20260812170000_chat.sql`) fa comunque arrivare solo le righe delle conversazioni di cui l'utente autenticato è owner o sitter, e Realtime la rispetta come farebbe con una SELECT.
+- Ogni messaggio non mio, se non sono già sulla chat di quella conversazione: un suono (`lib/notification-sound.ts`, generato via Web Audio API — nessun file audio da servire, coerente con la scelta di illustrazioni CSS/SVG pure) e un pallino sul link "Messaggi" in `Header`/`MobileNavDrawer` (`store/unread-messages-store.ts`, un booleano unico, non un conteggio — si azzera aprendo `/messaggi` o una chat specifica).
+- Se in più la scheda non è visibile/in focus **e** l'utente ha concesso il permesso, anche una **`Notification`** desktop del browser (icona `/favicon.svg`, click → porta alla chat). Il permesso non viene mai richiesto in automatico: `NotificationPermissionBanner` (mostrato in `MessagesPage`, sparisce da solo se il browser non supporta le notifiche, il permesso è già stato deciso, o l'utente ha cliccato "No, grazie") lo chiede solo su un click esplicito, come richiede la API stessa.
+
+**Limite noto, esplicito**: funziona solo finché il sito è aperto in una scheda del browser (anche in background/minimizzato) — niente Service Worker, quindi niente notifica a browser chiuso. Per quello servirebbe una fase separata: Service Worker + Web Push (chiavi VAPID, generabili gratis, senza bisogno di un account Firebase — a differenza del push mobile, ancora fermo su uno stub in attesa di credenziali, vedi `backend/src/lib/push.ts`) + un endpoint backend che invii il push quando arriva un messaggio.
+
 ## Autenticazione: account vero, stesso di mobile/admin
 
 `/registrati` e `/accedi` chiamano `supabase.auth.signUp`/`signInWithPassword` direttamente — stesso pattern di `mobile/src/store/auth-store.ts` (nota architetturale in `backend/src/modules/auth/auth.service.ts`: per client con l'SDK Supabase, è la via raccomandata invece di passare dal backend). Un account creato sul sito è già utilizzabile per accedere nell'app: stesso progetto Supabase, stesso trigger `handle_new_auth_user()` che popola `public.users` dai metadati (`first_name`/`last_name`/`gdpr_consent`, vedi la migrazione `20260812120100_users_and_profiles.sql`).
@@ -120,6 +136,7 @@ Verificato con screenshot reali (Playwright) a viewport desktop (1440px) e mobil
 - **`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`/`VITE_STRIPE_PUBLISHABLE_KEY`** da impostare sul servizio web di Render — vedi sopra
 - Nessuna pagina "I miei animali" dedicata sul sito (solo il mini-form inline nel flusso di prenotazione) — da valutare se serve, come in `mobile/app/pets/index.tsx`
 - Avvio/completamento servizio, tracking GPS in diretta e recensioni post-servizio restano solo nell'app — non collegati sul sito in questo giro
+- Notifica nuovo messaggio solo a sito aperto in una scheda (vedi sopra) — niente push vero a browser chiuso, servirebbe Service Worker + Web Push + endpoint backend dedicato
 - Newsletter footer: nessun endpoint di iscrizione esiste ancora
 - "Diventa un sitter" e "Contatti" nell'header sono link segnaposto (`#`) — da decidere se pagine separate o sezioni della stessa homepage
 - Nessuna pagina dedicata per città/servizio ancora (oggi solo homepage) — se in futuro serve indicizzazione SEO più profonda, valutare se questo sito basta o se serve un framework con rendering server-side

@@ -8,6 +8,7 @@ Marketplace pet-sitting per il mercato italiano, lancio pilota a Cosenza/Calabri
 - [`backend/README.md`](./backend/README.md) — setup, migrazioni, endpoint, come girano auth/pagamenti/notifiche/tracking
 - [`mobile/README.md`](./mobile/README.md) — setup, architettura, semplificazioni dichiarate
 - [`admin/README.md`](./admin/README.md) — setup, come promuovere un utente ad admin
+- [`web/README.md`](./web/README.md) — setup, struttura sezioni, decisioni di branding
 
 ## Pacchetti
 
@@ -17,6 +18,7 @@ Marketplace pet-sitting per il mercato italiano, lancio pilota a Cosenza/Calabri
 | [`backend/`](./backend) | API Express: auth, profili, ricerca geografica, prenotazioni, Stripe Connect, recensioni, chat (schema/RLS), notifiche, tracking GPS, admin |
 | [`mobile/`](./mobile) | App React Native (Expo): percorso proprietario e dashboard sitter, entrambi completi end-to-end |
 | [`admin/`](./admin) | Pannello web (React + Vite): approvazione sitter, moderazione recensioni, dispute, statistiche |
+| [`web/`](./web) | Sito marketing pubblico (React + Vite + Tailwind): homepage, non collegata al backend per ora |
 
 ## Cosa copre l'MVP, in breve
 
@@ -51,7 +53,7 @@ Codice pronto, in attesa solo di credenziali reali del cliente:
 
 ## Stack
 
-React Native (Expo) · Node/Express + TypeScript · Supabase (Postgres, Auth, Storage, Realtime, PostGIS) · Stripe Connect · React + Vite (admin) · Firebase Cloud Messaging (in attesa di credenziali)
+React Native (Expo) · Node/Express + TypeScript · Supabase (Postgres, Auth, Storage, Realtime, PostGIS) · Stripe Connect · React + Vite (admin, web) · Tailwind CSS (web) · Firebase Cloud Messaging (in attesa di credenziali)
 
 ## Quick start
 

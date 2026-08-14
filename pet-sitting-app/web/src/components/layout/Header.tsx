@@ -118,9 +118,6 @@ export function Header() {
               <Link to="/accedi" className="font-display font-bold text-ink-muted hover:text-ink">
                 Accedi
               </Link>
-              <Link to="/registrati" className="font-display font-bold text-ink-muted hover:text-ink">
-                Registrati
-              </Link>
               <Button to="/registrati" variant="primary">
                 Registrati ora
               </Button>

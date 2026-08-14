@@ -1,33 +1,30 @@
+import { useEffect } from "react";
+import { Route, Routes } from "react-router-dom";
+import { useAuthStore } from "@/store/auth-store";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { Hero } from "@/components/sections/Hero";
-import { ServicesGrid } from "@/components/sections/ServicesGrid";
-import { TrustSection } from "@/components/sections/TrustSection";
-import { Testimonials } from "@/components/sections/Testimonials";
-import { HowItWorks } from "@/components/sections/HowItWorks";
-import { Faq } from "@/components/sections/Faq";
-import { AppPromo } from "@/components/sections/AppPromo";
-import { CityDirectory } from "@/components/sections/CityDirectory";
+import { HomePage } from "@/pages/HomePage";
+import { LoginPage } from "@/pages/LoginPage";
+import { RegisterPage } from "@/pages/RegisterPage";
+import { AccountPage } from "@/pages/AccountPage";
 
-/**
- * L'ordine delle sezioni riprende la struttura della homepage di Rover.com
- * (riferimento strutturale, non di brand — vedi README) — ogni sezione è
- * un componente a sé stante in components/sections/, modificabile senza
- * toccare le altre.
- */
 export function App() {
+  const initialize = useAuthStore((s) => s.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">
-        <Hero />
-        <ServicesGrid />
-        <TrustSection />
-        <Testimonials />
-        <HowItWorks />
-        <Faq />
-        <AppPromo />
-        <CityDirectory />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/accedi" element={<LoginPage />} />
+          <Route path="/registrati" element={<RegisterPage />} />
+          <Route path="/account" element={<AccountPage />} />
+        </Routes>
       </main>
       <Footer />
     </div>

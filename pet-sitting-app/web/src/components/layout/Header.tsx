@@ -1,7 +1,9 @@
-import { ChevronDown, Menu, PawPrint } from "lucide-react";
+import { ChevronDown, Menu, PawPrint, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { services } from "@/data/services";
 import { preventPlaceholderNav } from "@/lib/placeholder-link";
+import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/Button";
 import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
 
@@ -9,6 +11,8 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const status = useAuthStore((s) => s.status);
+  const signOut = useAuthStore((s) => s.signOut);
 
   // Ombra che compare dopo i primi px di scroll, non da subito — un header
   // sticky con ombra fissa sembra "attaccato" anche quando si è in cima
@@ -27,13 +31,17 @@ export function Header() {
       className={`sticky top-0 z-40 bg-surface/95 backdrop-blur transition-shadow ${scrolled ? "shadow-soft" : ""}`}
     >
       <div className="mx-auto flex max-w-content items-center justify-between gap-6 px-6 py-4">
-        <a href="#" className="flex items-center gap-2 font-display text-xl font-extrabold text-ink">
+        <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold text-ink">
           <PawPrint className="text-accent" size={24} strokeWidth={2.25} />
           Fido
-        </a>
+        </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          <a href="#hero-search" className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent">
+          {/* Verso l'home + un'ancora: un href assoluto (non "#hero-search")
+           * funziona sia già in home (scrolla e basta) sia da un'altra
+           * pagina come /accedi (naviga in home e poi scrolla, comportamento
+           * nativo del browser sui fragment, nessun JS in più necessario). */}
+          <a href="/#hero-search" className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent">
             Cerca sitter
           </a>
           <a
@@ -68,7 +76,7 @@ export function Header() {
                 {services.map((service) => (
                   <a
                     key={service.id}
-                    href={`#servizi-${service.slug}`}
+                    href={`/#servizi-${service.slug}`}
                     className="rounded-xl px-3 py-2 text-sm text-ink hover:bg-surface-muted"
                   >
                     {service.label}
@@ -88,15 +96,32 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
-          <a href="#" onClick={preventPlaceholderNav} className="font-display font-bold text-ink-muted hover:text-ink">
-            Accedi
-          </a>
-          <a href="#" onClick={preventPlaceholderNav} className="font-display font-bold text-ink-muted hover:text-ink">
-            Registrati
-          </a>
-          <Button href="#" onClick={preventPlaceholderNav} variant="primary">
-            Registrati ora
-          </Button>
+          {status === "signedIn" ? (
+            <>
+              <Link
+                to="/account"
+                className="flex items-center gap-1.5 font-display font-bold text-ink hover:text-accent"
+              >
+                <User size={17} />
+                Il mio account
+              </Link>
+              <button type="button" onClick={() => signOut()} className="font-display font-bold text-ink-muted hover:text-ink">
+                Esci
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/accedi" className="font-display font-bold text-ink-muted hover:text-ink">
+                Accedi
+              </Link>
+              <Link to="/registrati" className="font-display font-bold text-ink-muted hover:text-ink">
+                Registrati
+              </Link>
+              <Button to="/registrati" variant="primary">
+                Registrati ora
+              </Button>
+            </>
+          )}
         </div>
 
         <button

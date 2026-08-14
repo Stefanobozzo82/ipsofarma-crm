@@ -1,6 +1,6 @@
 # web
 
-Sito marketing pubblico di Fido (React + Vite + Tailwind) — la homepage che un potenziale cliente o sitter vede prima di scaricare l'app o candidarsi. **Non è l'app** (vedi `mobile/`) **né il pannello admin** (vedi `admin/`): nessuna autenticazione reale — è un sito statico, deployato come Render Static Site. L'unica chiamata reale al backend è la ricerca sitter nell'hero (vedi sotto).
+Sito marketing pubblico di Fido (React + Vite + Tailwind + React Router) — la homepage che un potenziale cliente o sitter vede prima di scaricare l'app o candidarsi. **Non è l'app** (vedi `mobile/`) **né il pannello admin** (vedi `admin/`), ma condivide con entrambi lo stesso progetto Supabase per l'autenticazione: chi si registra sul sito ha già un account pronto per l'app. Deployato come Render Static Site.
 
 ## Setup
 
@@ -18,7 +18,12 @@ L'ordine e l'organizzazione delle sezioni della homepage riprendono deliberatame
 
 ```
 src/
-├── App.tsx                        # assembla Header + le 9 sezioni + Footer, in ordine
+├── App.tsx                        # Header + <Routes> (Home/Accedi/Registrati/Account) + Footer
+├── main.tsx                       # <BrowserRouter> a livello radice
+├── pages/
+│   ├── HomePage.tsx                # le 9 sezioni della homepage, in ordine
+│   ├── LoginPage.tsx / RegisterPage.tsx
+│   └── AccountPage.tsx             # conferma account minimale, vedi sotto
 ├── data/                          # contenuto editabile senza toccare i componenti
 │   ├── services.ts                # le 5 categorie (riusa ServiceType da @fido/shared)
 │   ├── cities.ts                  # directory città per SEO
@@ -26,7 +31,7 @@ src/
 │   └── faq.ts
 ├── components/
 │   ├── layout/
-│   │   ├── Header.tsx             # sticky, ombra dopo qualche px di scroll, dropdown servizi
+│   │   ├── Header.tsx             # sticky, ombra dopo qualche px di scroll, dropdown servizi, stato auth
 │   │   └── Footer.tsx
 │   ├── sections/                  # una per sezione del brief, modificabile da sola
 │   │   ├── Hero.tsx
@@ -38,8 +43,10 @@ src/
 │   │   ├── AppPromo.tsx
 │   │   └── CityDirectory.tsx
 │   └── ui/                        # Button, ServiceCard, Accordion, SearchForm, SitterResultCard, SectionHeading
+├── store/auth-store.ts             # sessione Supabase (stesso pattern di mobile/admin)
 ├── lib/
-│   ├── env.ts                     # VITE_API_URL, con fallback al backend già deployato
+│   ├── env.ts                     # VITE_API_URL + VITE_SUPABASE_URL/ANON_KEY
+│   ├── supabase.ts                # client Supabase, solo auth
 │   ├── api.ts                     # fetch verso il backend (solo GET /search/sitters per ora)
 │   ├── geocode.ts                 # indirizzo testuale → lat/lng via Nominatim
 │   └── placeholder-link.ts        # onClick condiviso per i link "#" senza destinazione reale
@@ -68,6 +75,15 @@ Il modulo di ricerca nell'hero (`components/ui/SearchForm.tsx`) chiama `GET /sea
 
 Non c'è ancora una pagina di dettaglio sitter o un flusso di prenotazione sul sito — solo l'app li ha. Le card dei risultati sono quindi informative, non cliccabili verso altro.
 
+## Autenticazione: account vero, stesso di mobile/admin
+
+`/registrati` e `/accedi` chiamano `supabase.auth.signUp`/`signInWithPassword` direttamente — stesso pattern di `mobile/src/store/auth-store.ts` (nota architetturale in `backend/src/modules/auth/auth.service.ts`: per client con l'SDK Supabase, è la via raccomandata invece di passare dal backend). Un account creato sul sito è già utilizzabile per accedere nell'app: stesso progetto Supabase, stesso trigger `handle_new_auth_user()` che popola `public.users` dai metadati (`first_name`/`last_name`/`gdpr_consent`, vedi la migrazione `20260812120100_users_and_profiles.sql`).
+
+- **`/account`**: pagina volutamente minima — il sito non ha un'area personale vera (nessuna prenotazione o profilo da gestire qui, solo l'app li ha). Conferma che l'account esiste, mostra nome/email (da `session.user.user_metadata`, nessuna chiamata autenticata al backend necessaria), invita a scaricare l'app. Rimbalza su `/accedi` se non c'è sessione.
+- **Variabili d'ambiente da configurare su Render**: il sito (servizio **web**, non il backend) ha bisogno di `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` — stessi valori già presenti nell'Environment del servizio **backend** su Render (copiabili da lì). L'anon key è pensata per stare nel client, non è un segreto da proteggere.
+- **Bug reale trovato e corretto**: se queste due variabili non sono ancora impostate, `createClient(url, key)` lancia un errore **al caricamento del modulo** (`supabaseUrl is required.` / `supabaseKey is required.`) — non solo sulle pagine di login, l'intero sito smette di renderizzare, perché `lib/supabase.ts` viene importato anche solo per leggere lo stato di sessione nell'header. Fix in `lib/env.ts`: un fallback sintatticamente valido ma inesistente (`https://placeholder.supabase.co`) evita il crash al caricamento; se le variabili vere mancano davvero in produzione, a fallire sarà solo il singolo tentativo di login/registrazione quando invocato (un errore di rete gestito con un messaggio in italiano, non una pagina bianca). Verificato con un build di produzione + Playwright: prima del fix l'intero sito falliva a renderizzare, dopo il fix homepage/routing/redirect funzionano correttamente anche senza credenziali Supabase configurate.
+- **Rewrite rule da aggiungere su Render** (servizio **web**): `/accedi`, `/registrati` e `/account` non sono file statici reali — esistono solo lato client (React Router). Cliccare i link dal sito funziona già oggi (navigazione via `Link`, nessuna richiesta al server), ma **digitare uno di questi indirizzi direttamente nel browser, aggiornare la pagina, o aprire un link condiviso dà 404** finché non si aggiunge una regola di rewrite: Render → servizio web → *Redirects/Rewrites* → sorgente `/*`, destinazione `/index.html`, tipo **Rewrite** (non Redirect).
+
 ## Bug non ovvio risolto: il drawer mobile e `backdrop-filter`
 
 Il drawer di navigazione mobile (`MobileNavDrawer.tsx`) inizialmente era un figlio diretto di `<Header>`, posizionato `fixed inset-0`. Sembrava corretto, ma si rompeva in un modo non ovvio: il pannello risultava alto solo ~66px (l'altezza della barra header) invece di coprire l'intero schermo.
@@ -78,11 +94,13 @@ Verificato con screenshot reali (Playwright) a viewport desktop (1440px) e mobil
 
 ## Link segnaposto
 
-Tutte le voci senza una destinazione reale ancora (Accedi, Registrati, Diventa un sitter, Contatti, le colonne del footer, le icone social) restano `<a href="#">` — semanticamente link veri, navigabili da tastiera — ma con `onClick` che chiama `preventPlaceholderNav` (`src/lib/placeholder-link.ts`) per evitare l'effetto collaterale di un `href="#"` normale: senza, cliccarli fa scrollare la pagina in cima, un comportamento confuso soprattutto su una CTA primaria come "Registrati ora". Quando queste destinazioni esisteranno davvero, basta sostituire `href="#"` con l'URL vero e rimuovere l'`onClick`.
+"Diventa un sitter", "Contatti", le colonne del footer e le icone social **non hanno ancora** una destinazione reale — restano `<a href="#">` con `onClick` che chiama `preventPlaceholderNav` (`src/lib/placeholder-link.ts`) per evitare l'effetto collaterale di un `href="#"` normale (senza, cliccarli fa scrollare la pagina in cima). Accedi/Registrati non sono più in questo elenco: hanno una destinazione vera (`/accedi`, `/registrati`).
 
 ## Cosa manca (prossime fasi)
 
 - **CORS in produzione**: il dominio reale del sito deployato va aggiunto a `CORS_ORIGIN` sul backend (Render → variabili d'ambiente del servizio backend) — senza, la ricerca resta bloccata lato browser anche se tutto il resto funziona
+- **Rewrite rule su Render** per le pagine `/accedi`, `/registrati`, `/account` — vedi sopra, senza si rompe solo l'accesso diretto/il refresh, non la navigazione dal sito
+- **`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`** da impostare sul servizio web di Render — vedi sopra
 - Nessun risultato cliccabile: le card sitter mostrate dalla ricerca non portano a un profilo o a una prenotazione (esistono solo nell'app) — da decidere se costruire pagine profilo/prenotazione anche sul sito o restare un "assaggio" che rimanda all'app
 - Newsletter footer: nessun endpoint di iscrizione esiste ancora
 - "Diventa un sitter" e "Contatti" nell'header sono link segnaposto (`#`) — da decidere se pagine separate o sezioni della stessa homepage

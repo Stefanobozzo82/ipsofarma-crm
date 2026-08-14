@@ -1,4 +1,5 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import { Link, type LinkProps } from "react-router-dom";
 
 type Variant = "primary" | "secondary" | "text";
 
@@ -18,16 +19,28 @@ interface CommonProps {
 
 /** Come i Button dell'app mobile: stesse 3 varianti (primary pieno,
  * secondary a bordo, text senza sfondo), stesso vocabolario visivo — qui
- * come `<a>` quando c'è un `href` (per link/anchor) o `<button>` altrimenti
- * (per azioni JS, es. submit del modulo di ricerca). */
+ * come `<a>` quando c'è un `href` (link esterno/anchor in-pagina, sempre un
+ * caricamento pagina completo), `Link` di react-router quando c'è un `to`
+ * (navigazione verso un'altra pagina del sito senza ricaricare, es.
+ * "Registrati ora" → /registrati), o `<button>` altrimenti (azioni JS, es.
+ * submit di un modulo). */
 type ButtonProps = CommonProps &
   (
-    | ({ href: string } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "className" | "children">)
-    | ({ href?: undefined } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children">)
+    | ({ to: string } & Omit<LinkProps, "className" | "children" | "to">)
+    | ({ href: string; to?: undefined } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "className" | "children">)
+    | ({ href?: undefined; to?: undefined } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children">)
   );
 
 export function Button({ variant = "primary", children, className = "", ...rest }: ButtonProps) {
   const classes = `${base} ${variants[variant]} ${className}`;
+
+  if ("to" in rest && rest.to !== undefined) {
+    return (
+      <Link className={classes} {...(rest as LinkProps)}>
+        {children}
+      </Link>
+    );
+  }
 
   if ("href" in rest && rest.href !== undefined) {
     return (

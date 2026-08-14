@@ -46,7 +46,16 @@ export function AccountPage() {
 
       <div className="w-full rounded-2xl border border-line bg-surface p-6 text-sm text-ink-muted shadow-soft">
         Il tuo account è pronto — è lo stesso che userai nell'app Fido. Scarica l'app (presto su App Store e
-        Google Play) per cercare un sitter, gestire i tuoi animali o candidarti come sitter tu stesso.
+        Google Play) per cercare un sitter o gestire i tuoi animali.
+      </div>
+
+      <div className="flex w-full flex-col gap-2">
+        <Button to="/diventa-sitter" variant="secondary" className="w-full">
+          Diventa un sitter
+        </Button>
+        <Button to="/diventa-sitter/servizi" variant="text">
+          Sei già un sitter? Gestisci servizi e tariffe
+        </Button>
       </div>
 
       <Button onClick={handleSignOut} variant="secondary" className="gap-2">

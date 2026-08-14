@@ -8,6 +8,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { AccountPage } from "@/pages/AccountPage";
 import { BecomeSitterPage } from "@/pages/BecomeSitterPage";
+import { SitterServicesPage } from "@/pages/SitterServicesPage";
 import { SitterProfilePage } from "@/pages/SitterProfilePage";
 import { BookingNewPage } from "@/pages/BookingNewPage";
 import { MessagesPage } from "@/pages/MessagesPage";
@@ -40,6 +41,7 @@ export function App() {
           <Route path="/registrati" element={<RegisterPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/diventa-sitter" element={<BecomeSitterPage />} />
+          <Route path="/diventa-sitter/servizi" element={<SitterServicesPage />} />
           <Route path="/sitters/:id" element={<SitterProfilePage />} />
           <Route path="/sitters/:id/prenota" element={<BookingNewPage />} />
           <Route

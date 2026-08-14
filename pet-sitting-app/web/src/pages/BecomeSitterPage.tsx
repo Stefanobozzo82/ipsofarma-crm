@@ -71,10 +71,13 @@ export function BecomeSitterPage() {
         </div>
         <h1 className="font-display text-2xl font-extrabold text-ink">Candidatura inviata!</h1>
         <p className="text-ink-muted">
-          Grazie — la rivediamo a mano e ti facciamo sapere appena viene approvata. Nel frattempo puoi già gestire il
-          tuo account dall'app.
+          Grazie — la rivediamo a mano e ti facciamo sapere appena viene approvata. Nel frattempo puoi già impostare
+          quali servizi offri e a che tariffa: sarà tutto pronto appena il profilo viene attivato.
         </p>
-        <Button to="/account" variant="secondary" className="mt-2">
+        <Button to="/diventa-sitter/servizi" className="mt-2 w-full">
+          Imposta servizi e tariffe
+        </Button>
+        <Button to="/account" variant="text">
           Vai al mio account
         </Button>
       </div>

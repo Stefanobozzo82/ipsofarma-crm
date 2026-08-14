@@ -7,9 +7,11 @@ import type {
   PublicSitterProfile,
   Review,
   SearchSittersQuery,
+  SetSitterServicesInput,
   SitterApplyInput,
   SitterProfile,
   SitterSearchResult,
+  SitterService,
 } from "@fido/shared";
 import { env } from "@/lib/env";
 import { supabase } from "@/lib/supabase";
@@ -110,4 +112,12 @@ export function payBooking(id: string): Promise<{ clientSecret: string }> {
 
 export function applyAsSitter(input: SitterApplyInput): Promise<SitterProfile> {
   return apiFetch<SitterProfile>("/sitters/apply", { method: "POST", body: input });
+}
+
+export function listMyServices(): Promise<SitterService[]> {
+  return apiFetch<SitterService[]>("/sitters/me/services");
+}
+
+export function setMyServices(input: SetSitterServicesInput): Promise<SitterService[]> {
+  return apiFetch<SitterService[]>("/sitters/me/services", { method: "PUT", body: input });
 }

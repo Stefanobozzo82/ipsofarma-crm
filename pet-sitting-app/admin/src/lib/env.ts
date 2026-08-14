@@ -9,5 +9,11 @@ function readEnv(key: string, fallback: string): string {
 export const env = {
   SUPABASE_URL: readEnv("VITE_SUPABASE_URL", "https://your-project.supabase.co"),
   SUPABASE_ANON_KEY: readEnv("VITE_SUPABASE_ANON_KEY", "changeme"),
-  API_URL: readEnv("VITE_API_URL", "http://localhost:4000/api/v1"),
+  // Fallback al backend già deployato su Render — come in web/src/lib/env.ts,
+  // così il pannello funziona "out of the box" una volta pubblicato, senza
+  // richiedere VITE_API_URL: senza questo fallback, un deploy su Render senza
+  // quella variabile impostata avrebbe provato a chiamare localhost:4000 dal
+  // browser di chi apre il pannello — non dalla macchina di chi l'ha deployato,
+  // fallendo per chiunque.
+  API_URL: readEnv("VITE_API_URL", "https://fido-backend-ybvd.onrender.com/api/v1"),
 };

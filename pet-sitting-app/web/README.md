@@ -49,7 +49,9 @@ src/
 │   │   ├── Faq.tsx
 │   │   ├── AppPromo.tsx
 │   │   └── CityDirectory.tsx
-│   ├── ui/                        # Button, ServiceCard, Accordion, SearchForm, SitterResultCard, SectionHeading
+│   ├── ui/                        # Button, ChipRow, ServiceCard, Accordion, SearchForm, SitterResultCard, SectionHeading
+│   ├── sitters/
+│   │   └── ServiceListingEditor.tsx           # editor listino servizi/tariffe, condiviso tra BecomeSitterPage e SitterServicesPage
 │   └── notifications/
 │       ├── NotificationsWatcher.tsx           # listener globale nuovi messaggi (suono/badge/Notification), montato in App.tsx
 │       └── NotificationPermissionBanner.tsx   # richiede il permesso Notification solo su click esplicito, mostrato in MessagesPage
@@ -131,11 +133,16 @@ Verificato con screenshot reali (Playwright) a viewport desktop (1440px) e mobil
 
 "Contatti", le colonne del footer e le icone social **non hanno ancora** una destinazione reale — restano `<a href="#">` con `onClick` che chiama `preventPlaceholderNav` (`src/lib/placeholder-link.ts`) per evitare l'effetto collaterale di un `href="#"` normale (senza, cliccarli fa scrollare la pagina in cima). Accedi/Registrati/Diventa un sitter non sono più in questo elenco: hanno una destinazione vera (`/accedi`, `/registrati`, `/diventa-sitter`).
 
-## Candidatura sitter: form vero, stessa API di mobile
+## Candidatura sitter: bio + listino servizi/tariffe, un solo invio
 
-"Diventa un sitter" porta a `BecomeSitterPage` (`/diventa-sitter`), porting web di `mobile/app/sitter-onboarding/apply.tsx`: bio, anni di esperienza, indirizzo, raggio di servizio, `POST /sitters/apply` (autenticato — richiede login, stesso pattern `state.from` delle altre pagine protette). Un'unica differenza voluta rispetto a mobile: niente GPS del telefono per le coordinate, il sito riusa lo stesso geocoding via Nominatim già usato da `SearchForm` (indirizzo testuale digitato → lat/lng). La candidatura finisce nella stessa coda di approvazione che vede il pannello admin (`admin/` → pagina sitter in stato "pending") — nessuna nuova logica di revisione, solo un nuovo modo di arrivarci.
+"Diventa un sitter" porta a `BecomeSitterPage` (`/diventa-sitter`), a sua volta basata su `mobile/app/sitter-onboarding/apply.tsx` ma estesa su richiesta esplicita: candidarsi da solo non basta a comparire in ricerca (serve anche un listino `sitter_services`, altrimenti `nearby_sitters()` non ha nulla da restituire per quel sitter), quindi qui **non si può inviare la candidatura senza aver già scelto almeno un servizio e una tariffa** — a differenza di mobile, dove il listino si imposta a parte, dopo, dalla dashboard sitter.
 
-Candidarsi da solo non basta a comparire in ricerca: serve anche un listino servizi/tariffe (`sitter_services`), altrimenti `nearby_sitters()` non ha nulla da restituire per quel sitter. `SitterServicesPage` (`/diventa-sitter/servizi`, porting web di `mobile/app/sitter-dashboard/services.tsx`) copre questo passo — `PUT /sitters/me/services` **sostituisce l'intero listino** (semantica upsert lato client: si compone l'elenco completo in `services` e lo si rimanda per intero ad ogni salvataggio, non un endpoint per singola riga). Nessun controllo sullo stato della candidatura lato backend: si può già impostare il listino subito dopo essersi candidati, anche prima dell'approvazione admin — così tutto è pronto appena il profilo viene attivato. Raggiungibile dalla conferma di `BecomeSitterPage` e da `AccountPage` ("Sei già un sitter? Gestisci servizi e tariffe").
+- **Un form, due chiamate in sequenza**: bio/esperienza/indirizzo/raggio di servizio (`POST /sitters/apply`) poi il listino (`PUT /sitters/me/services`, tramite lo stesso `ServiceListingEditor` — vedi sotto). Il vincolo è nel database, non una scelta arbitraria: `sitter_services.sitter_id` referenzia `sitter_profiles.user_id`, quindi il profilo deve esistere prima che si possa salvare un listino — da qui le due chiamate separate invece di un endpoint unico.
+- **Recupero se la seconda chiamata fallisce** (rete, non l'utente): non si ritenta `/sitters/apply` — andrebbe in conflitto, la candidatura esiste già — un flag `applied` blocca i campi già inviati e il pulsante diventa "Riprova a salvare il listino", che chiama solo `setMyServices` di nuovo.
+- **Coordinate**: stesso geocoding Nominatim già usato da `SearchForm` (indirizzo testuale digitato → lat/lng), non GPS come su mobile — il sito non ha un equivalente affidabile in un form.
+- La candidatura finisce nella stessa coda di approvazione che vede il pannello admin (`admin/` → pagina sitter in stato "pending"); nessun controllo sullo stato della candidatura lato backend per il listino, quindi è già salvato e pronto per quando il profilo verrà attivato.
+
+**`ServiceListingEditor`** (`components/sitters/ServiceListingEditor.tsx`) è l'editor del listino — lista con rimozione + form aggiungi/modifica (tipo servizio, tariffa, unità, numero massimo animali, durata per passeggiata/visita, attivo/inattivo) — condiviso tra `BecomeSitterPage` (`onChange` aggiorna solo uno stato locale, salvato una volta sola all'invio) e `SitterServicesPage` (`/diventa-sitter/servizi`, per chi vuole modificare il listino **dopo** essersi già candidato: qui ogni `onChange` salva subito via `PUT /sitters/me/services`). Raggiungibile anche da `AccountPage` ("Sei già un sitter? Gestisci servizi e tariffe").
 
 ## Cosa manca (prossime fasi)
 

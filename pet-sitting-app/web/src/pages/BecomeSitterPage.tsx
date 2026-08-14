@@ -47,7 +47,13 @@ export function BecomeSitterPage() {
 
   if (status !== "signedIn") return <LoadingView />;
 
-  const canSubmit = bio.trim().length >= 20 && address.trim().length >= 3 && experienceYears !== "" && services.length > 0;
+  const missingReasons = [
+    bio.trim().length < 20 ? "una descrizione di almeno 20 caratteri" : null,
+    experienceYears === "" ? "gli anni di esperienza" : null,
+    address.trim().length < 3 ? "un indirizzo o città" : null,
+    services.length === 0 ? "almeno un servizio con la sua tariffa" : null,
+  ].filter((reason): reason is string => reason !== null);
+  const canSubmit = missingReasons.length === 0;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -185,6 +191,9 @@ export function BecomeSitterPage() {
         <Button type="submit" disabled={!canSubmit || submitting} className="w-full">
           {submitting ? "Invio candidatura…" : applied ? "Riprova a salvare il listino" : "Invia candidatura"}
         </Button>
+        {!canSubmit && !applied ? (
+          <p className="text-center text-xs text-ink-faint">Manca ancora: {missingReasons.join(", ")}</p>
+        ) : null}
       </form>
     </div>
   );

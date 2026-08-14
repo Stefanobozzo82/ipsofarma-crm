@@ -3,7 +3,13 @@ import { Link, type LinkProps } from "react-router-dom";
 
 type Variant = "primary" | "secondary" | "text";
 
-const base = "inline-flex items-center justify-center gap-2 rounded-xl font-display font-bold transition active:scale-[0.97]";
+// disabled:pointer-events-none oltre a disabled:opacity-60: senza, un <Button
+// to="..."> disabilitato (Link non supporta l'attributo HTML "disabled", solo
+// <button>) resterebbe comunque cliccabile — qui non capita ancora (nessun
+// Link viene reso "disabled" oggi), ma tiene il comportamento coerente se
+// succedesse in futuro, oltre a spegnere anche l'hover sui <button> reali.
+const base =
+  "inline-flex items-center justify-center gap-2 rounded-xl font-display font-bold transition active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none";
 
 const variants: Record<Variant, string> = {
   primary: "bg-accent text-accent-ink hover:bg-accent/90 px-5 py-3",

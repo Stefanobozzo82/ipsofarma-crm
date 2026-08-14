@@ -98,6 +98,9 @@ export function Header() {
         <div className="hidden items-center gap-4 lg:flex">
           {status === "signedIn" ? (
             <>
+              <Link to="/messaggi" className="font-display font-bold text-ink hover:text-accent">
+                Messaggi
+              </Link>
               <Link
                 to="/account"
                 className="flex items-center gap-1.5 font-display font-bold text-ink hover:text-accent"

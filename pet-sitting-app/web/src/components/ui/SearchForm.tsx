@@ -109,7 +109,7 @@ export function SearchForm() {
               </p>
             </div>
           ) : (
-            results.map((sitter) => <SitterResultCard key={sitter.sitterId} sitter={sitter} />)
+            results.map((sitter) => <SitterResultCard key={sitter.sitterId} sitter={sitter} service={serviceId} />)
           )}
         </div>
       )}

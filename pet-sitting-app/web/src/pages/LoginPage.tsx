@@ -1,6 +1,6 @@
 import { PawPrint } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/Button";
 
@@ -9,6 +9,11 @@ import { Button } from "@/components/ui/Button";
  * ma lo stesso testo per coerenza tra app e sito. */
 export function LoginPage() {
   const navigate = useNavigate();
+  // Le pagine protette (scheda sitter, prenotazione, messaggi) reindirizzano
+  // qui passando `state.from`, così dopo il login si torna dove l'utente
+  // voleva andare invece che sempre su /account.
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
   const signIn = useAuthStore((s) => s.signIn);
 
   const [email, setEmail] = useState("");
@@ -22,7 +27,7 @@ export function LoginPage() {
     setError(null);
     try {
       await signIn(email, password);
-      navigate("/account");
+      navigate(from ?? "/account");
     } catch {
       setError("Email o password non corretti.");
     } finally {

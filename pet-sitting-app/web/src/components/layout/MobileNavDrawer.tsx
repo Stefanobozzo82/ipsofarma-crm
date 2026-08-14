@@ -96,6 +96,13 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
           {status === "signedIn" ? (
             <>
               <Link
+                to="/messaggi"
+                onClick={onClose}
+                className="text-center font-display font-bold text-ink"
+              >
+                Messaggi
+              </Link>
+              <Link
                 to="/account"
                 onClick={onClose}
                 className="flex items-center justify-center gap-1.5 font-display font-bold text-ink"

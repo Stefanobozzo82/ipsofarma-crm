@@ -18,7 +18,7 @@ Marketplace pet-sitting per il mercato italiano, lancio pilota a Cosenza/Calabri
 | [`backend/`](./backend) | API Express: auth, profili, ricerca geografica, prenotazioni, Stripe Connect, recensioni, chat (schema/RLS), notifiche, tracking GPS, admin |
 | [`mobile/`](./mobile) | App React Native (Expo): percorso proprietario e dashboard sitter, entrambi completi end-to-end |
 | [`admin/`](./admin) | Pannello web (React + Vite): approvazione sitter, moderazione recensioni, dispute, statistiche |
-| [`web/`](./web) | Sito marketing pubblico (React + Vite + Tailwind): homepage, non collegata al backend per ora |
+| [`web/`](./web) | Sito marketing pubblico (React + Vite + Tailwind): homepage + ricerca sitter collegata al backend, scheda pubblica sitter, messaggistica realtime e prenotazione/pagamento |
 
 ## Cosa copre l'MVP, in breve
 

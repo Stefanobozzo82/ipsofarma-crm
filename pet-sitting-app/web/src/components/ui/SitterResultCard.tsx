@@ -1,5 +1,6 @@
-import type { SitterSearchResult } from "@fido/shared";
+import type { ServiceType, SitterSearchResult } from "@fido/shared";
 import { Star } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const PRICE_UNIT_LABELS: Record<string, string> = {
   per_walk: "a passeggiata",
@@ -23,9 +24,16 @@ function Avatar({ sitter }: { sitter: SitterSearchResult }) {
   );
 }
 
-export function SitterResultCard({ sitter }: { sitter: SitterSearchResult }) {
+/** `service` è il tipo di servizio cercato in SearchForm — non fa parte di
+ * SitterSearchResult (la ricerca è già filtrata per un solo servizio), ma
+ * serve a preselezionarlo aprendo la scheda del sitter, così chi clicca da
+ * qui non deve ritrovarlo tra tutti quelli offerti. */
+export function SitterResultCard({ sitter, service }: { sitter: SitterSearchResult; service: ServiceType }) {
   return (
-    <div className="flex gap-4 rounded-2xl border border-line bg-surface p-4 shadow-soft">
+    <Link
+      to={`/sitters/${sitter.sitterId}?service=${service}`}
+      className="flex gap-4 rounded-2xl border border-line bg-surface p-4 shadow-soft transition hover:border-accent hover:shadow-lifted"
+    >
       <Avatar sitter={sitter} />
 
       <div className="flex flex-1 flex-col gap-1">
@@ -61,6 +69,6 @@ export function SitterResultCard({ sitter }: { sitter: SitterSearchResult }) {
 
         {sitter.bio ? <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{sitter.bio}</p> : null}
       </div>
-    </div>
+    </Link>
   );
 }

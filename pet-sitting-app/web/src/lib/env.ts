@@ -16,4 +16,8 @@ export const env = {
   // errore di rete gestito, non un crash dell'intera pagina).
   SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co",
   SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key",
+  // Chiave pubblicabile Stripe (safe da esporre lato client, come su mobile:
+  // vedi mobile/src/lib/env.ts). Senza, il pulsante "Paga" in
+  // BookingStatusPage fallisce con un errore gestito, non un crash del sito.
+  STRIPE_PUBLISHABLE_KEY: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "",
 };

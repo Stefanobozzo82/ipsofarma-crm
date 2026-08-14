@@ -7,6 +7,8 @@ import type {
   PublicSitterProfile,
   Review,
   SearchSittersQuery,
+  SitterApplyInput,
+  SitterProfile,
   SitterSearchResult,
 } from "@fido/shared";
 import { env } from "@/lib/env";
@@ -104,4 +106,8 @@ export function cancelBooking(id: string, input: CancelBookingInput): Promise<Bo
 
 export function payBooking(id: string): Promise<{ clientSecret: string }> {
   return apiFetch<{ clientSecret: string }>(`/bookings/${id}/pay`, { method: "POST" });
+}
+
+export function applyAsSitter(input: SitterApplyInput): Promise<SitterProfile> {
+  return apiFetch<SitterProfile>("/sitters/apply", { method: "POST", body: input });
 }

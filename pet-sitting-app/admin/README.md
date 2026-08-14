@@ -13,6 +13,18 @@ cp admin/.env.example admin/.env
 pnpm dev:admin   # http://localhost:5174
 ```
 
+## Deploy
+
+Non ancora pubblicato online di default — a differenza di `backend/` e `web/`, gira solo in locale finché non si crea un servizio Render dedicato. Stesso procedimento già usato per `web/` (vedi `web/README.md`):
+
+1. Su Render: **New → Static Site**, stesso account/repo GitHub già collegato per backend/web.
+2. **Root Directory**: `pet-sitting-app`
+3. **Build Command**: `npx pnpm@9.7.0 install && npx pnpm@9.7.0 --filter admin build` (lo stesso accorgimento `npx pnpm@9.7.0` invece di corepack, scoperto per il backend — evita l'errore EROFS di Render)
+4. **Publish Directory**: `admin/dist`
+5. **Rewrite rule**: sorgente `/*`, destinazione `/index.html`, tipo **Rewrite** — necessaria perché le rotte (`/sitters`, `/reviews`, `/disputes`) esistono solo lato client (React Router): senza questa regola, i link interni funzionano ma **aprire uno di questi indirizzi direttamente o aggiornare la pagina dà 404**.
+6. **Variabili d'ambiente** del servizio (Environment): `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` — stessi valori già presenti nel servizio backend, copiabili da lì. `VITE_API_URL` non è obbligatoria: ha un fallback al backend già deployato (vedi `src/lib/env.ts`), impostala solo se il pannello deve puntare a un backend diverso.
+7. **Dopo il primo deploy**, aggiungi il dominio assegnato da Render (es. `https://fido-admin-xxxx.onrender.com`) alla lista `CORS_ORIGIN` del servizio **backend** su Render (variabile separata da virgole, vedi `backend/.env.example`) — senza, il browser blocca le risposte del backend anche se il pannello si carica.
+
 ## Promuovere un utente ad admin
 
 Non esiste un endpoint per farlo (di proposito: è un'operazione privilegiata rara, non va esposta via API). Due strade:
@@ -35,7 +47,7 @@ src/
 ├── lib/
 │   ├── supabase.ts    # client Supabase, solo auth (stesso pattern del mobile)
 │   ├── api.ts           # fetch verso il backend Express, allega il JWT
-│   └── env.ts
+│   └── env.ts            # VITE_API_URL ha un fallback al backend deployato — vedi sezione Deploy
 ├── store/auth-store.ts   # sessione + profilo; status 'forbidden' se role != 'admin'
 ├── components/
 │   ├── Layout.tsx          # sidebar di navigazione

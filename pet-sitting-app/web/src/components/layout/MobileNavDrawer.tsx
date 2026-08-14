@@ -63,13 +63,13 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
           <a href="/#hero-search" onClick={onClose} className="rounded-xl px-3 py-3 font-display font-bold text-ink hover:bg-surface-muted">
             Cerca sitter
           </a>
-          <a
-            href="#"
-            onClick={handlePlaceholderTap}
+          <Link
+            to="/diventa-sitter"
+            onClick={onClose}
             className="rounded-xl px-3 py-3 font-display font-bold text-ink hover:bg-surface-muted"
           >
             Diventa un sitter
-          </a>
+          </Link>
 
           <span className="px-3 pt-3 text-xs font-display font-bold uppercase tracking-wide text-ink-faint">
             I nostri servizi

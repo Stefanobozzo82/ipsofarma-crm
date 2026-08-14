@@ -28,7 +28,8 @@ src/
 │   ├── BookingNewPage.tsx          # /sitters/:id/prenota — animali (+ form aggiunta inline), date/orari, invio richiesta
 │   ├── BookingStatusPage.tsx       # /prenotazioni/:id — riepilogo, cancellazione, pagamento (Stripe Elements)
 │   ├── MessagesPage.tsx            # /messaggi — elenco conversazioni
-│   └── ChatPage.tsx                # /messaggi/:id — thread realtime
+│   ├── ChatPage.tsx                # /messaggi/:id — thread realtime
+│   └── BecomeSitterPage.tsx        # /diventa-sitter — candidatura sitter (POST /sitters/apply)
 ├── data/                          # contenuto editabile senza toccare i componenti
 │   ├── services.ts                # le 5 categorie (riusa ServiceType da @fido/shared)
 │   ├── cities.ts                  # directory città per SEO
@@ -127,7 +128,11 @@ Verificato con screenshot reali (Playwright) a viewport desktop (1440px) e mobil
 
 ## Link segnaposto
 
-"Diventa un sitter", "Contatti", le colonne del footer e le icone social **non hanno ancora** una destinazione reale — restano `<a href="#">` con `onClick` che chiama `preventPlaceholderNav` (`src/lib/placeholder-link.ts`) per evitare l'effetto collaterale di un `href="#"` normale (senza, cliccarli fa scrollare la pagina in cima). Accedi/Registrati non sono più in questo elenco: hanno una destinazione vera (`/accedi`, `/registrati`).
+"Contatti", le colonne del footer e le icone social **non hanno ancora** una destinazione reale — restano `<a href="#">` con `onClick` che chiama `preventPlaceholderNav` (`src/lib/placeholder-link.ts`) per evitare l'effetto collaterale di un `href="#"` normale (senza, cliccarli fa scrollare la pagina in cima). Accedi/Registrati/Diventa un sitter non sono più in questo elenco: hanno una destinazione vera (`/accedi`, `/registrati`, `/diventa-sitter`).
+
+## Candidatura sitter: form vero, stessa API di mobile
+
+"Diventa un sitter" porta a `BecomeSitterPage` (`/diventa-sitter`), porting web di `mobile/app/sitter-onboarding/apply.tsx`: bio, anni di esperienza, indirizzo, raggio di servizio, `POST /sitters/apply` (autenticato — richiede login, stesso pattern `state.from` delle altre pagine protette). Un'unica differenza voluta rispetto a mobile: niente GPS del telefono per le coordinate, il sito riusa lo stesso geocoding via Nominatim già usato da `SearchForm` (indirizzo testuale digitato → lat/lng). La candidatura finisce nella stessa coda di approvazione che vede il pannello admin (`admin/` → pagina sitter in stato "pending") — nessuna nuova logica di revisione, solo un nuovo modo di arrivarci.
 
 ## Cosa manca (prossime fasi)
 
@@ -138,6 +143,6 @@ Verificato con screenshot reali (Playwright) a viewport desktop (1440px) e mobil
 - Avvio/completamento servizio, tracking GPS in diretta e recensioni post-servizio restano solo nell'app — non collegati sul sito in questo giro
 - Notifica nuovo messaggio solo a sito aperto in una scheda (vedi sopra) — niente push vero a browser chiuso, servirebbe Service Worker + Web Push + endpoint backend dedicato
 - Newsletter footer: nessun endpoint di iscrizione esiste ancora
-- "Diventa un sitter" e "Contatti" nell'header sono link segnaposto (`#`) — da decidere se pagine separate o sezioni della stessa homepage
+- "Contatti" nell'header resta un link segnaposto (`#`) — da decidere se una pagina separata o una sezione della homepage
 - Nessuna pagina dedicata per città/servizio ancora (oggi solo homepage) — se in futuro serve indicizzazione SEO più profonda, valutare se questo sito basta o se serve un framework con rendering server-side
 - Copertura assicurativa/garanzia menzionata in `TrustSection`/FAQ come "in arrivo" — collegare al vero gap prodotto quando sarà implementato

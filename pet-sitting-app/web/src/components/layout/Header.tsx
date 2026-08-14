@@ -46,13 +46,9 @@ export function Header() {
           <a href="/#hero-search" className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent">
             Cerca sitter
           </a>
-          <a
-            href="#"
-            onClick={preventPlaceholderNav}
-            className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent"
-          >
+          <Link to="/diventa-sitter" className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent">
             Diventa un sitter
-          </a>
+          </Link>
 
           <div
             className="relative"

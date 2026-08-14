@@ -1,6 +1,7 @@
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, useFonts as useInterFonts } from "@expo-google-fonts/inter";
-import { Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold, useFonts as useNunitoFonts } from "@expo-google-fonts/nunito";
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
+import { Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
 import { StripeProvider } from "@stripe/stripe-react-native";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -17,9 +18,21 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const initialize = useAuthStore((s) => s.initialize);
-  const [nunitoLoaded] = useNunitoFonts({ Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold });
-  const [interLoaded] = useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
-  const fontsReady = nunitoLoaded && interLoaded;
+  // useFonts di expo-font direttamente, non il re-export di
+  // @expo-google-fonts/* (usati qui solo per le costanti dei font, dei
+  // semplici require() senza dipendenze). Quei pacchetti non dichiarano
+  // "react" tra le proprie dipendenze: sotto pnpm, il loro useFonts può
+  // risolvere un'istanza di React diversa da quella dell'app, causando
+  // "Invalid hook call" — expo-font è invece una dipendenza diretta vera
+  // di mobile/package.json, sempre risolta correttamente.
+  const [fontsReady] = useFonts({
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+  });
 
   useEffect(() => {
     initialize();

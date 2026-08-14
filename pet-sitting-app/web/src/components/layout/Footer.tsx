@@ -1,5 +1,6 @@
 import { Camera, PawPrint, Send, Share2, Video } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { preventPlaceholderNav } from "@/lib/placeholder-link";
 
 const columns: { title: string; links: string[] }[] = [
   { title: "Chi siamo", links: ["La nostra storia", "Come funziona", "Lavora con noi", "Blog"] },
@@ -64,7 +65,7 @@ export function Footer() {
               <ul className="flex flex-col gap-2">
                 {column.links.map((link) => (
                   <li key={link}>
-                    <a href="#" className="text-sm text-ink-muted hover:text-accent">
+                    <a href="#" onClick={preventPlaceholderNav} className="text-sm text-ink-muted hover:text-accent">
                       {link}
                     </a>
                   </li>
@@ -80,13 +81,13 @@ export function Footer() {
            * libreria) — icone generiche con aria-label esplicito al posto
            * dei loghi reali di Instagram/Facebook/YouTube. */}
           <div className="flex items-center gap-4 text-ink-faint">
-            <a href="#" aria-label="Instagram" className="hover:text-accent">
+            <a href="#" onClick={preventPlaceholderNav} aria-label="Instagram" className="hover:text-accent">
               <Camera size={20} />
             </a>
-            <a href="#" aria-label="Facebook" className="hover:text-accent">
+            <a href="#" onClick={preventPlaceholderNav} aria-label="Facebook" className="hover:text-accent">
               <Share2 size={20} />
             </a>
-            <a href="#" aria-label="YouTube" className="hover:text-accent">
+            <a href="#" onClick={preventPlaceholderNav} aria-label="YouTube" className="hover:text-accent">
               <Video size={20} />
             </a>
           </div>

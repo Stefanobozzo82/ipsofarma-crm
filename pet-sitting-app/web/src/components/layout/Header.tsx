@@ -1,6 +1,7 @@
 import { ChevronDown, Menu, PawPrint } from "lucide-react";
 import { useEffect, useState } from "react";
 import { services } from "@/data/services";
+import { preventPlaceholderNav } from "@/lib/placeholder-link";
 import { Button } from "@/components/ui/Button";
 import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
 
@@ -35,7 +36,11 @@ export function Header() {
           <a href="#hero-search" className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent">
             Cerca sitter
           </a>
-          <a href="#" className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent">
+          <a
+            href="#"
+            onClick={preventPlaceholderNav}
+            className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent"
+          >
             Diventa un sitter
           </a>
 
@@ -73,19 +78,23 @@ export function Header() {
             </div>
           </div>
 
-          <a href="#" className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent">
+          <a
+            href="#"
+            onClick={preventPlaceholderNav}
+            className="rounded-lg px-3 py-2 font-display font-bold text-ink hover:text-accent"
+          >
             Contatti
           </a>
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
-          <a href="#" className="font-display font-bold text-ink-muted hover:text-ink">
+          <a href="#" onClick={preventPlaceholderNav} className="font-display font-bold text-ink-muted hover:text-ink">
             Accedi
           </a>
-          <a href="#" className="font-display font-bold text-ink-muted hover:text-ink">
+          <a href="#" onClick={preventPlaceholderNav} className="font-display font-bold text-ink-muted hover:text-ink">
             Registrati
           </a>
-          <Button href="#" variant="primary">
+          <Button href="#" onClick={preventPlaceholderNav} variant="primary">
             Registrati ora
           </Button>
         </div>

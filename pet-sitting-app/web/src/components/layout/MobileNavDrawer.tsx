@@ -1,6 +1,8 @@
 import { PawPrint, X } from "lucide-react";
+import type { MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { services } from "@/data/services";
+import { preventPlaceholderNav } from "@/lib/placeholder-link";
 import { Button } from "@/components/ui/Button";
 
 interface MobileNavDrawerProps {
@@ -15,6 +17,14 @@ interface MobileNavDrawerProps {
  * (66px) invece che al viewport intero: un gotcha CSS noto (transform,
  * filter e backdrop-filter su un antenato "catturano" i fixed). */
 export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
+  // Per le voci senza destinazione reale: chiude comunque il drawer (il
+  // tocco deve sempre dare un feedback), ma non lascia che il semplice
+  // "#" faccia scrollare la pagina in cima.
+  function handlePlaceholderTap(event: MouseEvent) {
+    preventPlaceholderNav(event);
+    onClose();
+  }
+
   return createPortal(
     <div
       className={`fixed inset-0 z-50 overflow-hidden transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
@@ -46,7 +56,11 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
           <a href="#hero-search" onClick={onClose} className="rounded-xl px-3 py-3 font-display font-bold text-ink hover:bg-surface-muted">
             Cerca sitter
           </a>
-          <a href="#" onClick={onClose} className="rounded-xl px-3 py-3 font-display font-bold text-ink hover:bg-surface-muted">
+          <a
+            href="#"
+            onClick={handlePlaceholderTap}
+            className="rounded-xl px-3 py-3 font-display font-bold text-ink hover:bg-surface-muted"
+          >
             Diventa un sitter
           </a>
 
@@ -64,16 +78,20 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
             </a>
           ))}
 
-          <a href="#" onClick={onClose} className="mt-2 rounded-xl px-3 py-3 font-display font-bold text-ink hover:bg-surface-muted">
+          <a
+            href="#"
+            onClick={handlePlaceholderTap}
+            className="mt-2 rounded-xl px-3 py-3 font-display font-bold text-ink hover:bg-surface-muted"
+          >
             Contatti
           </a>
         </nav>
 
         <div className="mt-auto flex flex-col gap-3 border-t border-line pt-6">
-          <a href="#" className="text-center font-display font-bold text-ink-muted">
+          <a href="#" onClick={handlePlaceholderTap} className="text-center font-display font-bold text-ink-muted">
             Accedi
           </a>
-          <Button href="#" variant="primary" className="w-full">
+          <Button href="#" onClick={handlePlaceholderTap} variant="primary" className="w-full">
             Registrati ora
           </Button>
         </div>

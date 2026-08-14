@@ -60,6 +60,10 @@ Causa: `<Header>` ha `backdrop-blur` (`backdrop-filter`) per l'effetto vetro sul
 
 Verificato con screenshot reali (Playwright) a viewport desktop (1440px) e mobile (390px), sia a drawer chiuso che aperto — non solo con la build che passa, dato che questo tipo di bug non emerge né dal build né dal typecheck.
 
+## Link segnaposto
+
+Tutte le voci senza una destinazione reale ancora (Accedi, Registrati, Diventa un sitter, Contatti, le colonne del footer, le icone social) restano `<a href="#">` — semanticamente link veri, navigabili da tastiera — ma con `onClick` che chiama `preventPlaceholderNav` (`src/lib/placeholder-link.ts`) per evitare l'effetto collaterale di un `href="#"` normale: senza, cliccarli fa scrollare la pagina in cima, un comportamento confuso soprattutto su una CTA primaria come "Registrati ora". Quando queste destinazioni esisteranno davvero, basta sostituire `href="#"` con l'URL vero e rimuovere l'`onClick`.
+
 ## Cosa manca (prossime fasi)
 
 - Nessuna chiamata reale al backend: il modulo di ricerca nell'hero ha stato controllato ma non è collegato a `GET /sitters/search` — da decidere come/se collegare sito e app (stesso backend? redirect all'app?)

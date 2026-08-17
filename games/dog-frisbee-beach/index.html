@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Dog Frisbee Beach Run</title>
+<style>
+  :root{
+    --sand-dark:#caa15a;
+    --panel-bg: rgba(10, 40, 60, 0.55);
+    --accent: #ff7a3d;
+    --accent2: #ffd23f;
+    --ink: #ffffff;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden; background:#07141f;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    touch-action:none; user-select:none;
+  }
+  #stage{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(ellipse at center, #123 0%, #061018 100%);
+  }
+  canvas{
+    display:block;
+    background:#87ceeb;
+    box-shadow: 0 0 40px rgba(0,0,0,0.6);
+    border-radius: 4px;
+    touch-action:none;
+  }
+  #hint{
+    position:fixed; left:0; right:0; bottom:8px;
+    text-align:center; color:rgba(255,255,255,0.55);
+    font-size:12px; letter-spacing:.03em; pointer-events:none;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+</div>
+<div id="hint">SPAZIO / TAP per giocare — Dog Frisbee Beach Run</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   DOG FRISBEE BEACH RUN
+   Single-file HTML5 canvas mini-game ispirato a "Dog Distance"
+   (Windjammers). Stati: MENU -> THROW -> RUN -> GAME_OVER
+   ============================================================ */
+
+// ---------- Canvas & responsive letterboxing ----------
+const LOGICAL_W = 960;
+const LOGICAL_H = 540;
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const availW = window.innerWidth;
+  const availH = window.innerHeight;
+  const scale = Math.min(availW / LOGICAL_W, availH / LOGICAL_H);
+  const cssW = Math.floor(LOGICAL_W * scale);
+  const cssH = Math.floor(LOGICAL_H * scale);
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width = Math.floor(LOGICAL_W * dpr);
+  canvas.height = Math.floor(LOGICAL_H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+resize();
+
+// ---------- Utility ----------
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function lerp(a, b, t){ return a + (b - a) * t; }
+function rand(a, b){ return a + Math.random() * (b - a); }
+function randInt(a, b){ return Math.floor(rand(a, b + 1)); }
+function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+// ---------- Persistent record ----------
+const STORAGE_KEY = 'dogFrisbeeBeach_bestDistance_v1';
+let bestDistance = 0;
+try {
+  bestDistance = parseFloat(localStorage.getItem(STORAGE_KEY)) || 0;
+} catch(e){ bestDistance = 0; }
+
+function saveRecord(dist){
+  if (dist > bestDistance){
+    bestDistance = dist;
+    try { localStorage.setItem(STORAGE_KEY, String(bestDistance)); } catch(e){}
+    return true;
+  }
+  return false;
+}
+
+// ---------- Ground geometry ----------
+const GROUND_H = 120;
+const GROUND_Y = LOGICAL_H - GROUND_H;
+
+// ---------- Game state machine ----------
+const STATE = { MENU:'MENU', THROW:'THROW', RUN:'RUN', GAME_OVER:'GAME_OVER' };
+let state = STATE.MENU;
+
+// ---------- Background parallax offsets (shared, keeps drifting even in menu) ----------
+let bg = { sky:0, cloud:0, sea:0, sandFar:0, sandNear:0 };
+
+// ---------- THROW phase data ----------
+const throwPhase = {
+  t: 0,
+  value: 0,        // 0..100 oscillating
+  dir: 1,
+  speed: 95,        // units per second of oscillation
+  locked: false,
+  power: 0,
+  lockFlashT: 0,
+};
+
+function resetThrow(){
+  throwPhase.t = 0;
+  throwPhase.value = 0;
+  throwPhase.dir = 1;
+  throwPhase.speed = rand(85, 105);
+  throwPhase.locked = false;
+  throwPhase.power = 0;
+  throwPhase.lockFlashT = 0;
+}
+
+// ---------- RUN phase data ----------
+const DOG_X = 165;         // fixed screen x of the dog
+const DOG_W = 78;
+const DOG_H = 56;
+const GRAVITY = 2500;
+const JUMP_VELOCITY = -1000;
+
+let run = null; // populated by startRun()
+
+function startRun(power){
+  const baseSpeed = 250 + (power / 100) * 260; // 250..510 px/s
+
+  run = {
+    baseSpeed: baseSpeed,
+    distance: 0,          // meters
+    score: 0,
+    bonus: 0,
+    combo: 0,
+    bestCombo: 0,
+    stamina: 100,
+    boostTimer: 0,
+    stumbleTimer: 0,
+    stumbleDur: 0.8,
+    shakeT: 0,
+    obstacles: [],
+    powerups: [],
+    spawnCooldown: rand(0.9, 1.4),
+    powerupCooldown: rand(5, 9),
+    dog: {
+      y: GROUND_Y - DOG_H,
+      vy: 0,
+      grounded: true,
+      animTime: 0,
+      squash: 1,
+    },
+    toast: null,       // {text, t, color}
+    over: false,
+  };
+}
+
+function dogRect(){
+  const d = run.dog;
+  // slightly inset hitbox for fairness
+  return { x: DOG_X + 10, y: d.y + 8, w: DOG_W - 20, h: DOG_H - 12 };
+}
+
+function rectsOverlap(a, b){
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function currentMultiplier(){
+  if (run.boostTimer > 0) return 1.65;
+  if (run.stumbleTimer > 0){
+    const t = 1 - (run.stumbleTimer / run.stumbleDur); // 0..1
+    return lerp(0.45, 1, t);
+  }
+  return 1;
+}
+
+function effectiveSpeed(){
+  return run.baseSpeed * currentMultiplier();
+}
+
+// ---------- Obstacle & powerup definitions ----------
+const OBSTACLE_TYPES = [
+  { key:'rock',    w:52, h:46, label:'roccia'    },
+  { key:'crab',    w:40, h:26, label:'granchio'  },
+  { key:'bucket',  w:34, h:44, label:'secchiello' },
+  { key:'towel',   w:70, h:14, label:'asciugamano'},
+  { key:'puddle',  w:78, h:12, label:'pozza'      },
+  { key:'umbrella',w:20, h:100,label:'ombrellone'  },
+];
+
+function spawnObstacle(){
+  const type = pick(OBSTACLE_TYPES);
+  const h = type.h;
+  const y = GROUND_Y - h + (type.key === 'puddle' ? 6 : 0);
+  run.obstacles.push({
+    type: type.key,
+    x: LOGICAL_W + 40,
+    y: y,
+    w: type.w,
+    h: h,
+    hit: false,
+    counted: false,
+    wobble: rand(0, Math.PI * 2),
+  });
+}
+
+function spawnPowerup(){
+  run.powerups.push({
+    x: LOGICAL_W + 40,
+    y: GROUND_Y - 130 - rand(0, 40),
+    r: 20,
+    t: 0,
+    taken: false,
+  });
+}
+
+function showToast(text, color){
+  run.toast = { text, t: 1.1, color: color || '#ffd23f' };
+}
+
+// ---------- Input ----------
+function handleAction(){
+  if (state === STATE.MENU){
+    state = STATE.THROW;
+    resetThrow();
+  } else if (state === STATE.THROW){
+    lockThrow();
+  } else if (state === STATE.RUN){
+    tryJump();
+  } else if (state === STATE.GAME_OVER){
+    state = STATE.MENU;
+  }
+}
+
+function tryJump(){
+  if (!run || run.over) return;
+  const d = run.dog;
+  if (d.grounded){
+    d.vy = JUMP_VELOCITY;
+    d.grounded = false;
+    d.squash = 1;
+  }
+}
+
+function lockThrow(){
+  if (throwPhase.locked) return;
+  throwPhase.locked = true;
+  throwPhase.lockFlashT = 0.5;
+  // Power: 100 at dead center (50), falls off toward edges.
+  const dist = Math.abs(50 - throwPhase.value);
+  const power = clamp(100 - dist * 2.2, 0, 100);
+  throwPhase.power = power;
+  setTimeout(() => {
+    if (state === STATE.THROW){
+      startRun(power);
+      state = STATE.RUN;
+    }
+  }, 550);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'ArrowUp'){
+    e.preventDefault();
+    if (e.repeat && state !== STATE.RUN) return;
+    handleAction();
+  }
+}, { passive:false });
+
+function onPointerDown(e){
+  e.preventDefault();
+  handleAction();
+}
+stage.addEventListener('pointerdown', onPointerDown, { passive:false });
+stage.addEventListener('touchstart', onPointerDown, { passive:false });
+
+// ============================================================
+// UPDATE
+// ============================================================
+function updateBackground(dt, speed){
+  bg.cloud += speed * 0.04 * dt;
+  bg.sea   += speed * 0.28 * dt;
+  bg.sandFar += speed * 0.55 * dt;
+  bg.sandNear += speed * 1.0 * dt;
+}
+
+function updateThrow(dt){
+  updateBackground(dt, 60);
+  if (throwPhase.locked){
+    throwPhase.lockFlashT -= dt;
+    return;
+  }
+  throwPhase.value += throwPhase.dir * throwPhase.speed * dt;
+  if (throwPhase.value >= 100){ throwPhase.value = 100; throwPhase.dir = -1; }
+  if (throwPhase.value <= 0){ throwPhase.value = 0; throwPhase.dir = 1; }
+}
+
+function updateRun(dt){
+  if (!run) return;
+  const speed = effectiveSpeed();
+  updateBackground(dt, speed);
+
+  // timers
+  if (run.boostTimer > 0) run.boostTimer = Math.max(0, run.boostTimer - dt);
+  if (run.stumbleTimer > 0) run.stumbleTimer = Math.max(0, run.stumbleTimer - dt);
+  if (run.shakeT > 0) run.shakeT = Math.max(0, run.shakeT - dt);
+  if (run.toast) { run.toast.t -= dt; if (run.toast.t <= 0) run.toast = null; }
+
+  // stamina drain
+  run.stamina -= dt * 1.35;
+  if (run.stamina <= 0){
+    run.stamina = 0;
+    endRun();
+    return;
+  }
+
+  // distance & score
+  run.distance += speed * dt * 0.085;
+  run.score = Math.floor(run.distance) + run.bonus;
+
+  // dog physics
+  const d = run.dog;
+  d.animTime += dt * (speed / 260);
+  if (!d.grounded){
+    d.vy += GRAVITY * dt;
+    d.y += d.vy * dt;
+    if (d.y >= GROUND_Y - DOG_H){
+      d.y = GROUND_Y - DOG_H;
+      d.vy = 0;
+      d.grounded = true;
+      d.squash = 1.35;
+    }
+  } else {
+    d.squash = lerp(d.squash, 1, clamp(dt * 10, 0, 1));
+  }
+
+  // spawn obstacles
+  run.spawnCooldown -= dt;
+  if (run.spawnCooldown <= 0){
+    spawnObstacle();
+    const gapPx = rand(300, 460);
+    run.spawnCooldown = gapPx / Math.max(speed, 120);
+  }
+
+  // spawn powerups
+  run.powerupCooldown -= dt;
+  if (run.powerupCooldown <= 0){
+    spawnPowerup();
+    run.powerupCooldown = rand(9, 15);
+  }
+
+  const dogR = dogRect();
+
+  // move & evaluate obstacles
+  for (let i = run.obstacles.length - 1; i >= 0; i--){
+    const o = run.obstacles[i];
+    o.x -= speed * dt;
+    o.wobble += dt * 4;
+
+    if (!o.hit && rectsOverlap(dogR, o)){
+      o.hit = true;
+      onObstacleHit(o);
+    }
+    if (!o.hit && !o.counted && (o.x + o.w) < dogR.x){
+      o.counted = true;
+      onObstacleCleared(o);
+    }
+    if (o.x + o.w < -60) run.obstacles.splice(i, 1);
+  }
+
+  // move & evaluate powerups
+  for (let i = run.powerups.length - 1; i >= 0; i--){
+    const p = run.powerups[i];
+    p.x -= speed * dt;
+    p.t += dt;
+    const pr = { x:p.x - p.r, y:p.y - p.r, w:p.r*2, h:p.r*2 };
+    if (!p.taken && rectsOverlap(dogR, pr)){
+      p.taken = true;
+      onPowerupTaken();
+    }
+    if (p.taken || p.x < -60) run.powerups.splice(i, 1);
+  }
+}
+
+function onObstacleHit(o){
+  run.stumbleTimer = run.stumbleDur;
+  run.stamina = Math.max(0, run.stamina - 14);
+  run.combo = 0;
+  run.shakeT = 0.25;
+  showToast('OSTACOLO! -velocità', '#ff5a5a');
+}
+
+function onObstacleCleared(o){
+  run.combo += 1;
+  run.bestCombo = Math.max(run.bestCombo, run.combo);
+  const gained = 8 + Math.min(run.combo, 10) * 3;
+  run.bonus += gained;
+  if (run.combo >= 3 && run.combo % 3 === 0){
+    showToast('COMBO x' + run.combo + '  +' + gained, '#7CFC9A');
+  }
+}
+
+function onPowerupTaken(){
+  run.boostTimer = 4.0;
+  run.stamina = Math.min(100, run.stamina + 16);
+  run.bonus += 25;
+  showToast('RAFFICA DI VENTO! +boost', '#7ec8ff');
+}
+
+function endRun(){
+  if (run.over) return;
+  run.over = true;
+  const isRecord = saveRecord(run.distance);
+  run.isRecord = isRecord;
+  state = STATE.GAME_OVER;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function drawBackground(){
+  // sky gradient (tropical sunset -> day blue)
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  skyGrad.addColorStop(0, '#3d8fe0');
+  skyGrad.addColorStop(0.55, '#7fc8f0');
+  skyGrad.addColorStop(0.85, '#ffd9a0');
+  skyGrad.addColorStop(1, '#ffb37a');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, LOGICAL_W, GROUND_Y);
+
+  // sun
+  ctx.fillStyle = 'rgba(255, 246, 200, 0.9)';
+  ctx.beginPath();
+  ctx.arc(LOGICAL_W - 120, 90, 46, 0, Math.PI * 2);
+  ctx.fill();
+
+  // clouds (parallax)
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (let i = 0; i < 5; i++){
+    const spacing = 260;
+    let x = (i * spacing - (bg.cloud % spacing));
+    const y = 60 + (i % 3) * 32;
+    drawCloud(x, y, 34 + (i % 2) * 10);
+  }
+
+  // sea band
+  const seaY = GROUND_Y - 118;
+  const seaGrad = ctx.createLinearGradient(0, seaY, 0, GROUND_Y);
+  seaGrad.addColorStop(0, '#2fb8c9');
+  seaGrad.addColorStop(1, '#1a8fa8');
+  ctx.fillStyle = seaGrad;
+  ctx.fillRect(0, seaY, LOGICAL_W, GROUND_Y - seaY + 10);
+
+  // wave streaks
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 3;
+  for (let row = 0; row < 4; row++){
+    const y = seaY + 18 + row * 24;
+    const spacing = 90;
+    ctx.beginPath();
+    for (let i = -1; i < 12; i++){
+      let x = (i * spacing - (bg.sea * (0.6 + row * 0.15)) % spacing);
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 40, y);
+    }
+    ctx.stroke();
+  }
+
+  // foam line where sea meets sand
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.fillRect(0, GROUND_Y - 6, LOGICAL_W, 6);
+
+  // sand
+  const sandGrad = ctx.createLinearGradient(0, GROUND_Y, 0, LOGICAL_H);
+  sandGrad.addColorStop(0, '#f3d493');
+  sandGrad.addColorStop(1, '#dba85f');
+  ctx.fillStyle = sandGrad;
+  ctx.fillRect(0, GROUND_Y, LOGICAL_W, GROUND_H);
+
+  // sand texture dots (far, slower)
+  ctx.fillStyle = 'rgba(180,130,60,0.35)';
+  drawDotRow(bg.sandFar, 70, GROUND_Y + 18, 3);
+  // near texture (faster, bigger)
+  ctx.fillStyle = 'rgba(150,105,45,0.4)';
+  drawDotRow(bg.sandNear, 46, GROUND_Y + 60, 4);
+
+  // shell/star decorations near line
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  drawDotRow(bg.sandNear * 1.3, 130, GROUND_Y + 90, 2.5);
+}
+
+function drawDotRow(offset, spacing, y, r){
+  const off = offset % spacing;
+  for (let x = -spacing; x < LOGICAL_W + spacing; x += spacing){
+    ctx.beginPath();
+    ctx.arc(x - off, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawCloud(x, y, s){
+  ctx.beginPath();
+  ctx.arc(x, y, s * 0.6, 0, Math.PI * 2);
+  ctx.arc(x + s * 0.6, y - s * 0.2, s * 0.5, 0, Math.PI * 2);
+  ctx.arc(x + s * 1.1, y, s * 0.55, 0, Math.PI * 2);
+  ctx.arc(x + s * 0.5, y + s * 0.15, s * 0.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawDog(x, y, w, h, animTime, grounded, squash, stumble){
+  ctx.save();
+  ctx.translate(x + w / 2, y + h);
+  const sq = squash;
+  ctx.scale(1 / sq * 0.5 + 0.5, sq * 0.5 + 0.5); // gentle squash&stretch blend
+  ctx.translate(-(w / 2), -h);
+
+  const bodyColor = stumble ? '#e0a15a' : '#c8863f';
+  const bellyColor = '#f4dcb2';
+  const earColor = '#8a5a2b';
+
+  // legs (animated) - simple running cycle when grounded
+  ctx.strokeStyle = '#7a4d24';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  const legBaseX = w * 0.28;
+  const legBaseY = h * 0.78;
+  const cyc = grounded ? animTime * 10 : 0;
+  for (let i = 0; i < 2; i++){
+    const phase = cyc + i * Math.PI;
+    const swing = grounded ? Math.sin(phase) * 14 : (i === 0 ? -10 : 14);
+    const lift = grounded ? Math.max(0, Math.sin(phase)) * 6 : 0;
+    ctx.beginPath();
+    ctx.moveTo(legBaseX + i * w * 0.42, legBaseY - lift);
+    ctx.lineTo(legBaseX + i * w * 0.42 + swing, h);
+    ctx.stroke();
+  }
+
+  // tail
+  ctx.strokeStyle = bodyColor;
+  ctx.lineWidth = 9;
+  ctx.beginPath();
+  const tailWag = Math.sin(animTime * 12) * 10;
+  ctx.moveTo(w * 0.06, h * 0.42);
+  ctx.quadraticCurveTo(-14, h * 0.15 + tailWag, -22, h * 0.0 + tailWag);
+  ctx.stroke();
+
+  // body
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(w * 0.48, h * 0.5, w * 0.42, h * 0.34, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // belly
+  ctx.fillStyle = bellyColor;
+  ctx.beginPath();
+  ctx.ellipse(w * 0.48, h * 0.62, w * 0.3, h * 0.18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // head
+  const headX = w * 0.86, headY = h * 0.32;
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(headX, headY, w * 0.22, h * 0.24, -0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ear
+  ctx.fillStyle = earColor;
+  ctx.beginPath();
+  ctx.moveTo(headX - 4, headY - 14);
+  ctx.quadraticCurveTo(headX - 20, headY - 4, headX - 8, headY + 14);
+  ctx.quadraticCurveTo(headX - 2, headY + 2, headX - 4, headY - 14);
+  ctx.fill();
+
+  // snout
+  ctx.fillStyle = bellyColor;
+  ctx.beginPath();
+  ctx.ellipse(headX + 16, headY + 8, 10, 7, -0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3a2416';
+  ctx.beginPath();
+  ctx.arc(headX + 24, headY + 6, 2.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // eye
+  ctx.fillStyle = '#2a1a10';
+  ctx.beginPath();
+  ctx.arc(headX + 6, headY - 2, 2.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawObstacle(o){
+  ctx.save();
+  ctx.translate(o.x, o.y);
+  switch(o.type){
+    case 'rock': {
+      ctx.fillStyle = '#8b8f94';
+      ctx.beginPath();
+      ctx.moveTo(2, o.h);
+      ctx.lineTo(6, o.h * 0.35);
+      ctx.lineTo(o.w * 0.4, 0);
+      ctx.lineTo(o.w * 0.75, o.h * 0.25);
+      ctx.lineTo(o.w - 2, o.h * 0.6);
+      ctx.lineTo(o.w - 4, o.h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.moveTo(o.w * 0.4, 0);
+      ctx.lineTo(o.w * 0.75, o.h * 0.25);
+      ctx.lineTo(o.w * 0.5, o.h * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'crab': {
+      const bob = Math.sin(o.wobble) * 2;
+      ctx.translate(0, bob);
+      ctx.fillStyle = '#e2543b';
+      ctx.beginPath();
+      ctx.ellipse(o.w/2, o.h*0.55, o.w*0.42, o.h*0.42, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#e2543b'; ctx.lineWidth = 4;
+      // legs
+      for (let i=0;i<3;i++){
+        ctx.beginPath();
+        ctx.moveTo(o.w*0.15 + i*6, o.h*0.6);
+        ctx.lineTo(o.w*0.05 + i*8, o.h);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(o.w*0.85 - i*6, o.h*0.6);
+        ctx.lineTo(o.w*0.95 - i*8, o.h);
+        ctx.stroke();
+      }
+      // claws
+      ctx.fillStyle = '#c73f28';
+      ctx.beginPath(); ctx.arc(o.w*0.08, o.h*0.35, 7, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(o.w*0.92, o.h*0.35, 7, 0, Math.PI*2); ctx.fill();
+      // eyes
+      ctx.fillStyle = '#2a1a10';
+      ctx.beginPath(); ctx.arc(o.w*0.38, o.h*0.35, 2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(o.w*0.62, o.h*0.35, 2, 0, Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'bucket': {
+      ctx.fillStyle = '#e8483c';
+      ctx.beginPath();
+      ctx.moveTo(4, o.h);
+      ctx.lineTo(2, 10);
+      ctx.quadraticCurveTo(o.w/2, 0, o.w - 2, 10);
+      ctx.lineTo(o.w - 4, o.h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(6, o.h*0.55); ctx.lineTo(o.w-6, o.h*0.55); ctx.stroke();
+      ctx.strokeStyle = '#b5342a'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(o.w/2, 10, o.w/2 - 2, 6, 0, 0, Math.PI*2);
+      ctx.stroke();
+      // handle
+      ctx.strokeStyle = '#7a2e22'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(o.w/2, 4, o.w/2 - 4, Math.PI, Math.PI*2);
+      ctx.stroke();
+      break;
+    }
+    case 'towel': {
+      ctx.fillStyle = '#3fa7d6';
+      ctx.fillRect(0, 0, o.w, o.h);
+      ctx.fillStyle = '#ffffff';
+      for (let i=0;i<o.w;i+=14){
+        ctx.fillRect(i, 0, 6, o.h);
+      }
+      break;
+    }
+    case 'puddle': {
+      ctx.fillStyle = 'rgba(90,170,210,0.55)';
+      ctx.beginPath();
+      ctx.ellipse(o.w/2, o.h/2, o.w/2, o.h/2, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(o.w/2, o.h/2, o.w/2 - 4, o.h/2 - 3, 0, 0, Math.PI*2);
+      ctx.stroke();
+      break;
+    }
+    case 'umbrella': {
+      // pole
+      ctx.strokeStyle = '#7a4d24'; ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(o.w/2, o.h*0.3);
+      ctx.lineTo(o.w/2, o.h);
+      ctx.stroke();
+      // canopy
+      ctx.fillStyle = '#ff7a3d';
+      ctx.beginPath();
+      ctx.moveTo(o.w/2 - 34, o.h*0.32);
+      ctx.quadraticCurveTo(o.w/2, o.h*0.02, o.w/2 + 34, o.h*0.32);
+      ctx.quadraticCurveTo(o.w/2, o.h*0.18, o.w/2 - 34, o.h*0.32);
+      ctx.fill();
+      ctx.fillStyle = '#ffd23f';
+      for (let i=-2;i<=2;i+=2){
+        ctx.beginPath();
+        ctx.moveTo(o.w/2 + i*17, o.h*0.32);
+        ctx.quadraticCurveTo(o.w/2 + i*8.5, o.h*0.12, o.w/2, o.h*0.16);
+        ctx.fill();
+      }
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function drawPowerup(p){
+  ctx.save();
+  ctx.translate(p.x, p.y + Math.sin(p.t * 4) * 6);
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = '#eaffff';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  for (let i=0;i<3;i++){
+    const r = p.r - i*6;
+    const a = p.t * 6 + i * 1.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, a, a + Math.PI * 1.2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(126,200,255,0.35)';
+  ctx.beginPath();
+  ctx.arc(0, 0, p.r, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawPanel(x, y, w, h, r){
+  ctx.fillStyle = 'rgba(8, 35, 50, 0.55)';
+  roundRect(x, y, w, h, r || 14);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 2;
+  roundRect(x, y, w, h, r || 14);
+  ctx.stroke();
+}
+
+function centeredText(text, x, y, size, color, weight){
+  ctx.fillStyle = color || '#ffffff';
+  ctx.font = (weight || '700') + ' ' + size + 'px -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
+}
+
+function drawMenu(){
+  drawBackground();
+  drawDog(DOG_X, GROUND_Y - DOG_H, DOG_W, DOG_H, performance.now()/500, true, 1, false);
+
+  drawPanel(LOGICAL_W/2 - 300, 60, 600, 220, 22);
+  centeredText('🐾 DOG FRISBEE BEACH RUN 🥏', LOGICAL_W/2, 118, 34, '#ffd23f');
+  centeredText('Rincorri il frisbee lungo la spiaggia e salta gli ostacoli!', LOGICAL_W/2, 168, 17, '#eaf6ff', '500');
+  centeredText('Record: ' + Math.floor(bestDistance) + ' m', LOGICAL_W/2, 210, 20, '#7CFC9A');
+
+  const pulse = 0.85 + Math.sin(performance.now()/220) * 0.15;
+  ctx.globalAlpha = pulse;
+  centeredText('PREMI SPAZIO O TOCCA LO SCHERMO', LOGICAL_W/2, 260, 18, '#ffffff');
+  ctx.globalAlpha = 1;
+}
+
+function drawThrowBar(){
+  const barX = LOGICAL_W/2 - 260, barY = 300, barW = 520, barH = 44;
+  drawPanel(barX - 20, barY - 70, barW + 40, barH + 140, 20);
+
+  centeredText('LANCIA IL FRISBEE', LOGICAL_W/2, barY - 34, 26, '#ffd23f');
+  centeredText('Ferma la barra al centro per il tiro più lungo', LOGICAL_W/2, barY - 4, 15, '#eaf6ff', '500');
+
+  // track
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  roundRect(barX, barY, barW, barH, barH/2);
+  ctx.fill();
+
+  // gradient zones: red edges -> yellow -> green center
+  const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+  grad.addColorStop(0.0, '#ff5a5a');
+  grad.addColorStop(0.30, '#ffb347');
+  grad.addColorStop(0.5, '#7CFC9A');
+  grad.addColorStop(0.70, '#ffb347');
+  grad.addColorStop(1.0, '#ff5a5a');
+  ctx.save();
+  roundRect(barX, barY, barW, barH, barH/2);
+  ctx.clip();
+  ctx.fillStyle = grad;
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.restore();
+
+  // sweet-spot marker
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(barX + barW/2, barY - 6);
+  ctx.lineTo(barX + barW/2, barY + barH + 6);
+  ctx.stroke();
+
+  // indicator
+  const ix = barX + (throwPhase.value / 100) * barW;
+  ctx.fillStyle = throwPhase.locked ? '#ffffff' : '#123';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(ix, barY - 14);
+  ctx.lineTo(ix - 10, barY - 30);
+  ctx.lineTo(ix + 10, barY - 30);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  if (throwPhase.locked){
+    const flash = Math.max(0, throwPhase.lockFlashT) * 2;
+    ctx.globalAlpha = clamp(flash, 0, 1);
+    centeredText('POTENZA: ' + Math.round(throwPhase.power) + '%', LOGICAL_W/2, barY + barH + 44, 24, '#ffd23f');
+    ctx.globalAlpha = 1;
+  } else {
+    centeredText('SPAZIO / TAP per fermare', LOGICAL_W/2, barY + barH + 44, 16, '#eaf6ff', '500');
+  }
+}
+
+function drawThrow(){
+  drawBackground();
+  drawDog(DOG_X, GROUND_Y - DOG_H, DOG_W, DOG_H, performance.now()/700, true, 1, false);
+  drawThrowBar();
+}
+
+function drawHUD(){
+  // top bar
+  drawPanel(16, 14, 260, 74, 14);
+  centeredText(Math.floor(run.distance) + ' m', 146, 40, 26, '#ffffff');
+  centeredText('Punteggio ' + run.score, 146, 68, 14, '#ffd23f', '600');
+
+  // stamina bar
+  const sx = 292, sy = 24, sw = 220, sh = 18;
+  drawPanel(sx - 10, 14, sw + 20, 74, 14);
+  centeredText('ENERGIA', sx + sw/2, sy - 4, 12, '#eaf6ff', '600');
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  roundRect(sx, sy + 10, sw, sh, 9); ctx.fill();
+  const staminaColor = run.stamina > 40 ? '#7CFC9A' : (run.stamina > 15 ? '#ffb347' : '#ff5a5a');
+  ctx.fillStyle = staminaColor;
+  roundRect(sx, sy + 10, sw * (run.stamina/100), sh, 9); ctx.fill();
+  if (run.combo > 0){
+    centeredText('Combo x' + run.combo, sx + sw/2, sy + 42, 14, '#7CFC9A', '700');
+  }
+
+  // boost / stumble indicator
+  if (run.boostTimer > 0){
+    centeredText('💨 BOOST!', LOGICAL_W - 110, 40, 20, '#7ec8ff');
+  } else if (run.stumbleTimer > 0){
+    centeredText('INCESPICA...', LOGICAL_W - 110, 40, 18, '#ff5a5a');
+  }
+
+  if (run.toast){
+    ctx.globalAlpha = clamp(run.toast.t, 0, 1);
+    centeredText(run.toast.text, LOGICAL_W/2, 110, 22, run.toast.color, '800');
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawRun(){
+  ctx.save();
+  if (run.shakeT > 0){
+    const s = run.shakeT / 0.25;
+    ctx.translate(rand(-4,4)*s, rand(-3,3)*s);
+  }
+  drawBackground();
+
+  for (const o of run.obstacles) drawObstacle(o);
+  for (const p of run.powerups) drawPowerup(p);
+
+  const d = run.dog;
+  drawDog(DOG_X, d.y, DOG_W, DOG_H, d.animTime, d.grounded, d.squash, run.stumbleTimer > 0);
+
+  ctx.restore();
+  drawHUD();
+}
+
+function drawGameOver(){
+  drawBackground();
+  drawPanel(LOGICAL_W/2 - 280, 70, 560, 400, 22);
+  centeredText('🥏 FINE CORSA! 🐾', LOGICAL_W/2, 120, 32, '#ffd23f');
+
+  centeredText('Distanza percorsa', LOGICAL_W/2, 176, 16, '#eaf6ff', '500');
+  centeredText(Math.floor(run.distance) + ' m', LOGICAL_W/2, 212, 44, '#ffffff');
+
+  centeredText('Punteggio: ' + run.score + '   •   Combo max: x' + run.bestCombo, LOGICAL_W/2, 258, 17, '#7CFC9A', '600');
+
+  if (run.isRecord){
+    centeredText('🏆 NUOVO RECORD! 🏆', LOGICAL_W/2, 300, 22, '#ffd23f', '800');
+  } else {
+    centeredText('Record: ' + Math.floor(bestDistance) + ' m', LOGICAL_W/2, 300, 18, '#eaf6ff', '500');
+  }
+
+  const pulse = 0.85 + Math.sin(performance.now()/220) * 0.15;
+  ctx.globalAlpha = pulse;
+  centeredText('SPAZIO / TAP per rigiocare', LOGICAL_W/2, 400, 19, '#ffffff');
+  ctx.globalAlpha = 1;
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+let lastT = performance.now();
+function frame(now){
+  let dt = (now - lastT) / 1000;
+  lastT = now;
+  dt = clamp(dt, 0, 0.05); // avoid huge jumps on tab switch
+
+  ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+  switch(state){
+    case STATE.MENU:
+      updateBackground(dt, 55);
+      drawMenu();
+      break;
+    case STATE.THROW:
+      updateThrow(dt);
+      drawThrow();
+      break;
+    case STATE.RUN:
+      updateRun(dt);
+      if (state === STATE.RUN) drawRun(); // may have transitioned to GAME_OVER mid-update
+      else drawGameOver();
+      break;
+    case STATE.GAME_OVER:
+      updateBackground(dt, 20);
+      drawGameOver();
+      break;
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>

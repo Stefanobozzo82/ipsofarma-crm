@@ -654,7 +654,23 @@ function saveGhBase(snap){
     localStorage.setItem('gh_base_docs',JSON.stringify(slim));
   }catch(e){/* storage pieno: pazienza, si riallinea al prossimo giro */}
 }
-function deepEq(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+// Confronto profondo "canonico": ordina le chiavi degli oggetti prima di serializzare, così due
+// copie dello stesso documento passate per percorsi diversi (es. una arrivata da GitHub via
+// JSON.parse, l'altra ricostruita da un form) non risultano "diverse" solo perché le proprietà
+// sono elencate in un ordine differente — un confronto ingenuo con JSON.stringify(a)===
+// JSON.stringify(b) le vedrebbe come due oggetti distinti pur essendo identici, facendo perdere
+// al merge la certezza che un documento non sia stato toccato (rischio di trattarlo come "nuovo"
+// o "diverso da entrambi i lati" quando invece è invariato).
+function canon(x){
+  if(Array.isArray(x))return x.map(canon);
+  if(x&&typeof x==='object'){
+    const out={};
+    Object.keys(x).sort().forEach(k=>{out[k]=canon(x[k]);});
+    return out;
+  }
+  return x;
+}
+function deepEq(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
 function mergeCollection(base,local,remote,keyName){
   const k=x=>x[keyName||'id'];
   const bMap=new Map((base||[]).map(x=>[k(x),x]));
@@ -898,8 +914,15 @@ async function ghBootSync(){
   let mergedLocalChanges=false;
   if(GH_BASE&&DB){
     const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,data);
-    mergedLocalChanges=true;
     if(conflict)warnMergeConflict(conflictDocs);
+    // Il merge ha davvero introdotto qualcosa che il remoto non ha ancora (una modifica locale
+    // non sincronizzata, protetta dal merge)? Confrontiamo il risultato con ciò che abbiamo
+    // appena scaricato: se sono identici, il locale non aveva nulla da proteggere e non c'è
+    // nulla da ripubblicare. Senza questo controllo, ogni semplice riapertura dell'app
+    // pubblicava comunque un salvataggio (anche a vuoto): oltre a essere inutile, allargava la
+    // finestra in cui un altro dispositivo con una base non aggiornata può rientrare in gioco e
+    // far ricomparire un documento appena cancellato altrove.
+    mergedLocalChanges=!deepEq(snapshotMergeColls(DB),snapshotMergeColls(data));
   }else{
     DB=data;
   }
@@ -916,7 +939,11 @@ async function ghBootSync(){
     // sotto) ad aggiornare la base, solo dopo che la scrittura su GitHub è andata a buon fine.
     await persist();
   }else{
+    // Il locale coincide col remoto appena scaricato: aggiorniamo la base subito e salviamo in
+    // locale (per restare disponibile offline), ma senza programmare una scrittura su GitHub —
+    // sarebbe una pubblicazione a vuoto.
     saveGhBase(snapshotMergeColls(DB));
+    try{if(hasWS()){await window.storage.set(KEY,JSON.stringify(DB));}else{localStorage.setItem(KEY,JSON.stringify(DB));}}catch(e){}
   }
   return true;
 }
@@ -956,7 +983,19 @@ async function autoPullSync(){
     const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,data);
     GH_SHA=fetched.shaB;localStorage.setItem('gh_sha',GH_SHA);
     if(fetched.shaC){GH_SHA_CAT=fetched.shaC;localStorage.setItem('gh_sha_cat',GH_SHA_CAT);}
-    saveGhBase(snapshotMergeColls(DB));
+    // Il merge può aver protetto una modifica locale fatta pochi istanti fa e non ancora
+    // pubblicata (il debounce di ghScheduleSave non è ancora scattato): se aggiornassimo subito
+    // la base, quella modifica sembrerebbe già "confermata" mentre in realtà GitHub non la ha
+    // ancora — al giro successivo un'altra fonte potrebbe farla sembrare "cancellata da remoto"
+    // e perderla (esattamente il tipo di corsa che ha fatto ricomparire due ordini appena
+    // eliminati). Aggiorniamo la base solo se il locale ora coincide col remoto appena
+    // scaricato: altrimenti resta l'aggiornamento già programmato da ghScheduleSave/ghSave, che
+    // sposta la base in avanti solo dopo che la scrittura è davvero andata a buon fine.
+    if(deepEq(snapshotMergeColls(DB),snapshotMergeColls(data))){
+      saveGhBase(snapshotMergeColls(DB));
+    }else{
+      try{if(hasWS()){await window.storage.set(KEY,JSON.stringify(DB));}else{localStorage.setItem(KEY,JSON.stringify(DB));}}catch(e){}
+    }
     if(SEL&&MERGE_COLLS.includes(SEL.coll)){
       const found=(DB[SEL.coll]||[]).find(x=>x.id===SEL.item.id);
       SEL=found?{coll:SEL.coll,item:found}:null;

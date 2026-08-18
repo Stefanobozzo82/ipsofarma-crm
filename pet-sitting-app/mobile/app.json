@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Fido",
+    "slug": "fido-pet-sitting",
+    "scheme": "fido",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "primaryColor": "#2F6F52",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.fido.petsitting"
+    },
+    "android": {
+      "package": "app.fido.petsitting",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Fido usa la tua posizione per mostrarti i sitter più vicini."
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.app.fido.petsitting",
+          "enableGooglePay": true
+        }
+      ],
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      "expo-font"
+    ],
+    "extra": {
+      "router": {}
+    }
+  }
+}

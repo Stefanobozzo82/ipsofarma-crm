@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Surf Girl</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <h1 class="title">🏄‍♀️ Pixel Surf Girl</h1>
+      <canvas id="game-canvas" width="960" height="540">
+        Il tuo browser non supporta l'elemento canvas.
+      </canvas>
+      <p class="hint">
+        ↑ / W tieni premuto per accelerare · ← → per curvare (curve strette = boost) · SPAZIO per saltare ·
+        in aria usa le frecce per i combo trick · P pausa · M audio
+      </p>
+    </main>
+
+    <!-- Nessuna libreria esterna, nessun CDN, nessun build step: solo script
+         vanilla caricati in ordine di dipendenza. -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/sprites.js"></script>
+    <script src="js/wave.js"></script>
+    <script src="js/tricks.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/obstacles.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>

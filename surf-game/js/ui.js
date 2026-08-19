@@ -99,7 +99,7 @@ const UI = (() => {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
 
-    text(ctx, "PIXEL SURF GIRL", w / 2, 70, { size: 42, color: "#fff", align: "center" });
+    text(ctx, "NASTY SURF", w / 2, 70, { size: 42, color: "#fff", align: "center" });
     text(ctx, "un endless-surf in pixel art", w / 2, 118, { size: 14, color: "#eaffff", align: "center", weight: "normal" });
 
     text(ctx, "Scegli il livello (↑/↓ e INVIO, o clic):", w / 2, 168, {

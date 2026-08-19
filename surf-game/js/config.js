@@ -137,7 +137,7 @@ const CONFIG = Object.freeze({
     WIPEOUT_PENALTY: 0,
   },
 
-  STORAGE_PREFIX: "pixelSurfGirl_highscore_level_",
+  STORAGE_PREFIX: "nastySurf_highscore_level_",
 
   PIXEL_SCALE: 4,
 

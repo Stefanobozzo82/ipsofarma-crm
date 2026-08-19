@@ -1,4 +1,4 @@
-# 🏄‍♀️ Pixel Surf Girl
+# 🏄‍♀️ Nasty Surf
 
 Gioco browser di surf in pixel art — protagonista una surfista che cavalca
 un'onda procedurale, fa carving, salta e concatena trick in aria.

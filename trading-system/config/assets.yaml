@@ -1,0 +1,19 @@
+# Watchlist per asset class: simboli che il sistema può monitorare/analizzare.
+# Questi sono ESEMPI per far funzionare la demo di data ingestion — sostituiscili
+# con i simboli che ti interessano davvero.
+
+equity:
+  - symbol: AAPL
+    name: Apple Inc.
+    currency: USD
+
+etf:
+  - symbol: SPY
+    name: SPDR S&P 500 ETF Trust
+    currency: USD
+
+crypto:
+  - symbol: BTC/USDT
+    exchange: kraken
+  - symbol: ETH/USDT
+    exchange: kraken

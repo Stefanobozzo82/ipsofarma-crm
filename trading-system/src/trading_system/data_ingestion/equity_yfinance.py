@@ -88,6 +88,36 @@ class EquityYFinanceSource(DataSource):
 
         return self._normalize(raw, symbol, timeframe)
 
+    def get_fundamentals(self, symbol: str) -> dict[str, float | None]:
+        """Recupera alcuni indicatori fondamentali di base per uno strumento.
+
+        Usato dallo strategy engine (modulo 2) per le strategie azionarie che
+        combinano segnali tecnici con un filtro fondamentale/di bilancio.
+        Non ha senso per gli ETF (non hanno P/E, ROE, ecc.): chiamalo solo
+        per `AssetClass.EQUITY`.
+
+        I valori mancanti nella risposta di yfinance restituiscono `None`
+        anziché essere inventati: i consumer (strategie) devono trattare
+        `None` come "dato non disponibile", non come zero.
+        """
+        try:
+            ticker = self._ticker_factory(symbol)
+            info = ticker.info
+        except Exception as exc:  # pragma: no cover - dipende dalla rete
+            raise DataSourceError(
+                f"Errore yfinance nel recupero fondamentali per {symbol}: {exc}"
+            ) from exc
+
+        if not info:
+            raise DataSourceError(f"Nessun dato fondamentale disponibile per {symbol} (yfinance)")
+
+        return {
+            "pe_ratio": info.get("trailingPE"),
+            "return_on_equity": info.get("returnOnEquity"),
+            "debt_to_equity": info.get("debtToEquity"),
+            "revenue_growth": info.get("revenueGrowth"),
+        }
+
     def get_latest_price(self, symbol: str) -> float:
         try:
             ticker = self._ticker_factory(symbol)

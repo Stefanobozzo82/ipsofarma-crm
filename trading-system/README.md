@@ -19,7 +19,9 @@ implementato in questo repository.
 - [x] **0. Architettura e struttura base** — questo commit
 - [x] **1. Data ingestion** — connettori azioni/ETF (yfinance) e crypto (ccxt),
       normalizzazione dati comune, persistenza storicizzata
-- [ ] **2. Strategy engine** — regole configurabili per asset class + score di confidenza
+- [x] **2. Strategy engine** — regole configurabili per asset class (media
+      mobile per ETF, RSI + volatilità per crypto, media mobile + filtro
+      fondamentale per azioni), ognuna con score di confidenza
 - [ ] **3. Risk management** — position sizing, limiti per asset class, stop-loss
 - [ ] **4. Portfolio allocator** — distribuzione del capitale tra asset class
 - [ ] **5. Backtesting** — validazione storica pre-condizione per operare
@@ -50,18 +52,20 @@ trading-system/
 ├── config/
 │   ├── settings.py        # configurazione centrale (env vars via pydantic-settings)
 │   ├── risk_limits.yaml   # limiti di rischio per asset class — DA COMPILARE dall'utente
-│   └── assets.yaml        # watchlist per asset class (esempio, da personalizzare)
+│   ├── assets.yaml        # watchlist per asset class (esempio, da personalizzare)
+│   └── strategies.yaml    # regole/parametri delle strategie per asset class
 ├── src/trading_system/
 │   ├── common/             # modelli dati condivisi, enum, logging, eccezioni
 │   ├── data_ingestion/     # MODULO 1 — connettori dati + normalizzazione + storage
-│   ├── strategy_engine/    # MODULO 2 — non ancora implementato
+│   ├── strategy_engine/    # MODULO 2 — regole per asset class + score di confidenza
 │   ├── risk_management/    # MODULO 3 — non ancora implementato
 │   ├── portfolio/          # MODULO 4 — non ancora implementato
 │   ├── backtesting/        # MODULO 5 — non ancora implementato
 │   ├── execution/          # MODULO 6 — non ancora implementato (paper/ e live/ separati)
 │   └── api/                # MODULO 7 — dashboard FastAPI, non ancora implementato
 ├── scripts/
-│   └── fetch_sample_data.py  # demo CLI: scarica ed effettua l'upsert di dati reali
+│   ├── fetch_sample_data.py       # demo CLI: scarica ed effettua l'upsert di dati reali
+│   └── generate_sample_signals.py # demo CLI: genera segnali dai dati storicizzati
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -88,6 +92,45 @@ trading-system/
 - **`execution/` sarà diviso in `paper/` e `live/`** quando implementato: il
   modulo `live/` richiederà una conferma esplicita a runtime e non sarà mai
   eseguito di default.
+
+## Modulo 2 — Strategy engine
+
+Ogni strategia implementa la stessa interfaccia (`Strategy.generate_signal`)
+e produce un `Signal` con `action` (BUY/SELL/HOLD), `confidence` in [0, 1] e
+`reason` testuale: nessun segnale esiste senza una motivazione leggibile.
+Le regole sono specifiche per asset class, come da specifica di prodotto:
+
+| Asset class | Strategia | Regola |
+|---|---|---|
+| ETF | `MovingAverageCrossoverStrategy` | SMA corta vs SMA lunga sul prezzo di chiusura: corta sopra lunga = trend rialzista (BUY), sotto = ribassista (SELL); confidenza proporzionale allo scostamento tra le due medie. |
+| Crypto | `RSIVolatilityStrategy` | RSI in ipervenduto/ipercomprato = BUY/SELL; **la volatilità annualizzata ha priorità sul segnale tecnico** — sopra soglia, il segnale è sempre forzato a HOLD, in linea con il vincolo "crypto = rischio alto a prescindere". |
+| Azioni | `EquityMovingAverageFundamentalsStrategy` | Stessa base tecnica (SMA) degli ETF, ma un punteggio fondamentale (P/E, ROE, debito/equity, crescita ricavi) può **vetare** un segnale BUY tecnico se i bilanci sono deboli, o rafforzarne/indebolirne la confidenza se sono nella norma. Se i fondamentali non sono disponibili, il segnale resta tecnico e lo dichiara esplicitamente. |
+
+I parametri di ogni strategia (finestre delle medie, soglie RSI, soglie di
+volatilità, soglie fondamentali) sono in `config/strategies.yaml` — non nel
+codice — con lo stesso principio dichiarativo di `risk_limits.yaml`. Il
+"rebalancing" citato per gli ETF nella specifica è una decisione di
+allocazione del capitale (quanto spostare quando il segnale scatta), di
+competenza del modulo 4 (portfolio allocator), non di questo modulo.
+
+`StrategyEngine` orchestra le strategie abilitate per asset class:
+
+```python
+from trading_system.strategy_engine import StrategyEngine
+from trading_system.common.enums import AssetClass
+
+engine = StrategyEngine()  # legge config/strategies.yaml
+signals = engine.generate_signals("SPY", AssetClass.ETF, bars_df)
+```
+
+dove `bars_df` è un DataFrame con almeno le colonne `timestamp` e `close`
+(lo stesso schema prodotto dal modulo 1). Un errore in una singola
+strategia viene loggato e non blocca le altre.
+
+**Importante**: lo strategy engine produce segnali, non ordini. Nessun
+segnale (nemmeno BUY con confidenza 1.0) autorizza un'operazione da solo:
+il modulo 3 (risk management, non ancora implementato) deve validarlo
+contro i limiti di rischio prima che diventi un ordine.
 
 ## Setup
 
@@ -127,16 +170,20 @@ non le invento né le lascio in placeholder attivi:
 
 Vedi `.env.example` per l'elenco completo con commenti.
 
-## Uso rapido (demo data ingestion)
+## Uso rapido (demo data ingestion + strategy engine)
 
 ```bash
-python scripts/fetch_sample_data.py
+python scripts/fetch_sample_data.py        # modulo 1: scarica e storicizza i dati
+python scripts/generate_sample_signals.py  # modulo 2: genera segnali dai dati storicizzati
 ```
 
-Scarica alcune barre storiche daily per un'azione ed un ETF di esempio
-(yfinance) e per le coppie crypto di esempio (ccxt/Kraken), le normalizza
-nello schema comune e le salva nel database SQLite locale
-(`data/trading_system.db`).
+Il primo scarica alcune barre storiche daily per un'azione ed un ETF di
+esempio (yfinance) e per le coppie crypto di esempio (ccxt/Kraken), le
+normalizza nello schema comune e le salva nel database SQLite locale
+(`data/trading_system.db`). Il secondo legge quei dati, esegue le strategie
+abilitate per ogni simbolo/asset class e stampa i segnali generati con la
+loro motivazione (recuperando anche i fondamentali per le azioni, se
+disponibili).
 
 ### Nota su reti aziendali con TLS-inspection
 
@@ -158,9 +205,10 @@ enterprise/CI sandboxati), potresti incontrare errori di certificato:
   `query1.finance.yahoo.com` direttamente (fuori da eventuali proxy di
   ispezione TLS) prima di aprire un bug sul connettore.
 
-Questo modulo è stato validato: end-to-end con dati reali per la parte
-crypto (Kraken) e con una suite di test unitari (mock, nessuna rete) per
-entrambi i connettori — vedi sezione Test.
+I moduli 1 e 2 sono stati validati end-to-end con dati reali per la parte
+crypto (Kraken → data ingestion → strategy engine, inclusa la verifica che
+il filtro di volatilità forzi correttamente HOLD su un RSI ipercomprato) e
+con una suite di test unitari (mock, nessuna rete) per entrambi.
 
 ## Test
 
@@ -168,6 +216,7 @@ entrambi i connettori — vedi sezione Test.
 pytest
 ```
 
-I test sui connettori dati usano mock delle chiamate di rete (nessuna
-chiamata reale durante `pytest`); lo script `fetch_sample_data.py` invece
-effettua chiamate reali per verifica manuale end-to-end.
+I test usano mock/dati sintetici deterministici (nessuna chiamata di rete
+reale durante `pytest`); gli script `fetch_sample_data.py` e
+`generate_sample_signals.py` invece effettuano operazioni reali (rete per il
+primo, lettura del DB locale per il secondo) per verifica manuale end-to-end.

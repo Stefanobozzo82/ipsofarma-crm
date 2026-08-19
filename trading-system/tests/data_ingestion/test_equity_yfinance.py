@@ -13,9 +13,15 @@ from trading_system.data_ingestion.equity_yfinance import EquityYFinanceSource
 
 
 class _FakeTicker:
-    def __init__(self, history_df: pd.DataFrame | None, raise_error: bool = False):
+    def __init__(
+        self,
+        history_df: pd.DataFrame | None,
+        raise_error: bool = False,
+        info: dict | None = None,
+    ):
         self._history_df = history_df
         self._raise_error = raise_error
+        self.info = info if info is not None else {}
 
     def history(self, **kwargs):
         if self._raise_error:
@@ -102,3 +108,47 @@ def test_get_latest_price_returns_last_close():
 def test_invalid_asset_class_rejected():
     with pytest.raises(ValueError):
         EquityYFinanceSource(asset_class=AssetClass.CRYPTO)
+
+
+def test_get_fundamentals_maps_known_fields():
+    fake_info = {
+        "trailingPE": 28.5,
+        "returnOnEquity": 0.32,
+        "debtToEquity": 150.0,
+        "revenueGrowth": 0.08,
+        "someOtherField": "ignored",
+    }
+    source = EquityYFinanceSource(
+        ticker_factory=lambda symbol: _FakeTicker(_sample_history(), info=fake_info),
+    )
+
+    fundamentals = source.get_fundamentals("AAPL")
+
+    assert fundamentals == {
+        "pe_ratio": 28.5,
+        "return_on_equity": 0.32,
+        "debt_to_equity": 150.0,
+        "revenue_growth": 0.08,
+    }
+
+
+def test_get_fundamentals_missing_fields_return_none():
+    source = EquityYFinanceSource(
+        ticker_factory=lambda symbol: _FakeTicker(_sample_history(), info={"trailingPE": 10.0}),
+    )
+
+    fundamentals = source.get_fundamentals("AAPL")
+
+    assert fundamentals["pe_ratio"] == 10.0
+    assert fundamentals["return_on_equity"] is None
+    assert fundamentals["debt_to_equity"] is None
+    assert fundamentals["revenue_growth"] is None
+
+
+def test_get_fundamentals_raises_when_no_info():
+    source = EquityYFinanceSource(
+        ticker_factory=lambda symbol: _FakeTicker(_sample_history(), info={}),
+    )
+
+    with pytest.raises(DataSourceError):
+        source.get_fundamentals("AAPL")

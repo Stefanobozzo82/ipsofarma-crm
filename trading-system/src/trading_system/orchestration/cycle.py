@@ -21,7 +21,15 @@ presidiato:
 
 Esegue sempre in base a `config/execution.yaml`: se `mode: paper` (default),
 nessun ordine può mai raggiungere un broker reale, a prescindere da come
-gira questo modulo.
+gira questo modulo. Se invece `mode: live`, ogni ordine passa comunque per
+`execution.gate.LiveTradingGate`: qui `explicit_confirmation` è sempre
+`False` (un ciclo non presidiato non può mai fornire una conferma umana a
+runtime — per disegno, non un'omissione) — l'unico percorso verso il live
+resta quindi il periodo di validazione in paper trading, con l'eleggibilità
+letta da `eligibility_repo` (calcolata da un job separato, vedi
+`orchestration.eligibility_cycle`). Un simbolo mai valutato (nessuna riga in
+`eligibility_repo`) resta in paper: l'assenza di eleggibilità non autorizza
+mai il live, non è un'astensione neutra.
 """
 
 from __future__ import annotations
@@ -33,6 +41,7 @@ import pandas as pd
 import yaml
 
 from config.settings import ASSETS_PATH
+from trading_system.backtesting import EligibilityRepository
 from trading_system.common.enums import AssetClass, OrderStatus, Timeframe
 from trading_system.common.exceptions import DataSourceError
 from trading_system.common.logging_config import get_logger
@@ -149,6 +158,7 @@ def run_cycle(
     risk_manager: RiskManager,
     portfolio_allocator: PortfolioAllocator,
     strategy_engine: StrategyEngine,
+    eligibility_repo: EligibilityRepository | None = None,
     lookback_days: int = 30,
 ) -> CycleReport:
     """Esegue un ciclo completo: dati -> segnali -> rischio -> allocazione -> esecuzione (paper).
@@ -202,7 +212,15 @@ def run_cycle(
                 report.errors.append(f"{symbol}: {exc}")
 
     for allocation in portfolio_allocator.allocate(all_decisions, positions_value, account_equity):
-        order = execution_manager.execute(allocation)
+        eligibility = (
+            eligibility_repo.get_latest(allocation.symbol, allocation.strategy_name)
+            if eligibility_repo is not None
+            else None
+        )
+        # explicit_confirmation è sempre False: un ciclo non presidiato non può mai
+        # fornire una conferma umana a runtime — l'unico percorso verso il live è
+        # il periodo di validazione in paper trading (vedi il docstring del modulo).
+        order = execution_manager.execute(allocation, eligibility=eligibility, explicit_confirmation=False)
         if order.status == OrderStatus.FILLED:
             report.orders_filled += 1
         elif order.status == OrderStatus.REJECTED and allocation.approved:

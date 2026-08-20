@@ -18,6 +18,7 @@ from trading_system.backtesting.aggregate import AggregateBacktestSummary, aggre
 from trading_system.backtesting.config_loader import BacktestingConfig, EligibilityCriteria, load_backtesting_config
 from trading_system.backtesting.eligibility import evaluate_eligibility
 from trading_system.backtesting.engine import BacktestEngine, BacktestRun
+from trading_system.backtesting.storage import EligibilityRepository
 
 __all__ = [
     "AggregateBacktestSummary",
@@ -29,4 +30,5 @@ __all__ = [
     "evaluate_eligibility",
     "BacktestEngine",
     "BacktestRun",
+    "EligibilityRepository",
 ]

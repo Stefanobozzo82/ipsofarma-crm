@@ -7,6 +7,8 @@ repository in memoria.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from tests.execution.conftest import build_execution_config, make_repository
@@ -14,8 +16,11 @@ from tests.orchestration.conftest import FakeDataSource, make_data_repo, seed_da
 from tests.portfolio.conftest import build_portfolio_config
 from tests.risk_management.conftest import build_config
 from tests.strategy_engine.conftest import monotonic_rise
-from trading_system.common.enums import AssetClass
+from trading_system.backtesting.storage import EligibilityRepository, create_sqlite_engine as create_eligibility_engine
+from trading_system.common.enums import AssetClass, ExecutionMode, OrderSide, OrderStatus
+from trading_system.common.models import BacktestEligibility, Order
 from trading_system.execution import ExecutionManager
+from trading_system.execution.broker_base import ExecutionBroker
 from trading_system.orchestration import cycle as cycle_module
 from trading_system.orchestration.cycle import run_cycle
 from trading_system.portfolio import PortfolioAllocator
@@ -35,19 +40,74 @@ def _patch_no_network(monkeypatch: pytest.MonkeyPatch, watchlist: dict = None) -
     monkeypatch.setattr(cycle_module, "load_watchlist", lambda: watchlist or _WATCHLIST)
 
 
-def _build_stack(data_repo, execution_repo, initial_cash: float = 100_000.0):
+def _build_stack(
+    data_repo, execution_repo, initial_cash: float = 100_000.0,
+    execution_config=None, live_broker_factory=None,
+):
     risk_limits = build_config()
     risk_manager = RiskManager(config=risk_limits)
     portfolio_allocator = PortfolioAllocator(build_portfolio_config())
-    execution_config = build_execution_config(paper={"initial_cash": initial_cash, "commission_pct": 0.0})
+    execution_config = execution_config or build_execution_config(
+        paper={"initial_cash": initial_cash, "commission_pct": 0.0},
+    )
 
     def price_provider(symbol, asset_class):
         bars = data_repo.get_bars(symbol, asset_class, cycle_module.Timeframe.DAY_1)
         return float(bars[-1].close)
 
-    execution_manager = ExecutionManager(execution_config, execution_repo, price_provider)
+    execution_manager = ExecutionManager(
+        execution_config, execution_repo, price_provider, live_broker_factory=live_broker_factory,
+    )
     strategy_engine = StrategyEngine()
     return risk_manager, portfolio_allocator, execution_manager, strategy_engine
+
+
+class _FakeLiveBroker(ExecutionBroker):
+    """Stesso ruolo del fake in tests/execution/test_manager.py: prova che un
+    ordine ha davvero raggiunto un broker "live", senza toccare un exchange reale."""
+
+    name = "fake-live"
+    mode = ExecutionMode.LIVE
+
+    def __init__(self) -> None:
+        self.submitted: list[tuple[str, OrderSide, float]] = []
+
+    def submit_order(self, symbol, asset_class, side, quantity, strategy_name, reason):
+        now = datetime.now(timezone.utc)
+        self.submitted.append((symbol, side, quantity))
+        return Order(
+            symbol=symbol, asset_class=asset_class, side=side, quantity=quantity,
+            mode=self.mode, broker=self.name, strategy_name=strategy_name,
+            status=OrderStatus.FILLED, reason=reason, filled_price=100.0, filled_at=now, created_at=now,
+        )
+
+    def get_cash(self) -> float:
+        return 0.0
+
+    def get_position(self, symbol: str):
+        return None
+
+    def get_positions(self):
+        return []
+
+
+def _seed_paper_validation_history(execution_repo, symbol: str, strategy_name: str, count: int = 5) -> None:
+    """Semina `count` ordini paper FILLED abbastanza vecchi da superare
+    `min_paper_trading_days` (14 nella config di test), per il percorso
+    "periodo di validazione" del gate live."""
+    old = datetime.now(timezone.utc) - timedelta(days=20)
+    for _ in range(count):
+        execution_repo.record_order(
+            Order(
+                symbol=symbol, asset_class=AssetClass.ETF, side=OrderSide.BUY, quantity=1.0,
+                mode=ExecutionMode.PAPER, broker="paper", strategy_name=strategy_name,
+                status=OrderStatus.FILLED, reason="seed", filled_price=100.0, filled_at=old, created_at=old,
+            )
+        )
+
+
+def _make_eligibility_repo() -> EligibilityRepository:
+    return EligibilityRepository(create_eligibility_engine("sqlite:///:memory:"))
 
 
 def test_run_cycle_uses_real_persisted_account_state_not_a_fixed_example(monkeypatch: pytest.MonkeyPatch):
@@ -156,3 +216,66 @@ def test_run_cycle_only_executes_in_paper_mode(monkeypatch: pytest.MonkeyPatch):
     assert all(o.mode == "paper" for o in orders)
     if any(o.status == "filled" for o in orders):
         assert all(o.broker == "paper" for o in orders if o.status == "filled")
+
+
+def test_run_cycle_reaches_the_live_broker_when_eligibility_and_paper_history_line_up(monkeypatch: pytest.MonkeyPatch):
+    # Prova la catena completa modulo 8 -> modulo 6 -> gate: con mode='live',
+    # un'eleggibilità approvata e non scaduta in eligibility_repo, e
+    # abbastanza storico paper per il simbolo/strategia, un ordine BUY deve
+    # davvero raggiungere il broker live — senza alcuna conferma esplicita
+    # (il ciclo automatico non ne fornisce mai, per disegno).
+    _patch_no_network(monkeypatch)
+    data_repo = make_data_repo()
+    execution_repo = make_repository()
+    eligibility_repo = _make_eligibility_repo()
+    seed_daily_bars(data_repo, "SPY", AssetClass.ETF, monotonic_rise(periods=60, pct=0.001))
+
+    strategy_name = "etf_moving_average_20_50"  # default config/strategies.yaml: short=20, long=50
+    _seed_paper_validation_history(execution_repo, "SPY", strategy_name)
+    eligibility_repo.save(
+        BacktestEligibility(
+            symbol="SPY", asset_class=AssetClass.ETF, strategy_name=strategy_name,
+            approved=True, reason="Backtest positivo (test).", evaluated_at=datetime.now(timezone.utc),
+        )
+    )
+
+    fake_broker = _FakeLiveBroker()
+    execution_config = build_execution_config(mode="live", paper={"initial_cash": 100_000.0, "commission_pct": 0.0})
+    risk_manager, allocator, execution_manager, strategy_engine = _build_stack(
+        data_repo, execution_repo, execution_config=execution_config,
+        live_broker_factory=lambda asset_class: fake_broker,
+    )
+
+    run_cycle(data_repo, execution_manager, risk_manager, allocator, strategy_engine, eligibility_repo=eligibility_repo)
+
+    assert fake_broker.submitted, "l'ordine doveva raggiungere il broker live, non è mai stato chiamato"
+    live_orders = [o for o in execution_repo.list_orders() if o.mode == "live"]
+    assert live_orders, "nessun ordine live registrato nello storico"
+
+
+def test_run_cycle_stays_in_paper_when_no_eligibility_is_recorded_even_in_live_mode(monkeypatch: pytest.MonkeyPatch):
+    # L'assenza di un'eleggibilità (nessun refresh_eligibility ancora
+    # eseguito per questo simbolo) non deve mai essere trattata come
+    # un'autorizzazione implicita: deve restare in paper, anche con
+    # mode='live', storico paper sufficiente, e un live_broker_factory
+    # disponibile — la sola assenza di eligibility_repo (None) copre già
+    # questo caso (vedi test_run_cycle_only_executes_in_paper_mode); qui
+    # verifichiamo lo stesso con un eligibility_repo PRESENTE ma vuoto.
+    _patch_no_network(monkeypatch)
+    data_repo = make_data_repo()
+    execution_repo = make_repository()
+    eligibility_repo = _make_eligibility_repo()  # nessuna riga salvata
+    seed_daily_bars(data_repo, "SPY", AssetClass.ETF, monotonic_rise(periods=60, pct=0.001))
+    _seed_paper_validation_history(execution_repo, "SPY", "etf_moving_average_20_50")
+
+    fake_broker = _FakeLiveBroker()
+    execution_config = build_execution_config(mode="live", paper={"initial_cash": 100_000.0, "commission_pct": 0.0})
+    risk_manager, allocator, execution_manager, strategy_engine = _build_stack(
+        data_repo, execution_repo, execution_config=execution_config,
+        live_broker_factory=lambda asset_class: fake_broker,
+    )
+
+    run_cycle(data_repo, execution_manager, risk_manager, allocator, strategy_engine, eligibility_repo=eligibility_repo)
+
+    assert not fake_broker.submitted
+    assert all(o.mode == "paper" for o in execution_repo.list_orders())

@@ -38,12 +38,13 @@ implementato in questo repository.
       portafoglio aggregato e per categoria, storico operazioni con
       motivazione di ogni trade, alert su anomalie
 
-Tutti i moduli pianificati sono implementati. I prossimi passi naturali
-sono di prodotto/operativi, non architetturali: compilare
-`config/risk_limits.yaml` con i tuoi limiti reali, far girare gli script di
-raccolta dati/segnali/backtest su un orizzonte più ampio, validare in paper
-trading, e — solo quando vuoi — attivare l'esecuzione live con le tue
-credenziali.
+Tutti i moduli pianificati sono implementati. `config/risk_limits.yaml` è
+compilato con i limiti reali dell'utente (profilo di rischio "moderato",
+tutte e tre le asset class abilitate — vedi Modulo 3 sotto): il sistema può
+quindi operare in paper trading. I prossimi passi naturali sono di
+prodotto/operativi, non architetturali: far girare gli script di raccolta
+dati/segnali/backtest su un orizzonte più ampio, validare in paper trading,
+e — solo quando vuoi — attivare l'esecuzione live con le tue credenziali.
 
 ## Principi guida (vincoli non negoziabili)
 
@@ -68,7 +69,7 @@ credenziali.
 trading-system/
 ├── config/
 │   ├── settings.py        # configurazione centrale (env vars via pydantic-settings)
-│   ├── risk_limits.yaml   # limiti di rischio per asset class — DA COMPILARE dall'utente
+│   ├── risk_limits.yaml   # limiti di rischio per asset class — compilato (profilo moderato)
 │   ├── assets.yaml        # watchlist per asset class (esempio, da personalizzare)
 │   ├── strategies.yaml    # regole/parametri delle strategie per asset class
 │   ├── backtesting.yaml   # parametri di simulazione + criteri di eleggibilità al live
@@ -162,9 +163,15 @@ completa, sempre), applicando in ordine:
 
 1. **Limiti compilati ed abilitati.** `config/risk_limits.yaml` deve avere
    `enabled: true` a livello globale e per l'asset class del segnale, con
-   tutti i valori numerici compilati (niente `null`). Il file distribuito
-   nel repo è disabilitato di proposito: il `RiskManager` si rifiuta di
-   partire (`ConfigurationError`) finché non lo compili tu esplicitamente.
+   tutti i valori numerici compilati (niente `null`); altrimenti il
+   `RiskManager` si rifiuta di partire (`ConfigurationError`). Il file
+   distribuito nel repo è ora compilato con i limiti reali dell'utente
+   (profilo "moderato", tutte e tre le asset class abilitate: azioni max
+   60% di portafoglio/10% per posizione/stop-loss 8%, ETF 70%/15%/6%,
+   crypto 10%/3%/5% — sempre più stringente di azioni ed ETF come richiesto
+   dal vincolo di prodotto; drawdown massimo 15%, perdita giornaliera
+   massima 3%). Per tornare allo stato non operativo basta rimettere
+   `enabled: false`.
 2. **Vincolo "crypto sempre più stringente".** Validato a runtime, non solo
    suggerito nei commenti: se `crypto.max_portfolio_pct`,
    `crypto.stop_loss_pct` o `crypto.max_volatility_annualized` non sono
@@ -445,7 +452,10 @@ metriche/eleggibilità per simbolo e le aggregate per asset class e sul
 totale — nota che un solo trade su un periodo di due anni (esito plausibile
 e onesto sui dati storici reali) viene correttamente segnalato come "non
 idoneo" per il numero di trade insufficiente: è il comportamento di
-sicurezza voluto, non un difetto della demo. Il sesto esegue l'intera
+sicurezza voluto, non un difetto della demo. Il terzo, ora che
+`config/risk_limits.yaml` è compilato, valuta i segnali contro i limiti
+reali (non più i limiti di esempio tenuti solo in memoria usati quando il
+file non è ancora abilitato). Il sesto esegue l'intera
 pipeline (segnali -> rischio -> allocazione) e invia il risultato
 all'`ExecutionManager`, sempre in paper trading: stampa gli ordini
 riempiuti/rifiutati, la cassa residua e le posizioni aperte del conto
@@ -453,10 +463,12 @@ simulato. Il settimo avvia la dashboard su http://localhost:8000/ — una
 pagina che mostra cassa e posizioni valorizzate ai prezzi correnti
 (aggregate per asset class, con allocazione attuale vs target), lo storico
 ordini con la motivazione di ognuno, e gli alert (scostamenti dal profilo
-target, posizioni vicine/oltre lo stop-loss teorico) — vuoti/assenti finché
-non compili `config/risk_limits.yaml`/`config/portfolio.yaml`, non un
-errore; `curl http://localhost:8000/portfolio` (ecc.) resta disponibile per
-il solo JSON.
+target, posizioni vicine/oltre lo stop-loss teorico); con
+`config/risk_limits.yaml`/`config/portfolio.yaml` ora compilati, queste
+sezioni sono popolate con i target/alert reali invece di restare
+vuote/`null` (comportamento comunque non un errore, se in futuro li
+disabiliti di nuovo); `curl http://localhost:8000/portfolio` (ecc.) resta
+disponibile per il solo JSON.
 
 ### Nota su reti aziendali con TLS-inspection
 

@@ -1,42 +1,42 @@
 # Limiti di rischio per asset class.
 #
-# QUESTO FILE E' VOLUTAMENTE VUOTO/NON OPERATIVO: il modulo di risk
-# management (3) leggerà questo file e RIFIUTERA' di autorizzare qualunque
-# operazione (anche in paper trading) finché `enabled: true` non è impostato
-# esplicitamente per ogni asset class E i valori sotto non sono stati
-# rivisti da te.
+# Compilato dal proprietario del progetto (profilo "Moderato", tutte e tre
+# le asset class abilitate). Da questo momento il modulo di risk management
+# (3) può autorizzare operazioni (anche in paper trading) nel rispetto dei
+# limiti sotto. Per tornare allo stato "non operativo" basta rimettere
+# `enabled: false` a livello globale o per la singola asset class.
 #
-# Nota vincolante: i limiti su "crypto" devono restare più stringenti di
-# quelli su "equity" ed "etf" (max_portfolio_pct più basso, stop_loss_pct
-# più stretto) — è un vincolo di prodotto, non solo un default. Il modulo 3
-# validerà questa relazione a runtime e si rifiuterà di partire se violata.
+# Nota vincolante: i limiti su "crypto" restano più stringenti di quelli su
+# "equity" ed "etf" (max_portfolio_pct più basso, stop_loss_pct più stretto,
+# volatilità massima più bassa) — è un vincolo di prodotto, non solo un
+# default. Il modulo 3 valida questa relazione a runtime e si rifiuta di
+# partire se violata.
 
 version: 1
-enabled: false   # deve diventare true esplicitamente prima di qualunque operazione, anche paper
+enabled: true   # deve restare true perché qualunque operazione, anche paper, sia autorizzata
 
-asset_classes:
-  equity:
-    enabled: false
-    max_portfolio_pct: null       # % massima di portafoglio investibile in azioni singole
-    max_position_pct: null        # % massima di portafoglio su un singolo titolo
-    stop_loss_pct: null           # stop-loss percentuale di default per posizione
-    max_volatility_annualized: null  # soglia di volatilità oltre la quale un titolo è escluso
+equity:
+  enabled: true
+  max_portfolio_pct: 60.0        # % massima di portafoglio investibile in azioni singole
+  max_position_pct: 10.0         # % massima di portafoglio su un singolo titolo
+  stop_loss_pct: 8.0              # stop-loss percentuale di default per posizione
+  max_volatility_annualized: 0.40 # soglia di volatilità oltre la quale un titolo è escluso
 
-  etf:
-    enabled: false
-    max_portfolio_pct: null
-    max_position_pct: null
-    stop_loss_pct: null
-    max_volatility_annualized: null
+etf:
+  enabled: true
+  max_portfolio_pct: 70.0
+  max_position_pct: 15.0
+  stop_loss_pct: 6.0
+  max_volatility_annualized: 0.35
 
-  crypto:
-    enabled: false
-    max_portfolio_pct: null       # DEVE essere <= equity.max_portfolio_pct ed etf.max_portfolio_pct
-    max_position_pct: null
-    stop_loss_pct: null           # DEVE essere <= equity.stop_loss_pct ed etf.stop_loss_pct (più stretto)
-    max_volatility_annualized: null  # DEVE essere <= soglie equity/etf (filtro più severo)
+crypto:
+  enabled: true
+  max_portfolio_pct: 10.0        # <= equity.max_portfolio_pct ed etf.max_portfolio_pct
+  max_position_pct: 3.0
+  stop_loss_pct: 5.0              # <= equity.stop_loss_pct ed etf.stop_loss_pct (più stretto)
+  max_volatility_annualized: 0.30 # <= soglie equity/etf (filtro più severo)
 
 # Limiti aggregati sull'intero portafoglio (tutte le asset class insieme).
 portfolio:
-  max_drawdown_pct: null          # drawdown massimo tollerato prima di sospendere l'operatività
-  max_daily_loss_pct: null        # perdita massima giornaliera prima di fermare il sistema
+  max_drawdown_pct: 15.0          # drawdown massimo tollerato prima di sospendere l'operatività
+  max_daily_loss_pct: 3.0         # perdita massima giornaliera prima di fermare il sistema

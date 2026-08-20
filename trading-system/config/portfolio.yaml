@@ -33,4 +33,5 @@ profiles:
   aggressive:
     equity: 40.0
     etf: 40.0
-    crypto: 12.0   # resto (8%) non investito — crypto resta comunque la quota minore
+    crypto: 10.0   # allineato al tetto di rischio crypto.max_portfolio_pct (config/risk_limits.yaml);
+                   # resto (10%) non investito — crypto resta comunque la quota minore

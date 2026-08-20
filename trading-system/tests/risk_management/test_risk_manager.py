@@ -9,7 +9,6 @@ import pytest
 from tests.risk_management.conftest import build_config
 from tests.strategy_engine.conftest import make_bars, monotonic_decline, monotonic_rise, zigzag_high_volatility
 from trading_system.common.enums import AssetClass, SignalAction
-from trading_system.common.exceptions import ConfigurationError
 from trading_system.common.models import Signal
 from trading_system.risk_management.risk_manager import RiskManager
 
@@ -125,12 +124,15 @@ def test_crypto_gets_tighter_stop_loss_than_equity_on_same_price_path():
     assert crypto_stop_distance < equity_stop_distance
 
 
-def test_missing_config_raises_at_construction_not_silently_defaults():
+def test_missing_config_uses_the_compiled_shipped_config_not_a_silent_default():
     # Il RiskManager non deve mai partire con una configurazione implicita:
-    # il file distribuito nel repo ha enabled=false, quindi costruirlo senza
-    # passare una config esplicita deve fallire rumorosamente.
-    with pytest.raises(ConfigurationError):
-        RiskManager()
+    # senza una config esplicita, deve caricare (e validare) il file
+    # distribuito nel repo — ora compilato dal proprietario del progetto —
+    # non inventare/derivare dei limiti impliciti.
+    manager = RiskManager()
+
+    assert manager._config.enabled is True
+    assert manager._config.crypto.max_portfolio_pct <= manager._config.equity.max_portfolio_pct
 
 
 def test_decision_always_carries_signal_confidence_for_traceability():

@@ -51,11 +51,20 @@ def test_globally_disabled_raises_configuration_error(tmp_path: Path):
         load_risk_limits(path)
 
 
-def test_shipped_default_config_is_disabled_by_default():
-    # config/risk_limits.yaml, così come distribuito nel repo, non deve mai
-    # autorizzare operazioni finché l'utente non lo compila esplicitamente.
-    with pytest.raises(ConfigurationError):
-        load_risk_limits()
+def test_shipped_config_loads_successfully():
+    # config/risk_limits.yaml è stato compilato dal proprietario del
+    # progetto (profilo "moderato", tutte le asset class abilitate): deve
+    # caricarsi senza errori e rispettare il vincolo "crypto più stringente".
+    config = load_risk_limits()
+
+    assert config.enabled is True
+    assert config.equity.enabled is True
+    assert config.etf.enabled is True
+    assert config.crypto.enabled is True
+    assert config.crypto.max_portfolio_pct <= config.equity.max_portfolio_pct
+    assert config.crypto.max_portfolio_pct <= config.etf.max_portfolio_pct
+    assert config.crypto.stop_loss_pct <= config.equity.stop_loss_pct
+    assert config.crypto.stop_loss_pct <= config.etf.stop_loss_pct
 
 
 @pytest.mark.parametrize("asset_class", ["equity", "etf", "crypto"])

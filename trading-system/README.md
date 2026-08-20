@@ -100,7 +100,8 @@ trading-system/
 │   ├── backtest_sample_strategy.py   # demo CLI: backtest walk-forward + eleggibilità + aggregati
 │   ├── execute_sample_decisions.py   # demo CLI: esecuzione paper trading dell'intera pipeline
 │   ├── run_scheduler.py              # ENTRYPOINT OPERATIVO: demone che pianifica i cicli da solo (modulo 8, opzione A)
-│   └── run_cycle_once.py             # ENTRYPOINT OPERATIVO: un solo ciclo, per scheduler esterni (modulo 8, opzione B — GitHub Actions)
+│   ├── run_cycle_once.py             # ENTRYPOINT OPERATIVO: un solo ciclo, per scheduler esterni (modulo 8, opzione B — GitHub Actions)
+│   └── refresh_eligibility.py        # ENTRYPOINT OPERATIVO: ricalcola l'eleggibilità al live (modulo 8, cadenza settimanale)
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -292,6 +293,12 @@ if not eligibility.approved:
     ...  # per vincolo di prodotto, il modulo 6 (execution) deve rifiutarsi di operare live
 ```
 
+`EligibilityRepository` (`trading_system.backtesting.storage`) persiste ogni
+valutazione (insert-only, mai sovrascritta — stesso principio di
+auditabilità dello storico ordini): è quello che il modulo 8 legge in
+automatico per decidere se un ordine può passare al live, tramite il job
+`scripts/refresh_eligibility.py` (vedi Modulo 8).
+
 `aggregate_metrics` combina più `BacktestRun` per asset class (o sul
 totale) sommando le curve di equity — assumendo capitali indipendenti in
 parallelo per simbolo, non l'arbitraggio di budget condiviso del modulo 4
@@ -462,17 +469,15 @@ uno storico auditabile di quando il sistema ha girato. Non toccare a mano
 il file `.db` in quel branch: verrebbe sovrascritto dal ciclo successivo.
 
 **Attivazione.** I trigger `schedule:` di GitHub Actions partono solo per i
-workflow presenti sul **branch di default** del repository (`main`): finché
-`.github/workflows/trading-cycle.yml` resta solo su questo branch feature,
-il cron giornaliero non si attiva da solo. Puoi comunque testarlo subito a
-mano — anche su questo branch — dalla tab *Actions* → *Ciclo di trading
-autonomo (paper)* → *Run workflow*; per farlo partire ogni giorno da solo
-serve che questo branch (o almeno il workflow) arrivi su `main`.
+workflow presenti sul **branch di default** del repository (`main`) —
+`.github/workflows/trading-cycle.yml` ci è già stato unito, quindi il cron
+giornaliero è attivo. Puoi comunque lanciare un run in qualunque momento a
+mano dalla tab *Actions* → *Ciclo di trading autonomo (paper)* →
+*Run workflow*.
 
-**Costo.** Zero: il repository è pubblico, quindi i minuti di GitHub
-Actions sono illimitati e gratuiti — un ciclo dura circa un minuto,
-ben lontano da qualunque limite anche per un repo privato (2.000
-minuti/mese gratis sul piano Free).
+**Costo.** Il repository è privato: 2.000 minuti/mese gratis sul piano
+Free di GitHub — un ciclo dura circa un minuto, quindi anche con più
+workflow (vedi sotto) resti ben lontano dal limite.
 
 **Cosa vedere dopo un run**: tab *Actions* per i log dello step "Esegui il
 ciclo" e per l'artifact `trading-cycle-logs-<run_id>` (log applicativi
@@ -481,6 +486,77 @@ stato del conto committato; la dashboard (modulo 7,
 `uvicorn trading_system.api.main:app`) se punti il suo
 `DATABASE_URL`/percorso dati allo stesso file per vedere posizioni/ordini
 nell'interfaccia.
+
+### Refresh dell'eleggibilità al live (backtest)
+
+Il ciclo quotidiano sopra non calcola mai un backtest: costerebbe troppo
+rifarlo ogni giorno e richiede uno storico molto più lungo (~2 anni) della
+finestra dati che quel ciclo mantiene aggiornata (30 giorni di default).
+`scripts/refresh_eligibility.py` è un job separato, a cadenza più bassa,
+che:
+
+1. scarica uno storico lungo per ogni simbolo della watchlist;
+2. fa girare `BacktestEngine` (modulo 5) con le **stesse istanze** di
+   `StrategyEngine`/`RiskManager` che il ciclo di trading userebbe dal
+   vivo — coerente col principio "backtest positivo deve dire qualcosa
+   sulla logica reale";
+3. valuta l'eleggibilità coi criteri **reali** di `config/backtesting.yaml`
+   (mai di esempio: un'eleggibilità finta non deve mai poter autorizzare
+   denaro vero) e la persiste (`EligibilityRepository`, stesso database del
+   conto paper).
+
+È quello che `run_cycle` legge, per ogni ordine approvato, prima di
+chiamare `ExecutionManager.execute()` — se non è mai stato calcolato per un
+simbolo/strategia, quell'ordine resta in paper: l'assenza di eleggibilità
+non è mai un'autorizzazione implicita.
+
+Il workflow `.github/workflows/eligibility-refresh.yml` lo esegue ogni
+domenica alle 05:00 UTC (`schedule:` + `workflow_dispatch:` per un avvio
+manuale), con lo stesso meccanismo di persistenza su `paper-trading-state`
+di `trading-cycle.yml` (stesso `concurrency: group`, per non far scrivere i
+due workflow sul database in contemporanea).
+
+### La strada verso il live, passo per passo
+
+Il sistema supporta due percorsi per autorizzare un simbolo/strategia al
+trading con denaro reale (`execution.gate.LiveTradingGate`), mai una terza
+scorciatoia:
+
+- **(a) conferma esplicita a runtime** — richiede un umano che clicchi in
+  quel momento; un ciclo autonomo non presidiato non può mai fornirla, e
+  infatti `run_cycle` passa sempre `explicit_confirmation=False`;
+- **(b) periodo di validazione in paper trading** — un simbolo passa al
+  live **da solo**, senza chiedere conferma quel giorno, quando ha
+  accumulato abbastanza storico paper (`config/execution.yaml: live_gate`:
+  di default 14 giorni e 5 operazioni riempite) **e** un'eleggibilità da
+  backtest ancora valida (non più vecchia di `max_backtest_age_days`, 30
+  giorni di default).
+
+Con l'obiettivo di piena autonomia, la via (b) è l'unica applicabile: è
+quella che il modulo 8 alimenta con `refresh_eligibility.py`. Perché un
+simbolo passi davvero al live servono, in ordine:
+
+1. **Un conto reale aperto e finanziato** — Alpaca per azioni/ETF, Kraken
+   (o altro exchange supportato da ccxt) per crypto. Si apre e si finanzia
+   direttamente sul sito del broker: non è qualcosa che questo sistema può
+   fare per te.
+2. **Le tue credenziali API**, fornite esplicitamente quando sei pronto —
+   mai inventate. Vanno aggiunte come *Secrets* del repository GitHub
+   (Settings → Secrets and variables → Actions), referenziati dal workflow
+   come variabili d'ambiente per `AlpacaBroker`/`CCXTBroker`
+   (`ALPACA_API_KEY`, `ALPACA_API_SECRET`, `KRAKEN_API_KEY`,
+   `KRAKEN_API_SECRET` — vedi `.env.example`), mai committate nel codice.
+3. **`config/execution.yaml: mode: live`** — l'ultimo passo, dopo tutto il
+   resto. Da quel momento, per ogni simbolo che ha già accumulato lo
+   storico paper e un'eleggibilità positiva, il ciclo quotidiano
+   **comincia ad autorizzare ordini reali senza ulteriori conferme** — è
+   il comportamento scelto esplicitamente per rendere il sistema
+   pienamente automatico, non un effetto collaterale.
+
+Un simbolo nuovo (senza storico) non può quindi mai passare al live prima
+di ~14 giorni di paper trading, a prescindere da quando aggiungi le
+credenziali o cambi `mode`: è un tempo minimo di sicurezza incorporato nel
+gate, non aggirabile.
 
 ## Setup
 
@@ -615,6 +691,13 @@ reali (Kraken/ccxt): con `config/risk_limits.yaml` compilato, il risk
 manager ha correttamente rifiutato un segnale SELL su ETH/USDT per
 volatilità annualizzata reale (76.5%) sopra il limite crypto configurato
 (30%) — la prova che i limiti reali vengono applicati, non solo caricati.
+Anche `refresh_eligibility.py` è stato verificato end-to-end su ~2 anni di
+dati reali BTC/ETH: eleggibilità correttamente persistita e negata per 0
+trade generati nel periodo (comportamento di sicurezza atteso, non un
+difetto — stesso principio già visto nel modulo 5). Il collegamento
+completo modulo 8 → modulo 6 → gate è testato anche end-to-end nella suite:
+con un'eleggibilità approvata e storico paper sufficiente, un ordine BUY
+raggiunge davvero un broker live fittizio senza alcuna conferma esplicita.
 
 Nota tecnica emersa proprio testando la dashboard: SQLite in-memory
 (`sqlite:///:memory:`) assegna di default una connessione per thread — un
@@ -637,7 +720,8 @@ reale durante `pytest`); gli script `fetch_sample_data.py`,
 `execute_sample_decisions.py` invece effettuano operazioni reali (rete per
 il primo, lettura del DB locale per gli altri cinque) per verifica manuale
 end-to-end; la dashboard (modulo 7) si avvia con `uvicorn` (vedi sopra) e
-legge lo stesso DB locale; `run_scheduler.py`/`run_cycle_once.py` (modulo 8)
-orchestrano tutto quanto sopra in autonomia, sullo stesso DB, con vera rete
-per l'aggiornamento dati ad ogni ciclo (`run_cycle_once.py` è anche quello
-usato dal workflow GitHub Actions, vedi Modulo 8).
+legge lo stesso DB locale; `run_scheduler.py`/`run_cycle_once.py`/
+`refresh_eligibility.py` (modulo 8) orchestrano tutto quanto sopra in
+autonomia, sullo stesso DB, con vera rete per l'aggiornamento dati ad ogni
+ciclo (sono anche gli script usati dai workflow GitHub Actions, vedi
+Modulo 8).

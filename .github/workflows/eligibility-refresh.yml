@@ -1,0 +1,96 @@
+name: Refresh eleggibilità al trading live (backtest)
+
+# Ricalcola settimanalmente il backtest (modulo 5) e l'eleggibilità al live
+# per ogni simbolo/strategia della watchlist, e la persiste sullo stesso
+# database del conto paper (branch paper-trading-state). È quello che il
+# ciclo quotidiano (trading-cycle.yml) legge per decidere se un ordine può
+# passare al live — separato dal ciclo di trading perché un backtest su
+# storico lungo (~2 anni) è troppo costoso da rifare ogni giorno.
+#
+# Come trading-cycle.yml: nessuna credenziale richiesta (dati pubblici
+# yfinance/ccxt), nessun ordine reale può partire da questo workflow — usa
+# SEMPRE i limiti di rischio reali, mai di esempio.
+on:
+  schedule:
+    # Domenica 05:00 UTC, un'ora prima del ciclo di trading giornaliero, così
+    # l'eleggibilità è fresca prima del primo ciclo della settimana.
+    - cron: "0 5 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # per salvare l'eleggibilità aggiornata sul branch paper-trading-state
+
+# Stesso gruppo di trading-cycle.yml: entrambi i workflow scrivono sullo
+# stesso file DB sul branch paper-trading-state, non devono mai sovrapporsi.
+concurrency:
+  group: trading-cycle
+  cancel-in-progress: false
+
+jobs:
+  refresh-eligibility:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codice
+        uses: actions/checkout@v4
+        with:
+          path: code
+
+      - name: Checkout stato del conto paper
+        uses: actions/checkout@v4
+        with:
+          ref: paper-trading-state
+          path: state
+
+      - name: Ripristina il database (se già esiste)
+        run: |
+          mkdir -p code/trading-system/data
+          if [ -f state/trading-system/data/trading_system.db ]; then
+            cp state/trading-system/data/trading_system.db code/trading-system/data/trading_system.db
+            echo "Stato precedente ripristinato."
+          else
+            echo "Nessuno stato precedente: verrà creato un database nuovo."
+          fi
+
+      - name: Imposta Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: code/trading-system/requirements.txt
+
+      - name: Installa le dipendenze
+        working-directory: code/trading-system
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Ricalcola l'eleggibilità
+        working-directory: code/trading-system
+        run: python scripts/refresh_eligibility.py
+
+      - name: Salva l'eleggibilità aggiornata
+        if: always()
+        run: |
+          mkdir -p state/trading-system/data
+          if [ -f code/trading-system/data/trading_system.db ]; then
+            cp code/trading-system/data/trading_system.db state/trading-system/data/trading_system.db
+          fi
+          cd state
+          git config user.name "trading-system-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add trading-system/data/trading_system.db
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica: niente da salvare."
+          else
+            git commit -m "Refresh eleggibilità $(date -u +%Y-%m-%dT%H:%M:%SZ) (run ${{ github.run_id }})"
+            git push origin HEAD:paper-trading-state
+          fi
+
+      - name: Carica i log come artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eligibility-refresh-logs-${{ github.run_id }}
+          path: code/trading-system/logs/
+          retention-days: 30
+          if-no-files-found: ignore

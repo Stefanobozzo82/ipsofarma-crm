@@ -10,7 +10,8 @@
 mode: paper
 
 paper:
-  initial_cash: 100000.0
+  initial_cash: 100.0    # cifra "di prova" scelta dall'utente — nessuna conversione valutaria: è la stessa unità
+                          # di conto in cui sono denominati gli strumenti (USD per azioni/ETF, USDT per crypto)
   commission_pct: 0.10   # simula un costo di transazione anche in paper trading
 
 # Broker/exchange per l'esecuzione LIVE, uno per asset class. Le credenziali

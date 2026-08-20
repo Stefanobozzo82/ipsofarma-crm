@@ -25,7 +25,9 @@ implementato in questo repository.
 - [x] **3. Risk management** — position sizing, limiti per asset class (crypto
       sempre più stringenti, validato a runtime), stop-loss, filtro di
       volatilità per categoria
-- [ ] **4. Portfolio allocator** — distribuzione del capitale tra asset class
+- [x] **4. Portfolio allocator** — distribuzione del capitale tra asset class
+      per profilo di rischio, arbitraggio di budget tra segnali concorrenti,
+      ribilanciamento
 - [ ] **5. Backtesting** — validazione storica pre-condizione per operare
 - [ ] **6. Execution layer** — paper trading di default, reale isolato e dietro conferma
 - [ ] **7. Dashboard/report** — stato portafoglio, storico, motivazioni, alert
@@ -61,14 +63,15 @@ trading-system/
 │   ├── data_ingestion/     # MODULO 1 — connettori dati + normalizzazione + storage
 │   ├── strategy_engine/    # MODULO 2 — regole per asset class + score di confidenza
 │   ├── risk_management/    # MODULO 3 — position sizing, limiti, stop-loss, filtro volatilità
-│   ├── portfolio/          # MODULO 4 — non ancora implementato
+│   ├── portfolio/          # MODULO 4 — allocazione per profilo di rischio, ribilanciamento
 │   ├── backtesting/        # MODULO 5 — non ancora implementato
 │   ├── execution/          # MODULO 6 — non ancora implementato (paper/ e live/ separati)
 │   └── api/                # MODULO 7 — dashboard FastAPI, non ancora implementato
 ├── scripts/
-│   ├── fetch_sample_data.py       # demo CLI: scarica ed effettua l'upsert di dati reali
-│   ├── generate_sample_signals.py # demo CLI: genera segnali dai dati storicizzati
-│   └── evaluate_sample_risk.py    # demo CLI: valuta i segnali contro i limiti di rischio
+│   ├── fetch_sample_data.py         # demo CLI: scarica ed effettua l'upsert di dati reali
+│   ├── generate_sample_signals.py   # demo CLI: genera segnali dai dati storicizzati
+│   ├── evaluate_sample_risk.py      # demo CLI: valuta i segnali contro i limiti di rischio
+│   └── allocate_sample_portfolio.py # demo CLI: arbitraggio di budget + ribilanciamento
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -174,6 +177,46 @@ non esegue nulla da solo — è il contratto che il modulo 6 (execution, non
 ancora implementato) userà per costruire un ordine, sempre in paper trading
 salvo conferma esplicita per il reale.
 
+## Modulo 4 — Portfolio allocator
+
+Decide come distribuire il capitale tra le tre asset class in base al
+rischio complessivo desiderato. `config/portfolio.yaml` definisce profili
+di allocazione (`conservative`/`balanced`/`aggressive`, personalizzabili) —
+ognuno è un **obiettivo/preferenza**, non un tetto di sicurezza: al
+caricamento, ogni profilo viene validato contro i tetti reali del modulo 3
+(`max_portfolio_pct`) e il caricamento fallisce se un profilo li supera.
+Non puoi usare questo file per aggirare i limiti di rischio, solo per
+starne più prudentemente sotto.
+
+Due responsabilità distinte:
+
+1. **Arbitraggio di budget** (`allocate`): il modulo 3 approva un segnale
+   contro i limiti *per strumento/asset class*; qui si verifica in più che
+   ci sia budget residuo nel *target di portafoglio* — se più `RiskDecision`
+   BUY concorrono sullo stesso budget nella stessa asset class, vengono
+   allocate in ordine di confidenza decrescente finché il budget non si
+   esaurisce (le eccedenti vengono ridotte o rifiutate, sempre con
+   motivazione). Le vendite riducono l'esposizione e non consumano mai
+   budget: passano sempre.
+2. **Ribilanciamento** (`check_rebalance`): confronta il peso attuale di
+   ogni asset class con il target e produce `RebalanceAction` quando lo
+   scostamento supera `rebalance_threshold_pct` — anche senza alcun nuovo
+   segnale, perché il solo movimento dei prezzi può scostare il portafoglio
+   dal profilo scelto. È qui che vive la logica di "rebalancing" citata per
+   gli ETF nella specifica di prodotto, generalizzata a tutte le asset class
+   (non ha senso limitarla a una sola).
+
+```python
+from trading_system.portfolio import PortfolioAllocator, load_portfolio_config
+from trading_system.risk_management import load_risk_limits
+
+risk_limits = load_risk_limits()
+allocator = PortfolioAllocator(load_portfolio_config(risk_limits))
+
+allocation_results = allocator.allocate(risk_decisions, positions_value, total_equity)
+rebalance_actions = allocator.check_rebalance(positions_value, total_equity)
+```
+
 ## Setup
 
 ```bash
@@ -212,12 +255,13 @@ non le invento né le lascio in placeholder attivi:
 
 Vedi `.env.example` per l'elenco completo con commenti.
 
-## Uso rapido (demo data ingestion + strategy engine + risk management)
+## Uso rapido (demo data ingestion + strategy engine + risk management + portfolio allocator)
 
 ```bash
-python scripts/fetch_sample_data.py        # modulo 1: scarica e storicizza i dati
-python scripts/generate_sample_signals.py  # modulo 2: genera segnali dai dati storicizzati
-python scripts/evaluate_sample_risk.py     # modulo 3: valuta i segnali contro i limiti di rischio
+python scripts/fetch_sample_data.py          # modulo 1: scarica e storicizza i dati
+python scripts/generate_sample_signals.py    # modulo 2: genera segnali dai dati storicizzati
+python scripts/evaluate_sample_risk.py       # modulo 3: valuta i segnali contro i limiti di rischio
+python scripts/allocate_sample_portfolio.py  # modulo 4: arbitraggio di budget + ribilanciamento
 ```
 
 Il primo scarica alcune barre storiche daily per un'azione ed un ETF di
@@ -229,7 +273,10 @@ loro motivazione (recuperando anche i fondamentali per le azioni, se
 disponibili). Il terzo valuta ogni segnale con il risk manager: finché non
 compili `config/risk_limits.yaml`, lo segnala esplicitamente e usa dei
 limiti di esempio tenuti solo in memoria, per farti comunque vedere la
-pipeline completa in azione senza autorizzare nulla di reale.
+pipeline completa in azione senza autorizzare nulla di reale. Il quarto
+simula un conto senza posizioni aperte e mostra sia l'arbitraggio di budget
+sulle `RiskDecision` approvate sia i suggerimenti di ribilanciamento per
+raggiungere il profilo di allocazione attivo da zero.
 
 ### Nota su reti aziendali con TLS-inspection
 
@@ -251,12 +298,14 @@ enterprise/CI sandboxati), potresti incontrare errori di certificato:
   `query1.finance.yahoo.com` direttamente (fuori da eventuali proxy di
   ispezione TLS) prima di aprire un bug sul connettore.
 
-I moduli 1, 2 e 3 sono stati validati end-to-end con dati reali per la parte
-crypto (Kraken → data ingestion → strategy engine → risk management,
-inclusa la verifica che sia il filtro di volatilità dello strategy engine
-sia quello, indipendente, del risk manager rifiutino correttamente un
-asset troppo volatile) e con una suite di test unitari (mock/dati
-sintetici, nessuna rete) per tutti e tre.
+I moduli 1-4 sono stati validati end-to-end con dati reali per la parte
+crypto (Kraken → data ingestion → strategy engine → risk management →
+portfolio allocator, inclusa la verifica che il rifiuto di un asset troppo
+volatile da parte del modulo 3 si propaghi correttamente come "non idoneo
+per l'allocazione" nel modulo 4, e che il ribilanciamento da un conto vuoto
+proponga correttamente di aprire posizioni verso i target del profilo
+attivo) e con una suite di test unitari (mock/dati sintetici, nessuna rete)
+per tutti e quattro.
 
 ## Test
 
@@ -266,6 +315,7 @@ pytest
 
 I test usano mock/dati sintetici deterministici (nessuna chiamata di rete
 reale durante `pytest`); gli script `fetch_sample_data.py`,
-`generate_sample_signals.py` ed `evaluate_sample_risk.py` invece effettuano
+`generate_sample_signals.py`, `evaluate_sample_risk.py` ed
+`allocate_sample_portfolio.py` invece effettuano
 operazioni reali (rete per il primo, lettura del DB locale per gli altri
-due) per verifica manuale end-to-end.
+tre) per verifica manuale end-to-end.

@@ -1,0 +1,36 @@
+# Profili di allocazione del portafoglio tra asset class, in base al
+# rischio complessivo desiderato.
+#
+# Ogni peso è una percentuale massima target dell'equity totale. La somma
+# dei pesi di un profilo può essere < 100 (il resto resta liquidità non
+# investita); non può mai superare 100.
+#
+# IMPORTANTE: questi pesi sono un obiettivo/preferenza, non un tetto di
+# sicurezza — il tetto di sicurezza resta config/risk_limits.yaml (modulo 3).
+# Il portfolio allocator (modulo 4) valida ogni profilo qui sotto contro i
+# limiti di rischio compilati e si rifiuta di partire se un profilo supera,
+# per una qualunque asset class, il rispettivo max_portfolio_pct: non puoi
+# usare questo file per aggirare il modulo 3, solo per stare più prudenti
+# di quanto il modulo 3 già imponga.
+
+active_profile: balanced
+
+# Scostamento (in punti percentuali) tra peso attuale e peso target oltre
+# il quale il portfolio allocator segnala la necessità di ribilanciare.
+rebalance_threshold_pct: 5.0
+
+profiles:
+  conservative:
+    equity: 15.0
+    etf: 65.0
+    crypto: 5.0    # resto (15%) non investito
+
+  balanced:
+    equity: 30.0
+    etf: 50.0
+    crypto: 10.0   # resto (10%) non investito
+
+  aggressive:
+    equity: 40.0
+    etf: 40.0
+    crypto: 12.0   # resto (8%) non investito — crypto resta comunque la quota minore

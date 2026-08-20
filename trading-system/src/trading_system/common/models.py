@@ -3,10 +3,11 @@
 Definire questi tipi fin dall'inizio permette a moduli sviluppati in momenti
 diversi (data ingestion oggi, strategy engine/risk/execution più avanti) di
 parlare lo stesso linguaggio. `Instrument` e `MarketBar` sono usati dal
-modulo 1 (data ingestion), `Signal` dal modulo 2 (strategy engine) e
-`RiskDecision` dal modulo 3 (risk management), tutti già implementati.
-`Order` e `Position` sono qui come contratto per i moduli 4 e 6 (non ancora
-implementati) e possono essere estesi quando quei moduli verranno costruiti.
+modulo 1 (data ingestion), `Signal` dal modulo 2 (strategy engine),
+`RiskDecision` dal modulo 3 (risk management) e `AllocationDecision`/
+`RebalanceAction`/`Position` dal modulo 4 (portfolio allocator), tutti già
+implementati. `Order` è qui come contratto per il modulo 6 (execution, non
+ancora implementato) e può essere esteso quando quel modulo verrà costruito.
 """
 
 from __future__ import annotations
@@ -105,6 +106,48 @@ class Position(BaseModel):
     asset_class: AssetClass
     quantity: float
     average_entry_price: float
+
+
+class AllocationDecision(BaseModel):
+    """Esito dell'arbitraggio di budget del portfolio allocator (modulo 4) su una `RiskDecision`.
+
+    Il modulo 3 approva un segnale contro i limiti di rischio *per
+    strumento/asset class*; il modulo 4 verifica in più che ci sia budget
+    residuo nel profilo di allocazione target *di portafoglio* (che può
+    essere più prudente del tetto di sicurezza) e, se più segnali
+    concorrono sullo stesso budget, decide quali eseguire per intero, quali
+    ridurre e quali scartare — sempre spiegando perché.
+    """
+
+    symbol: str
+    asset_class: AssetClass
+    approved: bool
+    action: SignalAction
+    quantity: float = 0.0  # quantità finale, eventualmente ridotta rispetto alla RiskDecision di origine
+    original_quantity: float = 0.0  # quantità approvata dal modulo 3, prima dell'arbitraggio di budget
+    reason: str
+    evaluated_at: datetime
+
+
+class RebalanceAction(BaseModel):
+    """Segnalazione di ribilanciamento tra asset class (modulo 4 — portfolio allocator).
+
+    A differenza di `Signal`/`RiskDecision` (per singolo strumento), agisce
+    a livello di asset class: quando il peso attuale di una categoria si
+    scosta dal target oltre `rebalance_threshold_pct`
+    (`config/portfolio.yaml`), propone di ridurre (`SELL`) o aumentare
+    (`BUY`) l'esposizione a quella categoria — una raccomandazione di
+    portafoglio, non un ordine su un singolo strumento.
+    """
+
+    asset_class: AssetClass
+    action: SignalAction  # BUY = aumentare l'esposizione, SELL = ridurla
+    current_pct: float
+    target_pct: float
+    drift_pct: float
+    amount: float  # valore, in valuta di conto, dello scostamento da correggere
+    reason: str
+    evaluated_at: datetime
 
 
 class Order(BaseModel):

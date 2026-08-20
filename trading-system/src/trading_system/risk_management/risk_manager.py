@@ -63,6 +63,7 @@ class RiskManager:
             quantity=0.0,
             reason=reason,
             signal_confidence=signal.confidence,
+            strategy_name=signal.strategy_name,
             evaluated_at=datetime.now(timezone.utc),
         )
 
@@ -121,5 +122,6 @@ class RiskManager:
             stop_loss_price=stop_loss_price,
             reason=reason,
             signal_confidence=signal.confidence,
+            strategy_name=signal.strategy_name,
             evaluated_at=datetime.now(timezone.utc),
         )

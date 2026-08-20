@@ -47,6 +47,7 @@ def make_risk_decision(
     entry_price: float | None = 100.0,
     confidence: float = 0.8,
     reason: str = "decisione di test",
+    strategy_name: str = "test_strategy",
 ) -> RiskDecision:
     return RiskDecision(
         symbol=symbol,
@@ -58,5 +59,6 @@ def make_risk_decision(
         stop_loss_price=entry_price * 0.95 if entry_price else None,
         reason=reason,
         signal_confidence=confidence,
+        strategy_name=strategy_name,
         evaluated_at=datetime.now(timezone.utc),
     )

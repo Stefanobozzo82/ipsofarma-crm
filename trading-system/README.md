@@ -31,7 +31,9 @@ implementato in questo repository.
 - [x] **5. Backtesting** — simulazione walk-forward con strategy engine e
       risk manager reali, metriche di rendimento/drawdown/Sharpe per asset
       class e aggregate, criteri di eleggibilità al trading live
-- [ ] **6. Execution layer** — paper trading di default, reale isolato e dietro conferma
+- [x] **6. Execution layer** — paper trading di default, reale isolato in
+      `execution/live/` dietro un gate a doppio percorso (conferma esplicita
+      o periodo di validazione), broker diversi per asset class
 - [ ] **7. Dashboard/report** — stato portafoglio, storico, motivazioni, alert
 
 ## Principi guida (vincoli non negoziabili)
@@ -59,7 +61,9 @@ trading-system/
 │   ├── settings.py        # configurazione centrale (env vars via pydantic-settings)
 │   ├── risk_limits.yaml   # limiti di rischio per asset class — DA COMPILARE dall'utente
 │   ├── assets.yaml        # watchlist per asset class (esempio, da personalizzare)
-│   └── strategies.yaml    # regole/parametri delle strategie per asset class
+│   ├── strategies.yaml    # regole/parametri delle strategie per asset class
+│   ├── backtesting.yaml   # parametri di simulazione + criteri di eleggibilità al live
+│   └── execution.yaml     # modalità paper/live, broker per asset class, gate verso il live
 ├── src/trading_system/
 │   ├── common/             # modelli dati condivisi, enum, logging, eccezioni
 │   ├── data_ingestion/     # MODULO 1 — connettori dati + normalizzazione + storage
@@ -67,14 +71,15 @@ trading-system/
 │   ├── risk_management/    # MODULO 3 — position sizing, limiti, stop-loss, filtro volatilità
 │   ├── portfolio/          # MODULO 4 — allocazione per profilo di rischio, ribilanciamento
 │   ├── backtesting/        # MODULO 5 — simulazione walk-forward, metriche, eleggibilità
-│   ├── execution/          # MODULO 6 — non ancora implementato (paper/ e live/ separati)
+│   ├── execution/          # MODULO 6 — paper trading + execution.live/ isolato (Alpaca, ccxt)
 │   └── api/                # MODULO 7 — dashboard FastAPI, non ancora implementato
 ├── scripts/
 │   ├── fetch_sample_data.py          # demo CLI: scarica ed effettua l'upsert di dati reali
 │   ├── generate_sample_signals.py    # demo CLI: genera segnali dai dati storicizzati
 │   ├── evaluate_sample_risk.py       # demo CLI: valuta i segnali contro i limiti di rischio
 │   ├── allocate_sample_portfolio.py  # demo CLI: arbitraggio di budget + ribilanciamento
-│   └── backtest_sample_strategy.py   # demo CLI: backtest walk-forward + eleggibilità + aggregati
+│   ├── backtest_sample_strategy.py   # demo CLI: backtest walk-forward + eleggibilità + aggregati
+│   └── execute_sample_decisions.py   # demo CLI: esecuzione paper trading dell'intera pipeline
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -266,6 +271,50 @@ parallelo per simbolo, non l'arbitraggio di budget condiviso del modulo 4
 (quella è gestione del capitale *live*, non backtest storico multi-simbolo;
 la semplificazione è dichiarata esplicitamente nel codice).
 
+## Modulo 6 — Execution layer
+
+Trasforma una `AllocationDecision` (modulo 4) in un `Order`. **Paper
+trading di default, sempre** (`config/execution.yaml: mode: paper`):
+nessuna credenziale richiesta, cassa e posizioni simulate e persistite
+(sopravvivono tra esecuzioni successive — è ciò che rende possibile un
+periodo di validazione, non solo una simulazione usa e getta). Niente
+vendite allo scoperto: coerente con il motore di backtest (modulo 5) e con
+l'impostazione "a basso rischio" del prodotto.
+
+**L'esecuzione con denaro reale vive isolata in `execution/live/`**
+(`AlpacaBroker` per azioni/ETF, `CCXTBroker` per crypto) e non viene mai
+usata implicitamente. Anche con `mode: live` in configurazione, ogni
+singolo ordine passa per `LiveTradingGate`, che richiede **sempre** un
+backtest positivo e non scaduto (modulo 5, `max_backtest_age_days`), più
+**almeno una** tra:
+
+- **conferma esplicita a runtime** — mai automatica, mai letta da un file:
+  va passata esplicitamente (`explicit_confirmation=True`) *e*
+  `LIVE_TRADING_ENABLED=true` nell'ambiente, entrambe necessarie;
+- **periodo di validazione in paper trading superato** — numero minimo di
+  trade paper riempiti e giorni minimi dal primo, sullo stesso
+  simbolo/strategia (`config/execution.yaml: live_gate`).
+
+Se il gate non approva, o se il broker live non è disponibile (credenziali
+mancanti — mai inventate, vedi tabella sotto), l'ordine **viene eseguito in
+paper**, non rifiutato in silenzio e mai eseguito live senza autorizzazione.
+Ogni ordine, paper o live, viene registrato in un unico storico
+(`ExecutionRepository`), per una tracciabilità unificata.
+
+```python
+from trading_system.execution import ExecutionManager, ExecutionRepository, load_execution_config
+
+manager = ExecutionManager(load_execution_config(), ExecutionRepository(engine), price_provider)
+order = manager.execute(allocation_decision, eligibility=backtest_eligibility, explicit_confirmation=False)
+# order.mode dice sempre se è stato eseguito in paper o in live — mai ambiguo
+```
+
+**Nota sui broker live**: `AlpacaBroker` e `CCXTBroker` sono implementati
+contro le interfacce reali (`alpaca-py`, `ccxt` autenticato) verificate per
+corrispondenza, ma non testati end-to-end con credenziali vere in questo
+ambiente di sviluppo — nessuna credenziale è stata inventata. Testali con
+le tue chiavi prima di autorizzare qualunque operazione reale.
+
 ## Setup
 
 ```bash
@@ -291,20 +340,23 @@ key**:
   cui se operi da una zona soggetta a restrizioni ti conviene comunque un
   altro exchange.
 
-Le seguenti credenziali **non sono ancora richieste** ma serviranno nei
-moduli successivi — te le chiederò esplicitamente quando arriveremo lì,
-non le invento né le lascio in placeholder attivi:
+Il modulo 6 (execution) è implementato, ma **paper trading resta il default
+e non richiede alcuna credenziale**: usa un broker simulato interno, non
+Alpaca né un exchange reale. Le credenziali sotto servono solo se e quando
+vorrai attivare l'esecuzione **live** — te le chiederò esplicitamente
+quando deciderai di farlo, non le invento né le lascio in placeholder
+attivi:
 
 | Credenziale | Modulo | Note |
 |---|---|---|
-| Alpaca `API_KEY` / `API_SECRET` (o Interactive Brokers) | 6 — Execution (azioni/ETF) | serve anche per il paper trading Alpaca |
-| API key exchange crypto (es. Binance, Kraken) | 6 — Execution (crypto, ordini reali) | non serve per i soli dati OHLCV |
+| Alpaca `API_KEY` / `API_SECRET` (o Interactive Brokers) | 6 — Execution live (azioni/ETF) | richiesta solo da `execution.live.AlpacaBroker`, non dal paper trading di default |
+| API key exchange crypto (es. Binance, Kraken) | 6 — Execution live (crypto, ordini reali) | richiesta solo da `execution.live.CCXTBroker`; non serve per i soli dati OHLCV (modulo 1) |
 | Polygon.io / Alpha Vantage API key | 1 — Data ingestion (fonte dati alternativa/di backup) | opzionale, solo se vuoi affiancarle a yfinance |
 | `DATABASE_URL` (Postgres) | tutti | opzionale, default SQLite locale |
 
 Vedi `.env.example` per l'elenco completo con commenti.
 
-## Uso rapido (demo data ingestion + strategy engine + risk management + portfolio allocator + backtesting)
+## Uso rapido (demo di tutti i moduli 1-6)
 
 ```bash
 python scripts/fetch_sample_data.py          # modulo 1: scarica e storicizza i dati
@@ -312,6 +364,7 @@ python scripts/generate_sample_signals.py    # modulo 2: genera segnali dai dati
 python scripts/evaluate_sample_risk.py       # modulo 3: valuta i segnali contro i limiti di rischio
 python scripts/allocate_sample_portfolio.py  # modulo 4: arbitraggio di budget + ribilanciamento
 python scripts/backtest_sample_strategy.py   # modulo 5: backtest walk-forward + eleggibilità
+python scripts/execute_sample_decisions.py   # modulo 6: esecuzione paper trading dell'intera pipeline
 ```
 
 Il primo scarica alcune barre storiche daily per un'azione ed un ETF di
@@ -332,7 +385,11 @@ metriche/eleggibilità per simbolo e le aggregate per asset class e sul
 totale — nota che un solo trade su un periodo di due anni (esito plausibile
 e onesto sui dati storici reali) viene correttamente segnalato come "non
 idoneo" per il numero di trade insufficiente: è il comportamento di
-sicurezza voluto, non un difetto della demo.
+sicurezza voluto, non un difetto della demo. Il sesto esegue l'intera
+pipeline (segnali -> rischio -> allocazione) e invia il risultato
+all'`ExecutionManager`, sempre in paper trading: stampa gli ordini
+riempiuti/rifiutati, la cassa residua e le posizioni aperte del conto
+simulato.
 
 ### Nota su reti aziendali con TLS-inspection
 
@@ -354,18 +411,19 @@ enterprise/CI sandboxati), potresti incontrare errori di certificato:
   `query1.finance.yahoo.com` direttamente (fuori da eventuali proxy di
   ispezione TLS) prima di aprire un bug sul connettore.
 
-I moduli 1-5 sono stati validati end-to-end con dati reali per la parte
+I moduli 1-6 sono stati validati end-to-end con dati reali per la parte
 crypto (Kraken → data ingestion → strategy engine → risk management →
-portfolio allocator → backtesting, inclusa la verifica che il rifiuto di un
-asset troppo volatile da parte del modulo 3 si propaghi correttamente come
-"non idoneo per l'allocazione" nel modulo 4, che il ribilanciamento da un
-conto vuoto proponga correttamente di aprire posizioni verso i target del
-profilo attivo, e che il backtest su ~2 anni di dati BTC/ETH produca
-metriche ed eleggibilità coerenti — incluso rifiutare correttamente un
-risultato con un solo trade come "non statisticamente significativo") e con
+portfolio allocator → backtesting → execution, inclusa la verifica che il
+rifiuto di un asset troppo volatile da parte del modulo 3 si propaghi
+correttamente come "non idoneo" fino all'esecuzione, che il ribilanciamento
+da un conto vuoto proponga correttamente di aprire posizioni verso i target
+del profilo attivo, che il backtest su ~2 anni di dati BTC/ETH produca
+metriche ed eleggibilità coerenti, e che un ordine paper con prezzo di
+mercato reale aggiorni correttamente cassa e posizioni persistite) e con
 una suite di test unitari (mock/dati sintetici, nessuna rete) per tutti e
-cinque, inclusa una verifica esplicita di assenza di look-ahead bias nel
-motore di backtest.
+sei, inclusa una verifica esplicita di assenza di look-ahead bias nel
+motore di backtest e del doppio percorso "conferma esplicita / periodo di
+validazione" del gate verso il live.
 
 ## Test
 
@@ -376,6 +434,7 @@ pytest
 I test usano mock/dati sintetici deterministici (nessuna chiamata di rete
 reale durante `pytest`); gli script `fetch_sample_data.py`,
 `generate_sample_signals.py`, `evaluate_sample_risk.py`,
-`allocate_sample_portfolio.py` e `backtest_sample_strategy.py` invece
-effettuano operazioni reali (rete per il primo, lettura del DB locale per
-gli altri quattro) per verifica manuale end-to-end.
+`allocate_sample_portfolio.py`, `backtest_sample_strategy.py` ed
+`execute_sample_decisions.py` invece effettuano operazioni reali (rete per
+il primo, lettura del DB locale per gli altri cinque) per verifica manuale
+end-to-end.

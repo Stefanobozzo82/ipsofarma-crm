@@ -7,9 +7,12 @@ modulo 1 (data ingestion), `Signal` dal modulo 2 (strategy engine),
 `RiskDecision` dal modulo 3 (risk management), `AllocationDecision`/
 `RebalanceAction`/`Position` dal modulo 4 (portfolio allocator) e
 `BacktestTrade`/`BacktestResult`/`BacktestEligibility` dal modulo 5
-(backtesting), tutti già implementati. `Order` è qui come contratto per il
-modulo 6 (execution, non ancora implementato) e può essere esteso quando
-quel modulo verrà costruito.
+(backtesting) e `Order` dal modulo 6 (execution), tutti già implementati.
+`strategy_name` viene propagato lungo tutta la catena (`Signal` ->
+`RiskDecision` -> `AllocationDecision` -> `Order`): perdere questo filo in
+un punto qualunque vorrebbe dire non poter più rispondere "quale strategia
+ha causato questo ordine?", che è esattamente la domanda a cui il sistema
+deve poter rispondere sempre.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from trading_system.common.enums import (
     AssetClass,
+    ExecutionMode,
     OrderSide,
     OrderStatus,
     SignalAction,
@@ -98,6 +102,7 @@ class RiskDecision(BaseModel):
     stop_loss_price: float | None = None
     reason: str
     signal_confidence: float = Field(ge=0.0, le=1.0)
+    strategy_name: str  # propagato dal Signal di origine: senza, si perderebbe la tracciabilità "quale strategia ha causato questo"
     evaluated_at: datetime
 
 
@@ -128,6 +133,7 @@ class AllocationDecision(BaseModel):
     quantity: float = 0.0  # quantità finale, eventualmente ridotta rispetto alla RiskDecision di origine
     original_quantity: float = 0.0  # quantità approvata dal modulo 3, prima dell'arbitraggio di budget
     reason: str
+    strategy_name: str  # propagato dalla RiskDecision di origine
     evaluated_at: datetime
 
 
@@ -220,13 +226,20 @@ class Order(BaseModel):
     """Un ordine, in paper trading o live (modulo 6 — execution).
 
     `mode` distingue esplicitamente paper da live: nessun ordine dovrebbe
-    poter essere ambiguo su questo punto.
+    poter essere ambiguo su questo punto. `broker` identifica chi lo ha
+    eseguito ("paper", "alpaca", "ccxt.kraken", ...) — broker/exchange
+    diversi per asset class, come da specifica di prodotto.
     """
 
     symbol: str
     asset_class: AssetClass
     side: OrderSide
     quantity: float
+    mode: ExecutionMode
+    broker: str
+    strategy_name: str  # propagata dalla AllocationDecision di origine, per tracciabilità
     status: OrderStatus = OrderStatus.PENDING
-    reason: str  # motivazione che ha generato l'ordine (collegata al Signal)
+    reason: str  # motivazione che ha generato l'ordine (collegata al Signal/RiskDecision/AllocationDecision)
+    filled_price: float | None = None
+    filled_at: datetime | None = None
     created_at: datetime

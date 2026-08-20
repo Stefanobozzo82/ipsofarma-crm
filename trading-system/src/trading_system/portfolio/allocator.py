@@ -86,6 +86,7 @@ class PortfolioAllocator:
                         quantity=0.0,
                         original_quantity=0.0,
                         reason=f"Non idoneo per l'allocazione (già rifiutato dal risk management): {decision.reason}",
+                        strategy_name=decision.strategy_name,
                         evaluated_at=now,
                     )
                 )
@@ -99,6 +100,7 @@ class PortfolioAllocator:
                         quantity=decision.quantity,
                         original_quantity=decision.quantity,
                         reason="Riduzione di esposizione: le vendite non consumano budget di portafoglio.",
+                        strategy_name=decision.strategy_name,
                         evaluated_at=now,
                     )
                 )
@@ -123,6 +125,7 @@ class PortfolioAllocator:
                             quantity=0.0,
                             original_quantity=decision.quantity,
                             reason="RiskDecision approvata ma priva di un entry_price valido: allocazione rifiutata per sicurezza.",
+                            strategy_name=decision.strategy_name,
                             evaluated_at=now,
                         )
                     )
@@ -142,6 +145,7 @@ class PortfolioAllocator:
                                 f"Budget di portafoglio per {asset_class.value} esaurito "
                                 f"(target {self.target_weights()[asset_class]:.1f}% già raggiunto)."
                             ),
+                            strategy_name=decision.strategy_name,
                             evaluated_at=now,
                         )
                     )
@@ -160,6 +164,7 @@ class PortfolioAllocator:
                                 f"Approvato per intero entro il budget di portafoglio residuo "
                                 f"({remaining_budget:.2f} disponibili)."
                             ),
+                            strategy_name=decision.strategy_name,
                             evaluated_at=now,
                         )
                     )
@@ -178,6 +183,7 @@ class PortfolioAllocator:
                                 f"Ridotto da {decision.quantity:.6f} a {reduced_quantity:.6f} per rispettare "
                                 f"il budget di portafoglio residuo per {asset_class.value} ({remaining_budget:.2f})."
                             ),
+                            strategy_name=decision.strategy_name,
                             evaluated_at=now,
                         )
                     )

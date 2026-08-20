@@ -141,3 +141,4 @@ def test_decision_always_carries_signal_confidence_for_traceability():
     decision = manager.evaluate_signal(signal, bars, account_equity=100_000.0)
 
     assert decision.signal_confidence == pytest.approx(0.42)
+    assert decision.strategy_name == "test_strategy"

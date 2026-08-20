@@ -48,12 +48,12 @@ class Settings(BaseSettings):
     alphavantage_api_key: str | None = Field(default=None)
     polygon_api_key: str | None = Field(default=None)
 
-    # --- Execution: azioni/ETF (modulo 6, non ancora implementato) ---
+    # --- Execution: azioni/ETF, broker Alpaca (modulo 6) ---
     alpaca_api_key: str | None = Field(default=None)
     alpaca_api_secret: str | None = Field(default=None)
     alpaca_base_url: str = Field(default="https://paper-api.alpaca.markets")
 
-    # --- Execution: crypto (modulo 6, non ancora implementato) ---
+    # --- Execution: crypto, exchange via ccxt (modulo 6) ---
     binance_api_key: str | None = Field(default=None)
     binance_api_secret: str | None = Field(default=None)
     kraken_api_key: str | None = Field(default=None)
@@ -69,6 +69,19 @@ class Settings(BaseSettings):
             return self.database_url
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{(DATA_DIR / 'trading_system.db').as_posix()}"
+
+    def crypto_credentials(self, exchange_id: str) -> tuple[str | None, str | None]:
+        """API key/secret per l'exchange crypto `exchange_id` (es. "binance", "kraken").
+
+        Ritorna `(None, None)` per un exchange non ancora configurato in
+        `Settings` — il chiamante (`execution.live.ccxt_broker`) deve
+        trattarlo come "credenziali mancanti", non inventarne.
+        """
+        known = {
+            "binance": (self.binance_api_key, self.binance_api_secret),
+            "kraken": (self.kraken_api_key, self.kraken_api_secret),
+        }
+        return known.get(exchange_id, (None, None))
 
 
 @lru_cache

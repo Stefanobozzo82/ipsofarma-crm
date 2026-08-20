@@ -68,6 +68,7 @@ def test_buy_within_budget_is_approved_unchanged():
     assert result.approved is True
     assert result.quantity == pytest.approx(10.0)
     assert result.original_quantity == pytest.approx(10.0)
+    assert result.strategy_name == "test_strategy"
 
 
 def test_sell_always_passes_through_regardless_of_budget():

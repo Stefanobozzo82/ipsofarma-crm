@@ -23,9 +23,10 @@ ccxt>=4.3                 # crypto (Binance, Kraken, ...), OHLCV pubblici senza 
 # backtrader>=1.9.78.123
 # vectorbt>=0.26
 
-# --- Modulo 6: Execution (broker/exchange, da usare dal modulo 6) -------
-# alpaca-py>=0.28           # broker azioni/ETF — decommentare quando configuriamo l'execution layer
+# --- Modulo 6: Execution (broker/exchange) -------------------------------
+alpaca-py>=0.28            # broker live azioni/ETF (trading_system.execution.live.alpaca_broker)
 # ib_insync>=0.9.86         # alternativa Interactive Brokers — decommentare se scelta questa via
+# crypto live via ccxt: usa lo stesso pacchetto ccxt già richiesto dal modulo 1, in modalità autenticata
 
 # --- Modulo 7: Dashboard/API ----------------------------------------------
 fastapi>=0.111,<1.0

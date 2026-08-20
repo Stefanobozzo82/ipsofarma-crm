@@ -4,10 +4,12 @@ Definire questi tipi fin dall'inizio permette a moduli sviluppati in momenti
 diversi (data ingestion oggi, strategy engine/risk/execution più avanti) di
 parlare lo stesso linguaggio. `Instrument` e `MarketBar` sono usati dal
 modulo 1 (data ingestion), `Signal` dal modulo 2 (strategy engine),
-`RiskDecision` dal modulo 3 (risk management) e `AllocationDecision`/
-`RebalanceAction`/`Position` dal modulo 4 (portfolio allocator), tutti già
-implementati. `Order` è qui come contratto per il modulo 6 (execution, non
-ancora implementato) e può essere esteso quando quel modulo verrà costruito.
+`RiskDecision` dal modulo 3 (risk management), `AllocationDecision`/
+`RebalanceAction`/`Position` dal modulo 4 (portfolio allocator) e
+`BacktestTrade`/`BacktestResult`/`BacktestEligibility` dal modulo 5
+(backtesting), tutti già implementati. `Order` è qui come contratto per il
+modulo 6 (execution, non ancora implementato) e può essere esteso quando
+quel modulo verrà costruito.
 """
 
 from __future__ import annotations
@@ -146,6 +148,70 @@ class RebalanceAction(BaseModel):
     target_pct: float
     drift_pct: float
     amount: float  # valore, in valuta di conto, dello scostamento da correggere
+    reason: str
+    evaluated_at: datetime
+
+
+class BacktestTrade(BaseModel):
+    """Un singolo trade chiuso durante un backtest (modulo 5).
+
+    Il backtest engine è long-only (vedi modulo 5): `side` è sempre BUY,
+    campo comunque esplicito per coerenza col resto del sistema e in vista
+    di un'eventuale estensione futura.
+    """
+
+    symbol: str
+    asset_class: AssetClass
+    side: OrderSide
+    entry_at: datetime
+    entry_price: float
+    exit_at: datetime
+    exit_price: float
+    quantity: float
+    pnl: float  # in valuta di conto, al netto delle commissioni simulate
+    pnl_pct: float
+    exit_reason: str  # "stop_loss" | "segnale_sell" | "fine_periodo"
+
+
+class BacktestResult(BaseModel):
+    """Esito di un backtest su un singolo simbolo (modulo 5).
+
+    Le metriche (`total_return_pct`, `cagr_pct`, `max_drawdown_pct`,
+    `sharpe_ratio`, `win_rate_pct`) sono calcolate sulla curva di equity
+    simulata eseguendo la *stessa* combinazione strategy engine + risk
+    manager che opererebbe dal vivo, non una reimplementazione parallela:
+    è la condizione perché "backtest positivo" significhi qualcosa.
+    """
+
+    symbol: str
+    asset_class: AssetClass
+    strategy_name: str
+    start_at: datetime
+    end_at: datetime
+    initial_equity: float
+    final_equity: float
+    total_return_pct: float
+    cagr_pct: float
+    max_drawdown_pct: float
+    sharpe_ratio: float
+    win_rate_pct: float
+    num_trades: int
+    trades: list[BacktestTrade]
+    generated_at: datetime
+
+
+class BacktestEligibility(BaseModel):
+    """Esito della valutazione di un `BacktestResult` contro le soglie minime (modulo 5).
+
+    Per vincolo di prodotto, il modulo 6 (execution) deve rifiutarsi di
+    attivare il trading live per una strategia/simbolo il cui backtest più
+    recente non ha `approved=True` qui.
+    """
+
+    symbol: str
+    asset_class: AssetClass
+    strategy_name: str
+    approved: bool
     reason: str
     evaluated_at: datetime
 

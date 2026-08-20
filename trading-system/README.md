@@ -28,7 +28,9 @@ implementato in questo repository.
 - [x] **4. Portfolio allocator** — distribuzione del capitale tra asset class
       per profilo di rischio, arbitraggio di budget tra segnali concorrenti,
       ribilanciamento
-- [ ] **5. Backtesting** — validazione storica pre-condizione per operare
+- [x] **5. Backtesting** — simulazione walk-forward con strategy engine e
+      risk manager reali, metriche di rendimento/drawdown/Sharpe per asset
+      class e aggregate, criteri di eleggibilità al trading live
 - [ ] **6. Execution layer** — paper trading di default, reale isolato e dietro conferma
 - [ ] **7. Dashboard/report** — stato portafoglio, storico, motivazioni, alert
 
@@ -64,14 +66,15 @@ trading-system/
 │   ├── strategy_engine/    # MODULO 2 — regole per asset class + score di confidenza
 │   ├── risk_management/    # MODULO 3 — position sizing, limiti, stop-loss, filtro volatilità
 │   ├── portfolio/          # MODULO 4 — allocazione per profilo di rischio, ribilanciamento
-│   ├── backtesting/        # MODULO 5 — non ancora implementato
+│   ├── backtesting/        # MODULO 5 — simulazione walk-forward, metriche, eleggibilità
 │   ├── execution/          # MODULO 6 — non ancora implementato (paper/ e live/ separati)
 │   └── api/                # MODULO 7 — dashboard FastAPI, non ancora implementato
 ├── scripts/
-│   ├── fetch_sample_data.py         # demo CLI: scarica ed effettua l'upsert di dati reali
-│   ├── generate_sample_signals.py   # demo CLI: genera segnali dai dati storicizzati
-│   ├── evaluate_sample_risk.py      # demo CLI: valuta i segnali contro i limiti di rischio
-│   └── allocate_sample_portfolio.py # demo CLI: arbitraggio di budget + ribilanciamento
+│   ├── fetch_sample_data.py          # demo CLI: scarica ed effettua l'upsert di dati reali
+│   ├── generate_sample_signals.py    # demo CLI: genera segnali dai dati storicizzati
+│   ├── evaluate_sample_risk.py       # demo CLI: valuta i segnali contro i limiti di rischio
+│   ├── allocate_sample_portfolio.py  # demo CLI: arbitraggio di budget + ribilanciamento
+│   └── backtest_sample_strategy.py   # demo CLI: backtest walk-forward + eleggibilità + aggregati
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -217,6 +220,52 @@ allocation_results = allocator.allocate(risk_decisions, positions_value, total_e
 rebalance_actions = allocator.check_rebalance(positions_value, total_equity)
 ```
 
+## Modulo 5 — Backtesting
+
+Verifica ogni strategia su dati storici prima che possa operare con denaro
+reale, per vincolo di prodotto.
+
+**Decisione architetturale**: `BacktestEngine` non reimplementa le
+strategie in un motore esterno (backtrader/vectorbt, citati nello stack ma
+pensati per possedere l'intera logica di trading al loro interno):
+orchestra invece **le stesse istanze** di `StrategyEngine` (modulo 2) e
+`RiskManager` (modulo 3) che opererebbero dal vivo, walk-forward su dati
+storici. Backtestare una reimplementazione parallela non garantirebbe che
+"backtest positivo" dica qualcosa sulla logica che poi opera davvero — è
+la ragione d'essere di questo modulo. `backtrader`/`vectorbt` restano nello
+stack come opzione per un motore di backtest indipendente da affiancare in
+futuro (es. per confrontare risultati), non sono stati scartati, solo non
+sono l'impianto di default.
+
+Ad ogni barra il motore vede solo `bars.iloc[:i+1]`: nessun look-ahead,
+verificato esplicitamente nei test (aggiungere barre future non deve mai
+cambiare l'equity già simulata fino a un certo giorno).
+
+**Ambito attuale: long-only.** Un segnale BUY apre una posizione lunga; un
+segnale SELL la chiude (o viene ignorato se non c'è nulla da chiudere).
+Nessuna vendita allo scoperto — scelta deliberata coerente con
+l'impostazione "a basso rischio" del prodotto.
+
+```python
+from trading_system.backtesting import BacktestEngine, evaluate_eligibility, load_backtesting_config
+from trading_system.risk_management import RiskManager
+from trading_system.strategy_engine import StrategyEngine
+
+config = load_backtesting_config()
+engine = BacktestEngine(config, StrategyEngine(), RiskManager())
+
+run = engine.run("SPY", AssetClass.ETF, bars_df)  # run.result: metriche; run.equity_curve: serie temporale
+eligibility = evaluate_eligibility(run.result, config.eligibility)
+if not eligibility.approved:
+    ...  # per vincolo di prodotto, il modulo 6 (execution) deve rifiutarsi di operare live
+```
+
+`aggregate_metrics` combina più `BacktestRun` per asset class (o sul
+totale) sommando le curve di equity — assumendo capitali indipendenti in
+parallelo per simbolo, non l'arbitraggio di budget condiviso del modulo 4
+(quella è gestione del capitale *live*, non backtest storico multi-simbolo;
+la semplificazione è dichiarata esplicitamente nel codice).
+
 ## Setup
 
 ```bash
@@ -255,13 +304,14 @@ non le invento né le lascio in placeholder attivi:
 
 Vedi `.env.example` per l'elenco completo con commenti.
 
-## Uso rapido (demo data ingestion + strategy engine + risk management + portfolio allocator)
+## Uso rapido (demo data ingestion + strategy engine + risk management + portfolio allocator + backtesting)
 
 ```bash
 python scripts/fetch_sample_data.py          # modulo 1: scarica e storicizza i dati
 python scripts/generate_sample_signals.py    # modulo 2: genera segnali dai dati storicizzati
 python scripts/evaluate_sample_risk.py       # modulo 3: valuta i segnali contro i limiti di rischio
 python scripts/allocate_sample_portfolio.py  # modulo 4: arbitraggio di budget + ribilanciamento
+python scripts/backtest_sample_strategy.py   # modulo 5: backtest walk-forward + eleggibilità
 ```
 
 Il primo scarica alcune barre storiche daily per un'azione ed un ETF di
@@ -276,7 +326,13 @@ limiti di esempio tenuti solo in memoria, per farti comunque vedere la
 pipeline completa in azione senza autorizzare nulla di reale. Il quarto
 simula un conto senza posizioni aperte e mostra sia l'arbitraggio di budget
 sulle `RiskDecision` approvate sia i suggerimenti di ribilanciamento per
-raggiungere il profilo di allocazione attivo da zero.
+raggiungere il profilo di allocazione attivo da zero. Il quinto esegue un
+backtest walk-forward per ogni simbolo con dati sufficienti, stampa
+metriche/eleggibilità per simbolo e le aggregate per asset class e sul
+totale — nota che un solo trade su un periodo di due anni (esito plausibile
+e onesto sui dati storici reali) viene correttamente segnalato come "non
+idoneo" per il numero di trade insufficiente: è il comportamento di
+sicurezza voluto, non un difetto della demo.
 
 ### Nota su reti aziendali con TLS-inspection
 
@@ -298,14 +354,18 @@ enterprise/CI sandboxati), potresti incontrare errori di certificato:
   `query1.finance.yahoo.com` direttamente (fuori da eventuali proxy di
   ispezione TLS) prima di aprire un bug sul connettore.
 
-I moduli 1-4 sono stati validati end-to-end con dati reali per la parte
+I moduli 1-5 sono stati validati end-to-end con dati reali per la parte
 crypto (Kraken → data ingestion → strategy engine → risk management →
-portfolio allocator, inclusa la verifica che il rifiuto di un asset troppo
-volatile da parte del modulo 3 si propaghi correttamente come "non idoneo
-per l'allocazione" nel modulo 4, e che il ribilanciamento da un conto vuoto
-proponga correttamente di aprire posizioni verso i target del profilo
-attivo) e con una suite di test unitari (mock/dati sintetici, nessuna rete)
-per tutti e quattro.
+portfolio allocator → backtesting, inclusa la verifica che il rifiuto di un
+asset troppo volatile da parte del modulo 3 si propaghi correttamente come
+"non idoneo per l'allocazione" nel modulo 4, che il ribilanciamento da un
+conto vuoto proponga correttamente di aprire posizioni verso i target del
+profilo attivo, e che il backtest su ~2 anni di dati BTC/ETH produca
+metriche ed eleggibilità coerenti — incluso rifiutare correttamente un
+risultato con un solo trade come "non statisticamente significativo") e con
+una suite di test unitari (mock/dati sintetici, nessuna rete) per tutti e
+cinque, inclusa una verifica esplicita di assenza di look-ahead bias nel
+motore di backtest.
 
 ## Test
 
@@ -315,7 +375,7 @@ pytest
 
 I test usano mock/dati sintetici deterministici (nessuna chiamata di rete
 reale durante `pytest`); gli script `fetch_sample_data.py`,
-`generate_sample_signals.py`, `evaluate_sample_risk.py` ed
-`allocate_sample_portfolio.py` invece effettuano
-operazioni reali (rete per il primo, lettura del DB locale per gli altri
-tre) per verifica manuale end-to-end.
+`generate_sample_signals.py`, `evaluate_sample_risk.py`,
+`allocate_sample_portfolio.py` e `backtest_sample_strategy.py` invece
+effettuano operazioni reali (rete per il primo, lettura del DB locale per
+gli altri quattro) per verifica manuale end-to-end.

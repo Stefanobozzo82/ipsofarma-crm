@@ -1,0 +1,20 @@
+# Parametri di simulazione del backtest e criteri minimi di eleggibilità.
+#
+# I criteri in 'eligibility' sono soglie minime perché una strategia sia
+# considerata "backtestata con esito positivo": per vincolo di prodotto,
+# nessuna strategia può passare all'execution live (modulo 6) senza un
+# esito positivo qui. Sono soglie di eleggibilità, non garanzie di
+# profitto: rivedile prima di usarle per decisioni reali.
+
+# Costi di simulazione applicati a ogni trade nel backtest.
+commission_pct: 0.10   # commissione per operazione, % del valore nozionale
+slippage_pct: 0.05     # slippage stimato in esecuzione, % applicata al prezzo
+
+# Capitale iniziale di simulazione (per ogni singolo backtest simbolo/strategia).
+initial_equity: 100000.0
+
+eligibility:
+  min_trades: 10             # sotto questa soglia il risultato non è statisticamente significativo
+  min_sharpe_ratio: 0.5
+  max_drawdown_pct: 25.0
+  min_win_rate_pct: 40.0

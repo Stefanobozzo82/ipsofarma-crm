@@ -13,9 +13,15 @@ ccxt>=4.3                 # crypto (Binance, Kraken, ...), OHLCV pubblici senza 
 # alpha_vantage>=2.3       # opzionale: sorgente dati alternativa (richiede API key) — decommentare quando serve
 # polygon-api-client>=1.14 # opzionale: sorgente dati alternativa (richiede API key) — decommentare quando serve
 
-# --- Modulo 5: Backtesting (da usare a partire dal modulo 5) ------------
-backtrader>=1.9.78.123
-# vectorbt>=0.26           # alternativa a backtrader — decommentare se si preferisce questo motore
+# --- Modulo 5: Backtesting -----------------------------------------------
+# Il motore di default (trading_system.backtesting) è custom: orchestra le
+# stesse istanze di strategy engine e risk manager che operano dal vivo,
+# invece di reimplementare le strategie in un motore esterno — vedi il
+# README per il perché. backtrader/vectorbt restano qui come opzione per un
+# motore indipendente da affiancare in futuro (es. per confrontare
+# risultati), non sono una dipendenza richiesta dal modulo 5 così com'è.
+# backtrader>=1.9.78.123
+# vectorbt>=0.26
 
 # --- Modulo 6: Execution (broker/exchange, da usare dal modulo 6) -------
 # alpaca-py>=0.28           # broker azioni/ETF — decommentare quando configuriamo l'execution layer

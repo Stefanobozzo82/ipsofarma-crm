@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Engine, Float, String, UniqueConstraint, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from trading_system.common.enums import AssetClass, ExecutionMode, OrderStatus
 from trading_system.common.logging_config import get_logger
@@ -67,8 +68,18 @@ class PaperPositionORM(Base):
 
 
 def create_sqlite_engine(database_url: str) -> Engine:
-    """Crea l'engine SQLAlchemy e assicura che lo schema dell'execution layer esista."""
-    engine = create_engine(database_url, future=True)
+    """Crea l'engine SQLAlchemy e assicura che lo schema dell'execution layer esista.
+
+    Per un DB SQLite in-memory, vedi il commento gemello in
+    `trading_system.data_ingestion.storage.create_sqlite_engine`: senza
+    `StaticPool`, un thread diverso da quello di creazione (es. la
+    dashboard del modulo 7 sotto FastAPI/uvicorn) vedrebbe un database
+    vuoto.
+    """
+    kwargs = {}
+    if ":memory:" in database_url:
+        kwargs = {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
+    engine = create_engine(database_url, future=True, **kwargs)
     Base.metadata.create_all(engine)
     return engine
 

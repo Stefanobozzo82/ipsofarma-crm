@@ -34,7 +34,16 @@ implementato in questo repository.
 - [x] **6. Execution layer** — paper trading di default, reale isolato in
       `execution/live/` dietro un gate a doppio percorso (conferma esplicita
       o periodo di validazione), broker diversi per asset class
-- [ ] **7. Dashboard/report** — stato portafoglio, storico, motivazioni, alert
+- [x] **7. Dashboard/report** — API FastAPI di sola lettura: stato del
+      portafoglio aggregato e per categoria, storico operazioni con
+      motivazione di ogni trade, alert su anomalie
+
+Tutti i moduli pianificati sono implementati. I prossimi passi naturali
+sono di prodotto/operativi, non architetturali: compilare
+`config/risk_limits.yaml` con i tuoi limiti reali, far girare gli script di
+raccolta dati/segnali/backtest su un orizzonte più ampio, validare in paper
+trading, e — solo quando vuoi — attivare l'esecuzione live con le tue
+credenziali.
 
 ## Principi guida (vincoli non negoziabili)
 
@@ -72,7 +81,7 @@ trading-system/
 │   ├── portfolio/          # MODULO 4 — allocazione per profilo di rischio, ribilanciamento
 │   ├── backtesting/        # MODULO 5 — simulazione walk-forward, metriche, eleggibilità
 │   ├── execution/          # MODULO 6 — paper trading + execution.live/ isolato (Alpaca, ccxt)
-│   └── api/                # MODULO 7 — dashboard FastAPI, non ancora implementato
+│   └── api/                # MODULO 7 — dashboard FastAPI (sola lettura)
 ├── scripts/
 │   ├── fetch_sample_data.py          # demo CLI: scarica ed effettua l'upsert di dati reali
 │   ├── generate_sample_signals.py    # demo CLI: genera segnali dai dati storicizzati
@@ -315,6 +324,41 @@ corrispondenza, ma non testati end-to-end con credenziali vere in questo
 ambiente di sviluppo — nessuna credenziale è stata inventata. Testali con
 le tue chiavi prima di autorizzare qualunque operazione reale.
 
+## Modulo 7 — Dashboard/report
+
+API FastAPI **di sola lettura** sopra ciò che i moduli 1-6 hanno già
+prodotto: nessun endpoint genera segnali, valuta rischio, alloca budget o
+esegue ordini — quella logica resta negli script/scheduler, non nella
+dashboard.
+
+| Endpoint | Cosa mostra |
+|---|---|
+| `GET /health` | stato del servizio + se `risk_limits`/`portfolio_config` sono compilati |
+| `GET /portfolio` | cassa, posizioni valorizzate ai prezzi correnti, aggregato per asset class (peso attuale vs target) |
+| `GET /orders` | storico ordini (paper e live), più recenti prima, **ognuno con la propria motivazione** (`?symbol=`, `?limit=`) |
+| `GET /alerts` | anomalie: scostamento dal profilo target, posizioni vicine/oltre lo stop-loss teorico, ordini ripetutamente rifiutati |
+
+Avvio:
+
+```bash
+uvicorn trading_system.api.main:app --reload
+# poi, ad es.: curl http://localhost:8000/portfolio
+```
+
+Se `config/risk_limits.yaml`/`config/portfolio.yaml` non sono ancora
+compilati, la dashboard **resta comunque utilizzabile**: `GET /health` lo
+segnala esplicitamente, le sezioni che ne dipendono (pesi target,
+alert di ribilanciamento/stop-loss) restano vuote/`null` invece di far
+fallire l'avvio — coerente con l'approccio "safe by default" del resto del
+sistema, senza impedirti di vedere lo storico ordini nel frattempo.
+
+`GET /portfolio` e `GET /alerts` riflettono lo stato del broker **paper**
+(non esiste ancora un conto "live" da interrogare finché non attivi
+l'esecuzione reale, modulo 6); il prezzo corrente di ogni posizione è
+l'ultima barra storicizzata dal modulo 1, non una quotazione in tempo
+reale — se non hai rilanciato di recente `fetch_sample_data.py`, può non
+essere aggiornata.
+
 ## Setup
 
 ```bash
@@ -356,7 +400,7 @@ attivi:
 
 Vedi `.env.example` per l'elenco completo con commenti.
 
-## Uso rapido (demo di tutti i moduli 1-6)
+## Uso rapido (demo di tutti i moduli 1-7)
 
 ```bash
 python scripts/fetch_sample_data.py          # modulo 1: scarica e storicizza i dati
@@ -365,6 +409,7 @@ python scripts/evaluate_sample_risk.py       # modulo 3: valuta i segnali contro
 python scripts/allocate_sample_portfolio.py  # modulo 4: arbitraggio di budget + ribilanciamento
 python scripts/backtest_sample_strategy.py   # modulo 5: backtest walk-forward + eleggibilità
 python scripts/execute_sample_decisions.py   # modulo 6: esecuzione paper trading dell'intera pipeline
+uvicorn trading_system.api.main:app --reload # modulo 7: dashboard su quanto prodotto sopra
 ```
 
 Il primo scarica alcune barre storiche daily per un'azione ed un ETF di
@@ -389,7 +434,12 @@ sicurezza voluto, non un difetto della demo. Il sesto esegue l'intera
 pipeline (segnali -> rischio -> allocazione) e invia il risultato
 all'`ExecutionManager`, sempre in paper trading: stampa gli ordini
 riempiuti/rifiutati, la cassa residua e le posizioni aperte del conto
-simulato.
+simulato. Il settimo avvia la dashboard: `GET /portfolio` mostra cassa e
+posizioni valorizzate ai prezzi correnti (aggregate per asset class),
+`GET /orders` lo storico ordini con la motivazione di ognuno, `GET /alerts`
+gli scostamenti dal profilo target e le posizioni vicine/oltre lo
+stop-loss teorico — vuoti finché non compili `config/risk_limits.yaml`/
+`config/portfolio.yaml`, non un errore.
 
 ### Nota su reti aziendali con TLS-inspection
 
@@ -411,19 +461,30 @@ enterprise/CI sandboxati), potresti incontrare errori di certificato:
   `query1.finance.yahoo.com` direttamente (fuori da eventuali proxy di
   ispezione TLS) prima di aprire un bug sul connettore.
 
-I moduli 1-6 sono stati validati end-to-end con dati reali per la parte
-crypto (Kraken → data ingestion → strategy engine → risk management →
-portfolio allocator → backtesting → execution, inclusa la verifica che il
-rifiuto di un asset troppo volatile da parte del modulo 3 si propaghi
-correttamente come "non idoneo" fino all'esecuzione, che il ribilanciamento
-da un conto vuoto proponga correttamente di aprire posizioni verso i target
-del profilo attivo, che il backtest su ~2 anni di dati BTC/ETH produca
-metriche ed eleggibilità coerenti, e che un ordine paper con prezzo di
-mercato reale aggiorni correttamente cassa e posizioni persistite) e con
-una suite di test unitari (mock/dati sintetici, nessuna rete) per tutti e
-sei, inclusa una verifica esplicita di assenza di look-ahead bias nel
-motore di backtest e del doppio percorso "conferma esplicita / periodo di
-validazione" del gate verso il live.
+Tutti i sette moduli sono stati validati end-to-end con dati reali per la
+parte crypto (Kraken → data ingestion → strategy engine → risk management →
+portfolio allocator → backtesting → execution → dashboard, inclusa la
+verifica che il rifiuto di un asset troppo volatile da parte del modulo 3
+si propaghi correttamente come "non idoneo" fino all'esecuzione e sia poi
+visibile nello storico ordini della dashboard, che il ribilanciamento da un
+conto vuoto proponga correttamente di aprire posizioni verso i target del
+profilo attivo, che il backtest su ~2 anni di dati BTC/ETH produca metriche
+ed eleggibilità coerenti, che un ordine paper con prezzo di mercato reale
+aggiorni correttamente cassa e posizioni persistite, e che `GET /portfolio`
+e `GET /alerts` riflettano quello stato reale — inclusi gli alert di
+scostamento dal profilo target generati correttamente su un portafoglio
+prevalentemente in cash) e con una suite di test unitari (mock/dati
+sintetici, nessuna rete) per tutti e sette, inclusa una verifica esplicita
+di assenza di look-ahead bias nel motore di backtest e del doppio percorso
+"conferma esplicita / periodo di validazione" del gate verso il live.
+
+Nota tecnica emersa proprio testando la dashboard: SQLite in-memory
+(`sqlite:///:memory:`) assegna di default una connessione per thread — un
+server ASGI (FastAPI/uvicorn) gestisce le richieste in thread separati da
+quello che ha creato lo schema, quindi vedrebbe un database vuoto senza
+`StaticPool`. Corretto in `create_sqlite_engine` sia per `data_ingestion`
+che per `execution` (irrilevante per il DB su file usato in produzione,
+essenziale per i test in memoria di un'app FastAPI).
 
 ## Test
 
@@ -437,4 +498,5 @@ reale durante `pytest`); gli script `fetch_sample_data.py`,
 `allocate_sample_portfolio.py`, `backtest_sample_strategy.py` ed
 `execute_sample_decisions.py` invece effettuano operazioni reali (rete per
 il primo, lettura del DB locale per gli altri cinque) per verifica manuale
-end-to-end.
+end-to-end; la dashboard (modulo 7) si avvia con `uvicorn` (vedi sopra) e
+legge lo stesso DB locale.

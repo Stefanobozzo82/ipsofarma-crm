@@ -21,6 +21,7 @@ from sqlalchemy import (
     select,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from trading_system.common.enums import AssetClass, Timeframe
 from trading_system.common.logging_config import get_logger
@@ -58,8 +59,20 @@ class MarketBarORM(Base):
 
 
 def create_sqlite_engine(database_url: str) -> Engine:
-    """Crea l'engine SQLAlchemy e assicura che lo schema esista."""
-    engine = create_engine(database_url, future=True)
+    """Crea l'engine SQLAlchemy e assicura che lo schema esista.
+
+    Per un DB SQLite in-memory (`sqlite:///:memory:`), il pool di default di
+    SQLAlchemy assegna una connessione per thread: ogni nuovo thread
+    vedrebbe un database vuoto, senza le tabelle appena create (rilevante
+    per i test e per l'esecuzione della dashboard del modulo 7 sotto
+    FastAPI/uvicorn, che gestiscono le richieste in thread separati). Con
+    `StaticPool` tutte le connessioni condividono la stessa unica
+    connessione, quindi lo stesso database in memoria.
+    """
+    kwargs = {}
+    if ":memory:" in database_url:
+        kwargs = {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
+    engine = create_engine(database_url, future=True, **kwargs)
     Base.metadata.create_all(engine)
     return engine
 

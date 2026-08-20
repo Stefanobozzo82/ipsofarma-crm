@@ -68,6 +68,19 @@ jobs:
 
       - name: Esegui il ciclo
         working-directory: code/trading-system
+        env:
+          # Lette dai Secrets del repository (Settings -> Secrets and variables
+          # -> Actions): finché non li imposti restano vuote e non cambiano
+          # nulla, perché config/execution.yaml resta mode: paper — nessun
+          # broker live viene mai costruito finché tu non decidi di passare a
+          # mode: live. ALPACA_BASE_URL è l'endpoint LIVE (non quello paper di
+          # Alpaca, che qui non serve: il nostro "paper" è il broker simulato
+          # interno, non un conto paper Alpaca).
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          ALPACA_BASE_URL: https://api.alpaca.markets
+          KRAKEN_API_KEY: ${{ secrets.KRAKEN_API_KEY }}
+          KRAKEN_API_SECRET: ${{ secrets.KRAKEN_API_SECRET }}
         run: python scripts/run_cycle_once.py
 
       - name: Salva lo stato aggiornato del conto paper

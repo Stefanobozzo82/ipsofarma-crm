@@ -22,7 +22,9 @@ implementato in questo repository.
 - [x] **2. Strategy engine** — regole configurabili per asset class (media
       mobile per ETF, RSI + volatilità per crypto, media mobile + filtro
       fondamentale per azioni), ognuna con score di confidenza
-- [ ] **3. Risk management** — position sizing, limiti per asset class, stop-loss
+- [x] **3. Risk management** — position sizing, limiti per asset class (crypto
+      sempre più stringenti, validato a runtime), stop-loss, filtro di
+      volatilità per categoria
 - [ ] **4. Portfolio allocator** — distribuzione del capitale tra asset class
 - [ ] **5. Backtesting** — validazione storica pre-condizione per operare
 - [ ] **6. Execution layer** — paper trading di default, reale isolato e dietro conferma
@@ -58,14 +60,15 @@ trading-system/
 │   ├── common/             # modelli dati condivisi, enum, logging, eccezioni
 │   ├── data_ingestion/     # MODULO 1 — connettori dati + normalizzazione + storage
 │   ├── strategy_engine/    # MODULO 2 — regole per asset class + score di confidenza
-│   ├── risk_management/    # MODULO 3 — non ancora implementato
+│   ├── risk_management/    # MODULO 3 — position sizing, limiti, stop-loss, filtro volatilità
 │   ├── portfolio/          # MODULO 4 — non ancora implementato
 │   ├── backtesting/        # MODULO 5 — non ancora implementato
 │   ├── execution/          # MODULO 6 — non ancora implementato (paper/ e live/ separati)
 │   └── api/                # MODULO 7 — dashboard FastAPI, non ancora implementato
 ├── scripts/
 │   ├── fetch_sample_data.py       # demo CLI: scarica ed effettua l'upsert di dati reali
-│   └── generate_sample_signals.py # demo CLI: genera segnali dai dati storicizzati
+│   ├── generate_sample_signals.py # demo CLI: genera segnali dai dati storicizzati
+│   └── evaluate_sample_risk.py    # demo CLI: valuta i segnali contro i limiti di rischio
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -129,8 +132,47 @@ strategia viene loggato e non blocca le altre.
 
 **Importante**: lo strategy engine produce segnali, non ordini. Nessun
 segnale (nemmeno BUY con confidenza 1.0) autorizza un'operazione da solo:
-il modulo 3 (risk management, non ancora implementato) deve validarlo
-contro i limiti di rischio prima che diventi un ordine.
+il modulo 3 (risk management) deve validarlo contro i limiti di rischio
+prima che diventi un ordine.
+
+## Modulo 3 — Risk management
+
+Trasforma un `Signal` in un `RiskDecision` (`approved: bool` + motivazione
+completa, sempre), applicando in ordine:
+
+1. **Limiti compilati ed abilitati.** `config/risk_limits.yaml` deve avere
+   `enabled: true` a livello globale e per l'asset class del segnale, con
+   tutti i valori numerici compilati (niente `null`). Il file distribuito
+   nel repo è disabilitato di proposito: il `RiskManager` si rifiuta di
+   partire (`ConfigurationError`) finché non lo compili tu esplicitamente.
+2. **Vincolo "crypto sempre più stringente".** Validato a runtime, non solo
+   suggerito nei commenti: se `crypto.max_portfolio_pct`,
+   `crypto.stop_loss_pct` o `crypto.max_volatility_annualized` non sono
+   più stringenti di quelli di ogni asset class abilitata (azioni, ETF), il
+   caricamento della configurazione fallisce.
+3. **Filtro di volatilità/rischio per categoria.** Indipendente da eventuali
+   filtri di volatilità interni a una strategia (modulo 2): è un floor di
+   rischio di portafoglio che si applica sempre, qualunque sia la
+   strategia che ha generato il segnale.
+4. **Position sizing risk-based**, scalato dalla confidenza del segnale e
+   vincolato dal più stretto tra: rischio massimo per trade, tetto per
+   singolo strumento, tetto di esposizione residua per l'asset class.
+5. **Stop-loss**, calcolato dal prezzo di entrata e dalla percentuale
+   configurata per l'asset class.
+
+```python
+from trading_system.risk_management import RiskManager
+
+risk_manager = RiskManager()  # legge e valida config/risk_limits.yaml
+decision = risk_manager.evaluate_signal(signal, bars_df, account_equity=100_000.0)
+if decision.approved:
+    ...  # solo qui un ordine può essere costruito (modulo 6, non ancora implementato)
+```
+
+**Importante**: come per lo strategy engine, un `RiskDecision` approvato
+non esegue nulla da solo — è il contratto che il modulo 6 (execution, non
+ancora implementato) userà per costruire un ordine, sempre in paper trading
+salvo conferma esplicita per il reale.
 
 ## Setup
 
@@ -170,11 +212,12 @@ non le invento né le lascio in placeholder attivi:
 
 Vedi `.env.example` per l'elenco completo con commenti.
 
-## Uso rapido (demo data ingestion + strategy engine)
+## Uso rapido (demo data ingestion + strategy engine + risk management)
 
 ```bash
 python scripts/fetch_sample_data.py        # modulo 1: scarica e storicizza i dati
 python scripts/generate_sample_signals.py  # modulo 2: genera segnali dai dati storicizzati
+python scripts/evaluate_sample_risk.py     # modulo 3: valuta i segnali contro i limiti di rischio
 ```
 
 Il primo scarica alcune barre storiche daily per un'azione ed un ETF di
@@ -183,7 +226,10 @@ normalizza nello schema comune e le salva nel database SQLite locale
 (`data/trading_system.db`). Il secondo legge quei dati, esegue le strategie
 abilitate per ogni simbolo/asset class e stampa i segnali generati con la
 loro motivazione (recuperando anche i fondamentali per le azioni, se
-disponibili).
+disponibili). Il terzo valuta ogni segnale con il risk manager: finché non
+compili `config/risk_limits.yaml`, lo segnala esplicitamente e usa dei
+limiti di esempio tenuti solo in memoria, per farti comunque vedere la
+pipeline completa in azione senza autorizzare nulla di reale.
 
 ### Nota su reti aziendali con TLS-inspection
 
@@ -205,10 +251,12 @@ enterprise/CI sandboxati), potresti incontrare errori di certificato:
   `query1.finance.yahoo.com` direttamente (fuori da eventuali proxy di
   ispezione TLS) prima di aprire un bug sul connettore.
 
-I moduli 1 e 2 sono stati validati end-to-end con dati reali per la parte
-crypto (Kraken → data ingestion → strategy engine, inclusa la verifica che
-il filtro di volatilità forzi correttamente HOLD su un RSI ipercomprato) e
-con una suite di test unitari (mock, nessuna rete) per entrambi.
+I moduli 1, 2 e 3 sono stati validati end-to-end con dati reali per la parte
+crypto (Kraken → data ingestion → strategy engine → risk management,
+inclusa la verifica che sia il filtro di volatilità dello strategy engine
+sia quello, indipendente, del risk manager rifiutino correttamente un
+asset troppo volatile) e con una suite di test unitari (mock/dati
+sintetici, nessuna rete) per tutti e tre.
 
 ## Test
 
@@ -217,6 +265,7 @@ pytest
 ```
 
 I test usano mock/dati sintetici deterministici (nessuna chiamata di rete
-reale durante `pytest`); gli script `fetch_sample_data.py` e
-`generate_sample_signals.py` invece effettuano operazioni reali (rete per il
-primo, lettura del DB locale per il secondo) per verifica manuale end-to-end.
+reale durante `pytest`); gli script `fetch_sample_data.py`,
+`generate_sample_signals.py` ed `evaluate_sample_risk.py` invece effettuano
+operazioni reali (rete per il primo, lettura del DB locale per gli altri
+due) per verifica manuale end-to-end.

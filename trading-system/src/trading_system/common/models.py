@@ -3,9 +3,10 @@
 Definire questi tipi fin dall'inizio permette a moduli sviluppati in momenti
 diversi (data ingestion oggi, strategy engine/risk/execution più avanti) di
 parlare lo stesso linguaggio. `Instrument` e `MarketBar` sono usati dal
-modulo 1 (data ingestion), già implementato. `Signal`, `Order` e `Position`
-sono qui come contratto per i moduli 2, 4 e 6 (non ancora implementati) e
-possono essere estesi quando quei moduli verranno costruiti.
+modulo 1 (data ingestion), `Signal` dal modulo 2 (strategy engine) e
+`RiskDecision` dal modulo 3 (risk management), tutti già implementati.
+`Order` e `Position` sono qui come contratto per i moduli 4 e 6 (non ancora
+implementati) e possono essere estesi quando quei moduli verranno costruiti.
 """
 
 from __future__ import annotations
@@ -72,6 +73,29 @@ class Signal(BaseModel):
     reason: str
     generated_at: datetime
     strategy_name: str
+
+
+class RiskDecision(BaseModel):
+    """Esito della valutazione di un `Signal` da parte del risk management (modulo 3).
+
+    È il contratto tra strategy engine, risk management e i moduli a valle
+    (portfolio allocator, execution): un `Signal` da solo non autorizza mai
+    un'operazione, un `RiskDecision` con `approved=True` sì. `reason` deve
+    sempre spiegare l'esito, sia in caso di approvazione che di rifiuto —
+    incluso *quali* controlli sono stati superati, non solo il verdetto
+    finale.
+    """
+
+    symbol: str
+    asset_class: AssetClass
+    approved: bool
+    action: SignalAction  # HOLD se rifiutato o se il segnale originale era HOLD
+    quantity: float = 0.0
+    entry_price: float | None = None
+    stop_loss_price: float | None = None
+    reason: str
+    signal_confidence: float = Field(ge=0.0, le=1.0)
+    evaluated_at: datetime
 
 
 class Position(BaseModel):

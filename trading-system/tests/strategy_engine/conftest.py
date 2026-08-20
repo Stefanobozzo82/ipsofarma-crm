@@ -60,3 +60,13 @@ def zigzag_high_volatility(periods: int = 40, low: float = 100.0, high: float = 
     for i in range(periods):
         prices.append(high if i % 2 == 0 else low)
     return prices
+
+
+def zigzag_pct(periods: int = 30, base: float = 100.0, pct: float = 0.01) -> list[float]:
+    """Oscillazione regolare +/-pct% attorno a `base`: permette di calibrare
+    con precisione la volatilità annualizzata risultante (a differenza di
+    `zigzag_high_volatility`, pensata per essere sempre estrema)."""
+    prices = []
+    for i in range(periods):
+        prices.append(base * (1 + pct) if i % 2 == 0 else base * (1 - pct))
+    return prices

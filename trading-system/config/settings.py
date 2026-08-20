@@ -20,6 +20,7 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 
 RISK_LIMITS_PATH = CONFIG_DIR / "risk_limits.yaml"
 ASSETS_PATH = CONFIG_DIR / "assets.yaml"
+SCHEDULER_CONFIG_PATH = CONFIG_DIR / "scheduler.yaml"
 
 
 class Settings(BaseSettings):

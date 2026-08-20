@@ -37,14 +37,21 @@ implementato in questo repository.
 - [x] **7. Dashboard/report** — API FastAPI di sola lettura: stato del
       portafoglio aggregato e per categoria, storico operazioni con
       motivazione di ogni trade, alert su anomalie
+- [x] **8. Orchestrazione autonoma** — scheduler (APScheduler) che fa girare
+      da solo l'intera pipeline 1→6 alla cadenza configurata, senza
+      intervento umano per ogni ciclo; sempre in paper trading finché non
+      cambi tu `config/execution.yaml`
 
-Tutti i moduli pianificati sono implementati. `config/risk_limits.yaml` è
-compilato con i limiti reali dell'utente (profilo di rischio "moderato",
-tutte e tre le asset class abilitate — vedi Modulo 3 sotto): il sistema può
-quindi operare in paper trading. I prossimi passi naturali sono di
-prodotto/operativi, non architetturali: far girare gli script di raccolta
-dati/segnali/backtest su un orizzonte più ampio, validare in paper trading,
-e — solo quando vuoi — attivare l'esecuzione live con le tue credenziali.
+Tutti i moduli pianificati sono implementati, incluso l'ottavo (non
+previsto nella specifica iniziale, aggiunto per rendere il sistema
+operativo in autonomia). `config/risk_limits.yaml` è compilato con i
+limiti reali dell'utente (profilo di rischio "moderato", tutte e tre le
+asset class abilitate — vedi Modulo 3 sotto): il sistema può quindi
+operare in autonomia in paper trading avviando `scripts/run_scheduler.py`
+(vedi Modulo 8 sotto). Il passo naturale successivo, quando vorrai, è
+attivare l'esecuzione live con le tue credenziali — resta un'azione
+esplicita e separata, mai una conseguenza automatica dell'aver avviato lo
+scheduler.
 
 ## Principi guida (vincoli non negoziabili)
 
@@ -73,7 +80,8 @@ trading-system/
 │   ├── assets.yaml        # watchlist per asset class (esempio, da personalizzare)
 │   ├── strategies.yaml    # regole/parametri delle strategie per asset class
 │   ├── backtesting.yaml   # parametri di simulazione + criteri di eleggibilità al live
-│   └── execution.yaml     # modalità paper/live, broker per asset class, gate verso il live
+│   ├── execution.yaml     # modalità paper/live, broker per asset class, gate verso il live
+│   └── scheduler.yaml     # cadenza del ciclo autonomo (modulo 8) — mai il rischio, solo il "quando"
 ├── src/trading_system/
 │   ├── common/             # modelli dati condivisi, enum, logging, eccezioni
 │   ├── data_ingestion/     # MODULO 1 — connettori dati + normalizzazione + storage
@@ -82,14 +90,16 @@ trading-system/
 │   ├── portfolio/          # MODULO 4 — allocazione per profilo di rischio, ribilanciamento
 │   ├── backtesting/        # MODULO 5 — simulazione walk-forward, metriche, eleggibilità
 │   ├── execution/          # MODULO 6 — paper trading + execution.live/ isolato (Alpaca, ccxt)
-│   └── api/                # MODULO 7 — dashboard FastAPI (sola lettura)
+│   ├── api/                # MODULO 7 — dashboard FastAPI (sola lettura)
+│   └── orchestration/      # MODULO 8 — ciclo autonomo + scheduler (APScheduler)
 ├── scripts/
 │   ├── fetch_sample_data.py          # demo CLI: scarica ed effettua l'upsert di dati reali
 │   ├── generate_sample_signals.py    # demo CLI: genera segnali dai dati storicizzati
 │   ├── evaluate_sample_risk.py       # demo CLI: valuta i segnali contro i limiti di rischio
 │   ├── allocate_sample_portfolio.py  # demo CLI: arbitraggio di budget + ribilanciamento
 │   ├── backtest_sample_strategy.py   # demo CLI: backtest walk-forward + eleggibilità + aggregati
-│   └── execute_sample_decisions.py   # demo CLI: esecuzione paper trading dell'intera pipeline
+│   ├── execute_sample_decisions.py   # demo CLI: esecuzione paper trading dell'intera pipeline
+│   └── run_scheduler.py              # ENTRYPOINT OPERATIVO: avvia il ciclo autonomo (modulo 8)
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -364,8 +374,9 @@ sistema, senza impedirti di vedere lo storico ordini nel frattempo.
 (non esiste ancora un conto "live" da interrogare finché non attivi
 l'esecuzione reale, modulo 6); il prezzo corrente di ogni posizione è
 l'ultima barra storicizzata dal modulo 1, non una quotazione in tempo
-reale — se non hai rilanciato di recente `fetch_sample_data.py`, può non
-essere aggiornata.
+reale — se lo scheduler autonomo (modulo 8, sotto) non è in esecuzione e
+non hai rilanciato di recente `fetch_sample_data.py`, può non essere
+aggiornata.
 
 ### Frontend (`GET /`)
 
@@ -380,6 +391,49 @@ class, alert per severità, tabella posizioni con P&L colorato, storico
 ordini con la motivazione di ognuno. Gestisce esplicitamente lo stato
 "database vuoto" (installazione pulita) senza errori — pannelli con un
 messaggio invece di celle vuote o `NaN`.
+
+## Modulo 8 — Orchestrazione autonoma
+
+Non previsto nella specifica dei 7 moduli, aggiunto su richiesta per
+rendere il sistema operativo senza che qualcuno debba lanciare gli script
+a mano ogni giorno. Non introduce logica di trading nuova: fa girare i
+moduli 1-6 nell'ordine già stabilito (dati → segnali → rischio →
+allocazione → esecuzione), alla cadenza scelta in `config/scheduler.yaml`,
+con due proprietà pensate apposta per un job non presidiato:
+
+- **Resilienza per simbolo.** Un dato mancante o una fonte dati
+  temporaneamente irraggiungibile su un singolo strumento vengono loggati e
+  quel simbolo viene saltato per il ciclo in corso — il resto della
+  watchlist continua normalmente. Un job autonomo che si ferma per un
+  problema isolato lascia tutto scoperto fino al prossimo intervento umano,
+  il che è peggio che saltare uno strumento per un giorno.
+- **Stato reale del conto**, non equity/posizioni fisse come negli script
+  demo in `scripts/`: cassa e posizioni vengono lette dal conto paper
+  persistito (`ExecutionRepository`) ad ogni ciclo, cosicché l'account
+  accumuli davvero lo storico richiesto dal periodo di validazione verso il
+  live (`execution.gate.LiveTradingGate`).
+
+**L'autonomia riguarda solo QUANDO gira il ciclo, mai una scorciatoia sui
+controlli di rischio.** Con `config/execution.yaml: mode: paper` (il
+default), ogni ordine prodotto dal ciclo resta sul broker paper simulato,
+a prescindere da quanto a lungo lo scheduler gira senza supervisione;
+passare al live resta un'azione separata ed esplicita (vedi Modulo 6).
+
+Avvio (processo che resta in esecuzione finché non lo fermi):
+
+```bash
+python scripts/run_scheduler.py
+# Ctrl+C, o SIGTERM (es. systemctl stop se lo esegui come servizio), per fermarlo in modo pulito.
+```
+
+A differenza degli script demo, `run_scheduler.py` non usa mai limiti di
+rischio/portafoglio di esempio: se `config/risk_limits.yaml` o
+`config/portfolio.yaml` non sono compilati/validi, si ferma subito con un
+errore esplicito — è l'entrypoint operativo reale, non una demo. Esegue un
+primo ciclo immediato all'avvio (così il sistema è operativo da subito),
+poi prosegue secondo `config/scheduler.yaml` (`cadence: daily` di default,
+un run al giorno all'ora UTC configurata; `interval_hours` come
+alternativa per un ciclo più frequente).
 
 ## Setup
 
@@ -506,9 +560,14 @@ prevalentemente in cash. Il frontend (`GET /`) è stato verificato con
 screenshot reali (Playwright/Chromium) in tema chiaro, scuro e a database
 vuoto — nessuna sovrapposizione, nessun errore, nessun `NaN`/`undefined`
 visibile in nessuno dei tre casi) e con una suite di test unitari (mock/dati
-sintetici, nessuna rete) per tutti e sette, inclusa una verifica esplicita
+sintetici, nessuna rete) per tutti e otto, inclusa una verifica esplicita
 di assenza di look-ahead bias nel motore di backtest e del doppio percorso
-"conferma esplicita / periodo di validazione" del gate verso il live.
+"conferma esplicita / periodo di validazione" del gate verso il live. Il
+ciclo autonomo (modulo 8) è stato verificato anche end-to-end con dati
+reali (Kraken/ccxt): con `config/risk_limits.yaml` compilato, il risk
+manager ha correttamente rifiutato un segnale SELL su ETH/USDT per
+volatilità annualizzata reale (76.5%) sopra il limite crypto configurato
+(30%) — la prova che i limiti reali vengono applicati, non solo caricati.
 
 Nota tecnica emersa proprio testando la dashboard: SQLite in-memory
 (`sqlite:///:memory:`) assegna di default una connessione per thread — un
@@ -531,4 +590,6 @@ reale durante `pytest`); gli script `fetch_sample_data.py`,
 `execute_sample_decisions.py` invece effettuano operazioni reali (rete per
 il primo, lettura del DB locale per gli altri cinque) per verifica manuale
 end-to-end; la dashboard (modulo 7) si avvia con `uvicorn` (vedi sopra) e
-legge lo stesso DB locale.
+legge lo stesso DB locale; `run_scheduler.py` (modulo 8) orchestra tutto
+quanto sopra in autonomia, sullo stesso DB, con vera rete per l'aggiornamento
+dati ad ogni ciclo.

@@ -1,0 +1,33 @@
+# Configurazione dell'execution layer.
+#
+# 'mode: paper' è l'unico default sicuro. Impostare 'mode: live' qui NON
+# basta da solo per operare con denaro reale: ogni singolo ordine passa
+# comunque per il LiveTradingGate (vedi trading_system.execution.gate), che
+# richiede backtest positivo E non scaduto, ed almeno una tra conferma
+# esplicita a runtime o periodo di validazione in paper trading superato.
+# Se un ordine non supera il gate, l'execution manager lo esegue in paper
+# invece di rifiutarlo silenziosamente o (peggio) eseguirlo comunque live.
+mode: paper
+
+paper:
+  initial_cash: 100000.0
+  commission_pct: 0.10   # simula un costo di transazione anche in paper trading
+
+# Broker/exchange per l'esecuzione LIVE, uno per asset class. Le credenziali
+# corrispondenti (vedi .env.example) sono lette da config/settings.py — se
+# mancano, il broker live si rifiuta di essere costruito con un errore
+# esplicito, non silenzioso.
+live_brokers:
+  equity: alpaca
+  etf: alpaca
+  crypto: kraken
+
+# Condizioni perché un ordine possa passare dal paper al live per un dato
+# simbolo/strategia. Il backtest positivo (modulo 5) è SEMPRE obbligatorio;
+# oltre a quello, serve almeno una tra:
+#  (a) conferma esplicita a runtime (mai automatica, mai letta da un file)
+#  (b) un periodo di validazione in paper trading sufficiente
+live_gate:
+  max_backtest_age_days: 30      # un'eleggibilità più vecchia di così non autorizza più il live
+  min_paper_trading_days: 14     # giorni minimi dal primo trade paper su quel simbolo/strategia
+  min_paper_trades: 5            # trade paper minimi eseguiti su quel simbolo/strategia

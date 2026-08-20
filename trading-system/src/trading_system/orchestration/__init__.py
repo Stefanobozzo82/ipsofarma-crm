@@ -14,6 +14,7 @@ QUANDO gira il ciclo, mai un bypass dei controlli di rischio o del gate
 verso il live, che restano quelli dei moduli 3 e 6.
 """
 
+from trading_system.orchestration.bootstrap import Pipeline, build_pipeline
 from trading_system.orchestration.config_loader import SchedulerConfig, load_scheduler_config
 from trading_system.orchestration.cycle import CycleReport, run_cycle
 from trading_system.orchestration.scheduler import build_scheduler
@@ -24,4 +25,6 @@ __all__ = [
     "CycleReport",
     "run_cycle",
     "build_scheduler",
+    "Pipeline",
+    "build_pipeline",
 ]

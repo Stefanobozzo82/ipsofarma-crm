@@ -99,7 +99,8 @@ trading-system/
 │   ├── allocate_sample_portfolio.py  # demo CLI: arbitraggio di budget + ribilanciamento
 │   ├── backtest_sample_strategy.py   # demo CLI: backtest walk-forward + eleggibilità + aggregati
 │   ├── execute_sample_decisions.py   # demo CLI: esecuzione paper trading dell'intera pipeline
-│   └── run_scheduler.py              # ENTRYPOINT OPERATIVO: avvia il ciclo autonomo (modulo 8)
+│   ├── run_scheduler.py              # ENTRYPOINT OPERATIVO: demone che pianifica i cicli da solo (modulo 8, opzione A)
+│   └── run_cycle_once.py             # ENTRYPOINT OPERATIVO: un solo ciclo, per scheduler esterni (modulo 8, opzione B — GitHub Actions)
 ├── tests/                  # test unitari (pytest)
 ├── data/                   # DB SQLite locale (gitignored)
 ├── logs/                   # log applicativi (gitignored)
@@ -419,21 +420,67 @@ default), ogni ordine prodotto dal ciclo resta sul broker paper simulato,
 a prescindere da quanto a lungo lo scheduler gira senza supervisione;
 passare al live resta un'azione separata ed esplicita (vedi Modulo 6).
 
-Avvio (processo che resta in esecuzione finché non lo fermi):
+Due modi di far girare il modulo 8, entrambi sullo stesso stack
+(`trading_system.orchestration.bootstrap.build_pipeline`) e con lo stesso
+comportamento "fail loud" (nessun limite di rischio/portafoglio di esempio:
+si ferma subito con un errore esplicito se `config/risk_limits.yaml` o
+`config/portfolio.yaml` non sono compilati/validi — sono gli entrypoint
+operativi reali, non demo):
+
+### Opzione A — macchina sempre accesa (VM/container)
+
+`scripts/run_scheduler.py` resta in esecuzione e pianifica i cicli da solo
+(APScheduler), secondo `config/scheduler.yaml`:
 
 ```bash
 python scripts/run_scheduler.py
 # Ctrl+C, o SIGTERM (es. systemctl stop se lo esegui come servizio), per fermarlo in modo pulito.
 ```
 
-A differenza degli script demo, `run_scheduler.py` non usa mai limiti di
-rischio/portafoglio di esempio: se `config/risk_limits.yaml` o
-`config/portfolio.yaml` non sono compilati/validi, si ferma subito con un
-errore esplicito — è l'entrypoint operativo reale, non una demo. Esegue un
-primo ciclo immediato all'avvio (così il sistema è operativo da subito),
-poi prosegue secondo `config/scheduler.yaml` (`cadence: daily` di default,
-un run al giorno all'ora UTC configurata; `interval_hours` come
+Esegue un primo ciclo immediato all'avvio (così il sistema è operativo da
+subito), poi prosegue secondo la cadenza configurata (`cadence: daily` di
+default, un run al giorno all'ora UTC configurata; `interval_hours` come
 alternativa per un ciclo più frequente).
+
+### Opzione B — GitHub Actions (gratis, nessuna macchina da gestire)
+
+`scripts/run_cycle_once.py` esegue **un solo ciclo** e termina — pensato
+per essere lanciato da uno scheduler esterno invece che pianificare da sé.
+Il workflow `.github/workflows/trading-cycle.yml` (nella root del repo,
+fuori da `trading-system/`) lo invoca ogni giorno alle 06:00 UTC via
+`schedule:` (stesso orario di `config/scheduler.yaml`: se cambi l'uno,
+cambia anche l'altro — sono due config indipendenti) e via `workflow_dispatch`
+per un avvio manuale dalla tab *Actions* di GitHub ("Run workflow").
+
+**Come persiste lo stato del conto paper tra un run e l'altro.** Ogni run
+di GitHub Actions parte da una macchina nuova e vuota: il workflow
+ripristina `data/trading_system.db` da un branch dedicato,
+**`paper-trading-state`** (nessun codice lì dentro, solo il database del
+conto simulato), lo fa evolvere con `run_cycle_once.py`, e lo ricommitta
+alla fine — un commit su quel branch per ogni ciclo eseguito, quindi anche
+uno storico auditabile di quando il sistema ha girato. Non toccare a mano
+il file `.db` in quel branch: verrebbe sovrascritto dal ciclo successivo.
+
+**Attivazione.** I trigger `schedule:` di GitHub Actions partono solo per i
+workflow presenti sul **branch di default** del repository (`main`): finché
+`.github/workflows/trading-cycle.yml` resta solo su questo branch feature,
+il cron giornaliero non si attiva da solo. Puoi comunque testarlo subito a
+mano — anche su questo branch — dalla tab *Actions* → *Ciclo di trading
+autonomo (paper)* → *Run workflow*; per farlo partire ogni giorno da solo
+serve che questo branch (o almeno il workflow) arrivi su `main`.
+
+**Costo.** Zero: il repository è pubblico, quindi i minuti di GitHub
+Actions sono illimitati e gratuiti — un ciclo dura circa un minuto,
+ben lontano da qualunque limite anche per un repo privato (2.000
+minuti/mese gratis sul piano Free).
+
+**Cosa vedere dopo un run**: tab *Actions* per i log dello step "Esegui il
+ciclo" e per l'artifact `trading-cycle-logs-<run_id>` (log applicativi
+completi, 30 giorni di retention); il branch `paper-trading-state` per lo
+stato del conto committato; la dashboard (modulo 7,
+`uvicorn trading_system.api.main:app`) se punti il suo
+`DATABASE_URL`/percorso dati allo stesso file per vedere posizioni/ordini
+nell'interfaccia.
 
 ## Setup
 
@@ -590,6 +637,7 @@ reale durante `pytest`); gli script `fetch_sample_data.py`,
 `execute_sample_decisions.py` invece effettuano operazioni reali (rete per
 il primo, lettura del DB locale per gli altri cinque) per verifica manuale
 end-to-end; la dashboard (modulo 7) si avvia con `uvicorn` (vedi sopra) e
-legge lo stesso DB locale; `run_scheduler.py` (modulo 8) orchestra tutto
-quanto sopra in autonomia, sullo stesso DB, con vera rete per l'aggiornamento
-dati ad ogni ciclo.
+legge lo stesso DB locale; `run_scheduler.py`/`run_cycle_once.py` (modulo 8)
+orchestrano tutto quanto sopra in autonomia, sullo stesso DB, con vera rete
+per l'aggiornamento dati ad ogni ciclo (`run_cycle_once.py` è anche quello
+usato dal workflow GitHub Actions, vedi Modulo 8).

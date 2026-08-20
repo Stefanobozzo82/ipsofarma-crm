@@ -16,12 +16,15 @@ from trading_system.api.app import create_app
 from trading_system.common.enums import AssetClass
 
 
-def _client(risk_limits=None, portfolio_config=None, market_repo=None, execution_repo=None) -> TestClient:
+def _client(
+    risk_limits=None, portfolio_config=None, execution_mode="paper", market_repo=None, execution_repo=None,
+) -> TestClient:
     app = create_app(
         market_data_repo=market_repo or make_market_data_repo(),
         execution_repo=execution_repo or make_execution_repo(),
         risk_limits=risk_limits,
         portfolio_config=portfolio_config,
+        execution_mode=execution_mode,
     )
     return TestClient(app)
 
@@ -45,6 +48,38 @@ class TestHealth:
 
         assert body["risk_limits_configured"] is True
         assert body["portfolio_config_configured"] is True
+
+    def test_health_reports_execution_mode(self):
+        body = _client(execution_mode="live").get("/health").json()
+
+        assert body["execution_mode"] == "live"
+
+    def test_health_reports_null_execution_mode_when_unavailable(self):
+        body = _client(execution_mode=None).get("/health").json()
+
+        assert body["execution_mode"] is None
+
+
+class TestFrontend:
+    def test_root_serves_html_page(self):
+        response = _client().get("/")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "<title>Trading System" in response.text
+
+    def test_root_page_calls_the_json_endpoints(self):
+        # La pagina deve chiamare esattamente gli endpoint già esposti
+        # dall'API, non introdurne di nuovi o duplicare logica.
+        html = _client().get("/").text
+
+        for endpoint in ("/health", "/portfolio", "/orders", "/alerts"):
+            assert endpoint in html
+
+    def test_root_is_excluded_from_openapi_schema(self):
+        schema = _client().get("/openapi.json").json()
+
+        assert "/" not in schema["paths"]
 
 
 class TestPortfolioEndpoint:

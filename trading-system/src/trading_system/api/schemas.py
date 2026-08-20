@@ -67,5 +67,6 @@ class AlertView(BaseModel):
 
 class HealthView(BaseModel):
     status: str
+    execution_mode: str | None  # "paper" | "live" | None se config/execution.yaml non è leggibile
     risk_limits_configured: bool
     portfolio_config_configured: bool

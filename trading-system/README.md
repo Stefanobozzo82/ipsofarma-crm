@@ -333,7 +333,8 @@ dashboard.
 
 | Endpoint | Cosa mostra |
 |---|---|
-| `GET /health` | stato del servizio + se `risk_limits`/`portfolio_config` sono compilati |
+| `GET /` | frontend statico (vedi sotto) |
+| `GET /health` | stato del servizio, modalità di esecuzione, se `risk_limits`/`portfolio_config` sono compilati |
 | `GET /portfolio` | cassa, posizioni valorizzate ai prezzi correnti, aggregato per asset class (peso attuale vs target) |
 | `GET /orders` | storico ordini (paper e live), più recenti prima, **ognuno con la propria motivazione** (`?symbol=`, `?limit=`) |
 | `GET /alerts` | anomalie: scostamento dal profilo target, posizioni vicine/oltre lo stop-loss teorico, ordini ripetutamente rifiutati |
@@ -342,7 +343,7 @@ Avvio:
 
 ```bash
 uvicorn trading_system.api.main:app --reload
-# poi, ad es.: curl http://localhost:8000/portfolio
+# poi apri http://localhost:8000/ nel browser (o curl http://localhost:8000/portfolio per il solo JSON)
 ```
 
 Se `config/risk_limits.yaml`/`config/portfolio.yaml` non sono ancora
@@ -358,6 +359,20 @@ l'esecuzione reale, modulo 6); il prezzo corrente di ogni posizione è
 l'ultima barra storicizzata dal modulo 1, non una quotazione in tempo
 reale — se non hai rilanciato di recente `fetch_sample_data.py`, può non
 essere aggiornata.
+
+### Frontend (`GET /`)
+
+Una singola pagina statica (`src/trading_system/api/static/index.html`),
+servita direttamente da FastAPI — nessun framework, nessuno step di build.
+Il JavaScript lato client chiama gli stessi quattro endpoint sopra via
+`fetch()`: la pagina non ha alcuna logica che non sia già nell'API, e si
+aggiorna da sola ogni 30 secondi (in pausa quando la scheda non è visibile)
+o al clic su "Aggiorna". Mostra: KPI di sintesi (equity, liquidità, P&L non
+realizzato, posizioni aperte), allocazione attuale vs target per asset
+class, alert per severità, tabella posizioni con P&L colorato, storico
+ordini con la motivazione di ognuno. Gestisce esplicitamente lo stato
+"database vuoto" (installazione pulita) senza errori — pannelli con un
+messaggio invece di celle vuote o `NaN`.
 
 ## Setup
 
@@ -434,12 +449,14 @@ sicurezza voluto, non un difetto della demo. Il sesto esegue l'intera
 pipeline (segnali -> rischio -> allocazione) e invia il risultato
 all'`ExecutionManager`, sempre in paper trading: stampa gli ordini
 riempiuti/rifiutati, la cassa residua e le posizioni aperte del conto
-simulato. Il settimo avvia la dashboard: `GET /portfolio` mostra cassa e
-posizioni valorizzate ai prezzi correnti (aggregate per asset class),
-`GET /orders` lo storico ordini con la motivazione di ognuno, `GET /alerts`
-gli scostamenti dal profilo target e le posizioni vicine/oltre lo
-stop-loss teorico — vuoti finché non compili `config/risk_limits.yaml`/
-`config/portfolio.yaml`, non un errore.
+simulato. Il settimo avvia la dashboard su http://localhost:8000/ — una
+pagina che mostra cassa e posizioni valorizzate ai prezzi correnti
+(aggregate per asset class, con allocazione attuale vs target), lo storico
+ordini con la motivazione di ognuno, e gli alert (scostamenti dal profilo
+target, posizioni vicine/oltre lo stop-loss teorico) — vuoti/assenti finché
+non compili `config/risk_limits.yaml`/`config/portfolio.yaml`, non un
+errore; `curl http://localhost:8000/portfolio` (ecc.) resta disponibile per
+il solo JSON.
 
 ### Nota su reti aziendali con TLS-inspection
 
@@ -473,7 +490,10 @@ ed eleggibilità coerenti, che un ordine paper con prezzo di mercato reale
 aggiorni correttamente cassa e posizioni persistite, e che `GET /portfolio`
 e `GET /alerts` riflettano quello stato reale — inclusi gli alert di
 scostamento dal profilo target generati correttamente su un portafoglio
-prevalentemente in cash) e con una suite di test unitari (mock/dati
+prevalentemente in cash. Il frontend (`GET /`) è stato verificato con
+screenshot reali (Playwright/Chromium) in tema chiaro, scuro e a database
+vuoto — nessuna sovrapposizione, nessun errore, nessun `NaN`/`undefined`
+visibile in nessuno dei tre casi) e con una suite di test unitari (mock/dati
 sintetici, nessuna rete) per tutti e sette, inclusa una verifica esplicita
 di assenza di look-ahead bias nel motore di backtest e del doppio percorso
 "conferma esplicita / periodo di validazione" del gate verso il live.

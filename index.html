@@ -1006,6 +1006,17 @@ async function autoPullSync(){
   }catch(e){console.warn('Auto-sync GitHub:',e);}
 }
 
+// Il campo del token è type="password" senza autocomplete: alcuni browser (Chrome in
+// particolare) possono comunque intervenire su un campo così dopo un ricaricamento della
+// pagina, arrivando a svuotarlo. Se succedesse e reagissimo cancellando subito il token già
+// funzionante salvato in localStorage, un utente che clicca "Salva"/"Carica" subito dopo si
+// ritroverebbe il token perso senza aver toccato nulla. Aggiorniamo quindi solo se il campo
+// contiene davvero un valore nuovo, mai se risulta vuoto.
+function ghTokenFieldChanged(inp){
+  const v=(inp.value||'').trim();
+  if(!v)return; // campo svuotato (probabilmente dal browser, non dall'utente): non tocchiamo nulla
+  localStorage.setItem('gh_token',v);localStorage.removeItem('gh_user');GH_USER=null;GH_SHA=null;localStorage.removeItem('gh_sha');
+}
 async function ghTestConn(){
   GH_USER=null;GH_SHA=null;GH_SHA_CAT=null;localStorage.removeItem('gh_sha');localStorage.removeItem('gh_sha_cat');
   const tok=(document.getElementById('gh-token-inp')||{}).value||ghToken();
@@ -4433,8 +4444,8 @@ function aziendaView(){
       </p>
       <div class="field" style="margin-bottom:12px">
         <label>GitHub Personal Access Token</label>
-        <input id="gh-token-inp" type="password" value="${ghToken()}" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="font-family:monospace"
-          onchange="localStorage.setItem('gh_token',this.value);localStorage.removeItem('gh_user');GH_USER=null;GH_SHA=null;localStorage.removeItem('gh_sha');">
+        <input id="gh-token-inp" type="password" autocomplete="off" value="${ghToken()}" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="font-family:monospace"
+          onchange="ghTokenFieldChanged(this)">
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
         <button class="btn" onclick="ghTestConn()">🔍 Testa connessione</button>
@@ -4494,12 +4505,12 @@ function aziendaView(){
         </select>
       </div>
       <div id="ai-prov-claudekey" style="display:${prov==='claudekey'?'block':'none'}">
-        <div class="field"><label>Chiave API Anthropic</label><input id="ai-key" type="password" placeholder="sk-ant-..." value="${az.aiKey?String(az.aiKey).replace(/"/g,'&quot;'):''}"></div>
+        <div class="field"><label>Chiave API Anthropic</label><input id="ai-key" type="password" autocomplete="off" placeholder="sk-ant-..." value="${az.aiKey?String(az.aiKey).replace(/"/g,'&quot;'):''}"></div>
       </div>
       <div id="ai-prov-openai" style="display:${prov==='openai'?'block':'none'}">
         <div class="field"><label>Indirizzo (Base URL)</label><input id="ai-base" placeholder="es. http://localhost:11434/v1 (Ollama)" value="${az.aiBase?String(az.aiBase).replace(/"/g,'&quot;'):''}"></div>
         <div class="field"><label>Modello</label><input id="ai-model" placeholder="es. llama3.1  ·  gemini-2.5-flash" value="${az.aiModel?String(az.aiModel).replace(/"/g,'&quot;'):''}"></div>
-        <div class="field"><label>Chiave (vuota per Ollama locale)</label><input id="ai-okey" type="password" placeholder="opzionale" value="${az.aiOkey?String(az.aiOkey).replace(/"/g,'&quot;'):''}"></div>
+        <div class="field"><label>Chiave (vuota per Ollama locale)</label><input id="ai-okey" type="password" autocomplete="off" placeholder="opzionale" value="${az.aiOkey?String(az.aiOkey).replace(/"/g,'&quot;'):''}"></div>
         <div style="margin-bottom:10px"><button class="ai-chip" type="button" onclick="aiPreset('gemini')">Preimposta Gemini</button> <button class="ai-chip" type="button" onclick="aiPreset('groq')">Preimposta Groq</button> <button class="ai-chip" type="button" onclick="aiPreset('ollama')">Preimposta Ollama</button></div>
       </div>
       <button class="btn primary" onclick="aiSaveKey().then(()=>toast('Impostazioni AI salvate'))">Salva impostazioni AI</button>`;

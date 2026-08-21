@@ -3829,7 +3829,12 @@ async function aiComplete(sys,userText,file,maxTok){
     let content=userText;
     if(file){if(mt==='application/pdf'){const imgs=await aiPdfToImages(file,12);if(!imgs.length)throw new Error('PDF vuoto o non leggibile');content=[{type:"text",text:userText}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u}})));}else content=[{type:"text",text:userText},{type:"image_url",image_url:{url:"data:"+mt+";base64,"+b64}}];}
     const res=await fetch(base+"/chat/completions",{method:"POST",headers,body:JSON.stringify({model,temperature:0,max_tokens:maxTok||2500,messages:[{role:"system",content:sys},{role:"user",content}]})});
-    if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();txt=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
+    const data=await res.json().catch(()=>null);
+    // In caso di errore l'API (Gemini, OpenAI, Ollama...) di solito spiega il motivo nel corpo
+    // della risposta: mostrarlo invece del solo "HTTP 400" fa capire subito se è la chiave, il
+    // modello, un limite di dimensione, ecc. invece di dover indovinare.
+    if(!res.ok)throw new Error((data&&data.error&&(data.error.message||data.error))||('HTTP '+res.status));
+    txt=(data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
   }else{
     const headers={"Content-Type":"application/json"};const key=prov==='claudekey'?(az.aiKey||'').trim():'';
     if(key){headers["x-api-key"]=key;headers["anthropic-version"]="2023-06-01";headers["anthropic-dangerous-direct-browser-access"]="true";}

@@ -3829,11 +3829,16 @@ async function aiComplete(sys,userText,file,maxTok){
     let content=userText;
     if(file){if(mt==='application/pdf'){const imgs=await aiPdfToImages(file,12);if(!imgs.length)throw new Error('PDF vuoto o non leggibile');content=[{type:"text",text:userText}].concat(imgs.map(u=>({type:"image_url",image_url:{url:u}})));}else content=[{type:"text",text:userText},{type:"image_url",image_url:{url:"data:"+mt+";base64,"+b64}}];}
     const res=await fetch(base+"/chat/completions",{method:"POST",headers,body:JSON.stringify({model,temperature:0,max_tokens:maxTok||2500,messages:[{role:"system",content:sys},{role:"user",content}]})});
-    const data=await res.json().catch(()=>null);
+    let data=await res.json().catch(()=>null);
     // In caso di errore l'API (Gemini, OpenAI, Ollama...) di solito spiega il motivo nel corpo
     // della risposta: mostrarlo invece del solo "HTTP 400" fa capire subito se è la chiave, il
-    // modello, un limite di dimensione, ecc. invece di dover indovinare.
-    if(!res.ok)throw new Error((data&&data.error&&(data.error.message||data.error))||('HTTP '+res.status));
+    // modello, un limite di dimensione, ecc. invece di dover indovinare. L'endpoint compatibile
+    // OpenAI di Google (Gemini) incapsula però l'errore in un array (es. [{"error":{...}}])
+    // invece che nel semplice oggetto {"error":{...}} usato da OpenAI/Ollama: senza gestire
+    // anche questo caso data.error risultava sempre vuoto e si tornava comunque a "HTTP 400".
+    const errObj=Array.isArray(data)?(data.find(x=>x&&x.error)||{}).error:(data&&data.error);
+    if(!res.ok)throw new Error((errObj&&(errObj.message||errObj))||('HTTP '+res.status));
+    if(Array.isArray(data))data=data[0];
     txt=(data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
   }else{
     const headers={"Content-Type":"application/json"};const key=prov==='claudekey'?(az.aiKey||'').trim():'';

@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Piano Lago</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pl-sand:#F2E8CE;
+    --pl-sand-deep:#E6D7AD;
+    --pl-ink:#2E3A2A;
+    --pl-ink-soft:#5C6650;
+    --pl-lake-deep:#146B72;
+    --pl-lake-bright:#1FA8AE;
+    --pl-lake-light:#8FE0D3;
+    --pl-meadow:#4B8F4E;
+    --pl-meadow-deep:#2F5D34;
+    --pl-soil:#7A5236;
+    --pl-soil-deep:#4E3220;
+    --pl-wheat:#E7AE39;
+    --pl-coral:#E8624A;
+    --pl-card:#FBF4DE;
+    --pl-card-soft:#F7ECD3;
+    --pl-line:rgba(46,58,42,.16);
+    --pl-shadow:rgba(43,33,15,.25);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --pl-sand:#122024;
+      --pl-sand-deep:#1A2C2F;
+      --pl-ink:#EAF2EC;
+      --pl-ink-soft:#9FB6AC;
+      --pl-lake-deep:#2FB6B9;
+      --pl-lake-bright:#4FD3D2;
+      --pl-lake-light:#1E4448;
+      --pl-meadow:#6CC06A;
+      --pl-meadow-deep:#2C4A2E;
+      --pl-soil:#9C7350;
+      --pl-soil-deep:#2C1B10;
+      --pl-wheat:#F0C15A;
+      --pl-coral:#FF8266;
+      --pl-card:#1F3538;
+      --pl-card-soft:#233C3F;
+      --pl-line:rgba(234,242,236,.14);
+      --pl-shadow:rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --pl-sand:#122024;
+    --pl-sand-deep:#1A2C2F;
+    --pl-ink:#EAF2EC;
+    --pl-ink-soft:#9FB6AC;
+    --pl-lake-deep:#2FB6B9;
+    --pl-lake-bright:#4FD3D2;
+    --pl-lake-light:#1E4448;
+    --pl-meadow:#6CC06A;
+    --pl-meadow-deep:#2C4A2E;
+    --pl-soil:#9C7350;
+    --pl-soil-deep:#2C1B10;
+    --pl-wheat:#F0C15A;
+    --pl-coral:#FF8266;
+    --pl-card:#1F3538;
+    --pl-card-soft:#233C3F;
+    --pl-line:rgba(234,242,236,.14);
+    --pl-shadow:rgba(0,0,0,.45);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--pl-sand);
+    color:var(--pl-ink);
+    font-family:'Nunito Sans',-apple-system,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  h1,h2,h3{font-family:'Baloo 2','Segoe UI Rounded','Arial Rounded MT Bold',sans-serif; text-wrap:balance; margin:0;}
+  button{font-family:inherit;}
+  .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  :focus-visible{outline:3px solid var(--pl-lake-bright); outline-offset:2px; border-radius:8px;}
+
+  .icon{width:1em;height:1em;display:inline-block;vertical-align:-0.15em;}
+
+  /* ---------- page shell ---------- */
+  .game{
+    position:relative;
+    min-height:100%;
+    padding:20px 20px 90px;
+    max-width:1180px;
+    margin:0 auto;
+    isolation:isolate;
+  }
+  .lake-deco{
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(60% 50% at 88% -6%, color-mix(in srgb, var(--pl-lake-light) 55%, transparent), transparent 70%),
+      radial-gradient(55% 45% at 100% 100%, color-mix(in srgb, var(--pl-lake-deep) 30%, transparent), transparent 70%);
+  }
+  .lake-deco svg{position:absolute; right:-6%; bottom:-8%; width:min(60vw,620px); opacity:.5;}
+  @media (prefers-reduced-motion: no-preference){
+    .lake-deco .ripple{animation:ripple-drift 9s ease-in-out infinite;}
+    .lake-deco .ripple:nth-child(2){animation-duration:12s; animation-delay:-3s;}
+  }
+  @keyframes ripple-drift{
+    0%,100%{transform:translateX(0);}
+    50%{transform:translateX(-14px);}
+  }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex; flex-wrap:wrap; gap:14px;
+    align-items:center; justify-content:space-between;
+    padding:14px 18px;
+    margin-bottom:20px;
+    background:var(--pl-card);
+    border:1px solid var(--pl-line);
+    border-radius:20px;
+    box-shadow:0 10px 24px -16px var(--pl-shadow);
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand-mark{width:44px;height:44px;flex:none;}
+  .brand-name{display:block; font-size:1.5rem; font-weight:700; letter-spacing:.2px; line-height:1;}
+  .brand-tag{display:block; margin-top:4px; font-size:.78rem; color:var(--pl-ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.06em;}
+
+  .hud{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  .hud-stat{
+    display:flex; align-items:center; gap:7px;
+    background:var(--pl-sand-deep);
+    border-radius:999px;
+    padding:8px 14px;
+    font-family:'Baloo 2',sans-serif; font-weight:700; font-size:1.05rem;
+    font-variant-numeric:tabular-nums;
+  }
+  .hud-stat .icon{width:1.2em;height:1.2em; color:var(--pl-wheat);}
+  .hud-level{display:flex; align-items:center; gap:10px;}
+  .level-badge{
+    display:flex; align-items:center; gap:5px;
+    background:var(--pl-lake-deep); color:#fff;
+    border-radius:999px; padding:7px 12px;
+    font-family:'Baloo 2',sans-serif; font-weight:700; font-size:.95rem;
+    white-space:nowrap;
+  }
+  .level-badge .icon{width:1.05em;height:1.05em; color:var(--pl-wheat);}
+  .xp-track{
+    width:120px; height:10px; border-radius:999px;
+    background:var(--pl-sand-deep); overflow:hidden;
+    border:1px solid var(--pl-line);
+  }
+  .xp-fill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--pl-lake-bright), var(--pl-lake-deep));
+    border-radius:999px;
+    transition:width .4s ease;
+  }
+
+  /* ---------- board layout ---------- */
+  .board{
+    display:grid;
+    grid-template-columns:1.5fr 1fr;
+    gap:18px;
+    align-items:start;
+  }
+  @media (max-width:820px){
+    .board{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--pl-card);
+    border:1px solid var(--pl-line);
+    border-radius:22px;
+    padding:18px;
+    box-shadow:0 10px 26px -18px var(--pl-shadow);
+  }
+  .panel-head{margin-bottom:4px;}
+  .panel-head h2{font-size:1.2rem;}
+  .panel-head p{margin:4px 0 0; font-size:.86rem; color:var(--pl-ink-soft); font-weight:600; max-width:46ch;}
+
+  .side-panels{display:flex; flex-direction:column; gap:18px;}
+
+  /* ---------- field grid ---------- */
+  .field-grid{
+    margin-top:16px;
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+  }
+  @media (max-width:520px){
+    .field-grid{grid-template-columns:repeat(3, 1fr);}
+  }
+
+  .plot{
+    position:relative;
+    aspect-ratio:1;
+    border-radius:16px;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(120% 120% at 30% 20%, color-mix(in srgb, var(--pl-soil) 40%, transparent), transparent 60%),
+      var(--pl-soil-deep);
+    box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--pl-soil-deep) 60%, black 10%);
+    transition:transform .15s ease;
+  }
+  .plot:hover{transform:translateY(-2px);}
+  .plot:active{transform:translateY(0px) scale(.97);}
+
+  .plot[data-state="locked"]{
+    background:var(--pl-sand-deep);
+    cursor:not-allowed;
+    color:var(--pl-ink-soft);
+  }
+  .plot[data-state="locked"] .icon{width:1.3em;height:1.3em;}
+  .plot-lock-label{
+    position:absolute; bottom:6px; left:0; right:0; text-align:center;
+    font-size:.62rem; font-weight:700; color:var(--pl-ink-soft);
+  }
+
+  .plot[data-state="empty"]{
+    background:
+      repeating-linear-gradient(135deg, color-mix(in srgb, var(--pl-soil) 55%, transparent) 0 6px, transparent 6px 12px),
+      var(--pl-soil-deep);
+  }
+  .plot[data-state="empty"]::after{
+    content:"+";
+    color:color-mix(in srgb, var(--pl-sand) 70%, transparent);
+    font-family:'Baloo 2',sans-serif; font-size:1.8rem; font-weight:700;
+  }
+
+  .plot-progress{
+    position:relative;
+    width:64%; height:64%;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:conic-gradient(var(--pl-lake-bright) calc(var(--p,0)*1%), color-mix(in srgb, var(--pl-sand) 25%, transparent) 0);
+  }
+  .plot-progress::before{
+    content:"";
+    position:absolute; inset:4px;
+    border-radius:50%;
+    background:var(--pl-soil-deep);
+  }
+  .plot-progress .icon{position:relative; width:52%; height:52%;}
+  .plot-progress .plot-time{
+    position:absolute; bottom:-18px; left:0; right:0; text-align:center;
+    font-size:.66rem; font-weight:700; color:var(--pl-ink-soft);
+    font-variant-numeric:tabular-nums;
+  }
+
+  .plot[data-state="seeded"] .plot-progress .icon{color:var(--pl-lake-light); animation:pulse-soft 1.6s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){
+    .plot[data-state="seeded"] .plot-progress .icon{animation:none;}
+  }
+  @keyframes pulse-soft{0%,100%{opacity:.65; transform:scale(1);} 50%{opacity:1; transform:scale(1.12);}}
+
+  .plot[data-state="ready"]{box-shadow:0 0 0 3px var(--pl-wheat), 0 0 22px -4px var(--pl-wheat);}
+  .plot[data-state="ready"] .plot-progress{
+    width:74%; height:74%;
+    background:none;
+  }
+  .plot[data-state="ready"] .plot-progress::before{display:none;}
+  @media (prefers-reduced-motion: no-preference){
+    .plot[data-state="ready"] .plot-progress .icon{animation:bob 1s ease-in-out infinite;}
+  }
+  @keyframes bob{0%,100%{transform:translateY(0);} 50%{transform:translateY(-5px);}}
+
+  /* ---------- crop icon colors (svg symbols use these vars) ---------- */
+  .crop-radish{color:var(--pl-coral);}
+  .crop-wheat{color:var(--pl-wheat);}
+  .crop-pumpkin{color:#E0812E;}
+
+  /* ---------- orders panel ---------- */
+  .order-card{margin-top:14px; display:flex; flex-direction:column; gap:12px;}
+  .order-client{display:flex; align-items:center; gap:10px;}
+  .order-avatar{
+    width:40px;height:40px;border-radius:50%;flex:none;
+    background:var(--pl-lake-deep); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Baloo 2',sans-serif; font-weight:700;
+  }
+  .order-name{font-weight:700; font-size:.95rem;}
+  .order-sub{font-size:.78rem; color:var(--pl-ink-soft); font-weight:600;}
+
+  .order-reqs{display:flex; flex-wrap:wrap; gap:8px;}
+  .req-chip{
+    display:flex; align-items:center; gap:6px;
+    background:var(--pl-card-soft);
+    border:1px solid var(--pl-line);
+    border-radius:999px; padding:6px 10px 6px 8px;
+    font-weight:700; font-size:.86rem; font-variant-numeric:tabular-nums;
+  }
+  .req-chip.met{background:color-mix(in srgb, var(--pl-meadow) 20%, var(--pl-card-soft));}
+  .req-chip .icon{width:1.15em;height:1.15em;}
+
+  .order-timerbar{height:8px; border-radius:999px; background:var(--pl-sand-deep); overflow:hidden; border:1px solid var(--pl-line);}
+  .order-timerbar-fill{height:100%; width:100%; background:var(--pl-lake-bright); transition:width 1s linear, background .3s ease;}
+  .order-timerbar-fill.urgent{background:var(--pl-coral);}
+
+  .order-footer{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .order-reward{display:flex; align-items:center; gap:6px; font-family:'Baloo 2',sans-serif; font-weight:700; color:var(--pl-ink-soft); font-size:.9rem;}
+  .order-reward .icon{color:var(--pl-wheat); width:1.1em; height:1.1em;}
+
+  .btn{
+    font-family:'Baloo 2',sans-serif; font-weight:700; font-size:.95rem;
+    border:none; border-radius:999px; padding:10px 18px;
+    background:var(--pl-coral); color:#fff; cursor:pointer;
+    box-shadow:0 6px 14px -6px color-mix(in srgb, var(--pl-coral) 70%, black);
+    transition:transform .12s ease, filter .12s ease;
+  }
+  .btn:hover:not(:disabled){filter:brightness(1.06); transform:translateY(-1px);}
+  .btn:active:not(:disabled){transform:translateY(0);}
+  .btn:disabled{background:var(--pl-sand-deep); color:var(--pl-ink-soft); cursor:not-allowed; box-shadow:none;}
+  .btn.ghost{background:transparent; color:var(--pl-ink-soft); box-shadow:none; border:1px solid var(--pl-line);}
+
+  /* ---------- inventory ---------- */
+  .inventory-grid{margin-top:14px; display:flex; flex-direction:column; gap:8px;}
+  .inv-chip{
+    display:flex; align-items:center; gap:10px;
+    background:var(--pl-card-soft); border:1px solid var(--pl-line);
+    border-radius:14px; padding:9px 12px;
+  }
+  .inv-chip .icon{width:1.6em; height:1.6em;}
+  .inv-name{font-weight:700; font-size:.88rem; flex:1;}
+  .inv-count{font-family:'Baloo 2',sans-serif; font-weight:700; font-variant-numeric:tabular-nums;}
+
+  /* ---------- seed picker modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:40;
+    background:color-mix(in srgb, var(--pl-soil-deep) 55%, transparent);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .modal-overlay[hidden]{display:none;}
+  .modal-card{
+    width:min(420px, 100%);
+    background:var(--pl-card);
+    border-radius:22px; padding:20px;
+    box-shadow:0 24px 48px -20px rgba(0,0,0,.5);
+  }
+  .modal-card h3{font-size:1.15rem; margin-bottom:4px;}
+  .modal-sub{font-size:.82rem; color:var(--pl-ink-soft); font-weight:600; margin-bottom:14px;}
+  .seed-options{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .seed-option{
+    display:flex; align-items:center; gap:12px;
+    width:100%; text-align:left;
+    background:var(--pl-card-soft); border:1px solid var(--pl-line);
+    border-radius:14px; padding:10px 12px; cursor:pointer;
+  }
+  .seed-option:hover:not(:disabled){background:color-mix(in srgb, var(--pl-lake-light) 30%, var(--pl-card-soft));}
+  .seed-option:disabled{opacity:.5; cursor:not-allowed;}
+  .seed-option .icon{width:2.1em; height:2.1em; flex:none;}
+  .seed-option-name{font-weight:700; font-size:.92rem;}
+  .seed-option-meta{font-size:.76rem; color:var(--pl-ink-soft); font-weight:600;}
+  .seed-option-cost{margin-left:auto; display:flex; align-items:center; gap:5px; font-weight:700; font-variant-numeric:tabular-nums;}
+  .seed-option-cost .icon{width:1.1em; height:1.1em; color:var(--pl-wheat);}
+
+  /* ---------- toasts ---------- */
+  .toast-stack{
+    position:fixed; top:16px; right:16px; z-index:60;
+    display:flex; flex-direction:column; gap:8px;
+    max-width:min(320px, calc(100vw - 32px));
+  }
+  .toast{
+    display:flex; align-items:center; gap:10px;
+    background:var(--pl-card); border:1px solid var(--pl-line);
+    border-left:4px solid var(--pl-lake-deep);
+    border-radius:12px; padding:10px 14px;
+    font-weight:700; font-size:.86rem;
+    box-shadow:0 12px 24px -14px var(--pl-shadow);
+  }
+  .toast.success{border-left-color:var(--pl-meadow);}
+  .toast.warn{border-left-color:var(--pl-coral);}
+  .toast .icon{width:1.3em; height:1.3em; flex:none; color:var(--pl-lake-deep);}
+  .toast.success .icon{color:var(--pl-meadow);}
+  .toast.warn .icon{color:var(--pl-coral);}
+  @media (prefers-reduced-motion: no-preference){
+    .toast{animation:toast-in .25s ease;}
+  }
+  @keyframes toast-in{from{opacity:0; transform:translateY(-8px);} to{opacity:1; transform:translateY(0);}}
+
+  .save-note{
+    text-align:center; margin-top:22px;
+    font-size:.76rem; color:var(--pl-ink-soft); font-weight:600;
+  }
+</style>
+</head>
+<body>
+
+<div class="lake-deco" aria-hidden="true">
+  <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+    <path class="ripple" d="M0 90c30-22 60-22 90 0s60 22 90 0 60-22 90 0" fill="none" stroke="var(--pl-lake-deep)" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+    <path class="ripple" d="M0 130c30-22 60-22 90 0s60 22 90 0 60-22 90 0" fill="none" stroke="var(--pl-lake-bright)" stroke-width="6" stroke-linecap="round" opacity=".25"/>
+  </svg>
+</div>
+
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <symbol id="icon-logo" viewBox="0 0 24 24">
+      <circle cx="8" cy="8" r="4.2" fill="var(--pl-wheat)"/>
+      <path d="M2 15c2-1.6 4-1.6 6 0s4 1.6 6 0 4-1.6 6 0" fill="none" stroke="var(--pl-lake-deep)" stroke-width="2" stroke-linecap="round"/>
+      <path d="M2 19c2-1.6 4-1.6 6 0s4 1.6 6 0 4-1.6 6 0" fill="none" stroke="var(--pl-lake-bright)" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+    </symbol>
+    <symbol id="icon-coin" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="currentColor"/>
+      <circle cx="12" cy="12" r="6" fill="none" stroke="#00000022" stroke-width="1.4"/>
+      <ellipse cx="9.3" cy="8.8" rx="1.6" ry="1" fill="#ffffff55"/>
+    </symbol>
+    <symbol id="icon-star" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 3l2.4 5.1 5.6.5-4.2 3.8 1.3 5.5L12 15.9 6.9 17.9l1.3-5.5-4.2-3.8 5.6-.5L12 3z"/>
+    </symbol>
+    <symbol id="icon-drop" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 3c3.4 4.4 6 8 6 11.2A6 6 0 1 1 6 14.2C6 11 8.6 7.4 12 3z"/>
+    </symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24">
+      <rect x="6" y="11" width="12" height="9" rx="2.4" fill="currentColor"/>
+      <path d="M8.5 11V8.5a3.5 3.5 0 1 1 7 0V11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-radish" viewBox="0 0 24 24">
+      <path fill="var(--pl-meadow)" d="M12 8c-.3-2.6-2.1-4.4-4.6-4.9 1 2.3 2.6 3.8 4.6 4.9z"/>
+      <path fill="var(--pl-meadow)" d="M12 8c.3-2.6 2.1-4.4 4.6-4.9-1 2.3-2.6 3.8-4.6 4.9z"/>
+      <path fill="var(--pl-coral)" d="M12 8c2.8 0 5 2.3 5 5.5 0 3.5-2.3 6.8-5 6.8s-5-3.3-5-6.8C7 10.3 9.2 8 12 8z"/>
+      <ellipse cx="10.1" cy="12.3" rx="1.2" ry="1.7" fill="#ffffff55"/>
+    </symbol>
+    <symbol id="icon-wheat" viewBox="0 0 24 24">
+      <path d="M12 21V6" fill="none" stroke="var(--pl-soil)" stroke-width="1.4" stroke-linecap="round"/>
+      <g fill="var(--pl-wheat)">
+        <ellipse cx="9.4" cy="8.6" rx="1.9" ry="3" transform="rotate(-35 9.4 8.6)"/>
+        <ellipse cx="14.6" cy="8.6" rx="1.9" ry="3" transform="rotate(35 14.6 8.6)"/>
+        <ellipse cx="9.4" cy="12.6" rx="1.9" ry="3" transform="rotate(-35 9.4 12.6)"/>
+        <ellipse cx="14.6" cy="12.6" rx="1.9" ry="3" transform="rotate(35 14.6 12.6)"/>
+        <ellipse cx="12" cy="5.6" rx="1.7" ry="2.7"/>
+      </g>
+    </symbol>
+    <symbol id="icon-pumpkin" viewBox="0 0 24 24">
+      <path d="M11 5c.4-1 1-1.6 1.6-1.6S13.7 4 13.9 5" fill="none" stroke="var(--pl-soil)" stroke-width="1.4" stroke-linecap="round"/>
+      <ellipse cx="12" cy="14" rx="7.3" ry="5.6" fill="#E0812E"/>
+      <path d="M12 8.6v10.8M8.4 9.6c1.3 2.7 1.3 8 0 9.6M15.6 9.6c-1.3 2.7-1.3 8 0 9.6" fill="none" stroke="#B85F1D" stroke-width="1" opacity=".55"/>
+    </symbol>
+    <symbol id="icon-sparkle" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 2l1.6 7.4L21 11l-7.4 1.6L12 20l-1.6-7.4L3 11l7.4-1.6z"/>
+    </symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5l5 5L20 6.5"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="game">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-logo"></use></svg>
+      <div>
+        <span class="brand-name">Piano Lago</span>
+        <span class="brand-tag">Prototipo — il loop base</span>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="hud-stat" aria-label="Monete">
+        <svg class="icon" aria-hidden="true"><use href="#icon-coin"></use></svg>
+        <span id="coins">0</span>
+      </div>
+      <div class="hud-level">
+        <span class="level-badge">
+          <svg class="icon" aria-hidden="true"><use href="#icon-star"></use></svg>
+          Lv <span id="level">1</span>
+        </span>
+        <div class="xp-track" role="progressbar" aria-label="Esperienza" aria-valuemin="0" aria-valuemax="100" id="xpTrack">
+          <div class="xp-fill" id="xpFill"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="board">
+    <section class="panel field-panel">
+      <div class="panel-head">
+        <h2>Il Cortile</h2>
+        <p>Semina una zolla libera, annaffiala per farla crescere, poi raccogli quando è pronta.</p>
+      </div>
+      <div class="field-grid" id="fieldGrid"></div>
+    </section>
+
+    <div class="side-panels">
+      <section class="panel orders-panel">
+        <div class="panel-head">
+          <h2>Bacheca ordini</h2>
+          <p>Consegna quello che chiede il cliente prima che scada il tempo.</p>
+        </div>
+        <div class="order-card" id="orderCard"></div>
+      </section>
+
+      <section class="panel inventory-panel">
+        <div class="panel-head">
+          <h2>Cesta</h2>
+          <p>Raccolto pronto da consegnare.</p>
+        </div>
+        <div class="inventory-grid" id="inventoryGrid"></div>
+      </section>
+    </div>
+  </main>
+
+  <p class="save-note">I progressi restano salvati in questo browser.</p>
+</div>
+
+<div class="modal-overlay" id="seedPicker" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="seedPickerTitle">
+    <h3 id="seedPickerTitle">Cosa semini?</h3>
+    <p class="modal-sub">Scegli una coltura per questa zolla.</p>
+    <div class="seed-options" id="seedOptions"></div>
+    <button class="btn ghost" id="seedCancel" type="button">Annulla</button>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CROPS = {
+    radish:  { name: "Ravanello", icon: "icon-radish",  growMs: 8000,  cost: 3,  base: 4,  harvestCoin: 1 },
+    wheat:   { name: "Grano",     icon: "icon-wheat",   growMs: 20000, cost: 6,  base: 9,  harvestCoin: 2 },
+    pumpkin: { name: "Zucca",     icon: "icon-pumpkin", growMs: 45000, cost: 14, base: 22, harvestCoin: 4 }
+  };
+  var CROP_KEYS = Object.keys(CROPS);
+  var UNLOCK_LEVEL = [1,1,1,1,1,1,2,2,3,3,4,4];
+  var SAVE_KEY = "piano-lago-save-v1";
+
+  var state = null;
+  var pendingPlotId = null;
+
+  function defaultState(){
+    var plots = UNLOCK_LEVEL.map(function(lvl, i){
+      return { id: i, unlockLevel: lvl, state: lvl <= 1 ? "empty" : "locked", crop: null, plantedAt: 0, growMs: 0 };
+    });
+    return {
+      coins: 40,
+      level: 1,
+      xp: 0,
+      xpNeeded: 40,
+      inventory: { radish: 0, wheat: 0, pumpkin: 0 },
+      plots: plots,
+      order: null
+    };
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return defaultState();
+      var parsed = JSON.parse(raw);
+      if(!parsed || !Array.isArray(parsed.plots) || parsed.plots.length !== UNLOCK_LEVEL.length) return defaultState();
+      return parsed;
+    }catch(e){
+      return defaultState();
+    }
+  }
+
+  function save(){
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){ /* private mode / quota: ignore */ }
+  }
+
+  function iconHTML(id, cls){
+    return '<svg class="icon' + (cls ? " " + cls : "") + '" aria-hidden="true"><use href="#' + id + '"></use></svg>';
+  }
+
+  function fmtTime(ms){
+    var s = Math.max(0, Math.ceil(ms / 1000));
+    if(s < 60) return s + "s";
+    var m = Math.floor(s / 60), r = s % 60;
+    return m + "m " + (r < 10 ? "0" : "") + r + "s";
+  }
+
+  /* ---------------- rendering ---------------- */
+
+  var fieldGrid = document.getElementById("fieldGrid");
+  var plotEls = [];
+
+  function buildPlots(){
+    fieldGrid.innerHTML = "";
+    plotEls = state.plots.map(function(plot){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "plot";
+      btn.addEventListener("click", function(){ onPlotClick(plot.id); });
+      fieldGrid.appendChild(btn);
+      return btn;
+    });
+  }
+
+  function renderPlot(plot){
+    var el = plotEls[plot.id];
+    el.dataset.state = plot.state;
+    el.innerHTML = "";
+
+    if(plot.state === "locked"){
+      el.setAttribute("aria-label", "Zolla bloccata, si sblocca al livello " + plot.unlockLevel);
+      el.innerHTML = iconHTML("icon-lock") + '<span class="plot-lock-label">Lv ' + plot.unlockLevel + "</span>";
+      return;
+    }
+    if(plot.state === "empty"){
+      el.setAttribute("aria-label", "Zolla libera, tocca per seminare");
+      return;
+    }
+    if(plot.state === "seeded"){
+      var crop = CROPS[plot.crop];
+      el.setAttribute("aria-label", crop.name + " seminato, tocca per annaffiare");
+      var wrap = document.createElement("div");
+      wrap.className = "plot-progress";
+      wrap.style.setProperty("--p", 0);
+      wrap.innerHTML = iconHTML("icon-drop");
+      el.appendChild(wrap);
+      return;
+    }
+    if(plot.state === "growing"){
+      var crop2 = CROPS[plot.crop];
+      el.setAttribute("aria-label", crop2.name + " in crescita");
+      var wrap2 = document.createElement("div");
+      wrap2.className = "plot-progress";
+      wrap2.innerHTML = iconHTML(crop2.icon, "crop-" + plot.crop) + '<span class="plot-time"></span>';
+      el.appendChild(wrap2);
+      return;
+    }
+    if(plot.state === "ready"){
+      var crop3 = CROPS[plot.crop];
+      el.setAttribute("aria-label", crop3.name + " pronto, tocca per raccogliere");
+      var wrap3 = document.createElement("div");
+      wrap3.className = "plot-progress";
+      wrap3.innerHTML = iconHTML(crop3.icon, "crop-" + plot.crop);
+      el.appendChild(wrap3);
+      return;
+    }
+  }
+
+  function renderAllPlots(){
+    state.plots.forEach(renderPlot);
+  }
+
+  function renderHUD(){
+    document.getElementById("coins").textContent = state.coins;
+    document.getElementById("level").textContent = state.level;
+    var pct = Math.min(100, Math.round((state.xp / state.xpNeeded) * 100));
+    document.getElementById("xpFill").style.width = pct + "%";
+    var track = document.getElementById("xpTrack");
+    track.setAttribute("aria-valuenow", pct);
+    track.setAttribute("aria-valuetext", state.xp + " / " + state.xpNeeded + " esperienza");
+  }
+
+  var inventoryGrid = document.getElementById("inventoryGrid");
+  function renderInventory(){
+    inventoryGrid.innerHTML = CROP_KEYS.map(function(key){
+      var crop = CROPS[key];
+      return '<div class="inv-chip">' +
+        iconHTML(crop.icon, "crop-" + key) +
+        '<span class="inv-name">' + crop.name + '</span>' +
+        '<span class="inv-count">' + state.inventory[key] + '</span>' +
+        '</div>';
+    }).join("");
+  }
+
+  var orderCard = document.getElementById("orderCard");
+  function renderOrder(){
+    if(!state.order){ orderCard.innerHTML = ""; return; }
+    var o = state.order;
+    var remaining = o.expiresAt - Date.now();
+    var pct = Math.max(0, Math.min(100, Math.round((remaining / o.timeLimitMs) * 100)));
+    var urgent = pct < 25;
+    var canFulfill = canFulfillOrder(o);
+
+    var reqsHTML = Object.keys(o.req).map(function(key){
+      var crop = CROPS[key];
+      var have = state.inventory[key];
+      var need = o.req[key];
+      var met = have >= need;
+      return '<span class="req-chip' + (met ? " met" : "") + '">' +
+        iconHTML(crop.icon, "crop-" + key) + have + "/" + need +
+        (met ? iconHTML("icon-check") : "") +
+        '</span>';
+    }).join("");
+
+    orderCard.innerHTML =
+      '<div class="order-client">' +
+        '<div class="order-avatar">' + o.clientInitial + '</div>' +
+        '<div><div class="order-name">' + o.clientName + '</div>' +
+        '<div class="order-sub">chiede alla fattoria</div></div>' +
+      '</div>' +
+      '<div class="order-reqs">' + reqsHTML + '</div>' +
+      '<div class="order-timerbar"><div class="order-timerbar-fill' + (urgent ? " urgent" : "") + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="order-footer">' +
+        '<span class="order-reward">' + iconHTML("icon-coin") + o.reward + ' monete · ' + iconHTML("icon-star") + o.xp + ' xp</span>' +
+        '<button class="btn" id="fulfillBtn" type="button"' + (canFulfill ? "" : " disabled") + '>Consegna</button>' +
+      '</div>';
+
+    var btn = document.getElementById("fulfillBtn");
+    if(btn) btn.addEventListener("click", fulfillOrder);
+  }
+
+  /* ---------------- game actions ---------------- */
+
+  function onPlotClick(id){
+    var plot = state.plots[id];
+    if(plot.state === "locked"){
+      toast("warn", "icon-lock", "Si sblocca al livello " + plot.unlockLevel + ".");
+      return;
+    }
+    if(plot.state === "empty"){ openSeedPicker(id); return; }
+    if(plot.state === "seeded"){ waterPlot(id); return; }
+    if(plot.state === "ready"){ harvestPlot(id); return; }
+  }
+
+  var seedPicker = document.getElementById("seedPicker");
+  var seedOptions = document.getElementById("seedOptions");
+  document.getElementById("seedCancel").addEventListener("click", closeSeedPicker);
+  seedPicker.addEventListener("click", function(e){ if(e.target === seedPicker) closeSeedPicker(); });
+
+  function openSeedPicker(plotId){
+    pendingPlotId = plotId;
+    seedOptions.innerHTML = CROP_KEYS.map(function(key){
+      var crop = CROPS[key];
+      var affordable = state.coins >= crop.cost;
+      return '<button type="button" class="seed-option" data-crop="' + key + '"' + (affordable ? "" : " disabled") + '>' +
+        iconHTML(crop.icon, "crop-" + key) +
+        '<span><span class="seed-option-name">' + crop.name + '</span><br>' +
+        '<span class="seed-option-meta">cresce in ' + fmtTime(crop.growMs) + '</span></span>' +
+        '<span class="seed-option-cost">' + iconHTML("icon-coin") + crop.cost + '</span>' +
+        '</button>';
+    }).join("");
+    Array.prototype.forEach.call(seedOptions.querySelectorAll(".seed-option"), function(btn){
+      btn.addEventListener("click", function(){ plantCrop(pendingPlotId, btn.dataset.crop); closeSeedPicker(); });
+    });
+    seedPicker.hidden = false;
+  }
+  function closeSeedPicker(){ seedPicker.hidden = true; pendingPlotId = null; }
+
+  function plantCrop(plotId, cropKey){
+    var plot = state.plots[plotId];
+    var crop = CROPS[cropKey];
+    if(plot.state !== "empty" || state.coins < crop.cost) return;
+    state.coins -= crop.cost;
+    plot.state = "seeded";
+    plot.crop = cropKey;
+    plot.plantedAt = 0;
+    plot.growMs = crop.growMs;
+    renderPlot(plot);
+    renderHUD();
+    save();
+  }
+
+  function waterPlot(plotId){
+    var plot = state.plots[plotId];
+    if(plot.state !== "seeded") return;
+    plot.state = "growing";
+    plot.plantedAt = Date.now();
+    renderPlot(plot);
+    save();
+  }
+
+  function harvestPlot(plotId){
+    var plot = state.plots[plotId];
+    if(plot.state !== "ready") return;
+    var crop = CROPS[plot.crop];
+    state.inventory[plot.crop] += 1;
+    state.coins += crop.harvestCoin;
+    addXP(2);
+    plot.state = "empty";
+    plot.crop = null;
+    renderPlot(plot);
+    renderHUD();
+    renderInventory();
+    renderOrder();
+    save();
+  }
+
+  function addXP(amount){
+    state.xp += amount;
+    while(state.xp >= state.xpNeeded){
+      state.xp -= state.xpNeeded;
+      state.level += 1;
+      state.xpNeeded = Math.round(state.xpNeeded * 1.35 + 10);
+      var unlocked = 0;
+      state.plots.forEach(function(p){
+        if(p.state === "locked" && p.unlockLevel <= state.level){ p.state = "empty"; unlocked++; }
+      });
+      toast("success", "icon-star", "Livello " + state.level + "! " + (unlocked ? unlocked + " nuova/e zolla/e libera/e." : ""));
+      if(unlocked) renderAllPlots();
+    }
+    renderHUD();
+  }
+
+  var CLIENT_NAMES = ["Marco", "Giulia", "Luca", "Sara", "Elena", "Paolo"];
+  function canFulfillOrder(order){
+    return Object.keys(order.req).every(function(key){ return state.inventory[key] >= order.req[key]; });
+  }
+
+  function generateOrder(){
+    var reqCropCount = Math.random() < 0.55 ? 1 : 2;
+    var pool = CROP_KEYS.slice().sort(function(){ return Math.random() - 0.5; }).slice(0, reqCropCount);
+    var req = {}, totalValue = 0, totalGrow = 0;
+    pool.forEach(function(key){
+      var qty = 2 + Math.floor(Math.random() * 3);
+      req[key] = qty;
+      totalValue += qty * CROPS[key].base;
+      totalGrow += qty * CROPS[key].growMs;
+    });
+    var name = CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)];
+    state.order = {
+      clientName: name,
+      clientInitial: name.charAt(0),
+      req: req,
+      reward: Math.round(totalValue * 0.9) + 5,
+      xp: 10 + reqCropCount * 5,
+      timeLimitMs: Math.round(totalGrow * 1.4 + 40000),
+      expiresAt: Date.now() + Math.round(totalGrow * 1.4 + 40000)
+    };
+    renderOrder();
+    save();
+  }
+
+  function fulfillOrder(){
+    var o = state.order;
+    if(!o || !canFulfillOrder(o)) return;
+    Object.keys(o.req).forEach(function(key){ state.inventory[key] -= o.req[key]; });
+    state.coins += o.reward;
+    addXP(o.xp);
+    toast("success", "icon-sparkle", "Ordine consegnato a " + o.clientName + "! +" + o.reward + " monete.");
+    renderInventory();
+    renderHUD();
+    generateOrder();
+    save();
+  }
+
+  /* ---------------- toasts ---------------- */
+
+  var toastStack = document.getElementById("toastStack");
+  function toast(kind, icon, message){
+    var el = document.createElement("div");
+    el.className = "toast " + kind;
+    el.innerHTML = iconHTML(icon) + "<span>" + message + "</span>";
+    toastStack.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 3600);
+  }
+
+  /* ---------------- game loop ---------------- */
+
+  function tick(){
+    var now = Date.now();
+    var dirty = false;
+
+    state.plots.forEach(function(plot){
+      if(plot.state === "growing"){
+        var elapsed = now - plot.plantedAt;
+        var pct = Math.min(100, Math.floor((elapsed / plot.growMs) * 100));
+        var el = plotEls[plot.id];
+        var ring = el.querySelector(".plot-progress");
+        if(elapsed >= plot.growMs){
+          plot.state = "ready";
+          renderPlot(plot);
+          dirty = true;
+        }else if(ring){
+          ring.style.setProperty("--p", pct);
+          var timeEl = ring.querySelector(".plot-time");
+          if(timeEl) timeEl.textContent = fmtTime(plot.growMs - elapsed);
+        }
+      }
+    });
+
+    if(state.order){
+      var remaining = state.order.expiresAt - now;
+      if(remaining <= 0){
+        toast("warn", "icon-drop", state.order.clientName + " si è stancato di aspettare.");
+        generateOrder();
+      }else{
+        renderOrder();
+      }
+    }
+
+    if(dirty) save();
+  }
+
+  /* ---------------- init ---------------- */
+
+  function init(){
+    state = load();
+    buildPlots();
+    renderAllPlots();
+    renderHUD();
+    renderInventory();
+    if(!state.order) generateOrder(); else renderOrder();
+    save();
+    setInterval(tick, 1000);
+    setInterval(save, 5000);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

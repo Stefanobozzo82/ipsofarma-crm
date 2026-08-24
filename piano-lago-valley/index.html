@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Piano Lago Valley</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #10241a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+    #game-container {
+      box-shadow: 0 0 0 4px #3e2723, 0 0 30px rgba(0, 0, 0, 0.6);
+      line-height: 0;
+    }
+    canvas {
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- Phaser 3 vendorizzato in locale (vendor/phaser.min.js): nessuna dipendenza da CDN esterni,
+       nessun bundler richiesto, il resto del progetto usa moduli ES nativi. -->
+  <script src="vendor/phaser.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

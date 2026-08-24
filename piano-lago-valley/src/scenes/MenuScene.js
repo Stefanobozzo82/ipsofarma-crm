@@ -1,7 +1,7 @@
 // Schermata iniziale: Nuova Partita / Continua (se esiste un salvataggio).
 // Navigazione con frecce/Enter oppure con il mouse.
 
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { VIEWPORT_WIDTH, VIEWPORT_HEIGHT } from '../config.js';
 import { SaveManager } from '../core/SaveManager.js';
 import { createNewGameState } from '../core/GameState.js';
 
@@ -13,13 +13,13 @@ export class MenuScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#2e7d32');
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 90, 'Piano Lago Valley', {
+    this.add.text(VIEWPORT_WIDTH / 2, VIEWPORT_HEIGHT / 2 - 90, 'Piano Lago Valley', {
       fontFamily: 'Georgia, serif',
       fontSize: '40px',
       color: '#fff8e1',
     }).setOrigin(0.5);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, 'Alessia torna a casa...', {
+    this.add.text(VIEWPORT_WIDTH / 2, VIEWPORT_HEIGHT / 2 - 50, 'Alessia torna a casa...', {
       fontFamily: 'sans-serif',
       fontSize: '16px',
       color: '#c8e6c9',
@@ -34,7 +34,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.selectedIndex = 0;
     this.optionTexts = this.options.map((opt, i) => {
-      const t = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10 + i * 40, opt.label, {
+      const t = this.add.text(VIEWPORT_WIDTH / 2, VIEWPORT_HEIGHT / 2 + 10 + i * 40, opt.label, {
         fontFamily: 'sans-serif',
         fontSize: '22px',
         color: opt.disabled ? '#7d8d7d' : '#ffffff',

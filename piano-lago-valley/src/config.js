@@ -3,10 +3,20 @@
 export const TILE_SIZE = 32;
 
 export const FARM_COLS = 24;
-export const FARM_ROWS = 18;
+// Più alta della vecchia mappa 24x18: dà margine di scroll verticale alla camera
+// quando il viewport è in formato verticale da telefono (vedi VIEWPORT_* sotto).
+export const FARM_ROWS = 26;
 
-export const GAME_WIDTH = FARM_COLS * TILE_SIZE;
-export const GAME_HEIGHT = FARM_ROWS * TILE_SIZE;
+// Dimensioni della mappa in pixel: la mappa può essere più grande di quanto
+// si vede a schermo, la camera segue il player e mostra solo il viewport.
+export const MAP_PIXEL_WIDTH = FARM_COLS * TILE_SIZE;
+export const MAP_PIXEL_HEIGHT = FARM_ROWS * TILE_SIZE;
+
+// Risoluzione logica del "viewport" di gioco (quello che l'utente vede e su cui
+// è disegnata la UI): formato verticale 9:16, pensato per schermi da telefono.
+// Phaser scala questo viewport per adattarlo a qualsiasi schermo (Scale.FIT).
+export const VIEWPORT_WIDTH = 360;
+export const VIEWPORT_HEIGHT = 640;
 
 // Direzioni cardinali usate da player/NPC per movimento a griglia.
 export const DIRECTIONS = {

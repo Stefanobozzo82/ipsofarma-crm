@@ -32,15 +32,17 @@ export class Player {
     return { x: this.state.tileX + vec.x, y: this.state.tileY + vec.y };
   }
 
-  // Legge WASD/frecce e prova a muoversi. Va chiamato ad ogni update() della scena.
-  handleInput(cursors, wasd) {
+  // Legge lo stato di input (tastiera + D-pad touch già uniti da FarmScene) e
+  // prova a muoversi. Va chiamato ad ogni update() della scena.
+  // @param {{up:boolean,down:boolean,left:boolean,right:boolean}} inputState
+  handleInput(inputState) {
     if (this.isMoving) return;
 
     let dir = null;
-    if (cursors.left.isDown || wasd.left.isDown) dir = DIRECTIONS.LEFT;
-    else if (cursors.right.isDown || wasd.right.isDown) dir = DIRECTIONS.RIGHT;
-    else if (cursors.up.isDown || wasd.up.isDown) dir = DIRECTIONS.UP;
-    else if (cursors.down.isDown || wasd.down.isDown) dir = DIRECTIONS.DOWN;
+    if (inputState.left) dir = DIRECTIONS.LEFT;
+    else if (inputState.right) dir = DIRECTIONS.RIGHT;
+    else if (inputState.up) dir = DIRECTIONS.UP;
+    else if (inputState.down) dir = DIRECTIONS.DOWN;
 
     if (!dir) return;
 

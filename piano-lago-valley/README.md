@@ -9,6 +9,11 @@ ciclo giorno/notte, energia, inventario/hotbar, cassa di spedizione, sonno per p
 successivo, salvataggio automatico. Tutta la grafica è **placeholder geometrico generato a runtime**
 (nessun asset esterno) così possiamo iterare sulle meccaniche prima di disegnare gli sprite definitivi.
 
+**Il gioco è strutturato mobile-first**: viewport verticale 360x640 (formato telefono), D-pad e
+pulsanti touch a schermo, mappa più grande del viewport con camera che segue il player, nessuna
+dipendenza da tastiera/mouse per giocare. Su desktop lo stesso viewport viene centrato/scalato
+(letterbox) e resta comunque utilizzabile con tastiera e mouse. Vedi la sezione "Mobile" più sotto.
+
 ## Come avviare il gioco
 
 Il codice usa moduli ES nativi (`import`/`export`), quindi va servito via HTTP (non funziona aprendo
@@ -26,12 +31,15 @@ Poi apri `http://localhost:PORTA/` nel browser.
 
 ## Comandi
 
-| Azione | Tasto |
-| --- | --- |
-| Muoviti | Frecce oppure `WASD` |
-| Usa strumento / interagisci | `E` oppure `Spazio` |
-| Seleziona slot hotbar | `1`-`5` |
-| Apri/chiudi inventario | `I` (o `ESC` per chiudere) |
+| Azione | Tastiera/mouse (desktop) | Touch (mobile) |
+| --- | --- | --- |
+| Muoviti | Frecce oppure `WASD` | D-pad in basso a sinistra |
+| Usa strumento / interagisci | `E` oppure `Spazio` | Pulsante "AZIONE" in basso a destra |
+| Seleziona slot hotbar | `1`-`5` o clic sullo slot | Tocca lo slot nella hotbar |
+| Apri/chiudi inventario | `I` (o `ESC` per chiudere) | Pulsante "I" in alto a destra |
+
+Input da tastiera e touch sono unificati (`FarmScene` li combina ad ogni frame), quindi funzionano
+anche insieme: su un laptop touchscreen puoi muoverti da tastiera e toccare "AZIONE" con il dito.
 
 Il player si muove **a griglia**, una casella alla volta, rivolto verso la direzione dell'ultimo
 tasto premuto. L'azione (`E`/Spazio) agisce sulla casella verso cui Alessia è rivolta:
@@ -48,17 +56,46 @@ Ascia, piccone e canna da pesca sono già nell'inventario/hotbar come **placehol
 selezionabili e usabili, ma l'interazione mostra un messaggio "in arrivo" perché bosco, miniera e
 pesca sono le prossime iterazioni.
 
+## Mobile
+
+- **Viewport logico 360x640** (`VIEWPORT_WIDTH`/`VIEWPORT_HEIGHT` in `config.js`), formato verticale
+  da telefono. Phaser lo scala con `Scale.FIT` + `CENTER_BOTH` per adattarsi a qualunque schermo
+  (letterbox su desktop/tablet larghi).
+- **La mappa è più grande del viewport** (`MAP_PIXEL_WIDTH`/`MAP_PIXEL_HEIGHT`, oggi 768x832 px =
+  24x26 tile): la camera di `FarmScene` segue il player (`cameras.main.startFollow`) mostrando solo
+  una porzione della mappa. `UIScene` ha una camera propria indipendente, quindi l'HUD resta sempre
+  fisso a schermo mentre il mondo scorre.
+- **D-pad + pulsante azione + pulsante inventario** sono `GameObject` Phaser interattivi disegnati da
+  `UIScene` (non overlay DOM): scalano insieme al resto del gioco e usano lo stesso sistema di
+  puntatori di Phaser, quindi rispondono sia a touch che a mouse. Lo stato premuto/rilasciato del
+  D-pad vive in `core/TouchInput.js`, un piccolo oggetto condiviso che `FarmScene.update()` combina
+  con lo stato della tastiera prima di passarlo a `Player.handleInput()`.
+- `index.html` imposta `viewport-fit=cover`, disabilita pinch-zoom/pull-to-refresh
+  (`user-scalable=no`, `overscroll-behavior: none`, `touch-action: none`) e rispetta le safe-area dei
+  telefoni con notch (`env(safe-area-inset-*)`), così il gioco può girare a schermo intero anche
+  aggiunto alla home screen (meta `apple-mobile-web-app-capable`/`mobile-web-app-capable`).
+- `main.js` configura `input.activePointers: 3` per il multi-touch (es. muoversi col D-pad e premere
+  "AZIONE" nello stesso istante).
+- I pulsanti touch e la hotbar hanno un margine generoso dal bordo inferiore/laterale dello schermo
+  per restare comodi da toccare anche sopra la gesture bar di iOS/Android.
+
+Non c'è ancora un layout diverso per l'orientamento orizzontale: in landscape il viewport verticale
+viene semplicemente centrato con barre laterali più larghe. Se servisse un vero layout landscape,
+il punto di partenza è `VIEWPORT_WIDTH`/`VIEWPORT_HEIGHT` in `config.js` + il riposizionamento dei
+pulsanti in `UIScene.buildTouchControls()`.
+
 ## Struttura del progetto
 
 ```
 piano-lago-valley/
-├── index.html              # shell della pagina, canvas, carica Phaser da CDN
+├── index.html              # shell mobile-first: viewport/safe-area, canvas, carica Phaser vendorizzato
 └── src/
     ├── main.js              # config Phaser + registrazione scene
     ├── config.js             # costanti globali (tile size, mappa, orologio, ecc.)
     ├── core/
     │   ├── GameState.js       # forma dello stato di gioco (serializzabile) + stato iniziale
-    │   └── SaveManager.js      # load/save su localStorage
+    │   ├── SaveManager.js      # load/save su localStorage
+    │   └── TouchInput.js        # stato condiviso del D-pad virtuale (scritto da UIScene, letto da FarmScene)
     ├── data/
     │   ├── tiles.js            # tipi di tile, proprietà, layout mappa fattoria
     │   ├── crops.js             # colture: tempi di crescita, stagioni, prezzi

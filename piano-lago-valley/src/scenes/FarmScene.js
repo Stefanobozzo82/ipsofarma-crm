@@ -2,12 +2,14 @@
 // coltivazione, ciclo giorno/notte, cassa di spedizione, sonno/nuovo giorno.
 
 import {
-  TILE_SIZE, FARM_COLS, FARM_ROWS, GAME_WIDTH, GAME_HEIGHT, DIRECTIONS,
+  TILE_SIZE, FARM_COLS, FARM_ROWS, MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT,
+  VIEWPORT_WIDTH, VIEWPORT_HEIGHT, DIRECTIONS,
 } from '../config.js';
 import { buildFarmMapLayout, TILE_PROPERTIES } from '../data/tiles.js';
 import { getCropById } from '../data/crops.js';
 import { farmTileKey } from '../core/GameState.js';
 import { SaveManager } from '../core/SaveManager.js';
+import { TouchInput } from '../core/TouchInput.js';
 import { TimeSystem } from '../systems/TimeSystem.js';
 import { FarmingSystem } from '../systems/FarmingSystem.js';
 import { InventorySystem } from '../systems/InventorySystem.js';
@@ -36,8 +38,18 @@ export class FarmScene extends Phaser.Scene {
 
     this.player = new Player(this, this.state.player, (tx, ty) => this.canMoveTo(tx, ty));
 
-    this.nightOverlay = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x0a1a3a, 0)
+    // La mappa può essere più grande del viewport: la camera segue il player e
+    // mostra solo una porzione, così lo stesso gioco funziona su schermi piccoli
+    // (telefono in verticale) senza dover rimpicciolire tile o mappa.
+    this.cameras.main.setBounds(0, 0, MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT);
+    this.cameras.main.setRoundPixels(true);
+    this.cameras.main.startFollow(this.player.sprite, true, 0.18, 0.18);
+
+    // L'overlay giorno/notte resta fisso rispetto allo schermo (non al mondo),
+    // così copre sempre l'intero viewport indipendentemente da dove scrolla la camera.
+    this.nightOverlay = this.add.rectangle(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 0x0a1a3a, 0)
       .setOrigin(0, 0)
+      .setScrollFactor(0)
       .setDepth(50);
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -69,7 +81,7 @@ export class FarmScene extends Phaser.Scene {
   }
 
   buildStaticLayer() {
-    const rt = this.add.renderTexture(0, 0, GAME_WIDTH, GAME_HEIGHT).setOrigin(0, 0).setDepth(0);
+    const rt = this.add.renderTexture(0, 0, MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT).setOrigin(0, 0).setDepth(0);
     const stamp = this.add.image(0, 0, 'tile_grass').setOrigin(0, 0).setVisible(false);
     for (let y = 0; y < FARM_ROWS; y++) {
       for (let x = 0; x < FARM_COLS; x++) {
@@ -99,7 +111,12 @@ export class FarmScene extends Phaser.Scene {
     }
 
     if (!this.uiScene.isInventoryOpen) {
-      this.player.handleInput(this.cursors, this.wasd);
+      this.player.handleInput({
+        up: this.cursors.up.isDown || this.wasd.up.isDown || TouchInput.up,
+        down: this.cursors.down.isDown || this.wasd.down.isDown || TouchInput.down,
+        left: this.cursors.left.isDown || this.wasd.left.isDown || TouchInput.left,
+        right: this.cursors.right.isDown || this.wasd.right.isDown || TouchInput.right,
+      });
     }
   }
 

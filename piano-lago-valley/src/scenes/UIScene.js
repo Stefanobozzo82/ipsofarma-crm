@@ -1,14 +1,22 @@
 // HUD e interfacce a schermo: orologio/data/stagione, energia, denaro, hotbar,
-// pannello inventario, messaggi toast. Gira in parallelo a FarmScene (stesso GameState
-// passato per riferimento, quindi qualunque modifica fatta da FarmScene è visibile qui).
+// pannello inventario, messaggi toast, D-pad e pulsanti touch. Gira in parallelo a
+// FarmScene (stesso GameState passato per riferimento, quindi qualunque modifica
+// fatta da FarmScene è visibile qui). Ha una camera propria e fissa: non scrolla
+// mai insieme al mondo, quindi resta leggibile mentre la camera di FarmScene segue
+// il player sulla mappa.
 
-import { GAME_WIDTH, GAME_HEIGHT, MAX_ENERGY } from '../config.js';
+import { VIEWPORT_WIDTH, VIEWPORT_HEIGHT, MAX_ENERGY } from '../config.js';
 import { TimeSystem } from '../systems/TimeSystem.js';
 import { InventorySystem } from '../systems/InventorySystem.js';
+import { TouchInput } from '../core/TouchInput.js';
 import { getItemDef } from '../data/items.js';
 
 const HOTBAR_SIZE = 5;
-const SLOT_SIZE = 36;
+const SLOT_SIZE = 38;
+// La riga di hotbar è ancorata sopra il D-pad/pulsante azione (vedi buildTouchControls);
+// altri elementi (toast) si posizionano relativi a questa così restano sempre coerenti
+// se in futuro si sposta la fila dei controlli.
+const HOTBAR_Y = VIEWPORT_HEIGHT - 172;
 
 export class UIScene extends Phaser.Scene {
   constructor() {
@@ -22,9 +30,11 @@ export class UIScene extends Phaser.Scene {
   create() {
     this.isInventoryOpen = false;
     this.toastTimer = null;
+    this.farmScene = this.scene.get('Farm');
 
     this.buildHud();
     this.buildHotbar();
+    this.buildTouchControls();
     this.buildInventoryPanel();
     this.buildToast();
     this.buildDayBanner();
@@ -33,12 +43,16 @@ export class UIScene extends Phaser.Scene {
       if (this.isInventoryOpen) this.toggleInventory();
     });
 
+    // Se un dito scivola via da un pulsante direzionale senza passare per il suo
+    // pointerup, questo evita che la direzione resti "incollata" a true.
+    this.input.on('pointerup', () => TouchInput.resetDirections());
+
     this.refreshAll();
   }
 
   update() {
     this.clockText.setText(TimeSystem.formatClock(this.state.time.minutes));
-    this.dateText.setText(`${this.state.time.season} - Giorno ${this.state.time.day} (Anno ${this.state.time.year})`);
+    this.dateText.setText(`${this.state.time.season} · G${this.state.time.day} · A${this.state.time.year}`);
     this.moneyText.setText(`${this.state.stats.money} monete`);
     this.updateEnergyBar();
   }
@@ -46,27 +60,27 @@ export class UIScene extends Phaser.Scene {
   // ---------- HUD superiore ----------
 
   buildHud() {
-    this.add.rectangle(0, 0, GAME_WIDTH, 30, 0x1b1b1b, 0.55).setOrigin(0, 0).setDepth(100);
+    this.add.rectangle(0, 0, VIEWPORT_WIDTH, 36, 0x1b1b1b, 0.6).setOrigin(0, 0).setDepth(100);
 
-    this.clockText = this.add.text(10, 6, '06:00', {
-      fontFamily: 'monospace', fontSize: '16px', color: '#ffe082',
+    this.clockText = this.add.text(8, 4, '06:00', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#ffe082',
     }).setDepth(101);
 
-    this.dateText = this.add.text(90, 7, '', {
-      fontFamily: 'sans-serif', fontSize: '13px', color: '#e0f2f1',
-    }).setDepth(101);
+    this.dateText = this.add.text(VIEWPORT_WIDTH / 2, 4, '', {
+      fontFamily: 'sans-serif', fontSize: '11px', color: '#e0f2f1',
+    }).setOrigin(0.5, 0).setDepth(101);
 
-    this.moneyText = this.add.text(GAME_WIDTH - 10, 6, '', {
-      fontFamily: 'sans-serif', fontSize: '15px', color: '#fff176',
-    }).setOrigin(1, 0).setDepth(101);
+    this.moneyText = this.add.text(VIEWPORT_WIDTH - 8, 21, '', {
+      fontFamily: 'sans-serif', fontSize: '12px', color: '#fff176',
+    }).setOrigin(1, 0.5).setDepth(101);
 
-    this.energyBarBg = this.add.rectangle(GAME_WIDTH - 220, 15, 100, 10, 0x333333).setOrigin(0, 0.5).setDepth(101);
-    this.energyBarFg = this.add.rectangle(GAME_WIDTH - 220, 15, 100, 10, 0x66bb6a).setOrigin(0, 0.5).setDepth(102);
+    this.energyBarBg = this.add.rectangle(8, 21, 90, 8, 0x333333).setOrigin(0, 0.5).setDepth(101);
+    this.energyBarFg = this.add.rectangle(8, 21, 90, 8, 0x66bb6a).setOrigin(0, 0.5).setDepth(102);
   }
 
   updateEnergyBar() {
     const ratio = Phaser.Math.Clamp(this.state.stats.energy / (this.state.stats.maxEnergy || MAX_ENERGY), 0, 1);
-    this.energyBarFg.width = 100 * ratio;
+    this.energyBarFg.width = 90 * ratio;
     this.energyBarFg.setFillStyle(ratio > 0.3 ? 0x66bb6a : 0xe57373);
   }
 
@@ -74,8 +88,8 @@ export class UIScene extends Phaser.Scene {
 
   buildHotbar() {
     const totalWidth = HOTBAR_SIZE * (SLOT_SIZE + 4) - 4;
-    const startX = GAME_WIDTH / 2 - totalWidth / 2;
-    const y = GAME_HEIGHT - SLOT_SIZE / 2 - 8;
+    const startX = VIEWPORT_WIDTH / 2 - totalWidth / 2;
+    const y = HOTBAR_Y;
 
     this.hotbarSlots = [];
     for (let i = 0; i < HOTBAR_SIZE; i++) {
@@ -115,32 +129,91 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
+  // ---------- Controlli touch: D-pad + pulsante azione + pulsante inventario ----------
+
+  buildTouchControls() {
+    // Margine dal bordo inferiore generoso: su molti telefoni lì sotto c'è la
+    // barra dei gesti di sistema (o l'home indicator iOS), non solo il bordo schermo.
+    const padCenterX = 72;
+    const padCenterY = VIEWPORT_HEIGHT - 84;
+    const padOffset = 40;
+    const btnSize = 38;
+
+    this.makeDirectionButton(padCenterX, padCenterY - padOffset, btnSize, '▲', 'up');
+    this.makeDirectionButton(padCenterX, padCenterY + padOffset, btnSize, '▼', 'down');
+    this.makeDirectionButton(padCenterX - padOffset, padCenterY, btnSize, '◀', 'left');
+    this.makeDirectionButton(padCenterX + padOffset, padCenterY, btnSize, '▶', 'right');
+
+    const actionX = VIEWPORT_WIDTH - 52;
+    const actionY = padCenterY;
+    const actionBg = this.add.circle(actionX, actionY, 32, 0x2b2b2b, 0.7).setStrokeStyle(2, 0xffe082).setDepth(100);
+    this.add.text(actionX, actionY, 'AZIONE', {
+      fontFamily: 'sans-serif', fontSize: '10px', color: '#ffe082', align: 'center',
+    }).setOrigin(0.5).setDepth(101);
+
+    actionBg.setInteractive({ useHandCursor: true });
+    actionBg.on('pointerdown', () => {
+      actionBg.setFillStyle(0xffe082, 0.5);
+      this.farmScene.interact();
+    });
+    actionBg.on('pointerup', () => actionBg.setFillStyle(0x2b2b2b, 0.7));
+    actionBg.on('pointerout', () => actionBg.setFillStyle(0x2b2b2b, 0.7));
+
+    const invX = VIEWPORT_WIDTH - 20;
+    const invY = 54;
+    const invBg = this.add.rectangle(invX, invY, 32, 32, 0x2b2b2b, 0.7).setStrokeStyle(2, 0x888888).setDepth(100)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(invX, invY, 'I', {
+      fontFamily: 'sans-serif', fontSize: '14px', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(101);
+    invBg.on('pointerdown', () => this.toggleInventory());
+  }
+
+  makeDirectionButton(x, y, size, label, direction) {
+    const bg = this.add.rectangle(x, y, size, size, 0x2b2b2b, 0.6).setStrokeStyle(2, 0x888888).setDepth(100);
+    this.add.text(x, y, label, {
+      fontFamily: 'sans-serif', fontSize: '16px', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(101);
+
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerdown', () => {
+      TouchInput[direction] = true;
+      bg.setFillStyle(0xffe082, 0.55);
+    });
+    const release = () => {
+      TouchInput[direction] = false;
+      bg.setFillStyle(0x2b2b2b, 0.6);
+    };
+    bg.on('pointerup', release);
+    bg.on('pointerout', release);
+  }
+
   // ---------- Pannello inventario ----------
 
   buildInventoryPanel() {
     this.invContainer = this.add.container(0, 0).setDepth(200).setVisible(false);
 
-    const panelW = 300;
-    const panelH = 220;
-    const px = GAME_WIDTH / 2 - panelW / 2;
-    const py = GAME_HEIGHT / 2 - panelH / 2;
+    const panelW = VIEWPORT_WIDTH - 40;
+    const panelH = 240;
+    const px = VIEWPORT_WIDTH / 2 - panelW / 2;
+    const py = VIEWPORT_HEIGHT / 2 - panelH / 2;
 
-    const bg = this.add.rectangle(px, py, panelW, panelH, 0x1b1b1b, 0.92).setOrigin(0, 0).setStrokeStyle(2, 0xffe082);
-    const title = this.add.text(GAME_WIDTH / 2, py + 14, 'Inventario', {
+    const bg = this.add.rectangle(px, py, panelW, panelH, 0x1b1b1b, 0.94).setOrigin(0, 0).setStrokeStyle(2, 0xffe082);
+    const title = this.add.text(VIEWPORT_WIDTH / 2, py + 14, 'Inventario', {
       fontFamily: 'sans-serif', fontSize: '16px', color: '#ffe082',
     }).setOrigin(0.5);
-    const hint = this.add.text(GAME_WIDTH / 2, py + panelH - 14, 'Clic per selezionare · [I] o [ESC] per chiudere', {
+    const hint = this.add.text(VIEWPORT_WIDTH / 2, py + panelH - 14, 'Tocca per selezionare · [I] chiude', {
       fontFamily: 'sans-serif', fontSize: '10px', color: '#bbbbbb',
     }).setOrigin(0.5);
 
     this.invContainer.add([bg, title, hint]);
 
-    const cols = 6;
-    const size = 34;
-    const gap = 6;
+    const cols = 4;
+    const size = 46;
+    const gap = 8;
     const gridW = cols * size + (cols - 1) * gap;
-    const startX = GAME_WIDTH / 2 - gridW / 2 + size / 2;
-    const startY = py + 44;
+    const startX = VIEWPORT_WIDTH / 2 - gridW / 2 + size / 2;
+    const startY = py + 46;
 
     this.invSlotsUi = this.state.inventory.slots.map((_, i) => {
       const col = i % cols;
@@ -154,9 +227,9 @@ export class UIScene extends Phaser.Scene {
           InventorySystem.selectSlot(this.state, i);
           this.refreshAll();
         });
-      const icon = this.add.rectangle(x, y, size - 12, size - 12, 0x999999);
-      const qty = this.add.text(x + size / 2 - 3, y + size / 2 - 3, '', {
-        fontFamily: 'sans-serif', fontSize: '10px', color: '#ffffff',
+      const icon = this.add.rectangle(x, y, size - 16, size - 16, 0x999999);
+      const qty = this.add.text(x + size / 2 - 4, y + size / 2 - 4, '', {
+        fontFamily: 'sans-serif', fontSize: '11px', color: '#ffffff',
       }).setOrigin(1, 1);
 
       this.invContainer.add([slotBg, icon, qty]);
@@ -182,15 +255,20 @@ export class UIScene extends Phaser.Scene {
   toggleInventory() {
     this.isInventoryOpen = !this.isInventoryOpen;
     this.invContainer.setVisible(this.isInventoryOpen);
-    if (this.isInventoryOpen) this.refreshInventoryPanel();
+    if (this.isInventoryOpen) {
+      TouchInput.resetDirections();
+      this.refreshInventoryPanel();
+    }
   }
 
   // ---------- Toast / banner ----------
 
   buildToast() {
-    this.toastText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 48, '', {
-      fontFamily: 'sans-serif', fontSize: '14px', color: '#ffffff', backgroundColor: '#000000aa',
+    this.toastText = this.add.text(VIEWPORT_WIDTH / 2, HOTBAR_Y - SLOT_SIZE - 14, '', {
+      fontFamily: 'sans-serif', fontSize: '13px', color: '#ffffff', backgroundColor: '#000000aa',
       padding: { x: 8, y: 4 },
+      align: 'center',
+      wordWrap: { width: VIEWPORT_WIDTH - 40 },
     }).setOrigin(0.5).setDepth(150).setAlpha(0);
   }
 
@@ -204,9 +282,11 @@ export class UIScene extends Phaser.Scene {
   }
 
   buildDayBanner() {
-    this.dayBannerText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, '', {
-      fontFamily: 'Georgia, serif', fontSize: '24px', color: '#fff8e1',
+    this.dayBannerText = this.add.text(VIEWPORT_WIDTH / 2, VIEWPORT_HEIGHT / 2, '', {
+      fontFamily: 'Georgia, serif', fontSize: '20px', color: '#fff8e1',
       backgroundColor: '#000000aa', padding: { x: 16, y: 10 },
+      align: 'center',
+      wordWrap: { width: VIEWPORT_WIDTH - 40 },
     }).setOrigin(0.5).setDepth(160).setAlpha(0);
   }
 

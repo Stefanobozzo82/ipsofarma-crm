@@ -1,6 +1,8 @@
 // Definizione dei tipi di tile della mappa fattoria e delle loro proprietà.
 // I colori sono placeholder geometrici: verranno sostituiti da sprite definitivi in seguito.
 
+import { FARM_COLS, FARM_ROWS } from '../config.js';
+
 export const TILE = {
   GRASS: 0,
   PATH: 1,
@@ -27,11 +29,13 @@ export const TILE_PROPERTIES = {
   [TILE.FENCE]: { walkable: false, hoeable: false, textureKey: 'tile_fence' },
 };
 
-// Mappa della fattoria "Piano Lago", 24x18 caselle. 0 = erba (default).
+// Mappa della fattoria "Piano Lago" (FARM_COLS x FARM_ROWS caselle, vedi config.js).
+// Più alta della larghezza del viewport mobile così la camera ha margine per scorrere
+// verticalmente seguendo il player. 0 = erba (default).
 // Costruita a mano come primo layout giocabile; sarà sostituita/estesa con un editor in seguito.
 export function buildFarmMapLayout() {
-  const cols = 24;
-  const rows = 18;
+  const cols = FARM_COLS;
+  const rows = FARM_ROWS;
   const map = Array.from({ length: rows }, () => Array(cols).fill(TILE.GRASS));
 
   const setRect = (x0, y0, x1, y1, tile) => {
@@ -79,6 +83,16 @@ export function buildFarmMapLayout() {
 
   // Cassa di spedizione vicino alla casa.
   map[6][8] = TILE.SHIPPING_BIN;
+
+  // Prato aperto a sud, riserva di spazio per future espansioni (stalle, nuovi
+  // campi...): qualche albero/roccia sparsi per non lasciarlo completamente vuoto.
+  const southScattered = [
+    [5, 19, TILE.TREE], [6, 20, TILE.ROCK], [15, 20, TILE.TREE],
+    [16, 21, TILE.TREE], [9, 22, TILE.ROCK], [19, 19, TILE.ROCK],
+  ];
+  southScattered.forEach(([x, y, t]) => {
+    if (map[y] && map[y][x] !== undefined) map[y][x] = t;
+  });
 
   return map;
 }

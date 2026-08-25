@@ -671,7 +671,7 @@ function canon(x){
   return x;
 }
 function deepEq(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
-function mergeCollection(base,local,remote,keyName){
+function mergeCollection(base,local,remote,keyName,hasBase){
   const k=x=>x[keyName||'id'];
   const bMap=new Map((base||[]).map(x=>[k(x),x]));
   const lMap=new Map((local||[]).map(x=>[k(x),x]));
@@ -681,7 +681,13 @@ function mergeCollection(base,local,remote,keyName){
   ids.forEach(id=>{
     const b=bMap.get(id),l=lMap.get(id),r=rMap.get(id);
     if(!b){ // non c'era nella base: nuovo su un lato o entrambi
-      if(l&&r)out.push(l); // stesso id creato su entrambi (rarissimo): tiene locale
+      // Se questo dispositivo non ha affatto una base di riferimento (mai sincronizzato prima, o
+      // base persa/non ancora salvata), non possiamo sapere se il locale sia davvero più recente
+      // di quello remoto: è più sicuro fidarsi del remoto, condiviso da tutti, piuttosto che di un
+      // locale la cui storia non conosciamo. Con una base reale (solo questo id specifico è nuovo,
+      // il resto della collezione ce l'abbiamo), il caso resta rarissimo (stesso id creato in
+      // contemporanea su due dispositivi) e vince il locale come prima.
+      if(l&&r)out.push(hasBase?l:r);
       else if(l)out.push(l);
       else if(r)out.push(r);
       return;
@@ -707,15 +713,19 @@ function mergeCollection(base,local,remote,keyName){
 }
 // Confronto a 3 vie per un singolo oggetto (non un elenco): stessa logica di mergeCollection ma
 // per un campo come "azienda", che non ha voci con un id proprio da poter unire una per una.
-function mergeSingleField(base,local,remote){
+function mergeSingleField(base,local,remote,hasBase){
   if(deepEq(local,remote))return{value:local,conflict:false};
   if(deepEq(local,base))return{value:remote,conflict:false}; // non toccato in locale: prendi il remoto
   if(deepEq(remote,base))return{value:local,conflict:false}; // non toccato da remoto: tieni il locale
+  // Senza una base di riferimento reale non possiamo dire se il locale sia più recente: meglio il
+  // remoto condiviso piuttosto che un locale di cui non conosciamo la storia (vedi mergeCollection).
+  if(!hasBase)return{value:remote,conflict:false};
   return{value:local,conflict:true}; // modificato da entrambi: vince locale, segnaliamo
 }
 function mergeAllDocs(base,localDB,remoteDB){
   let anyConflict=false;
   const conflictDocs=[]; // {coll,num} dei documenti in conflitto, per un avviso utile all'utente
+  const hasBase=!!base; // questo dispositivo ha mai avuto una base di riferimento reale?
   MERGE_COLLS.forEach(c=>{
     // Se il lato remoto o quello locale non hanno affatto questa chiave (es. una scheda/dispositivo
     // rimasto aperto con una versione più vecchia del gestionale, che non conosce ancora una
@@ -725,14 +735,14 @@ function mergeAllDocs(base,localDB,remoteDB){
     if(remoteDB[c]===undefined&&localDB[c]===undefined)return; // nessuno dei due la conosce
     if(remoteDB[c]===undefined)return; // il remoto non la conosce ancora: tieni il locale così com'è
     if(localDB[c]===undefined){localDB[c]=JSON.parse(JSON.stringify(remoteDB[c]));return;} // il locale non la conosce ancora: prendi il remoto
-    const{result,conflict,conflictItems}=mergeCollection(base?base[c]:[],localDB[c],remoteDB[c],MERGE_KEY[c]);
+    const{result,conflict,conflictItems}=mergeCollection(base?base[c]:[],localDB[c],remoteDB[c],MERGE_KEY[c],hasBase);
     localDB[c]=result;
     if(conflict){anyConflict=true;conflictItems.forEach(num=>conflictDocs.push({coll:c,num}));}
   });
   MERGE_SINGLE.forEach(k=>{
     if(remoteDB[k]===undefined)return;
     if(localDB[k]===undefined){localDB[k]=JSON.parse(JSON.stringify(remoteDB[k]));return;}
-    const{value,conflict}=mergeSingleField(base?base[k]:null,localDB[k],remoteDB[k]);
+    const{value,conflict}=mergeSingleField(base?base[k]:null,localDB[k],remoteDB[k],hasBase);
     localDB[k]=value;if(conflict)anyConflict=true;
   });
   _allProd=null; // il catalogo prodotti può essere stato toccato dal merge: invalida la cache dei prezzi
@@ -766,6 +776,28 @@ function warnDuplicateDocNums(db){
   if(!dups.length)return;
   const list=dups.slice(0,6).map(d=>d.num).join(', ')+(dups.length>6?` e altri ${dups.length-6}`:'');
   toast('⚠️ Numeri documento duplicati (creati su due dispositivi): '+list+' — verifica e rinumera',9000);
+}
+// Collezioni da sorvegliare contro una "regressione di massa": un salvataggio che, per più di
+// una sola di queste, scriverebbe MENO documenti di quelli appena confermati su GitHub. Un
+// caso reale (25/08/2026): un dispositivo con l'app aperta da tempo e mai ricaricata ha
+// ripubblicato una sua copia locale vecchia, cancellando 3 fatture cliente, 2 fatture fornitore,
+// 3 DDT, 1 ordine cliente e 1 ordine fornitore fatti nel frattempo su un altro PC — il merge di
+// QUEL dispositivo (con codice non aggiornato) non aveva mai visto quei documenti né sapeva che
+// esistessero, quindi per lui semplicemente "non c'erano". Una singola cancellazione volontaria
+// (removeDoc) tocca sempre UNA sola di queste collezioni e ne riduce il conteggio di UN solo
+// documento: resta sempre permessa. Il controllo scatta solo per un calo su più collezioni
+// insieme, o superiore a 1 documento — il segnale di una copia vecchia che sovrascrive tutto,
+// non di un utente che elimina qualcosa dall'interfaccia.
+const REGRESSION_WATCH_COLLS=NUMBERED_COLLS.concat(['clienti','fornitori']);
+function detectMassRegression(outgoing,freshRemote){
+  if(!outgoing||!freshRemote)return{suspicious:false,drops:[]};
+  const drops=[];
+  REGRESSION_WATCH_COLLS.forEach(c=>{
+    const lc=(outgoing[c]||[]).length,rc=(freshRemote[c]||[]).length;
+    if(lc<rc)drops.push({coll:c,locale:lc,remoto:rc,persi:rc-lc});
+  });
+  const totalLost=drops.reduce((s,d)=>s+d.persi,0);
+  return{suspicious:drops.length>1||totalLost>1,drops,totalLost};
 }
 function ghToken(){return localStorage.getItem('gh_token')||'';}
 function ghUser(){return localStorage.getItem('gh_user')||'';}
@@ -1085,7 +1117,7 @@ async function ghSave(isRetry,hadMergeConflict,conflictDocsAcc){
     // salvato nel frattempo), dobbiamo riprendere lo sha più recente e
     // rifare il merge contro l'ultimissima versione remota, non riprovare
     // con lo sha ormai superato.
-    let shaB=GH_SHA,shaC=GH_SHA_CAT,catNeedsCreate=false,remoteCatProd=null;
+    let shaB=GH_SHA,shaC=GH_SHA_CAT,catNeedsCreate=false,remoteCatProd=null,freshRemoteData=null;
     {
       const fetched=await ghFetchBoth();
       if(fetched){
@@ -1093,6 +1125,7 @@ async function ghSave(isRetry,hadMergeConflict,conflictDocsAcc){
         shaC=fetched.shaC;if(shaC){GH_SHA_CAT=shaC;localStorage.setItem('gh_sha_cat',GH_SHA_CAT);}
         catNeedsCreate=fetched.catMissing;
         remoteCatProd=fetched.catMissing?[]:(fetched.data.prodotti||[]);
+        freshRemoteData=fetched.data;
         const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,fetched.data);
         if(conflict){hadMergeConflict=true;conflictDocsAcc=conflictDocsAcc.concat(conflictDocs);}
       }
@@ -1118,6 +1151,20 @@ async function ghSave(isRetry,hadMergeConflict,conflictDocsAcc){
       viewerHash:localStorage.getItem('app_pwd_viewer_hash')||''
     };
     delete saveData.prodotti;
+    // Guardia anti-regressione: se stessimo per pubblicare MENO documenti di quelli appena
+    // confermati su GitHub, su più collezioni insieme (o più di un documento in totale), questo
+    // dispositivo ha quasi certamente una copia locale vecchia (es. mai ricaricata da tempo) che
+    // sta per cancellare lavoro fatto altrove. NON pubblichiamo: ci si ri-sincronizza subito
+    // (come una normale ghBootSync) così il dispositivo si autocorregge, e il prossimo
+    // salvataggio partirà da uno stato corretto.
+    const regr=detectMassRegression(saveData,freshRemoteData);
+    if(regr.suspicious){
+      console.error('Salvataggio bloccato, regressione sospetta:',regr);
+      const msg='⚠️ Salvataggio bloccato: sembravano sparire '+regr.totalLost+' documenti recenti ('+regr.drops.map(d=>d.coll).join(', ')+'). Dati non toccati su GitHub — questa pagina si sta risincronizzando da sola.';
+      gdSetStatus(msg);toast(msg,12000);
+      try{await ghBootSync();}catch(e){console.warn('Ri-sincronizzazione dopo regressione:',e);}
+      return;
+    }
     const put=await ghPutFile(GH_FILE,shaB,saveData,'Backup '+new Date().toLocaleString('it-IT'));
     if(!put.ok){
       // Conflitto di scrittura residuo (raro: qualcuno ha salvato nel frattempo tra il nostro

@@ -133,7 +133,7 @@ table.tbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-sp
 table.tbl td{box-sizing:border-box}
 .col-resize-handle{position:absolute;right:-4px;top:0;bottom:0;width:9px;cursor:col-resize;user-select:none;touch-action:none;z-index:1}
 .col-resize-handle::after{content:'';position:absolute;right:4px;top:22%;bottom:22%;width:2px;border-radius:2px;background:var(--border2);transition:background .12s}
-table.tbl th:hover .col-resize-handle::after{background:var(--faint)}
+th:hover .col-resize-handle::after,.sh:hover .col-resize-handle::after{background:var(--faint)}
 .col-resize-handle:hover::after,.col-resize-handle.active::after{background:var(--accent-d)!important}
 table.tbl th.right{text-align:right}
 table.tbl td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px}
@@ -317,7 +317,7 @@ table.lines{width:100%;border-collapse:collapse;font-size:12.5px}
 }
 table.lines th{text-align:left;padding:9px 18px;color:var(--faint);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--surface2)}
 table.lines th.right{text-align:right}
-table.lines td{padding:10px 18px;border-bottom:1px solid var(--border)}
+table.lines td{padding:10px 18px;border-bottom:1px solid var(--border);box-sizing:border-box}
 table.lines tr:last-child td{border-bottom:none}
 .storico-row{cursor:pointer}
 .storico-row:hover{background:var(--surface2)}
@@ -2005,7 +2005,7 @@ function listView(){
       <button class="btn sm ghost" style="border:1px solid #1a6b4d;color:#cfe9dd;background:transparent" onclick="clearPick()">✕ Deseleziona</button></div>`;}
   const allCk=inv&&rows.length>0&&rows.every(r=>PICK.has(r.it.id));
   const chkHead=inv?`<div class="dr-check"><input type="checkbox" ${allCk?'checked':''} onclick="event.stopPropagation();toggleAll(this.checked)"></div>`:'';
-  return head+bulk+`<div class="dlist ${inv?'with-check':''}">
+  return head+bulk+`<div class="dlist ${inv?'with-check':''}" id="dlist-${MOD}">
     <div class="dhead">${chkHead}${sh('num','Numero')}${sh('party',isForn?'Fornitore':'Cliente')}${sh('data','Data')}${sh('stato','Stato')}${sh('imp','Imponibile','rt')}${sh('iva','IVA','rt')}${sh('tot','Totale','rt')}</div>
     ${rows.map(({it,party,coll})=>{const isNC=coll==='noteCredito'||coll==='noteCreditoFornitore';const[c,l]=isNC?['p-gray','Nota di credito']:statusOf(MOD,it);const chk=inv?`<div class="dr-check"><input type="checkbox" ${PICK.has(it.id)?'checked':''} onclick="event.stopPropagation();togglePick('${it.id}')"></div>`:'';
       const partyObj=isForn?null:DB.clienti.find(x=>x.id===it.clienteId);
@@ -5344,6 +5344,13 @@ function makeColsResizable(table,key){
   const applyTableWidth=()=>{table.style.width=widths.reduce((s,w)=>s+w,0)+'px';};
   ths.forEach((th,i)=>{
     th.style.width=widths[i]+'px';
+    // box-sizing/position impostati qui via JS (non nel CSS di .tbl) così la funzione funziona
+    // allo stesso modo su QUALSIASI tabella le venga passata (es. anche table.lines), senza dover
+    // ricordarsi di aggiungere le stesse regole ogni volta che si estende ad altre tabelle: senza
+    // border-box il padding orizzontale si sommava alla larghezza dichiarata, facendo eccedere la
+    // colonna (e quindi l'intera tabella) oltre lo spazio scelto.
+    th.style.boxSizing='border-box';
+    th.style.position='relative';
     // Il testo dell'intestazione non deve mai poter far crescere la colonna oltre la larghezza
     // scelta: lo avvolgiamo in uno span troncabile con i puntini di sospensione. Mettere
     // overflow/text-overflow direttamente sul <th> non basta: con table-layout:fixed il motore
@@ -5391,11 +5398,80 @@ function makeColsResizable(table,key){
   });
   applyTableWidth();
 }
+// Le liste documento (Ordini, DDT, Fatture, Note di credito) NON usano <table>: sono un elenco di
+// div .dhead/.drow che si allineano a colonne tramite lo stesso grid-template-columns ripetuto su
+// ognuno (non è una singola tabella condivisa). Per ridimensionare una colonna qui non basta
+// toccare un elemento solo: serve sovrascrivere grid-template-columns su TUTTE le righe insieme,
+// cosa che facciamo iniettando un <style> scoperto sull'id della lista invece di toccare ogni riga
+// una per una (che con centinaia di righe sarebbe lento e andrebbe rifatto a ogni render).
+function makeGridColsResizable(listEl,key){
+  const head=listEl.querySelector(':scope>.dhead');
+  if(!head)return;
+  const cells=[...head.children];
+  if(cells.length<2)return;
+  const z=parseFloat(getComputedStyle(document.body).zoom)||1; // vedi chartTip(): coordinate schermo zoomate vs CSS locali
+  const saved=COLW[key]||{};
+  const tracks=getComputedStyle(head).gridTemplateColumns.split(' ').map(t=>parseFloat(t)/z);
+  const widths=cells.map((c,i)=>saved[i]||tracks[i]);
+  let styleEl=listEl.querySelector(':scope>style.col-override');
+  if(!styleEl){styleEl=document.createElement('style');styleEl.className='col-override';listEl.insertBefore(styleEl,listEl.firstChild);}
+  // L'ultima colonna (Totale) non ha una maniglia: riempie lo spazio residuo come già faceva prima
+  // (era 1fr), così le altre colonne restano quelle davvero "a larghezza fissa" scelta dall'utente.
+  const applyGrid=()=>{
+    const cols=widths.map((w,i)=>i===widths.length-1?'1fr':w+'px').join(' ');
+    styleEl.textContent=`#${listEl.id} .dhead,#${listEl.id} .drow{grid-template-columns:${cols}}`;
+  };
+  cells.forEach((cell,i)=>{
+    cell.style.position='relative';
+    if(i===cells.length-1){applyGrid();return;}
+    const handle=document.createElement('span');
+    handle.className='col-resize-handle';
+    cell.appendChild(handle);
+    let startX=0,startW=0;
+    const onMove=e=>{
+      const x=e.touches?e.touches[0].clientX:e.clientX;
+      widths[i]=Math.max(40,startW+(x-startX)/z);
+      applyGrid();
+    };
+    const onUp=()=>{
+      handle.classList.remove('active');
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      document.removeEventListener('touchmove',onMove);
+      document.removeEventListener('touchend',onUp);
+      COLW[key]=COLW[key]||{};
+      COLW[key][i]=widths[i];
+      saveColWidths();
+    };
+    const onDown=e=>{
+      e.preventDefault();e.stopPropagation(); // non deve attivare l'ordinamento della colonna (onclick su .sh)
+      handle.classList.add('active');
+      startX=e.touches?e.touches[0].clientX:e.clientX;
+      startW=widths[i];
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+      document.addEventListener('touchmove',onMove,{passive:false});
+      document.addEventListener('touchend',onUp);
+    };
+    handle.addEventListener('mousedown',onDown);
+    handle.addEventListener('touchstart',onDown,{passive:false});
+    handle.addEventListener('click',e=>e.stopPropagation());
+  });
+  applyGrid();
+}
 function initResizableTables(){
   const c=document.getElementById('content');
   if(!c)return;
-  const tables=[...c.querySelectorAll('table.tbl')];
-  tables.forEach((t,i)=>{try{makeColsResizable(t,MOD+(tables.length>1?'-'+i:''));}catch(e){console.error('makeColsResizable:',e);}});
+  // .tbl (elenchi, anagrafiche, report, scadenziario/incassi/pagamenti) e .lines (righe articolo
+  // dentro un documento aperto, storico incassi/pagamenti di quel documento): stessa funzione,
+  // chiave separata per classe+indice così due tabelle diverse nella stessa schermata (es. righe +
+  // storico incassi in una fattura aperta) non si sovrascrivono a vicenda in localStorage.
+  ['tbl','lines'].forEach(cls=>{
+    const tables=[...c.querySelectorAll('table.'+cls)];
+    tables.forEach((t,i)=>{try{makeColsResizable(t,MOD+'-'+cls+(tables.length>1?'-'+i:''));}catch(e){console.error('makeColsResizable:',e);}});
+  });
+  const lists=[...c.querySelectorAll('.dlist[id]')];
+  lists.forEach(l=>{try{makeGridColsResizable(l,l.id);}catch(e){console.error('makeGridColsResizable:',e);}});
 }
 
 /* ===== Dimensione finestre modali (ridimensionabile e persistente) ===== */

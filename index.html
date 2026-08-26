@@ -671,6 +671,25 @@ function canon(x){
   return x;
 }
 function deepEq(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
+// Merge campo per campo di UN documento presente (e modificato) su entrambi i lati. Prima, quando
+// due dispositivi modificavano lo STESSO documento in due campi DIVERSI (es. uno corregge il
+// collegamento ocId, l'altro aggiunge una riga a righe), l'intero documento locale vinceva in
+// blocco, cancellando la modifica remota anche se non c'entrava nulla col campo che il locale
+// aveva davvero cambiato. Qui uniamo campo per campo: se un campo è cambiato solo da un lato,
+// prendiamo quel lato; se lo STESSO campo è cambiato in modo diverso su entrambi i lati, quello
+// è un vero conflitto e vince il locale (segnalato), ma solo per quel campo.
+function mergeDoc(b,l,r){
+  const keys=new Set([...Object.keys(b||{}),...Object.keys(l||{}),...Object.keys(r||{})]);
+  const out={};let conflict=false;
+  keys.forEach(k=>{
+    const bv=b?b[k]:undefined,lv=l[k],rv=r[k];
+    if(deepEq(lv,rv)){out[k]=lv;return;}
+    if(deepEq(lv,bv)){out[k]=rv;return;} // non toccato in locale: prendi il remoto
+    if(deepEq(rv,bv)){out[k]=lv;return;} // non toccato da remoto: tieni il locale
+    out[k]=lv;conflict=true; // stesso campo cambiato da entrambi in modo diverso: vince locale, vero conflitto
+  });
+  return{value:out,conflict};
+}
 function mergeCollection(base,local,remote,keyName,hasBase){
   const k=x=>x[keyName||'id'];
   const bMap=new Map((base||[]).map(x=>[k(x),x]));
@@ -707,7 +726,11 @@ function mergeCollection(base,local,remote,keyName,hasBase){
     if(!lc&&!rc)out.push(l);
     else if(lc&&!rc)out.push(l);
     else if(!lc&&rc)out.push(r);
-    else{out.push(l);conflict=true;conflictItems.push(l.num||l.nome||l.descrizione||id);} // modificato da entrambi: vince locale, segnaliamo
+    else{ // modificato da entrambi: uniamo campo per campo invece di far vincere l'intero locale
+      const{value,conflict:fieldConflict}=mergeDoc(b,l,r);
+      out.push(value);
+      if(fieldConflict){conflict=true;conflictItems.push(l.num||l.nome||l.descrizione||id);}
+    }
   });
   return{result:out,conflict,conflictItems};
 }

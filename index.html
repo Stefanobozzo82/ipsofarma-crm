@@ -1130,7 +1130,14 @@ async function ghSaveCatalog(sha){
   return false;
 }
 async function ghSave(isRetry,hadMergeConflict,conflictDocsAcc){
-  if(!DB)return;const ok=await ghInit();if(!ok)return;
+  if(!DB)return;
+  // Una postazione in modalità sola lettura non deve MAI scrivere su GitHub, nemmeno in automatico:
+  // niente pulsanti di modifica sono visibili (vedi isAdmin()), ma senza questo controllo il motore
+  // di sincronizzazione stesso (avvio pagina, chiusura scheda, salvataggio periodico) può comunque
+  // pubblicare una copia — è esattamente il tipo di dispositivo "rimasto aperto con dati vecchi" che
+  // ha già causato più volte la ricomparsa di collegamenti sbagliati corretti da un altro PC.
+  if(sessionStorage.getItem('app_role')==='viewer')return;
+  const ok=await ghInit();if(!ok)return;
   conflictDocsAcc=conflictDocsAcc||[];
   try{
     // Merge intelligente: confronta la nostra base di riferimento con lo stato
@@ -1219,6 +1226,7 @@ async function ghSave(isRetry,hadMergeConflict,conflictDocsAcc){
 
 function ghScheduleSave(){
   if(!ghToken())return;
+  if(sessionStorage.getItem('app_role')==='viewer')return; // sola lettura: ghSave() rifiuterebbe comunque, evitiamo solo il timer inutile
   // Debounce breve (era 8s): più veloce si pubblica una modifica, più piccola è la finestra in
   // cui un altro dispositivo può lavorare "alla cieca" senza saperla ancora.
   clearTimeout(GH_TIMER);GH_TIMER=setTimeout(()=>ghSave().catch(console.error),3000);
@@ -4530,7 +4538,7 @@ function aziendaView(){
         <span style="font-size:12px;color:var(--muted)">Account: <b>${ghUser()||'non rilevato'}</b></span>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="btn primary" onclick="ghSave().then(()=>nav('azienda'))">☁ Salva ora su GitHub</button>
+        ${isAdmin()?`<button class="btn primary" onclick="ghSave().then(()=>nav('azienda'))">☁ Salva ora su GitHub</button>`:`<span style="font-size:12px;color:var(--muted)">👁 Sola lettura: questa postazione non può scrivere su GitHub</span>`}
         <button class="btn" onclick="ghLoad().then(ok=>{if(ok){ensureSchema();if(!isAuthenticated()){showAppLogin(()=>render());}else{render();toast('Caricato da GitHub ✅');}}else toast('Errore: '+FB_STATUS);})">⭱ Carica da GitHub</button>
         <span style="font-size:12px;color:var(--muted)">Stato: <b id="ghStatusSettings">${FB_STATUS}</b></span>
       </div>

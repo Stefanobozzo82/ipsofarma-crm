@@ -127,9 +127,12 @@ button{font-family:inherit;cursor:pointer}
 .page-sub{color:var(--faint);font-size:12.5px;margin-top:-13px;margin-bottom:18px}
 
 /* ---------- Table ---------- */
-.tablecard{background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--sh);overflow:hidden}
+.tablecard{background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--sh);overflow-x:auto;overflow-y:hidden}
 table.tbl{width:100%;border-collapse:collapse}
-table.tbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);font-weight:700;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+table.tbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);font-weight:700;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface2);position:relative}
+.col-resize-handle{position:absolute;right:-1px;top:0;bottom:0;width:7px;cursor:col-resize;user-select:none;touch-action:none;z-index:1}
+.col-resize-handle::after{content:'';position:absolute;right:3px;top:0;bottom:0;width:1px;background:transparent}
+.col-resize-handle:hover::after,.col-resize-handle.active::after{background:var(--accent-d)}
 table.tbl th.right{text-align:right}
 table.tbl td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px}
 table.tbl tr:last-child td{border-bottom:none}
@@ -1462,6 +1465,7 @@ function render(){
     const c=document.getElementById('content');
     if(c)c.innerHTML=`<div style="padding:24px;color:#f87171;background:#1a0000;border-radius:12px;margin:16px"><b>Errore rendering:</b><br>${e.message}<br><br><small>${e.stack||''}</small></div>`;
   }
+  try{initResizableTables();}catch(e){console.error('initResizableTables:',e);}
 }
 function renderTop(){
   const m=META[MOD];
@@ -5307,6 +5311,73 @@ async function ensureSchema(){
   DB.fattureFornitore.forEach(f=>{if(f.paid==null){f.paid=false;changed=true;}});
 
   if(changed)await persist();
+}
+
+/* ===== Larghezza colonne delle tabelle elenco (ridimensionabile e persistente) =====
+   Trascinando il bordo destro di un'intestazione se ne cambia la larghezza; il valore resta
+   ricordato per modulo (MOD) in questo dispositivo (localStorage), come la dimensione/posizione
+   delle finestre modali qui sotto. Prima di rendere una colonna ridimensionabile ne misuriamo la
+   larghezza "naturale" (quella che il browser avrebbe scelto da solo) così, finché non la si
+   trascina mai, la tabella resta visivamente identica a prima. */
+let COLW=null;try{COLW=JSON.parse(localStorage.getItem('colWidths')||'{}');}catch(e){COLW={};}
+function saveColWidths(){try{localStorage.setItem('colWidths',JSON.stringify(COLW));}catch(e){}}
+function makeColsResizable(table,key){
+  const ths=[...table.querySelectorAll(':scope>thead>tr>th')];
+  if(ths.length<2)return; // niente da ridimensionare con una sola colonna
+  const saved=COLW[key]||{};
+  // Misura le larghezze naturali PRIMA di passare a table-layout:fixed (altrimenti il browser le
+  // ricalcola già "fisse" in modo diverso da come sarebbero venute con table-layout:auto).
+  const widths=ths.map((th,i)=>saved[i]||th.getBoundingClientRect().width);
+  table.style.tableLayout='fixed';
+  // table.tbl ha width:100% da CSS: con table-layout:fixed il browser distribuirebbe comunque lo
+  // spazio residuo tra le colonne, "annullando" in parte un ridimensionamento appena fatto. Dando
+  // alla tabella una larghezza esplicita pari alla somma delle colonne evitiamo la ridistribuzione:
+  // se il totale supera il contenitore, subentra lo scroll orizzontale di .tablecard.
+  const applyTableWidth=()=>{table.style.width=widths.reduce((s,w)=>s+w,0)+'px';};
+  ths.forEach((th,i)=>{
+    th.style.width=widths[i]+'px';
+    if(i===ths.length-1)return; // l'ultima colonna riempie lo spazio residuo: nessuna maniglia
+    const handle=document.createElement('span');
+    handle.className='col-resize-handle';
+    th.appendChild(handle);
+    let startX=0,startW=0;
+    const onMove=e=>{
+      const x=e.touches?e.touches[0].clientX:e.clientX;
+      widths[i]=Math.max(40,startW+(x-startX));
+      th.style.width=widths[i]+'px';
+      applyTableWidth();
+    };
+    const onUp=()=>{
+      handle.classList.remove('active');
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      document.removeEventListener('touchmove',onMove);
+      document.removeEventListener('touchend',onUp);
+      COLW[key]=COLW[key]||{};
+      COLW[key][i]=widths[i];
+      saveColWidths();
+    };
+    const onDown=e=>{
+      e.preventDefault();e.stopPropagation(); // non deve attivare l'ordinamento della colonna (onclick sul th)
+      handle.classList.add('active');
+      startX=e.touches?e.touches[0].clientX:e.clientX;
+      startW=widths[i];
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+      document.addEventListener('touchmove',onMove,{passive:false});
+      document.addEventListener('touchend',onUp);
+    };
+    handle.addEventListener('mousedown',onDown);
+    handle.addEventListener('touchstart',onDown,{passive:false});
+    handle.addEventListener('click',e=>e.stopPropagation()); // impedisce che il rilascio del trascinamento attivi l'ordinamento della colonna (onclick sul th)
+  });
+  applyTableWidth();
+}
+function initResizableTables(){
+  const c=document.getElementById('content');
+  if(!c)return;
+  const tables=[...c.querySelectorAll('table.tbl')];
+  tables.forEach((t,i)=>{try{makeColsResizable(t,MOD+(tables.length>1?'-'+i:''));}catch(e){console.error('makeColsResizable:',e);}});
 }
 
 /* ===== Dimensione finestre modali (ridimensionabile e persistente) ===== */

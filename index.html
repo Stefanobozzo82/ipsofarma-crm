@@ -605,6 +605,10 @@ function fbScheduleSave(){ghScheduleSave();}
 
 /* ===== GITHUB BACKUP AUTOMATICO ===== */
 let GH_USER=localStorage.getItem('gh_user')||null,GH_SHA=null,GH_SHA_CAT=null,GH_TIMER=null;
+// sha di index.html rilevato dal primo controllo dopo l'avvio di questa scheda: serve solo a
+// riconoscere quando VIENE PUBBLICATA una versione più recente dell'app MENTRE questa scheda è
+// aperta — non un confronto assoluto di versione. Vedi checkAppVersion().
+let APP_HTML_SHA=null;
 const GH_REPO='ipsofarma-crm';
 const GH_FILE='backup.json';
 /* Il catalogo prodotti (~20000 articoli) da solo pesa circa il 98% dell'intero backup: tenerlo in
@@ -1021,11 +1025,30 @@ async function ghListRoot(){
    e le unisce in silenzio, senza sovrascrivere modifiche locali non ancora salvate: usa lo stesso
    merge a 3 vie di ghSave(), quindi è sicuro anche se scatta a metà di una modifica non ancora
    salvata. Salta il giro se è aperta una finestra di modifica, per non spiazzare chi sta scrivendo. */
+// Rileva quando viene pubblicata una versione più recente di index.html MENTRE questa scheda è
+// già aperta: è la causa di fondo di tutti gli incidenti di collegamenti sbagliati risolti in
+// questi giorni. Un dispositivo può scaricare correttamente i dati più recenti a ogni salvataggio
+// (il merge a 3 vie lo garantisce già), ma se sta ancora eseguendo il JAVASCRIPT vecchio, applica
+// comunque la LOGICA vecchia a quei dati freschi — niente merge di dati può correggere una
+// decisione presa con codice superato. L'unico rimedio è ricaricare la pagina. Ricarichiamo da
+// soli, ma solo quando è sicuro farlo: nessuna finestra di modifica aperta, nessun salvataggio in
+// sospeso non ancora confermato — così non si perde mai lavoro non salvato.
+function checkAppVersion(heads){
+  if(!heads||!heads['index.html'])return;
+  if(APP_HTML_SHA===null){APP_HTML_SHA=heads['index.html'];return;} // primo controllo dopo l'avvio: memorizza soltanto
+  if(heads['index.html']===APP_HTML_SHA)return; // ancora la stessa versione
+  if(document.getElementById('overlay')?.classList.contains('show'))return; // finestra di modifica aperta: non disturbare
+  if(GH_TIMER)return; // salvataggio programmato ma non ancora confermato: aspetta il prossimo giro
+  console.log('Nuova versione dell\'app pubblicata: ricarico la pagina...');
+  appReload();
+}
+function appReload(){location.reload();}
 async function autoPullSync(){
   if(!ghToken()||!DB)return;
   if(document.getElementById('overlay')?.classList.contains('show'))return;
   try{
     const heads=await ghListRoot();
+    checkAppVersion(heads);
     if(heads){
       const bChanged=!heads[GH_FILE]||heads[GH_FILE]!==GH_SHA;
       const cChanged=heads[GH_FILE_CAT]?heads[GH_FILE_CAT]!==GH_SHA_CAT:!!GH_SHA_CAT;

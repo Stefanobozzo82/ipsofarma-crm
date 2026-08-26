@@ -1462,12 +1462,14 @@ function render(){
     if(n)n.innerHTML=`<div style="padding:10px;color:#f87171;font-size:11px">Nav err: ${e.message}</div>`;
   }
   try{renderTop();}catch(e){console.error('renderTop:',e);}
+  // renderContent() richiama già da sola initResizableTables() (vedi sopra), quindi non va
+  // ripetuta qui: lo fa una volta sola sia passando da render() sia nei tanti punti che chiamano
+  // renderContent() direttamente (ordinamento, ricerca, filtri, ecc.).
   try{renderContent();}catch(e){
     console.error('renderContent:',e);
     const c=document.getElementById('content');
     if(c)c.innerHTML=`<div style="padding:24px;color:#f87171;background:#1a0000;border-radius:12px;margin:16px"><b>Errore rendering:</b><br>${e.message}<br><br><small>${e.stack||''}</small></div>`;
   }
-  try{initResizableTables();}catch(e){console.error('initResizableTables:',e);}
 }
 function renderTop(){
   const m=META[MOD];
@@ -1492,7 +1494,17 @@ function renderTop(){
 }
 function setView(v){VIEW=v;render();}
 
+// renderContent() viene chiamata anche direttamente (non solo tramite render()) da molti punti:
+// ordinamento colonne, ricerca, filtri, scroll infinito delle liste lunghe, ecc. — ognuno di questi
+// rigenera l'HTML e perderebbe le larghezze di colonna scelte se non richiamassimo anche
+// initResizableTables() qui, non solo dentro render(). Per questo è un sottile wrapper attorno alla
+// vera funzione di rendering, così ogni chiamante (anche quelli che saltano render()) la ottiene
+// automaticamente, senza doverla aggiungere uno per uno in decine di punti diversi del codice.
 function renderContent(){
+  renderContentInner();
+  try{initResizableTables();}catch(e){console.error('initResizableTables:',e);}
+}
+function renderContentInner(){
   LOTE=false;
   const c=document.getElementById('content');
   c.classList.toggle('dash-view',MOD==='dashboard'&&!SEL);

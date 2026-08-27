@@ -1,35 +1,3 @@
 {
-  "items": [
-    {
-      "addedAt": "2026-08-27T08:52:02.608Z",
-      "msgId": "1a0421ddae66f12e",
-      "file": "5301021435.pdf",
-      "p": {
-        "dir": "acquisto",
-        "ced": {
-          "nome": "B. Braun Milano S.p.A. a Socio Unico",
-          "piva": "",
-          "cf": ""
-        },
-        "ces": {},
-        "number": "5301021435",
-        "date": "2026-08-26",
-        "order_ref": "Rif.cliente Vs.ord. 190",
-        "lines": [
-          {
-            "cod": "PL579T",
-            "descr": "CHALLENGER TI-P CLIP LIGAT.ML",
-            "qty": 5,
-            "prezzo": 61.87917,
-            "sconto": "0",
-            "iva": 22,
-            "lotto": "53084799",
-            "scad": "2031-06-29"
-          }
-        ],
-        "totale": 377.462937
-      },
-      "src": "Gmail"
-    }
-  ]
+  "items": []
 }

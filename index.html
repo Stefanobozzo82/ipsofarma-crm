@@ -924,6 +924,17 @@ async function ghFetchBoth(){
   }
   return{shaB:b.sha,shaC:(c&&!c.missing)?c.sha:null,catMissing:!!(c&&c.missing),data};
 }
+// Il token GitHub e le chiavi AI non vengono mai scritte su GitHub (rimosse da saveData in
+// ghSave(), vedi sotto): restano solo in localStorage/DB su ciascun dispositivo. Quindi ogni
+// oggetto "azienda" appena scaricato da GitHub non le contiene MAI. Prima di usarlo — sia per un
+// caricamento diretto, sia come lato "remoto" di un merge a 3 vie — dobbiamo rimetterci i valori
+// che questo dispositivo ha già in memoria, altrimenti sembrerebbero "cancellate da remoto" e un
+// merge le toglierebbe anche in locale (bug reale corretto qui: mancava in ghSave() e
+// autoPullSync(), che perciò potevano svuotare la chiave AI a ogni sincronizzazione).
+const AI_SENSITIVE=['aiKey','aiOkey','aiProvider','aiModel','aiBase','gdClientId'];
+function restoreSensitiveAzienda(data){
+  if(DB&&DB.azienda&&data&&data.azienda)AI_SENSITIVE.forEach(k=>{if(DB.azienda[k])data.azienda[k]=DB.azienda[k];});
+}
 // Carico esplicito da GitHub (pulsante "Carica da GitHub" nelle impostazioni): sovrascrive
 // intenzionalmente il DB locale, l'utente lo sta chiedendo di proposito.
 async function ghLoad(){
@@ -943,8 +954,7 @@ async function ghLoad(){
     else if(data._security.viewerHash==='')localStorage.removeItem('app_pwd_viewer_hash');
     delete data._security;
   }
-  const SENSITIVE=['aiKey','aiOkey','aiProvider','aiModel','aiBase','gdClientId'];
-  if(DB&&DB.azienda&&data.azienda)SENSITIVE.forEach(k=>{if(DB.azienda[k])data.azienda[k]=DB.azienda[k];});
+  restoreSensitiveAzienda(data);
   DB=data;_allProd=null;gdSetStatus('caricato ✅');
   await initCatalog(); // il listino fornitore va mostrato solo dopo una sincronizzazione riuscita, non a un dispositivo senza token
   saveGhBase(snapshotMergeColls(DB));
@@ -973,8 +983,7 @@ async function ghBootSync(){
     else if(data._security.viewerHash==='')localStorage.removeItem('app_pwd_viewer_hash');
     delete data._security;
   }
-  const SENSITIVE=['aiKey','aiOkey','aiProvider','aiModel','aiBase','gdClientId'];
-  if(DB&&DB.azienda&&data.azienda)SENSITIVE.forEach(k=>{if(DB.azienda[k])data.azienda[k]=DB.azienda[k];});
+  restoreSensitiveAzienda(data);
   let mergedLocalChanges=false;
   if(GH_BASE&&DB){
     const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,data);
@@ -1063,6 +1072,7 @@ async function autoPullSync(){
     if(!fetched)return;
     if(fetched.shaB===GH_SHA&&(fetched.shaC||null)===(GH_SHA_CAT||null))return;
     const data=fetched.data;delete data._security;
+    restoreSensitiveAzienda(data);
     const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,data);
     GH_SHA=fetched.shaB;localStorage.setItem('gh_sha',GH_SHA);
     if(fetched.shaC){GH_SHA_CAT=fetched.shaC;localStorage.setItem('gh_sha_cat',GH_SHA_CAT);}
@@ -1184,6 +1194,7 @@ async function ghSave(isRetry,hadMergeConflict,conflictDocsAcc){
         catNeedsCreate=fetched.catMissing;
         remoteCatProd=fetched.catMissing?[]:(fetched.data.prodotti||[]);
         freshRemoteData=fetched.data;
+        restoreSensitiveAzienda(fetched.data);
         const{conflict,conflictDocs}=mergeAllDocs(GH_BASE,DB,fetched.data);
         if(conflict){hadMergeConflict=true;conflictDocsAcc=conflictDocsAcc.concat(conflictDocs);}
       }

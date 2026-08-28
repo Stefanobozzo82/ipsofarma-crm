@@ -87,7 +87,7 @@ function buildDailyMissions(): Mission[] {
 }
 
 function generateOrder(): Order {
-  const pool = ['ravanello', 'carota', 'grano', 'pomodoro', 'uovo', 'latte', 'lana']
+  const pool = ['carota', 'cavolo', 'grano', 'pomodoro', 'uovo', 'latte', 'lana']
   const reqCount = 1 + Math.floor(Math.random() * 2)
   const chosen = new Set<string>()
   while (chosen.size < reqCount) {

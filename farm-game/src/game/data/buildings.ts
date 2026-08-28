@@ -1,4 +1,6 @@
 import type { BuildingDef, Recipe } from '../types'
+import alberoSprite from '../../assets/farm/albero.png'
+import girasoleSprite from '../../assets/farm/girasole.png'
 
 // Edifici: habitat per animali, edifici di produzione (crafting) e decorazioni.
 export const BUILDINGS: BuildingDef[] = [
@@ -161,6 +163,7 @@ export const BUILDINGS: BuildingDef[] = [
     id: 'albero',
     name: 'Albero',
     emoji: '🌳',
+    sprite: alberoSprite,
     category: 'decoration',
     cost: 25,
     unlockLevel: 1,
@@ -197,6 +200,7 @@ export const BUILDINGS: BuildingDef[] = [
     id: 'girasoli',
     name: 'Girasoli',
     emoji: '🌻',
+    sprite: girasoleSprite,
     category: 'decoration',
     cost: 18,
     unlockLevel: 1,

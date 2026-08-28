@@ -6,6 +6,7 @@ import { ANIMALS_BY_HABITAT } from '../game/data/animals'
 import { useGameStore } from '../game/store'
 import { formatDuration } from '../game/utils'
 import { TILE_H, TILE_W, TOP_PADDING, isoPosition } from '../game/iso'
+import SpriteIcon from './SpriteIcon'
 
 /**
  * Ogni cella occupa un riquadro rettangolare (serve per il posizionamento
@@ -91,8 +92,13 @@ export default function CellTile({
           className="pointer-events-auto absolute flex cursor-pointer flex-col items-center"
           style={{ left: '50%', top: TOP_PADDING - 4, transform: 'translate(-50%,-92%)' }}
         >
-          <span className={`pop-badge grid h-10 w-10 place-items-center bg-gradient-to-b from-lime-100 to-lime-300 text-xl ${ready ? 'animate-bob' : ''}`}>
-            {ready ? crop?.emoji : '🌱'}
+          <span className={`pop-badge grid h-10 w-10 place-items-center bg-gradient-to-b from-lime-100 to-lime-300 ${ready ? 'animate-bob' : ''}`}>
+            <SpriteIcon
+              sprite={ready ? crop?.readySprite : crop?.growSprite}
+              emoji={ready ? (crop?.emoji ?? '🌱') : '🌱'}
+              alt={crop?.name}
+              className="h-7 w-7 object-contain text-xl"
+            />
           </span>
           {!ready && (
             <span className="mt-1 h-1.5 w-9 overflow-hidden rounded-full bg-black/25">
@@ -115,10 +121,10 @@ export default function CellTile({
           <div className="iso-ground-shadow" />
         </div>
         <span
-          className="pointer-events-none absolute text-3xl drop-shadow-lg"
+          className="pointer-events-none absolute drop-shadow-lg"
           style={{ left: '50%', top: TOP_PADDING - 4, transform: 'translate(-50%,-90%)' }}
         >
-          {def?.emoji}
+          <SpriteIcon sprite={def?.sprite} emoji={def?.emoji ?? ''} alt={def?.name} className="h-9 w-9 object-contain text-3xl" />
         </span>
       </div>
     )
@@ -141,8 +147,12 @@ export default function CellTile({
           className="pointer-events-auto absolute flex cursor-pointer flex-col items-center"
           style={{ left: '50%', top: TOP_PADDING - 10, transform: 'translate(-50%,-88%)' }}
         >
-          <span className="pop-badge-square grid h-12 w-12 place-items-center bg-gradient-to-b from-orange-100 to-orange-300 text-2xl">
-            {def?.emoji}
+          <span className="pop-badge-square grid h-12 w-12 place-items-center bg-gradient-to-b from-orange-100 to-orange-300">
+            {occupants.length > 0 && species ? (
+              <SpriteIcon sprite={species.sprite} emoji={species.emoji} alt={species.name} className="h-9 w-9 object-contain text-2xl" />
+            ) : (
+              <span className="text-2xl">{def?.emoji}</span>
+            )}
           </span>
           <span className="mt-1 rounded-full bg-orange-900/80 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
             {occupants.length}/{def?.capacity ?? 0}

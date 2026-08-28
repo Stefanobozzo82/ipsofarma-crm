@@ -1,5 +1,6 @@
 import { useGameStore } from '../game/store'
 import { getItemDisplay } from '../game/utils'
+import SpriteIcon from './SpriteIcon'
 
 export default function Inventory() {
   const inventory = useGameStore((s) => s.inventory)
@@ -23,8 +24,8 @@ export default function Inventory() {
               key={itemId}
               className="pop-badge-square flex flex-col items-center bg-gradient-to-b from-lime-50 to-lime-200 p-1.5 text-center"
             >
-              <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-lime-200 text-lg">
-                {info.emoji}
+              <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-lime-200">
+                <SpriteIcon sprite={info.sprite} emoji={info.emoji} alt={info.name} className="h-7 w-7 object-contain text-lg" />
               </span>
               <span className="mt-1 text-[11px] font-bold text-lime-950">{info.name}</span>
               <span className="text-[10px] text-lime-800">x{qty}</span>

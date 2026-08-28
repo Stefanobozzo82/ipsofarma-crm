@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { CROPS } from '../game/data/crops'
 import { BUILDINGS } from '../game/data/buildings'
+import { ANIMALS_BY_HABITAT } from '../game/data/animals'
 import { useGameStore, useLevel } from '../game/store'
+import SpriteIcon from './SpriteIcon'
 
 export type ShopSelection =
   | { kind: 'crop'; id: string }
@@ -67,8 +69,8 @@ export default function ShopMenu({
                       : 'border-amber-200 bg-amber-50 hover:border-amber-400'
                   }`}
                 >
-                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-amber-200 text-xl">
-                    {crop.emoji}
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-amber-200">
+                    <SpriteIcon sprite={crop.iconSprite} emoji={crop.emoji} alt={crop.name} className="h-7 w-7 object-contain text-xl" />
                   </span>
                   <span className="text-xs font-bold text-amber-900">{crop.name}</span>
                   <span className="text-[11px] text-amber-700">
@@ -97,8 +99,13 @@ export default function ShopMenu({
                   }`}
                   title={h.description}
                 >
-                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-orange-200 text-xl">
-                    {h.emoji}
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-orange-200">
+                    <SpriteIcon
+                      sprite={ANIMALS_BY_HABITAT[h.id]?.sprite ?? h.sprite}
+                      emoji={h.emoji}
+                      alt={h.name}
+                      className="h-7 w-7 object-contain text-xl"
+                    />
                   </span>
                   <span className="text-xs font-bold text-orange-900">{h.name}</span>
                   <span className="text-[11px] text-orange-700">
@@ -127,8 +134,8 @@ export default function ShopMenu({
                   }`}
                   title={b.description}
                 >
-                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-purple-200 text-xl">
-                    {b.emoji}
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-purple-200">
+                    <SpriteIcon sprite={b.sprite} emoji={b.emoji} alt={b.name} className="h-7 w-7 object-contain text-xl" />
                   </span>
                   <span className="text-xs font-bold text-purple-900">{b.name}</span>
                   <span className="text-[11px] text-purple-700">
@@ -157,8 +164,8 @@ export default function ShopMenu({
                   }`}
                   title={d.description}
                 >
-                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-sky-200 text-xl">
-                    {d.emoji}
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-sky-200">
+                    <SpriteIcon sprite={d.sprite} emoji={d.emoji} alt={d.name} className="h-7 w-7 object-contain text-xl" />
                   </span>
                   <span className="text-xs font-bold text-sky-900">{d.name}</span>
                   <span className="text-[11px] text-sky-700">

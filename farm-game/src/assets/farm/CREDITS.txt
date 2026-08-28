@@ -1,0 +1,12 @@
+Sprite in questa cartella:
+
+  "Tiny Farm" di Kenney (www.kenney.nl)
+  Licenza: Creative Commons Zero (CC0) — pubblico dominio.
+  https://creativecommons.org/publicdomain/zero/1.0/
+  Uso libero in progetti personali, educativi e commerciali.
+  Attribuzione non obbligatoria (mantenuta qui per correttezza).
+
+  Fonte pacchetto: https://kenney.nl/assets/tiny-farm
+
+I singoli file sono ritagli del tileset originale, rinominati per chiarezza
+(es. carota_grow.png, mucca.png) — nessuna modifica al disegno dei tile.

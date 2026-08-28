@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../game/store'
 import { getItemDisplay, formatDuration } from '../game/utils'
+import SpriteIcon from './SpriteIcon'
 
 function useClock() {
   const [, setTime] = useState(Date.now())
@@ -36,11 +37,12 @@ export default function OrderBoard() {
                   return (
                     <span
                       key={req.itemId}
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold shadow-sm ${
+                      className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold shadow-sm ${
                         has >= req.qty ? 'bg-green-200 text-green-900' : 'bg-white text-teal-800'
                       }`}
                     >
-                      {info.emoji} {has}/{req.qty}
+                      <SpriteIcon sprite={info.sprite} emoji={info.emoji} alt={info.name} className="h-4 w-4 object-contain" />
+                      {has}/{req.qty}
                     </span>
                   )
                 })}

@@ -8,10 +8,14 @@ export function makeId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${idCounter}`
 }
 
-/** Nome, emoji e prezzo di vendita per qualunque item del gioco (coltura o bene). */
-export function getItemDisplay(itemId: string): { name: string; emoji: string; sellPrice: number } {
+/** Nome, emoji, sprite (se disponibile) e prezzo di vendita per qualunque item del gioco. */
+export function getItemDisplay(
+  itemId: string,
+): { name: string; emoji: string; sellPrice: number; sprite?: string } {
   const crop = CROPS_BY_ID[itemId]
-  if (crop) return { name: crop.name, emoji: crop.emoji, sellPrice: crop.sellPrice }
+  if (crop) {
+    return { name: crop.name, emoji: crop.emoji, sellPrice: crop.sellPrice, sprite: crop.iconSprite }
+  }
   const good = GOODS_BY_ID[itemId]
   if (good) return good
   return { name: itemId, emoji: '❓', sellPrice: 1 }

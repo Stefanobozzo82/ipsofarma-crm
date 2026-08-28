@@ -8,8 +8,11 @@ o contenuto copiato da giochi esistenti).
 - React + Vite + TypeScript
 - Tailwind CSS 4
 - Zustand (stato globale + persistenza automatica su `localStorage`)
-- Sprite placeholder in emoji, organizzati per essere sostituiti facilmente
-  con asset grafici reali
+- Grafica isometrica 2.5D (proiezione 2:1, `src/game/iso.ts`) con badge
+  "pop-up" per colture/animali/edifici
+- Sprite in `src/assets/farm/` dal pacchetto **"Tiny Farm" di Kenney**
+  (licenza CC0, vedi `src/assets/farm/CREDITS.txt`) per colture e animali
+  con corrispondenza reale; emoji come fallback per tutto il resto
 
 ## Avvio
 

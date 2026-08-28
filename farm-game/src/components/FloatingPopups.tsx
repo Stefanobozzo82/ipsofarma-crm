@@ -15,7 +15,7 @@ export default function FloatingPopups() {
   }, [popups, removePopup])
 
   return (
-    <div className="pointer-events-none fixed right-3 top-16 z-50 flex flex-col items-end gap-1.5">
+    <div className="pointer-events-none fixed right-3 top-16 z-[1000] flex flex-col items-end gap-1.5">
       {popups.slice(-6).map((p) => (
         <div
           key={p.id}

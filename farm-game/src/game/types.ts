@@ -6,6 +6,12 @@ export interface CropDef {
   id: string
   name: string
   emoji: string
+  /** Sprite mostrato mentre la coltura sta crescendo (opzionale, altrimenti si usa l'emoji). */
+  growSprite?: string
+  /** Sprite della pianta matura pronta da raccogliere, mostrato sul campo. */
+  readySprite?: string
+  /** Sprite compatto per liste/badge (magazzino, negozio, ordini). */
+  iconSprite?: string
   growTimeSec: number
   seedCost: number
   sellPrice: number
@@ -32,6 +38,8 @@ export interface AnimalDef {
   habitatId: string
   rareVariantName: string
   rareVariantEmoji: string
+  /** Sprite dell'animale adulto (opzionale, altrimenti si usa l'emoji). */
+  sprite?: string
 }
 
 export interface Recipe {
@@ -57,6 +65,8 @@ export interface BuildingDef {
   capacity?: number // for habitats
   recipes?: Recipe[] // for production buildings
   description: string
+  /** Sprite opzionale (altrimenti si usa l'emoji). */
+  sprite?: string
 }
 
 export type GoodDef = CropDef | { id: string; name: string; emoji: string; sellPrice: number }

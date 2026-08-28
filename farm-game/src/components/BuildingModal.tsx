@@ -4,6 +4,7 @@ import { BUILDINGS_BY_ID } from '../game/data/buildings'
 import { ANIMALS_BY_HABITAT } from '../game/data/animals'
 import { useGameStore } from '../game/store'
 import { formatDuration } from '../game/utils'
+import SpriteIcon from './SpriteIcon'
 
 function useClock() {
   const [, setTime] = useState(Date.now())
@@ -42,8 +43,9 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
       <Modal onClose={onClose} title={`${def?.emoji} ${def?.name}`}>
         {species && (
           <div className="pop-badge-square mb-3 flex flex-wrap items-center justify-between gap-2 bg-gradient-to-b from-orange-50 to-orange-100 p-2">
-            <span className="text-sm font-semibold text-orange-900">
-              Compra {species.name} {species.emoji} — 🪙{species.buyCost}
+            <span className="flex items-center gap-1 text-sm font-semibold text-orange-900">
+              Compra {species.name}
+              <SpriteIcon sprite={species.sprite} emoji={species.emoji} alt={species.name} className="h-5 w-5 object-contain" />— 🪙{species.buyCost}
             </span>
             <button
               disabled={!canBuy}
@@ -88,8 +90,14 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
                 key={animal.id}
                 className="pop-badge-square flex flex-col items-center gap-1 bg-gradient-to-b from-white to-orange-50 p-2 text-center"
               >
-                <span className="pop-badge grid h-11 w-11 place-items-center bg-gradient-to-b from-white to-orange-200 text-xl">
-                  {animal.stage === 'baby' ? s.babyEmoji : animal.isRare ? s.rareVariantEmoji : s.emoji}
+                <span className="pop-badge grid h-11 w-11 place-items-center bg-gradient-to-b from-white to-orange-200">
+                  {animal.stage === 'baby' ? (
+                    <span className="text-xl">{s.babyEmoji}</span>
+                  ) : animal.isRare ? (
+                    <span className="text-xl">{s.rareVariantEmoji}</span>
+                  ) : (
+                    <SpriteIcon sprite={s.sprite} emoji={s.emoji} alt={s.name} className="h-8 w-8 object-contain text-xl" />
+                  )}
                 </span>
                 <span className="text-[11px] font-bold text-orange-900">
                   {animal.isRare ? s.rareVariantName : s.name}
@@ -203,7 +211,7 @@ function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div

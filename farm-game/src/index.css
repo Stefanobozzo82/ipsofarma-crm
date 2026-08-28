@@ -7,7 +7,7 @@
 body {
   margin: 0;
   font-family: 'Baloo 2', 'Segoe UI', system-ui, sans-serif;
-  background: linear-gradient(180deg, #bdeaff 0%, #d8f3c0 45%, #cdeab0 100%);
+  background: linear-gradient(180deg, #ffe9b8 0%, #ffdb94 20%, #d9e896 55%, #b9d878 100%);
   min-height: 100vh;
 }
 
@@ -61,9 +61,9 @@ body {
 
 .iso-sky {
   background:
-    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
-    radial-gradient(ellipse 50% 35% at 80% 5%, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 60%),
-    linear-gradient(180deg, #9fe3ff 0%, #bdeeff 30%, #cdeec0 65%, #a9d98a 100%);
+    radial-gradient(ellipse 55% 40% at 25% 8%, rgba(255, 250, 220, 0.75) 0%, rgba(255, 250, 220, 0) 60%),
+    radial-gradient(ellipse 45% 30% at 82% 4%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, #ffdf9e 0%, #ffe6ae 18%, #d8e08a 45%, #a9c96a 75%, #8fb956 100%);
 }
 
 .iso-diamond {
@@ -73,26 +73,26 @@ body {
 
 .iso-face-grass {
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 45%),
-    linear-gradient(160deg, #96e069 0%, #74cc4d 45%, #5cb83c 100%);
+    radial-gradient(circle at 30% 25%, rgba(255, 250, 210, 0.4) 0%, rgba(255, 255, 255, 0) 45%),
+    linear-gradient(160deg, #b8d95f 0%, #9ac13f 45%, #7fa82e 100%);
 }
 
 .iso-face-dirt {
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 45%),
-    linear-gradient(160deg, #d3a262 0%, #b8823f 50%, #96662e 100%);
+    radial-gradient(circle at 30% 25%, rgba(255, 235, 190, 0.3) 0%, rgba(255, 255, 255, 0) 45%),
+    linear-gradient(160deg, #b9834a 0%, #96602c 50%, #78481f 100%);
 }
 
 .iso-face-ready {
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 210, 0.55) 0%, rgba(255, 255, 255, 0) 55%),
-    linear-gradient(160deg, #ffe37a 0%, #f8c93d 50%, #eaa815 100%);
+    radial-gradient(circle at 30% 25%, rgba(255, 250, 210, 0.6) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(160deg, #ffd873 0%, #f5b430 50%, #e2911a 100%);
 }
 
 .iso-face-locked {
   background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 45%),
-    linear-gradient(160deg, #3c7a45 0%, #2b5c33 55%, #1c3f22 100%);
+    radial-gradient(circle at 30% 20%, rgba(255, 240, 200, 0.15) 0%, rgba(255, 255, 255, 0) 45%),
+    linear-gradient(160deg, #4c7a3a 0%, #345c28 55%, #23401b 100%);
 }
 
 .iso-diamond-outline {

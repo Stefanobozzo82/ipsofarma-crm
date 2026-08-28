@@ -33,16 +33,16 @@ export default function ShopMenu({
   const decorations = BUILDINGS.filter((b) => b.category === 'decoration')
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border-4 border-lime-700/40 bg-white/90 shadow-lg">
-      <div className="flex gap-1 overflow-x-auto border-b-2 border-lime-200 p-2 scrollbar-thin">
+    <div className="wood-panel flex h-full flex-col overflow-hidden">
+      <div className="flex gap-1 overflow-x-auto border-b-2 border-amber-300/70 p-2 scrollbar-thin">
         {(Object.keys(CATEGORY_LABEL) as Category[]).map((cat) => (
           <button
             key={cat}
             onClick={() => setCategory(cat)}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold transition ${
+            className={`chunky-btn whitespace-nowrap px-3 py-1.5 text-sm ${
               category === cat
-                ? 'bg-lime-500 text-white shadow'
-                : 'bg-lime-50 text-lime-700 hover:bg-lime-100'
+                ? 'bg-gradient-to-b from-lime-300 to-lime-500 text-lime-950'
+                : 'bg-gradient-to-b from-lime-50 to-lime-100 text-lime-700'
             }`}
           >
             {CATEGORY_LABEL[cat]}
@@ -67,7 +67,9 @@ export default function ShopMenu({
                       : 'border-amber-200 bg-amber-50 hover:border-amber-400'
                   }`}
                 >
-                  <span className="text-2xl">{crop.emoji}</span>
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-amber-200 text-xl">
+                    {crop.emoji}
+                  </span>
                   <span className="text-xs font-bold text-amber-900">{crop.name}</span>
                   <span className="text-[11px] text-amber-700">
                     {locked ? `Lv. ${crop.unlockLevel}` : `🪙 ${crop.seedCost}`}
@@ -95,7 +97,9 @@ export default function ShopMenu({
                   }`}
                   title={h.description}
                 >
-                  <span className="text-2xl">{h.emoji}</span>
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-orange-200 text-xl">
+                    {h.emoji}
+                  </span>
                   <span className="text-xs font-bold text-orange-900">{h.name}</span>
                   <span className="text-[11px] text-orange-700">
                     {locked ? `Lv. ${h.unlockLevel}` : `🪙 ${h.cost}`}
@@ -123,7 +127,9 @@ export default function ShopMenu({
                   }`}
                   title={b.description}
                 >
-                  <span className="text-2xl">{b.emoji}</span>
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-purple-200 text-xl">
+                    {b.emoji}
+                  </span>
                   <span className="text-xs font-bold text-purple-900">{b.name}</span>
                   <span className="text-[11px] text-purple-700">
                     {locked ? `Lv. ${b.unlockLevel}` : `🪙 ${b.cost}`}
@@ -151,7 +157,9 @@ export default function ShopMenu({
                   }`}
                   title={d.description}
                 >
-                  <span className="text-2xl">{d.emoji}</span>
+                  <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-sky-200 text-xl">
+                    {d.emoji}
+                  </span>
                   <span className="text-xs font-bold text-sky-900">{d.name}</span>
                   <span className="text-[11px] text-sky-700">
                     {locked ? `Lv. ${d.unlockLevel}` : `🪙 ${d.cost}`}

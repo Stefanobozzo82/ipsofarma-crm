@@ -41,14 +41,14 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
     return (
       <Modal onClose={onClose} title={`${def?.emoji} ${def?.name}`}>
         {species && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-orange-50 p-2">
+          <div className="pop-badge-square mb-3 flex flex-wrap items-center justify-between gap-2 bg-gradient-to-b from-orange-50 to-orange-100 p-2">
             <span className="text-sm font-semibold text-orange-900">
               Compra {species.name} {species.emoji} — 🪙{species.buyCost}
             </span>
             <button
               disabled={!canBuy}
               onClick={() => buyAnimal(cell.id, species.id)}
-              className="rounded-full bg-orange-500 px-3 py-1 text-sm font-bold text-white shadow disabled:opacity-40"
+              className="chunky-btn bg-gradient-to-b from-orange-400 to-orange-600 px-3 py-1 text-sm text-white"
             >
               Compra
             </button>
@@ -56,7 +56,7 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
         )}
 
         {species && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-pink-50 p-2">
+          <div className="pop-badge-square mb-3 flex flex-wrap items-center justify-between gap-2 bg-gradient-to-b from-pink-50 to-pink-100 p-2">
             <span className="text-sm font-semibold text-pink-900">
               💞 Incrocia 2 adulti — 🪙{species.buyCost}
               {breeding && !((now) >= breeding.readyAt) && (
@@ -68,7 +68,7 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
             <button
               disabled={!canBreed}
               onClick={() => startBreeding(cell.id)}
-              className="rounded-full bg-pink-500 px-3 py-1 text-sm font-bold text-white shadow disabled:opacity-40"
+              className="chunky-btn bg-gradient-to-b from-pink-400 to-pink-600 px-3 py-1 text-sm text-white"
             >
               Incrocia
             </button>
@@ -86,9 +86,9 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
             return (
               <div
                 key={animal.id}
-                className="flex flex-col items-center gap-1 rounded-xl border-2 border-orange-200 bg-white p-2 text-center"
+                className="pop-badge-square flex flex-col items-center gap-1 bg-gradient-to-b from-white to-orange-50 p-2 text-center"
               >
-                <span className="text-2xl">
+                <span className="pop-badge grid h-11 w-11 place-items-center bg-gradient-to-b from-white to-orange-200 text-xl">
                   {animal.stage === 'baby' ? s.babyEmoji : animal.isRare ? s.rareVariantEmoji : s.emoji}
                 </span>
                 <span className="text-[11px] font-bold text-orange-900">
@@ -102,7 +102,7 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
                     <button
                       disabled={!feedReady || !hasFeed}
                       onClick={() => feedAnimal(animal.id)}
-                      className="rounded-full bg-sky-500 px-2 py-0.5 text-[11px] font-bold text-white disabled:opacity-40"
+                      className="chunky-btn bg-gradient-to-b from-sky-400 to-sky-600 px-2 py-0.5 text-[11px] text-white"
                     >
                       🍽️ Nutri
                     </button>
@@ -111,7 +111,7 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
                   <button
                     disabled={!produceReady}
                     onClick={() => collectAnimalProduce(animal.id)}
-                    className="rounded-full bg-pink-500 px-2 py-0.5 text-[11px] font-bold text-white disabled:opacity-40"
+                    className="chunky-btn bg-gradient-to-b from-pink-400 to-pink-600 px-2 py-0.5 text-[11px] text-white"
                   >
                     {produceReady
                       ? `${s.produceEmoji} Raccogli`
@@ -141,16 +141,16 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
       <p className="mb-3 text-sm text-purple-800/80">{def?.description}</p>
 
       {job ? (
-        <div className="rounded-xl bg-purple-50 p-3 text-center">
+        <div className="pop-badge-square bg-gradient-to-b from-purple-50 to-purple-100 p-3 text-center">
           {jobReady ? (
             <button
               onClick={() => collectCraft(cell.id)}
-              className="rounded-full bg-purple-500 px-4 py-1.5 font-bold text-white shadow"
+              className="chunky-btn bg-gradient-to-b from-purple-400 to-purple-600 px-4 py-1.5 text-white"
             >
               ✨ Ritira lavorazione
             </button>
           ) : (
-            <p className="font-semibold text-purple-700">
+            <p className="font-semibold text-purple-800">
               ⏳ Lavorazione in corso — pronta tra {formatDuration(job.endsAt - now)}
             </p>
           )}
@@ -162,13 +162,13 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
             return (
               <div
                 key={recipe.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border-2 border-purple-200 bg-white p-2"
+                className="pop-badge-square flex flex-wrap items-center justify-between gap-2 bg-gradient-to-b from-white to-purple-50 p-2"
               >
                 <div className="text-sm">
                   <span className="font-bold text-purple-900">
                     {recipe.emoji} {recipe.name}
                   </span>
-                  <div className="text-xs text-purple-600">
+                  <div className="text-xs text-purple-700">
                     Richiede:{' '}
                     {recipe.inputs
                       .map((inp) => `${inp.itemId} x${inp.qty} (hai ${inventory[inp.itemId] ?? 0})`)
@@ -179,7 +179,7 @@ export default function BuildingModal({ cell, onClose }: { cell: Cell; onClose: 
                 <button
                   disabled={!canCraft}
                   onClick={() => startCraft(cell.id, recipe.id)}
-                  className="rounded-full bg-purple-500 px-3 py-1 text-sm font-bold text-white shadow disabled:opacity-40"
+                  className="chunky-btn bg-gradient-to-b from-purple-400 to-purple-600 px-3 py-1 text-sm text-white"
                 >
                   Avvia
                 </button>
@@ -207,14 +207,14 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border-4 border-lime-700/30 bg-white p-4 shadow-2xl scrollbar-thin"
+        className="wood-panel max-h-[80vh] w-full max-w-lg overflow-y-auto p-4 scrollbar-thin"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-lg font-extrabold text-lime-900">{title}</h3>
+          <h3 className="text-lg font-extrabold text-amber-950">{title}</h3>
           <button
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-full bg-red-100 font-bold text-red-500 hover:bg-red-200"
+            className="chunky-btn grid h-8 w-8 place-items-center bg-gradient-to-b from-red-300 to-red-500 text-white"
           >
             ✕
           </button>

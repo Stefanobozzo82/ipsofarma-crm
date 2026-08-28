@@ -18,8 +18,8 @@ export default function OrderBoard() {
   const fulfillOrder = useGameStore((s) => s.fulfillOrder)
 
   return (
-    <div className="rounded-2xl border-4 border-lime-700/40 bg-white/90 p-3 shadow-lg">
-      <h3 className="mb-2 flex items-center gap-1 text-sm font-extrabold text-lime-900">
+    <div className="wood-panel p-3">
+      <h3 className="mb-2 flex items-center gap-1 text-sm font-extrabold text-amber-950">
         📋 Bacheca Ordini
       </h3>
       <div className="flex flex-col gap-2">
@@ -28,7 +28,7 @@ export default function OrderBoard() {
             (req) => (inventory[req.itemId] ?? 0) >= req.qty,
           )
           return (
-            <div key={order.id} className="rounded-xl border-2 border-teal-200 bg-teal-50 p-2">
+            <div key={order.id} className="pop-badge-square bg-gradient-to-b from-teal-50 to-teal-200 p-2">
               <div className="mb-1 flex flex-wrap gap-2">
                 {order.requirements.map((req) => {
                   const info = getItemDisplay(req.itemId)
@@ -36,8 +36,8 @@ export default function OrderBoard() {
                   return (
                     <span
                       key={req.itemId}
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        has >= req.qty ? 'bg-green-200 text-green-800' : 'bg-white text-teal-700'
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold shadow-sm ${
+                        has >= req.qty ? 'bg-green-200 text-green-900' : 'bg-white text-teal-800'
                       }`}
                     >
                       {info.emoji} {has}/{req.qty}
@@ -45,19 +45,19 @@ export default function OrderBoard() {
                   )
                 })}
               </div>
-              <div className="flex items-center justify-between text-xs text-teal-700">
+              <div className="flex items-center justify-between text-xs text-teal-800">
                 <span>
                   🪙{order.rewardCoins} • ⭐{order.rewardXp}
                   {order.rewardGems > 0 ? ` • 💎${order.rewardGems}` : ''}
                 </span>
-                <span className="text-[10px] text-teal-500">
+                <span className="text-[10px] text-teal-600">
                   scade in {formatDuration(order.expiresAt - now)}
                 </span>
               </div>
               <button
                 disabled={!canFulfill}
                 onClick={() => fulfillOrder(order.id)}
-                className="mt-1 w-full rounded-full bg-teal-500 py-1 text-xs font-bold text-white shadow disabled:opacity-40"
+                className="chunky-btn mt-1 w-full bg-gradient-to-b from-teal-400 to-teal-600 py-1 text-xs text-white"
               >
                 Consegna
               </button>

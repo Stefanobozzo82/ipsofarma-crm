@@ -40,7 +40,7 @@ export default function App() {
 
           <button
             onClick={() => setShowResetConfirm(true)}
-            className="rounded-full border-2 border-red-300 bg-red-50 py-1.5 text-xs font-bold text-red-500 hover:bg-red-100"
+            className="chunky-btn bg-gradient-to-b from-red-200 to-red-400 py-1.5 text-xs text-red-950"
           >
             🗑️ Ricomincia partita
           </button>
@@ -53,7 +53,7 @@ export default function App() {
           onClick={() => setShowResetConfirm(false)}
         >
           <div
-            className="rounded-2xl border-4 border-red-300 bg-white p-4 text-center shadow-2xl"
+            className="wood-panel p-4 text-center"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-3 font-bold text-red-700">
@@ -65,13 +65,13 @@ export default function App() {
                   resetGame()
                   setShowResetConfirm(false)
                 }}
-                className="rounded-full bg-red-500 px-4 py-1.5 font-bold text-white"
+                className="chunky-btn bg-gradient-to-b from-red-400 to-red-600 px-4 py-1.5 text-white"
               >
                 Sì, ricomincia
               </button>
               <button
                 onClick={() => setShowResetConfirm(false)}
-                className="rounded-full bg-gray-200 px-4 py-1.5 font-bold text-gray-700"
+                className="chunky-btn bg-gradient-to-b from-gray-200 to-gray-300 px-4 py-1.5 text-gray-800"
               >
                 Annulla
               </button>

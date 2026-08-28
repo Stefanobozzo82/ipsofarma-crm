@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../game/store'
 import type { Cell } from '../game/types'
-import { CROPS_BY_ID } from '../game/data/crops'
-import { BUILDINGS_BY_ID } from '../game/data/buildings'
-import type { ShopSelection } from './ShopMenu'
+import { isoContainerSize } from '../game/iso'
 import CellTile from './CellTile'
 import BuildingModal from './BuildingModal'
+import type { ShopSelection } from './ShopMenu'
 
 /** Tick locale per forzare il ri-render ogni secondo (barre di progresso in tempo reale). */
 function useClock() {
@@ -34,7 +33,8 @@ export default function FarmGrid({
   const [activeCell, setActiveCell] = useState<Cell | null>(null)
 
   const cols = Math.max(...cells.map((c) => c.x)) + 1
-  const sorted = [...cells].sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y))
+  const rows = Math.max(...cells.map((c) => c.y)) + 1
+  const { width, height } = isoContainerSize(cols, rows)
 
   function handleCellClick(cell: Cell) {
     if (cell.locked) {
@@ -68,13 +68,15 @@ export default function FarmGrid({
   }
 
   return (
-    <div className="flex-1 overflow-auto rounded-2xl border-4 border-lime-700/40 bg-gradient-to-b from-green-200 to-green-300 p-3 shadow-inner">
-      <div
-        className="grid gap-1.5"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(56px, 1fr))` }}
-      >
-        {sorted.map((cell) => (
-          <CellTile key={cell.id} cell={cell} onClick={() => handleCellClick(cell)} />
+    <div className="iso-sky relative flex-1 overflow-auto rounded-2xl border-4 border-lime-800/40 shadow-[inset_0_4px_18px_rgba(0,0,0,0.25)]">
+      <div className="relative mx-auto" style={{ width, height }}>
+        {cells.map((cell) => (
+          <CellTile
+            key={cell.id}
+            cell={cell}
+            rows={rows}
+            onClick={() => handleCellClick(cell)}
+          />
         ))}
       </div>
 
@@ -86,11 +88,4 @@ export default function FarmGrid({
       )}
     </div>
   )
-}
-
-export function cropInfo(id: string) {
-  return CROPS_BY_ID[id]
-}
-export function buildingInfo(id: string) {
-  return BUILDINGS_BY_ID[id]
 }

@@ -8,12 +8,12 @@ export default function Inventory() {
   const entries = Object.entries(inventory).filter(([, qty]) => qty > 0)
 
   return (
-    <div className="rounded-2xl border-4 border-lime-700/40 bg-white/90 p-3 shadow-lg">
-      <h3 className="mb-2 flex items-center gap-1 text-sm font-extrabold text-lime-900">
+    <div className="wood-panel p-3">
+      <h3 className="mb-2 flex items-center gap-1 text-sm font-extrabold text-amber-950">
         🧺 Magazzino
       </h3>
       {entries.length === 0 && (
-        <p className="text-xs text-lime-700/70">Vuoto. Raccogli colture e prodotti animali!</p>
+        <p className="text-xs text-amber-800/70">Vuoto. Raccogli colture e prodotti animali!</p>
       )}
       <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto scrollbar-thin sm:grid-cols-3">
         {entries.map(([itemId, qty]) => {
@@ -21,14 +21,16 @@ export default function Inventory() {
           return (
             <div
               key={itemId}
-              className="flex flex-col items-center rounded-xl border-2 border-lime-200 bg-lime-50 p-1.5 text-center"
+              className="pop-badge-square flex flex-col items-center bg-gradient-to-b from-lime-50 to-lime-200 p-1.5 text-center"
             >
-              <span className="text-xl">{info.emoji}</span>
-              <span className="text-[11px] font-bold text-lime-900">{info.name}</span>
-              <span className="text-[10px] text-lime-700">x{qty}</span>
+              <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-lime-200 text-lg">
+                {info.emoji}
+              </span>
+              <span className="mt-1 text-[11px] font-bold text-lime-950">{info.name}</span>
+              <span className="text-[10px] text-lime-800">x{qty}</span>
               <button
                 onClick={() => sellItem(itemId, qty)}
-                className="mt-1 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-yellow-900 shadow"
+                className="chunky-btn mt-1 bg-gradient-to-b from-yellow-300 to-yellow-500 px-2 py-0.5 text-[10px] text-yellow-950"
               >
                 Vendi 🪙{info.sellPrice * qty}
               </button>

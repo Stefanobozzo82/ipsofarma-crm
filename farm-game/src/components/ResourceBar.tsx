@@ -10,42 +10,44 @@ export default function ResourceBar() {
   const weatherInfo = WEATHER_INFO[weather]
 
   return (
-    <div className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b-4 border-lime-700/30 bg-white/80 px-4 py-2 shadow-md backdrop-blur">
-      <div className="flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 shadow-inner">
-        <span className="text-xl">🌻</span>
-        <span className="font-bold text-amber-900">Fattoria Serena</span>
-      </div>
-
-      <div className="flex items-center gap-2 rounded-full border-2 border-lime-600 bg-lime-50 px-3 py-1">
-        <div className="grid h-7 w-7 place-items-center rounded-full bg-lime-500 text-sm font-extrabold text-white shadow">
-          {level}
+    <div className="sticky top-0 z-30 border-b-4 border-amber-800/30 bg-gradient-to-b from-amber-50 to-amber-100/90 px-3 py-2 shadow-lg backdrop-blur">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2.5">
+        <div className="pop-badge-square flex items-center gap-2 bg-gradient-to-b from-amber-200 to-amber-400 px-3 py-1.5">
+          <span className="animate-bob text-2xl">🌻</span>
+          <span className="font-extrabold tracking-tight text-amber-950">Fattoria Serena</span>
         </div>
-        <div className="h-2.5 w-24 overflow-hidden rounded-full bg-lime-200">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-lime-400 to-green-500 transition-all"
-            style={{ width: `${pct}%` }}
-          />
+
+        <div className="pop-badge flex items-center gap-2 bg-gradient-to-b from-lime-200 to-lime-400 px-2.5 py-1">
+          <div className="pop-badge grid h-7 w-7 place-items-center bg-gradient-to-b from-lime-400 to-lime-600 text-sm font-black text-white">
+            {level}
+          </div>
+          <div className="h-2.5 w-24 overflow-hidden rounded-full bg-black/15">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-yellow-300 to-lime-500 transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className="text-xs font-bold text-lime-950">
+            {xpIntoLevel}/{xpForNextLevel} XP
+          </span>
         </div>
-        <span className="text-xs font-semibold text-lime-800">
-          {xpIntoLevel}/{xpForNextLevel} XP
-        </span>
-      </div>
 
-      <div className="flex items-center gap-1 rounded-full border-2 border-yellow-500 bg-yellow-50 px-3 py-1 font-bold text-yellow-700">
-        <span>🪙</span>
-        {coins}
-      </div>
-      <div className="flex items-center gap-1 rounded-full border-2 border-fuchsia-400 bg-fuchsia-50 px-3 py-1 font-bold text-fuchsia-700">
-        <span>💎</span>
-        {gems}
-      </div>
+        <div className="pop-badge flex items-center gap-1 bg-gradient-to-b from-yellow-200 to-yellow-400 px-3 py-1 font-black text-yellow-900">
+          <span className="text-lg">🪙</span>
+          {coins}
+        </div>
+        <div className="pop-badge flex items-center gap-1 bg-gradient-to-b from-fuchsia-200 to-fuchsia-400 px-3 py-1 font-black text-fuchsia-900">
+          <span className="text-lg">💎</span>
+          {gems}
+        </div>
 
-      <div
-        className="ml-auto flex items-center gap-2 rounded-full border-2 border-sky-400 bg-sky-50 px-3 py-1 font-semibold text-sky-800"
-        title="Il meteo influenza i tempi di crescita"
-      >
-        <span className="text-xl">{weatherInfo.emoji}</span>
-        {weatherInfo.label}
+        <div
+          className="pop-badge ml-auto flex items-center gap-2 bg-gradient-to-b from-sky-200 to-sky-400 px-3 py-1 font-bold text-sky-900"
+          title="Il meteo influenza i tempi di crescita"
+        >
+          <span className="text-xl">{weatherInfo.emoji}</span>
+          {weatherInfo.label}
+        </div>
       </div>
     </div>
   )

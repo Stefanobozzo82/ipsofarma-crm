@@ -1,37 +1,78 @@
+import type { CSSProperties } from 'react'
 import type { Cell } from '../game/types'
 import { CROPS_BY_ID } from '../game/data/crops'
 import { BUILDINGS_BY_ID } from '../game/data/buildings'
 import { ANIMALS_BY_HABITAT } from '../game/data/animals'
 import { useGameStore } from '../game/store'
 import { formatDuration } from '../game/utils'
+import { TILE_H, TILE_W, TOP_PADDING, isoPosition } from '../game/iso'
 
-export default function CellTile({ cell, onClick }: { cell: Cell; onClick: () => void }) {
+/**
+ * Ogni cella occupa un riquadro rettangolare (serve per il posizionamento
+ * isometrico), ma questi riquadri si sovrappongono ai vicini. Per questo
+ * il click è applicato solo al rombo del terreno (clip-path) e al badge
+ * del contenuto "pop-up", non all'intero wrapper rettangolare.
+ */
+export default function CellTile({
+  cell,
+  rows,
+  onClick,
+}: {
+  cell: Cell
+  rows: number
+  onClick: () => void
+}) {
   const now = Date.now()
   const animals = useGameStore((s) => s.animals)
+  const { left, top, z } = isoPosition(cell.x, cell.y, rows)
+
+  const wrapperStyle: CSSProperties = {
+    position: 'absolute',
+    left,
+    top,
+    width: TILE_W,
+    height: TILE_H + TOP_PADDING,
+    zIndex: z,
+  }
+
+  function Ground({ face }: { face: string }) {
+    return (
+      <div className="absolute inset-x-0 bottom-0" style={{ height: TILE_H }}>
+        <div
+          onClick={onClick}
+          className={`iso-diamond pointer-events-auto absolute inset-0 cursor-pointer transition group-hover:brightness-110 ${face}`}
+        />
+        <div className="iso-diamond-outline pointer-events-none absolute inset-0" />
+        <div className="iso-ground-shadow" />
+      </div>
+    )
+  }
 
   if (cell.locked) {
     return (
-      <button
-        onClick={onClick}
-        title={`Sblocca per 🪙 ${cell.unlockCost}`}
-        className="group relative aspect-square rounded-lg border-2 border-green-900/20 bg-green-800/40 shadow-inner transition hover:bg-green-800/55"
-      >
-        <span className="absolute inset-0 grid place-items-center text-lg opacity-70 grayscale">
+      <div style={wrapperStyle} data-cell={cell.id} className="group pointer-events-none" title={`Sblocca per 🪙 ${cell.unlockCost}`}>
+        <Ground face="iso-face-locked" />
+        <span
+          className="pointer-events-none absolute text-2xl opacity-80 drop-shadow"
+          style={{ left: '50%', top: TOP_PADDING - 6, transform: 'translate(-50%,-55%)' }}
+        >
           🌲
         </span>
-        <span className="absolute bottom-0.5 left-0 right-0 rounded bg-black/50 text-[10px] font-bold text-white">
-          🪙{cell.unlockCost}
+        <span
+          className="pointer-events-none absolute rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-extrabold text-white"
+          style={{ left: '50%', bottom: 6, transform: 'translateX(-50%)' }}
+        >
+          🪙 {cell.unlockCost}
         </span>
-      </button>
+      </div>
     )
   }
 
   if (!cell.content) {
     return (
-      <button
-        onClick={onClick}
-        className="aspect-square rounded-lg border-2 border-dashed border-lime-700/30 bg-lime-100/70 transition hover:border-lime-600 hover:bg-lime-200"
-      />
+      <div style={wrapperStyle} data-cell={cell.id} className="group pointer-events-none">
+        <Ground face="iso-face-grass" />
+      </div>
     )
   }
 
@@ -42,37 +83,43 @@ export default function CellTile({ cell, onClick }: { cell: Cell; onClick: () =>
     const elapsed = Math.min(total, now - cell.content.plantedAt)
     const pct = total > 0 ? Math.round((elapsed / total) * 100) : 100
     return (
-      <button
-        onClick={onClick}
-        className={`relative aspect-square rounded-lg border-2 bg-amber-800/20 shadow-inner transition ${
-          ready
-            ? 'border-yellow-400 bg-yellow-100 hover:scale-105'
-            : 'border-amber-700/30 hover:bg-amber-800/30'
-        }`}
-      >
-        <span className={`absolute inset-0 grid place-items-center text-2xl ${ready ? 'animate-pop-in' : ''}`}>
-          {ready ? crop?.emoji : '🌱'}
-        </span>
-        {!ready && (
-          <span className="absolute inset-x-1 bottom-1 h-1.5 overflow-hidden rounded-full bg-black/20">
-            <span className="block h-full rounded-full bg-lime-500" style={{ width: `${pct}%` }} />
+      <div style={wrapperStyle} data-cell={cell.id} className="group pointer-events-none">
+        <Ground face={ready ? 'iso-face-ready' : 'iso-face-dirt'} />
+
+        <div
+          onClick={onClick}
+          className="pointer-events-auto absolute flex cursor-pointer flex-col items-center"
+          style={{ left: '50%', top: TOP_PADDING - 4, transform: 'translate(-50%,-92%)' }}
+        >
+          <span className={`pop-badge grid h-10 w-10 place-items-center bg-gradient-to-b from-lime-100 to-lime-300 text-xl ${ready ? 'animate-bob' : ''}`}>
+            {ready ? crop?.emoji : '🌱'}
           </span>
-        )}
-        {ready && (
-          <span className="absolute -top-1.5 -right-1.5 text-sm">✨</span>
-        )}
-      </button>
+          {!ready && (
+            <span className="mt-1 h-1.5 w-9 overflow-hidden rounded-full bg-black/25">
+              <span className="block h-full rounded-full bg-lime-400" style={{ width: `${pct}%` }} />
+            </span>
+          )}
+          {ready && <span className="animate-sparkle absolute -right-2 -top-2 text-sm">✨</span>}
+        </div>
+      </div>
     )
   }
 
   if (cell.content.kind === 'decoration') {
     const def = BUILDINGS_BY_ID[cell.content.decorationId]
     return (
-      <div
-        className="aspect-square rounded-lg border-2 border-sky-700/20 bg-sky-100/60 shadow-inner"
-        title={def?.name}
-      >
-        <span className="grid h-full w-full place-items-center text-2xl">{def?.emoji}</span>
+      <div style={wrapperStyle} data-cell={cell.id} className="pointer-events-none" title={def?.name}>
+        <div className="absolute inset-x-0 bottom-0" style={{ height: TILE_H }}>
+          <div className="iso-diamond iso-face-grass absolute inset-0" />
+          <div className="iso-diamond-outline absolute inset-0" />
+          <div className="iso-ground-shadow" />
+        </div>
+        <span
+          className="pointer-events-none absolute text-3xl drop-shadow-lg"
+          style={{ left: '50%', top: TOP_PADDING - 4, transform: 'translate(-50%,-90%)' }}
+        >
+          {def?.emoji}
+        </span>
       </div>
     )
   }
@@ -86,23 +133,32 @@ export default function CellTile({ cell, onClick }: { cell: Cell; onClick: () =>
     )
     const babyGrowing = occupants.some((a) => a.stage === 'baby')
     return (
-      <button
-        onClick={onClick}
-        className="relative aspect-square rounded-lg border-2 border-orange-700/30 bg-orange-100 shadow-inner transition hover:bg-orange-200"
-      >
-        <span className="absolute inset-0 grid place-items-center text-2xl">{def?.emoji}</span>
-        <span className="absolute bottom-0.5 left-0.5 text-[10px] font-bold text-orange-900">
-          {occupants.length}/{def?.capacity ?? 0}
-        </span>
-        {species && occupants.length === 0 && (
-          <span className="absolute top-0.5 right-0.5 text-[10px] font-bold text-orange-700">+</span>
-        )}
-        {anyReady && <span className="absolute -top-1.5 -right-1.5 animate-pop-in text-base">✨</span>}
-        {babyGrowing && !anyReady && <span className="absolute -top-1.5 -right-1.5 text-base">🍼</span>}
-        {cell.content.breeding && now < cell.content.breeding.readyAt && (
-          <span className="absolute -bottom-1.5 -right-1.5 text-base">💞</span>
-        )}
-      </button>
+      <div style={wrapperStyle} data-cell={cell.id} className="group pointer-events-none">
+        <Ground face="iso-face-grass" />
+
+        <div
+          onClick={onClick}
+          className="pointer-events-auto absolute flex cursor-pointer flex-col items-center"
+          style={{ left: '50%', top: TOP_PADDING - 10, transform: 'translate(-50%,-88%)' }}
+        >
+          <span className="pop-badge-square grid h-12 w-12 place-items-center bg-gradient-to-b from-orange-100 to-orange-300 text-2xl">
+            {def?.emoji}
+          </span>
+          <span className="mt-1 rounded-full bg-orange-900/80 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+            {occupants.length}/{def?.capacity ?? 0}
+          </span>
+          {anyReady && <span className="animate-sparkle absolute -right-2 -top-2 text-base">✨</span>}
+          {babyGrowing && !anyReady && <span className="absolute -right-2 -top-2 text-base">🍼</span>}
+          {cell.content.breeding && now < cell.content.breeding.readyAt && (
+            <span className="absolute -bottom-1 -right-3 text-base">💞</span>
+          )}
+          {species && occupants.length === 0 && (
+            <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-xs font-black text-white shadow">
+              +
+            </span>
+          )}
+        </div>
+      </div>
     )
   }
 
@@ -111,22 +167,25 @@ export default function CellTile({ cell, onClick }: { cell: Cell; onClick: () =>
     const job = cell.content.job
     const jobReady = job && now >= job.endsAt
     return (
-      <button
-        onClick={onClick}
-        className={`relative aspect-square rounded-lg border-2 shadow-inner transition ${
-          jobReady
-            ? 'border-purple-400 bg-purple-100 hover:scale-105'
-            : 'border-purple-700/30 bg-purple-50 hover:bg-purple-100'
-        }`}
-      >
-        <span className="absolute inset-0 grid place-items-center text-2xl">{def?.emoji}</span>
-        {job && !jobReady && (
-          <span className="absolute bottom-0.5 left-0.5 right-0.5 rounded bg-black/50 text-[9px] font-bold text-white">
-            {formatDuration(job.endsAt - now)}
+      <div style={wrapperStyle} data-cell={cell.id} className="group pointer-events-none">
+        <Ground face="iso-face-grass" />
+
+        <div
+          onClick={onClick}
+          className="pointer-events-auto absolute flex cursor-pointer flex-col items-center"
+          style={{ left: '50%', top: TOP_PADDING - 10, transform: 'translate(-50%,-88%)' }}
+        >
+          <span className="pop-badge-square grid h-12 w-12 place-items-center bg-gradient-to-b from-purple-100 to-purple-300 text-2xl">
+            {def?.emoji}
           </span>
-        )}
-        {jobReady && <span className="absolute -top-1.5 -right-1.5 animate-pop-in text-base">✨</span>}
-      </button>
+          {job && !jobReady && (
+            <span className="mt-1 rounded-full bg-purple-900/80 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+              {formatDuration(job.endsAt - now)}
+            </span>
+          )}
+          {jobReady && <span className="animate-sparkle absolute -right-2 -top-2 text-base">✨</span>}
+        </div>
+      </div>
     )
   }
 

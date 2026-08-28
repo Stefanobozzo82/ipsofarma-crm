@@ -82,6 +82,10 @@ export default function App() {
 
       <footer className="py-2 text-center text-[11px] text-lime-900/50">
         Fattoria Serena — gioco originale, salvataggio automatico nel browser 🌿
+        <br />
+        Alcuni sprite: "Farming Game - Basics" di 2DPIXX (CC-BY 3.0) · "Animals
+        pack" di Olga Bikmullina (CC-BY 3.0) · illustrazioni di
+        CityBuildingKit.com (CC0)
       </footer>
     </div>
   )

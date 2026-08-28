@@ -148,10 +148,10 @@ export default function CellTile({
           style={{ left: '50%', top: TOP_PADDING - 10, transform: 'translate(-50%,-88%)' }}
         >
           <span className="pop-badge-square grid h-12 w-12 place-items-center bg-gradient-to-b from-orange-100 to-orange-300">
-            {occupants.length > 0 && species ? (
+            {occupants.length > 0 && species?.sprite ? (
               <SpriteIcon sprite={species.sprite} emoji={species.emoji} alt={species.name} className="h-9 w-9 object-contain text-2xl" />
             ) : (
-              <span className="text-2xl">{def?.emoji}</span>
+              <SpriteIcon sprite={def?.sprite} emoji={def?.emoji ?? ''} alt={def?.name} className="h-10 w-10 object-contain text-2xl" />
             )}
           </span>
           <span className="mt-1 rounded-full bg-orange-900/80 px-1.5 py-0.5 text-[10px] font-extrabold text-white">

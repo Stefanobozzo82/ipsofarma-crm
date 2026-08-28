@@ -1,12 +1,25 @@
-Sprite in questa cartella:
+Sprite/illustrazioni in questa cartella, da tre pacchetti gratuiti su
+OpenGameArt.org, scelti per uno stile vicino a un farm-sim vettoriale/cartoon:
 
-  "Tiny Farm" di Kenney (www.kenney.nl)
-  Licenza: Creative Commons Zero (CC0) — pubblico dominio.
-  https://creativecommons.org/publicdomain/zero/1.0/
-  Uso libero in progetti personali, educativi e commerciali.
-  Attribuzione non obbligatoria (mantenuta qui per correttezza).
+1) citybuildingkit/ (barn.png, chicken-coop.png, corn.png)
+   "Farming Game Set - Red Barn", "Farming Game - Chicken Coop",
+   "Corn Farm Isometric Tile" — di City Building Game Art (CityBuildingKit.com)
+   Licenza: CC0 (pubblico dominio). Attribuzione a CityBuildingKit.com
+   gradita ma non obbligatoria.
+   https://opengameart.org/content/farming-game-set-red-barn-with-psd
+   https://opengameart.org/content/farming-game-chicken-coop
+   https://opengameart.org/content/corn-farm-isometric-tile
+   (immagini ridimensionate rispetto all'originale, nessuna altra modifica)
 
-  Fonte pacchetto: https://kenney.nl/assets/tiny-farm
+2) basics/ (carrot_*, potato_*, bean_*, paprika_*, grass_tile, soil_tile)
+   "Farming Game - Basics" di 2DPIXX
+   Licenza: CC-BY 3.0 — attribuzione richiesta.
+   https://opengameart.org/content/farming-game-basics
 
-I singoli file sono ritagli del tileset originale, rinominati per chiarezza
-(es. carota_grow.png, mucca.png) — nessuna modifica al disegno dei tile.
+3) animalspack/ (cow.png, pig.png)
+   "Animals pack" di Olga Bikmullina (http://ahninniah.graphics)
+   Licenza: CC-BY 3.0 — attribuzione richiesta.
+   https://opengameart.org/content/animals-pack
+
+L'attribuzione per (2) e (3) è riportata anche nel footer dell'app
+(App.tsx), come richiesto dalla licenza CC-BY.

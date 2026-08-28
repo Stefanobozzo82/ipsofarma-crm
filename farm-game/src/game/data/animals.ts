@@ -1,16 +1,16 @@
 import type { AnimalDef } from '../types'
-import gallinaSprite from '../../assets/farm/gallina.png'
-import pecoraSprite from '../../assets/farm/pecora.png'
-import muccaSprite from '../../assets/farm/mucca.png'
+import muccaSprite from '../../assets/farm/animalspack/cow.png'
+import maialeSprite from '../../assets/farm/animalspack/pig.png'
 
 // Animali della fattoria: ognuno con un bene prodotto unico.
-// Sprite (adulti) da "Tiny Farm" di Kenney (CC0) — vedi src/assets/farm/CREDITS.txt.
+// Sprite (mucca/maiale) da "Animals pack" di Olga Bikmullina (CC-BY 3.0) —
+// vedi src/assets/farm/CREDITS.txt. Gallina/pecora restano su emoji: nessuno
+// sprite reperito nello stesso stile per questi due animali.
 export const ANIMALS: AnimalDef[] = [
   {
     id: 'gallina',
     name: 'Gallina',
     emoji: '🐔',
-    sprite: gallinaSprite,
     babyEmoji: '🐣',
     produceId: 'uovo',
     produceName: 'Uovo',
@@ -31,7 +31,6 @@ export const ANIMALS: AnimalDef[] = [
     id: 'pecora',
     name: 'Pecora',
     emoji: '🐑',
-    sprite: pecoraSprite,
     babyEmoji: '🐑',
     produceId: 'lana',
     produceName: 'Lana',
@@ -73,6 +72,7 @@ export const ANIMALS: AnimalDef[] = [
     id: 'maiale',
     name: 'Maiale',
     emoji: '🐖',
+    sprite: maialeSprite,
     babyEmoji: '🐷',
     produceId: 'tartufo',
     produceName: 'Tartufo',

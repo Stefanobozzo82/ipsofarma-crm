@@ -101,7 +101,7 @@ export default function ShopMenu({
                 >
                   <span className="pop-badge grid h-9 w-9 place-items-center bg-gradient-to-b from-white to-orange-200">
                     <SpriteIcon
-                      sprite={ANIMALS_BY_HABITAT[h.id]?.sprite ?? h.sprite}
+                      sprite={h.sprite ?? ANIMALS_BY_HABITAT[h.id]?.sprite}
                       emoji={h.emoji}
                       alt={h.name}
                       className="h-7 w-7 object-contain text-xl"

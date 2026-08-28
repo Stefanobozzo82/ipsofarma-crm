@@ -1,14 +1,17 @@
 import type { BuildingDef, Recipe } from '../types'
-import alberoSprite from '../../assets/farm/albero.png'
-import girasoleSprite from '../../assets/farm/girasole.png'
+import chickenCoopSprite from '../../assets/farm/citybuildingkit/chicken-coop.png'
+import barnSprite from '../../assets/farm/citybuildingkit/barn.png'
 
 // Edifici: habitat per animali, edifici di produzione (crafting) e decorazioni.
+// Sprite pollaio/stalla da CityBuildingKit.com (CC0) — vedi
+// src/assets/farm/CREDITS.txt. Ovile/porcile restano su emoji.
 export const BUILDINGS: BuildingDef[] = [
   // --- Habitat ---
   {
     id: 'pollaio',
     name: 'Pollaio',
     emoji: '🏠',
+    sprite: chickenCoopSprite,
     category: 'habitat',
     cost: 50,
     unlockLevel: 1,
@@ -29,6 +32,7 @@ export const BUILDINGS: BuildingDef[] = [
     id: 'stalla',
     name: 'Stalla',
     emoji: '🏚️',
+    sprite: barnSprite,
     category: 'habitat',
     cost: 220,
     unlockLevel: 3,
@@ -163,7 +167,6 @@ export const BUILDINGS: BuildingDef[] = [
     id: 'albero',
     name: 'Albero',
     emoji: '🌳',
-    sprite: alberoSprite,
     category: 'decoration',
     cost: 25,
     unlockLevel: 1,
@@ -200,7 +203,6 @@ export const BUILDINGS: BuildingDef[] = [
     id: 'girasoli',
     name: 'Girasoli',
     emoji: '🌻',
-    sprite: girasoleSprite,
     category: 'decoration',
     cost: 18,
     unlockLevel: 1,

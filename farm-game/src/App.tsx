@@ -1,0 +1,88 @@
+import { useEffect, useState } from 'react'
+import ResourceBar from './components/ResourceBar'
+import FarmGrid from './components/FarmGrid'
+import ShopMenu, { type ShopSelection } from './components/ShopMenu'
+import Inventory from './components/Inventory'
+import OrderBoard from './components/OrderBoard'
+import MissionPanel from './components/MissionPanel'
+import FloatingPopups from './components/FloatingPopups'
+import { useGameStore } from './game/store'
+
+export default function App() {
+  const tick = useGameStore((s) => s.tick)
+  const resetGame = useGameStore((s) => s.resetGame)
+  const [selection, setSelection] = useState<ShopSelection>(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+
+  useEffect(() => {
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [tick])
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <ResourceBar />
+      <FloatingPopups />
+
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-3 p-3 lg:flex-row">
+        <div className="flex min-h-[420px] flex-1 flex-col gap-3">
+          <FarmGrid selection={selection} onSelectionUsed={() => setSelection(null)} />
+        </div>
+
+        <aside className="flex w-full flex-col gap-3 lg:w-80">
+          <div className="h-64">
+            <ShopMenu selection={selection} onSelect={setSelection} />
+          </div>
+          <Inventory />
+          <OrderBoard />
+          <MissionPanel />
+
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="rounded-full border-2 border-red-300 bg-red-50 py-1.5 text-xs font-bold text-red-500 hover:bg-red-100"
+          >
+            🗑️ Ricomincia partita
+          </button>
+        </aside>
+      </main>
+
+      {showResetConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowResetConfirm(false)}
+        >
+          <div
+            className="rounded-2xl border-4 border-red-300 bg-white p-4 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="mb-3 font-bold text-red-700">
+              Sei sicuro di voler ricominciare? Perderai tutti i progressi.
+            </p>
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={() => {
+                  resetGame()
+                  setShowResetConfirm(false)
+                }}
+                className="rounded-full bg-red-500 px-4 py-1.5 font-bold text-white"
+              >
+                Sì, ricomincia
+              </button>
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="rounded-full bg-gray-200 px-4 py-1.5 font-bold text-gray-700"
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="py-2 text-center text-[11px] text-lime-900/50">
+        Fattoria Serena — gioco originale, salvataggio automatico nel browser 🌿
+      </footer>
+    </div>
+  )
+}

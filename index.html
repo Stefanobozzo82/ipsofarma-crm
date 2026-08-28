@@ -777,6 +777,22 @@ function mergeAllDocs(base,localDB,remoteDB){
     const{value,conflict}=mergeSingleField(base?base[k]:null,localDB[k],remoteDB[k],hasBase);
     localDB[k]=value;if(conflict)anyConflict=true;
   });
+  // I contatori (numero progressivo del prossimo OC/OF/DDT/FT/ecc.) non sono in MERGE_COLLS né in
+  // MERGE_SINGLE: senza questo, restavano quelli che il dispositivo locale aveva già in memoria
+  // PRIMA del merge, non toccati per niente. Un dispositivo rimasto indietro (i cui contatori sono
+  // più bassi di quanto altri dispositivi abbiano nel frattempo avanzato, magari anche generando
+  // regolarmente nuovi documenti già protetti correttamente dal merge sopra) pubblicava comunque i
+  // SUOI contatori vecchi al salvataggio successivo, facendo tornare indietro il numero — rischio
+  // concreto di duplicare un numero già usato la volta dopo. Il contatore deve poter solo salire:
+  // prendiamo sempre il massimo tra locale e remoto, mai una regressione, indipendentemente da
+  // quale dei due lati abbia davvero "vinto" il resto del merge.
+  if(remoteDB.counters){
+    localDB.counters=localDB.counters||{};
+    Object.keys(remoteDB.counters).forEach(k=>{
+      const l=localDB.counters[k],r=remoteDB.counters[k];
+      localDB.counters[k]=(typeof l==='number')?Math.max(l,r||0):r;
+    });
+  }
   _allProd=null; // il catalogo prodotti può essere stato toccato dal merge: invalida la cache dei prezzi
   return{conflict:anyConflict,conflictDocs};
 }

@@ -922,7 +922,22 @@ rigore di tutto il resto di questo lavoro.
   RLS lo impone già lato database (vedi `0001_aziende_e_utenti.sql`), qui
   si nasconde in più il pulsante e si disabilitano i campi a chi non lo
   è, per coerenza visiva con `abbonamento.html`, non come unica difesa.
-- [ ] Ricerca testuale negli elenchi documento
+- [x] **Ricerca testuale negli elenchi** — un campo di ricerca (icona a
+  lente, come quello di Prodotti) è stato aggiunto sopra ogni elenco di
+  anagrafiche e documenti: clienti, fornitori, preventivi, ordini, DDT,
+  fatture, note di credito (cliente e fornitore per ognuno). Stessa
+  semantica della variabile `Q` del gestionale originale — confronto
+  case-insensitive per sottostringa — applicata ai campi visibili in
+  tabella: nome/P.IVA/città per le anagrafiche, numero documento e
+  ragione sociale della controparte (cliente o fornitore) per i
+  documenti. A differenza di Prodotti (che interroga il server, per via
+  delle 21.278 righe del catalogo), qui il filtro è lato client sull'
+  elenco già caricato: più immediato, dato che i volumi di clienti/
+  documenti di una singola azienda sono ordini di grandezza più piccoli.
+  Un piccolo ritardo (200ms) evita comunque un nuovo giro di rendering
+  ad ogni battuta. Non tocca l'ordinamento né il ridimensionamento delle
+  colonne, già presenti: la ricerca filtra le righe prima che vengano
+  ordinate e disegnate.
 - [ ] Filtri elenco (fornitore/stato/intervallo date)
 - [ ] Selezione multipla e azioni collettive
 - [ ] Stampa/PDF di un documento

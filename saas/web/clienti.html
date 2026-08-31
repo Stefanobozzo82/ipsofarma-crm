@@ -43,7 +43,10 @@
     <div class="card">
       <div class="toolbar">
         <h3>Elenco</h3>
-        <button class="primary" id="new-cliente">+ Nuovo cliente</button>
+        <div class="toolbar-right">
+          <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per nome, P.IVA, città…"></div>
+          <button class="primary" id="new-cliente">+ Nuovo cliente</button>
+        </div>
       </div>
       <div id="list-area"><p class="empty">Carico…</p></div>
     </div>
@@ -64,6 +67,7 @@
   let companyId = null;
   let editingId = null; // null = sto creando, altrimenti sto modificando questo id
   let SORT = { key: 'nome', dir: 'asc' };
+  let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
 
   function setMsg(text, kind){
     const el = $('form-msg');
@@ -95,6 +99,21 @@
     else { SORT.key = key; SORT.dir = 'asc'; }
     renderList();
   }
+
+  // Ricerca testuale: come Q nel gestionale originale (confronto case-insensitive
+  // per sottostringa), qui su nome, P.IVA e città.
+  function matchesQuery(c){
+    if(!Q) return true;
+    return (c.nome || '').toLowerCase().includes(Q)
+      || (c.piva || '').toLowerCase().includes(Q)
+      || (c.citta || '').toLowerCase().includes(Q);
+  }
+  let searchTimer = null;
+  $('q').addEventListener('input', () => {
+    Q = $('q').value.trim().toLowerCase();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderList, 200);
+  });
 
   function openForm(cliente){
     editingId = cliente ? cliente.id : null;
@@ -148,6 +167,11 @@
     }
     if(clienti.length === 0){
       area.innerHTML = '<p class="empty">Nessun cliente ancora. Aggiungine uno con "+ Nuovo cliente".</p>';
+      return;
+    }
+    clienti = clienti.filter(matchesQuery);
+    if(clienti.length === 0){
+      area.innerHTML = '<p class="empty">Nessun cliente trovato per la ricerca.</p>';
       return;
     }
     clienti.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));

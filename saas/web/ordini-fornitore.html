@@ -41,7 +41,10 @@
   <div class="card">
     <div class="toolbar">
       <h3>Elenco</h3>
-      <button class="primary" id="new-ordine">+ Nuovo ordine</button>
+      <div class="toolbar-right">
+        <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per numero o fornitore…"></div>
+        <button class="primary" id="new-ordine">+ Nuovo ordine</button>
+      </div>
     </div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -74,6 +77,7 @@
   // ---- ordinamento colonne: come nel gestionale originale — un clic
   // sull'intestazione ordina, un secondo clic inverte la direzione.
   let SORT = { key: 'num', dir: 'desc' };
+  let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   function sortCmp(va, vb, dir){
     const mul = dir === 'asc' ? 1 : -1;
     if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
@@ -95,6 +99,19 @@
     else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
     renderList();
   }
+
+  // Ricerca testuale: come Q nel gestionale originale (num + nome fornitore).
+  function matchesQuery(it){
+    if(!Q) return true;
+    const party = (fornitoriById[it.fornitoreId] || {}).nome || '';
+    return (it.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
+  }
+  let searchTimer = null;
+  $('q').addEventListener('input', () => {
+    Q = $('q').value.trim().toLowerCase();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderList, 200);
+  });
 
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
@@ -195,6 +212,11 @@
     }
     if(ordini.length === 0){
       area.innerHTML = '<p class="empty">Nessun ordine ancora. Crea prima un fornitore, poi aggiungi un ordine con "+ Nuovo ordine".</p>';
+      return;
+    }
+    ordini = ordini.filter(matchesQuery);
+    if(ordini.length === 0){
+      area.innerHTML = '<p class="empty">Nessun ordine trovato per la ricerca.</p>';
       return;
     }
     ordini.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));

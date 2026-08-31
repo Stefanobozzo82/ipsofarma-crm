@@ -48,7 +48,10 @@
   <div class="card">
     <div class="toolbar">
       <h3>Elenco</h3>
-      <button class="primary" id="new-fornitore">+ Nuovo fornitore</button>
+      <div class="toolbar-right">
+        <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per nome, P.IVA, città…"></div>
+        <button class="primary" id="new-fornitore">+ Nuovo fornitore</button>
+      </div>
     </div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -69,6 +72,7 @@
   let companyId = null;
   let editingId = null;
   let SORT = { key: 'nome', dir: 'asc' };
+  let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function setMsg(text, kind){
@@ -100,6 +104,19 @@
     else { SORT.key = key; SORT.dir = 'asc'; }
     renderList();
   }
+
+  function matchesQuery(f){
+    if(!Q) return true;
+    return (f.nome || '').toLowerCase().includes(Q)
+      || (f.piva || '').toLowerCase().includes(Q)
+      || (f.citta || '').toLowerCase().includes(Q);
+  }
+  let searchTimer = null;
+  $('q').addEventListener('input', () => {
+    Q = $('q').value.trim().toLowerCase();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderList, 200);
+  });
 
   function openForm(fornitore){
     editingId = fornitore ? fornitore.id : null;
@@ -153,6 +170,11 @@
     }
     if(fornitori.length === 0){
       area.innerHTML = '<p class="empty">Nessun fornitore ancora. Aggiungine uno con "+ Nuovo fornitore".</p>';
+      return;
+    }
+    fornitori = fornitori.filter(matchesQuery);
+    if(fornitori.length === 0){
+      area.innerHTML = '<p class="empty">Nessun fornitore trovato per la ricerca.</p>';
       return;
     }
     fornitori.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));

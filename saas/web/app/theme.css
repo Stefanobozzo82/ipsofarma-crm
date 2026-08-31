@@ -202,6 +202,17 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 
 .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
 .toolbar h3{ font-size:13px; margin:0; font-weight:700; color:var(--txt); }
+.toolbar-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+/* Ricerca testuale sopra un elenco: stessa idea della ricerca prodotti del
+ * gestionale originale (icona a lente dentro il campo), qui riusata anche
+ * per gli elenchi di anagrafiche/documenti dove nell'originale il filtro
+ * testuale su Q esisteva ma senza un campo dedicato in ogni pagina. */
+.search-box{ position:relative; }
+.search-box input{ width:210px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:7px 11px 7px 30px; font-size:13px; color:var(--txt); font-family:inherit; }
+.search-box input:focus{ outline:none; border-color:var(--accent); background:#fff; }
+.search-box .si{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--faint); font-size:13px; pointer-events:none; }
+@media(max-width:680px){ .search-box input{ width:140px; } }
 
 button.primary{ padding:7px 15px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); transition:background .12s; }
 button.primary:hover{ background:var(--accent-d); }

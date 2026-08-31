@@ -50,7 +50,10 @@
   <div class="card">
     <div class="toolbar">
       <h3>Elenco</h3>
-      <button class="primary" id="new-preventivo">+ Nuovo preventivo</button>
+      <div class="toolbar-right">
+        <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per numero o cliente…"></div>
+        <button class="primary" id="new-preventivo">+ Nuovo preventivo</button>
+      </div>
     </div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -72,6 +75,7 @@
   let editingId = null;
   let clientiById = {};
   let SORT = { key: 'num', dir: 'desc' };
+  let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -145,6 +149,19 @@
     else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
     renderList();
   }
+
+  // Ricerca testuale: come Q nel gestionale originale (num + nome del cliente).
+  function matchesQuery(p){
+    if(!Q) return true;
+    const cliente = (clientiById[p.clienteId] || {}).nome || '';
+    return (p.num || '').toLowerCase().includes(Q) || cliente.toLowerCase().includes(Q);
+  }
+  let searchTimer = null;
+  $('q').addEventListener('input', () => {
+    Q = $('q').value.trim().toLowerCase();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderList, 200);
+  });
 
   function openForm(preventivo){
     editingId = preventivo ? preventivo.id : null;
@@ -227,6 +244,11 @@
     }
     if(elenco.length === 0){
       area.innerHTML = '<p class="empty">Nessun preventivo ancora. Crea prima un cliente, poi aggiungine uno con "+ Nuovo preventivo".</p>';
+      return;
+    }
+    elenco = elenco.filter(matchesQuery);
+    if(elenco.length === 0){
+      area.innerHTML = '<p class="empty">Nessun preventivo trovato per la ricerca.</p>';
       return;
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));

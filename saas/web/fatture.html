@@ -25,9 +25,10 @@
   header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:22px; gap:10px; flex-wrap:wrap; }
   .eyebrow{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
   h1{ font-size:20px; margin:0; }
-  .nav{ display:flex; gap:14px; align-items:center; font-size:13px; flex-wrap:wrap; }
+  .nav{ display:flex; gap:14px; align-items:center; font-size:13px; flex-wrap:wrap; row-gap:6px; }
   .nav a, .nav button{ color:var(--muted); background:none; border:none; cursor:pointer; font-size:13px; padding:0; text-decoration:underline; }
   .nav a.on{ color:var(--ink); font-weight:600; text-decoration:none; }
+  .nav .sep{ color:var(--line); }
   .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
   .card + .card{ margin-top:16px; }
   .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
@@ -79,6 +80,10 @@
       <a href="ordini.html">Ordini</a>
       <a href="ddt.html">DDT</a>
       <a class="on" href="fatture.html">Fatture</a>
+      <span class="sep">·</span>
+      <a href="fornitori.html">Fornitori</a>
+      <a href="ordini-fornitore.html">Ordini forn.</a>
+      <a href="fatture-fornitore.html">Fatture forn.</a>
       <a href="index.html">← cambia azienda</a>
       <button id="logout">Esci</button>
     </div>

@@ -3,14 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clienti — banco di prova Fase 2</title>
+<title>Fornitori — banco di prova Fase 2</title>
 <!--
-  Primo modulo reale del gestionale collegato a Supabase invece che a
-  GitHub (via saas/web/app/store.js). Non è ancora l'interfaccia finale:
-  serve a provare, su un caso concreto, che la lettura/scrittura tramite
-  store.js funziona nell'uso reale, prima di estendere lo stesso schema ai
-  documenti (ordini, ddt, fatture — che a differenza di clienti/fornitori
-  richiedono anche la numerazione asincrona, vedi README).
+  Primo modulo lato fornitore, speculare a clienti.html. La tabella
+  "fornitori" ha meno campi di "clienti" (niente split/esig/dest, che sono
+  concetti specifici della fatturazione attiva verso clienti).
 -->
 <style>
   :root{
@@ -61,15 +58,15 @@
   <header>
     <div>
       <p class="eyebrow" id="company-eyebrow">Azienda</p>
-      <h1>Clienti</h1>
+      <h1>Fornitori</h1>
     </div>
     <div class="nav">
-      <a class="on" href="clienti.html">Clienti</a>
+      <a href="clienti.html">Clienti</a>
       <a href="ordini.html">Ordini</a>
       <a href="ddt.html">DDT</a>
       <a href="fatture.html">Fatture</a>
       <span class="sep">·</span>
-      <a href="fornitori.html">Fornitori</a>
+      <a class="on" href="fornitori.html">Fornitori</a>
       <a href="ordini-fornitore.html">Ordini forn.</a>
       <a href="fatture-fornitore.html">Fatture forn.</a>
       <a href="index.html">← cambia azienda</a>
@@ -78,9 +75,9 @@
   </header>
 
   <div class="card" id="form-card" hidden>
-    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuovo cliente</h2>
+    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuovo fornitore</h2>
     <label for="f-nome">Nome / ragione sociale</label>
-    <input id="f-nome" type="text" placeholder="Farmacia Rossi Srl">
+    <input id="f-nome" type="text" placeholder="B.Braun Milano Spa">
     <div class="grid2">
       <div><label for="f-tipo">Tipo</label>
         <select id="f-tipo"><option value="PG">Persona giuridica</option><option value="PF">Persona fisica</option></select>
@@ -105,7 +102,7 @@
   <div class="card">
     <div class="toolbar">
       <h2>Elenco</h2>
-      <button class="primary" id="new-cliente">+ Nuovo cliente</button>
+      <button class="primary" id="new-fornitore">+ Nuovo fornitore</button>
     </div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -121,32 +118,32 @@
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
   let companyId = null;
-  let editingId = null; // null = sto creando, altrimenti sto modificando questo id
+  let editingId = null;
 
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
   }
-  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-  function openForm(cliente){
-    editingId = cliente ? cliente.id : null;
-    $('form-title').textContent = cliente ? 'Modifica cliente' : 'Nuovo cliente';
-    $('f-nome').value = cliente ? (cliente.nome || '') : '';
-    $('f-tipo').value = cliente ? (cliente.tipo || 'PG') : 'PG';
-    $('f-piva').value = cliente ? (cliente.piva || '') : '';
-    $('f-citta').value = cliente ? (cliente.citta || '') : '';
-    $('f-tel').value = cliente ? (cliente.tel || '') : '';
-    $('f-email').value = cliente ? (cliente.email || '') : '';
-    $('f-note').value = cliente ? (cliente.note || '') : '';
+  function openForm(fornitore){
+    editingId = fornitore ? fornitore.id : null;
+    $('form-title').textContent = fornitore ? 'Modifica fornitore' : 'Nuovo fornitore';
+    $('f-nome').value = fornitore ? (fornitore.nome || '') : '';
+    $('f-tipo').value = fornitore ? (fornitore.tipo || 'PG') : 'PG';
+    $('f-piva').value = fornitore ? (fornitore.piva || '') : '';
+    $('f-citta').value = fornitore ? (fornitore.citta || '') : '';
+    $('f-tel').value = fornitore ? (fornitore.tel || '') : '';
+    $('f-email').value = fornitore ? (fornitore.email || '') : '';
+    $('f-note').value = fornitore ? (fornitore.note || '') : '';
     setMsg('', '');
     $('form-card').hidden = false;
     $('f-nome').focus();
   }
   function closeForm(){ $('form-card').hidden = true; editingId = null; }
 
-  $('new-cliente').addEventListener('click', () => openForm(null));
+  $('new-fornitore').addEventListener('click', () => openForm(null));
   $('f-cancel').addEventListener('click', closeForm);
 
   $('f-save').addEventListener('click', async () => {
@@ -160,7 +157,7 @@
     if(editingId) doc.id = editingId;
     $('f-save').disabled = true;
     try{
-      await store.saveDoc('clienti', doc, companyId);
+      await store.saveDoc('fornitori', doc, companyId);
       closeForm();
       await renderList();
     }catch(err){
@@ -173,40 +170,39 @@
   async function renderList(){
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let clienti;
+    let fornitori;
     try{
-      clienti = await store.loadCollection('clienti', companyId);
+      fornitori = await store.loadCollection('fornitori', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(clienti.length === 0){
-      area.innerHTML = '<p class="empty">Nessun cliente ancora. Aggiungine uno con "+ Nuovo cliente".</p>';
+    if(fornitori.length === 0){
+      area.innerHTML = '<p class="empty">Nessun fornitore ancora. Aggiungine uno con "+ Nuovo fornitore".</p>';
       return;
     }
-    clienti.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it'));
+    fornitori.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it'));
     area.innerHTML = `<table><thead><tr>
         <th>Nome</th><th>P.IVA</th><th>Città</th><th>Telefono</th><th></th>
-      </tr></thead><tbody>${clienti.map(c => `
+      </tr></thead><tbody>${fornitori.map(f => `
         <tr>
-          <td>${esc(c.nome)}</td>
-          <td>${esc(c.piva) || '—'}</td>
-          <td>${esc(c.citta) || '—'}</td>
-          <td>${esc(c.tel) || '—'}</td>
+          <td>${esc(f.nome)}</td>
+          <td>${esc(f.piva) || '—'}</td>
+          <td>${esc(f.citta) || '—'}</td>
+          <td>${esc(f.tel) || '—'}</td>
           <td class="actions">
-            <button data-edit="${c.id}">Modifica</button>
-            <button class="danger" data-del="${c.id}">Elimina</button>
+            <button data-edit="${f.id}">Modifica</button>
+            <button class="danger" data-del="${f.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table>`;
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      const c = clienti.find(x => x.id === btn.dataset.edit);
-      openForm(c);
+      openForm(fornitori.find(x => x.id === btn.dataset.edit));
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
-      const c = clienti.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare "${c.nome}"? L'operazione non si può annullare.`)) return;
+      const f = fornitori.find(x => x.id === btn.dataset.del);
+      if(!confirm(`Eliminare "${f.nome}"? L'operazione non si può annullare.`)) return;
       try{
-        await store.removeDoc('clienti', c.id);
+        await store.removeDoc('fornitori', f.id);
         await renderList();
       }catch(err){
         alert('Errore durante l\'eliminazione: ' + err.message);

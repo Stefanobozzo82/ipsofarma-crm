@@ -3,30 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ordini cliente — banco di prova Fase 2</title>
+<title>Fatture fornitore — banco di prova Fase 2</title>
 <!--
-  Secondo modulo reale del gestionale collegato a Supabase, dopo clienti.html.
-  A differenza delle anagrafiche, un ordine è un DOCUMENTO NUMERATO: qui la
-  numerazione passa per store.nextNumber(), che a differenza di nextNum() nel
-  gestionale attuale è una vera chiamata di rete (asincrona) — è la parte
-  nuova che questo modulo prova, non solo lettura/scrittura come clienti.html.
-
-  Il form delle righe è volutamente un sottoinsieme di quello vero (manca
-  sconto, lotto, scadenza...): l'obiettivo di questo passaggio è provare il
-  meccanismo (numerazione + righe + collegamento a un cliente), non ancora
-  arrivare alla parità completa dei campi con il gestionale attuale.
+  Speculare a fatture.html: qui lo stato non è "incassata" ma "pagata" (il
+  denaro esce, non entra) — stessa forma di dati (paid/paidDate/pagamenti),
+  stessa tabella fatture_fornitore. Il collegamento è solo a un ordine
+  fornitore (of_id): non esiste un DDT fornitore in questo schema.
 -->
 <style>
   :root{
     --ink:#16212c; --paper:#f3f4f1; --card:#ffffff; --line:#d7dad2;
     --muted:#5c6670; --accent:#2f6b66; --accent-ink:#ffffff; --danger:#b3402a; --danger-soft:#f7e3de;
+    --ok:#2f6b66; --ok-soft:#dceae7; --pending:#a8651a; --pending-soft:#f0dfc4;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --ink:#e7eaee; --paper:#12161d; --card:#1a2029; --line:#2a313c; --muted:#94a0ab; --accent:#5caba4; --accent-ink:#0d1512; --danger:#e08a72; --danger-soft:#3a201a; }
+    :root{ --ink:#e7eaee; --paper:#12161d; --card:#1a2029; --line:#2a313c; --muted:#94a0ab; --accent:#5caba4; --accent-ink:#0d1512; --danger:#e08a72; --danger-soft:#3a201a; --ok:#5caba4; --ok-soft:#1c2e2c; --pending:#dda05a; --pending-soft:#3a2c19; }
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap{ max-width:860px; margin:0 auto; padding:32px 20px 60px; }
+  .wrap{ max-width:900px; margin:0 auto; padding:32px 20px 60px; }
   header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:22px; gap:10px; flex-wrap:wrap; }
   .eyebrow{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
   h1{ font-size:20px; margin:0; }
@@ -65,6 +60,9 @@
   .msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:14px; }
   .msg.error{ background:var(--danger-soft); color:var(--danger); }
   .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
+  .pill{ font-size:12px; padding:3px 10px; border-radius:99px; border:none; cursor:pointer; font-weight:600; }
+  .pill.paid{ background:var(--ok-soft); color:var(--ok); }
+  .pill.unpaid{ background:var(--pending-soft); color:var(--pending); }
   [hidden]{ display:none !important; }
 </style>
 </head>
@@ -73,30 +71,30 @@
   <header>
     <div>
       <p class="eyebrow" id="company-eyebrow">Azienda</p>
-      <h1>Ordini cliente</h1>
+      <h1>Fatture fornitore</h1>
     </div>
     <div class="nav">
       <a href="clienti.html">Clienti</a>
-      <a class="on" href="ordini.html">Ordini</a>
+      <a href="ordini.html">Ordini</a>
       <a href="ddt.html">DDT</a>
       <a href="fatture.html">Fatture</a>
       <span class="sep">·</span>
       <a href="fornitori.html">Fornitori</a>
       <a href="ordini-fornitore.html">Ordini forn.</a>
-      <a href="fatture-fornitore.html">Fatture forn.</a>
+      <a class="on" href="fatture-fornitore.html">Fatture forn.</a>
       <a href="index.html">← cambia azienda</a>
       <button id="logout">Esci</button>
     </div>
   </header>
 
   <div class="card" id="form-card" hidden>
-    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuovo ordine</h2>
+    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuova fattura</h2>
     <div class="grid2">
-      <div><label for="f-cliente">Cliente</label>
-        <select id="f-cliente"></select>
-      </div>
+      <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
+    <label for="f-ordine">Ordine collegato (facoltativo)</label>
+    <select id="f-ordine"><option value="">— nessuno —</option></select>
 
     <label>Righe</label>
     <table class="righe-table">
@@ -116,7 +114,7 @@
   <div class="card">
     <div class="toolbar">
       <h2>Elenco</h2>
-      <button class="primary" id="new-ordine">+ Nuovo ordine</button>
+      <button class="primary" id="new-fattura">+ Nuova fattura</button>
     </div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -133,7 +131,8 @@
   const store = window.SaasStore;
   let companyId = null;
   let editingId = null;
-  let clientiById = {};
+  let fornitoriById = {};
+  let ordiniPerFornitore = {};
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -144,7 +143,6 @@
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
   }
 
-  // ---- righe: editor dinamico -------------------------------------------
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, iva:22 };
     return `<tr>
@@ -175,52 +173,65 @@
     })).filter(r => r.descr || r.cod);
   }
   function rigaTotale(r){ const imp = r.qty * r.prezzo; return imp + imp * r.iva / 100; }
-  function docTotale(righe){ return righe.reduce((s, r) => s + rigaTotale(r), 0); }
+  function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
-
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
-  // ---- form apri/chiudi ---------------------------------------------------
-  function openForm(ordine){
-    editingId = ordine ? ordine.id : null;
-    $('form-title').textContent = ordine ? `Modifica ${ordine.num}` : 'Nuovo ordine';
-    $('f-cliente').value = ordine ? ordine.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
-    $('f-data').value = ordine ? ordine.data : today();
+  function refreshOrdineOptions(fornitoreId){
+    const ordini = ordiniPerFornitore[fornitoreId] || [];
+    $('f-ordine').innerHTML = '<option value="">— nessuno —</option>' +
+      ordini.map(o => `<option value="${o.id}">${esc(o.num)}</option>`).join('');
+  }
+  $('f-fornitore').addEventListener('change', () => refreshOrdineOptions($('f-fornitore').value));
+  $('f-ordine').addEventListener('change', () => {
+    const righeVuote = readRighe().length === 0;
+    const ordine = (ordiniPerFornitore[$('f-fornitore').value] || []).find(o => o.id === $('f-ordine').value);
+    if(ordine && righeVuote){
+      $('righe-body').innerHTML = '';
+      (ordine.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, iva:r.iva || 22 }));
+    }
+  });
+
+  function openForm(fattura){
+    editingId = fattura ? fattura.id : null;
+    $('form-title').textContent = fattura ? `Modifica ${fattura.num}` : 'Nuova fattura';
+    $('f-fornitore').value = fattura ? fattura.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
+    refreshOrdineOptions($('f-fornitore').value);
+    $('f-ordine').value = fattura ? (fattura.ofId || '') : '';
+    $('f-data').value = fattura ? fattura.data : today();
     $('righe-body').innerHTML = '';
-    (ordine ? ordine.righe : [null]).forEach(addRigaRow);
+    (fattura ? fattura.righe : [null]).forEach(addRigaRow);
     setMsg('', '');
     $('form-card').hidden = false;
   }
   function closeForm(){ $('form-card').hidden = true; editingId = null; }
-  $('new-ordine').addEventListener('click', () => {
-    if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
+  $('new-fattura').addEventListener('click', () => {
+    if($('f-fornitore').options.length === 0){ alert('Crea prima almeno un fornitore.'); return; }
     openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
 
   $('f-save').addEventListener('click', async () => {
-    const clienteId = $('f-cliente').value;
+    const fornitoreId = $('f-fornitore').value;
+    const ofId = $('f-ordine').value || null;
     const data = $('f-data').value;
     const righe = readRighe();
-    if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
+    if(!fornitoreId){ setMsg('Seleziona un fornitore.', 'error'); return; }
     if(!data){ setMsg('Inserisci una data.', 'error'); return; }
     if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
 
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { clienteId, data, righe };
+      const doc = { fornitoreId, ofId, data, righe };
       if(editingId){
-        doc.id = editingId; // il numero di un ordine esistente non cambia
+        doc.id = editingId; // numero e stato di pagamento restano quelli esistenti
       } else {
-        // Numerazione asincrona: a differenza di nextNum() nel gestionale
-        // attuale (immediata), qui è una vera chiamata al database — l'unica
-        // che garantisce che due dispositivi non ricevano mai lo stesso
-        // numero (vedi supabase/migrations/0004_numerazione.sql).
         const anno = Number(data.slice(0, 4));
-        doc.num = await store.nextNumber(companyId, 'OC', anno);
+        doc.num = await store.nextNumber(companyId, 'FTF', anno);
+        doc.paid = false; doc.paidDate = null; doc.pagamenti = [];
       }
-      await store.saveDoc('ordiniCliente', doc, companyId);
+      await store.saveDoc('fattureFornitore', doc, companyId);
       closeForm();
       await renderList();
     }catch(err){
@@ -230,43 +241,60 @@
     }
   });
 
-  // ---- elenco ---------------------------------------------------------------
+  // Stesso schema di fatture.html, ma qui "pagata" invece di "incassata":
+  // il denaro esce dall'azienda, non entra.
+  async function togglePaid(fattura){
+    const paid = !fattura.paid;
+    const doc = {
+      id: fattura.id,
+      paid,
+      paidDate: paid ? today() : null,
+      pagamenti: paid ? [{ data: today(), importo: docTotale(fattura.righe) }] : [],
+    };
+    await store.saveDoc('fattureFornitore', doc, companyId);
+    await renderList();
+  }
+
   async function renderList(){
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let ordini;
+    let elenco;
     try{
-      ordini = await store.loadCollection('ordiniCliente', companyId);
+      elenco = await store.loadCollection('fattureFornitore', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(ordini.length === 0){
-      area.innerHTML = '<p class="empty">Nessun ordine ancora. Crea prima un cliente, poi aggiungi un ordine con "+ Nuovo ordine".</p>';
+    if(elenco.length === 0){
+      area.innerHTML = '<p class="empty">Nessuna fattura ancora. Crea prima un fornitore, poi aggiungi una fattura con "+ Nuova fattura".</p>';
       return;
     }
-    ordini.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
+    elenco.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
     area.innerHTML = `<table><thead><tr>
-        <th>Numero</th><th>Data</th><th>Cliente</th><th>Totale</th><th></th>
-      </tr></thead><tbody>${ordini.map(o => `
+        <th>Numero</th><th>Data</th><th>Fornitore</th><th>Totale</th><th>Pagamento</th><th></th>
+      </tr></thead><tbody>${elenco.map(f => `
         <tr>
-          <td class="num-col">${esc(o.num)}</td>
-          <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
-          <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
-          <td class="num-col">${eur(docTotale(o.righe || []))}</td>
+          <td class="num-col">${esc(f.num)}</td>
+          <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${esc((fornitoriById[f.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
+          <td class="num-col">${eur(docTotale(f.righe))}</td>
+          <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('pagata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da pagare'}</button></td>
           <td class="actions">
-            <button data-edit="${o.id}">Modifica</button>
-            <button class="danger" data-del="${o.id}">Elimina</button>
+            <button data-edit="${f.id}">Modifica</button>
+            <button class="danger" data-del="${f.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table>`;
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      openForm(ordini.find(x => x.id === btn.dataset.edit));
+      openForm(elenco.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
+      togglePaid(elenco.find(x => x.id === btn.dataset.toggle));
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
-      const o = ordini.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare l'ordine ${o.num}? L'operazione non si può annullare.`)) return;
+      const f = elenco.find(x => x.id === btn.dataset.del);
+      if(!confirm(`Eliminare la fattura ${f.num}? L'operazione non si può annullare.`)) return;
       try{
-        await store.removeDoc('ordiniCliente', o.id);
+        await store.removeDoc('fattureFornitore', f.id);
         await renderList();
       }catch(err){
         alert('Errore durante l\'eliminazione: ' + err.message);
@@ -288,9 +316,14 @@
     if(!companyId){ location.href = 'index.html'; return; }
     $('company-eyebrow').textContent = localStorage.getItem('saas_company_nome') || 'Azienda';
 
-    const clienti = await store.loadCollection('clienti', companyId);
-    clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
-    $('f-cliente').innerHTML = clienti.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    const [fornitori, ordini] = await Promise.all([
+      store.loadCollection('fornitori', companyId),
+      store.loadCollection('ordiniFornitore', companyId),
+    ]);
+    fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    ordiniPerFornitore = {};
+    ordini.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
+    $('f-fornitore').innerHTML = fornitori.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
 
     await renderList();
   }

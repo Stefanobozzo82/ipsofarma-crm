@@ -18,29 +18,32 @@ saas/
 ├── .env.example                      variabili d'ambiente (mai committare quelle vere)
 ├── web/
 │   ├── index.html                    login + registrazione azienda + scelta azienda
-│   ├── clienti.html                  primo modulo reale: elenco clienti (Fase 2)
-│   ├── ordini.html                   secondo modulo reale: ordini cliente, con numerazione (Fase 2)
-│   ├── ddt.html                      terzo modulo: DDT, collegato a un ordine (facoltativo)
-│   ├── fatture.html                  quarto modulo: fatture cliente, con stato di incasso
+│   ├── clienti.html                  anagrafica clienti
+│   ├── ordini.html                   ordini cliente, con numerazione
+│   ├── ddt.html                      DDT, collegato a un ordine (facoltativo)
+│   ├── fatture.html                  fatture cliente, con stato di incasso
+│   ├── fornitori.html                anagrafica fornitori
+│   ├── ordini-fornitore.html         ordini fornitore, con numerazione
+│   ├── fatture-fornitore.html        fatture fornitore, con stato di pagamento
 │   └── app/
 │       └── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 └── supabase/
+    ├── functions/
+    │   └── ai-proxy/index.ts             Edge Function: la chiave IA resta lato server (Fase 3)
     └── migrations/
         ├── 0001_aziende_e_utenti.sql        tabella aziende, utenti↔aziende, ruoli, funzioni di isolamento
         ├── 0002_anagrafiche.sql             clienti, fornitori, prodotti
         ├── 0003_documenti.sql               preventivi, ordini, ddt, fatture, note di credito
         ├── 0004_numerazione.sql             numerazione documenti atomica (OC/OF/DDT/FT/...)
-        └── 0005_registrazione_azienda.sql   registrazione self-service di una nuova azienda (Fase 1)
+        ├── 0005_registrazione_azienda.sql   registrazione self-service di una nuova azienda (Fase 1)
+        └── 0006_fatturapa.sql               generazione XML FatturaPA (Fase 4, invio non incluso)
 ```
 
 ## Cosa NON c'è ancora (di proposito)
 
-- **Nessuna interfaccia del gestionale vero**: `web/index.html` è solo un banco di
-  prova per collaudare login/registrazione, non l'interfaccia reale — quella resta
-  `index.html` nella root del repo, invariata, fino alla Fase 2
-  ("migrare la logica, non riscriverla").
-- **Nessuna chiave IA lato server**: Fase 3.
-- **Nessuna fatturazione elettronica (SDI)**: Fase 4.
+- **Note di credito** (cliente e fornitore): tabelle già pronte dalla Fase 0, nessuna pagina ancora.
+- **Invio reale allo SDI**: l'XML si genera (Fase 4), ma trasmetterlo richiede un
+  account presso un provider esterno che l'azienda dovrà scegliere e attivare da sé.
 - **Nessun abbonamento/Stripe**: Fase 5.
 
 Costruire solo le fondamenta prima, e verificarle bene, evita di dover rifare lo
@@ -377,12 +380,41 @@ visibile), rigenerazione bloccata di default e la conferma che forzarla
 consuma davvero un progressivo nuovo — mai lo stesso. Dati di prova
 ripuliti dopo ogni collaudo sul progetto reale.
 
+## Fase 2 — completata anche lato fornitore
+
+`web/fornitori.html`, `web/ordini-fornitore.html`, `web/fatture-fornitore.html`:
+speculari ai tre moduli cliente principali, sullo stesso `store.js` e con
+le stesse garanzie già collaudate (numerazione atomica con prefissi `OF`/
+`FTF`, precompilazione righe da un ordine collegato, stato di pagamento
+nella stessa forma dati — qui "pagata"/"da pagare" invece di "incassata"/
+"da incassare", perché il denaro esce anziché entrare). Non esiste un
+"DDT fornitore" in questo schema (come nel gestionale attuale): la
+fattura fornitore si collega solo, facoltativamente, a un ordine
+fornitore.
+
+Navigazione unificata su tutte e sette le pagine del gestionale (Clienti
+· Ordini · DDT · Fatture, poi Fornitori · Ordini forn. · Fatture forn.),
+con la voce della pagina corrente sempre evidenziata.
+
+**Non ancora coperto, scelta deliberata**: le note di credito (né lato
+cliente né lato fornitore) — le tabelle esistono già dalla Fase 0
+(`note_credito`, `note_credito_fornitore`) ma non hanno ancora una pagina
+propria. Resta il pezzo più piccolo mancante per la parità con le
+collezioni del gestionale attuale.
+
+**Collaudo**: stesso doppio livello delle pagine precedenti — `SaasStore`
+simulato in browser reale per ciascuno dei tre nuovi moduli (creazione,
+modifica, cancellazione, numerazione con il prefisso giusto,
+precompilazione righe da un ordine collegato, toggle "pagata"/"da
+pagare" con i valori esatti), più la navigazione verificata coerente su
+ogni pagina. Rieseguita l'intera suite precedente (9 file di collaudo in
+totale) per la navigazione condivisa aggiornata — tutta verde.
+
 ## Prossimo passo
 
-L'unico pezzo mancante per l'invio reale: un account presso un provider
-SDI (Aruba o un altro — l'azienda dovrà sceglierne e registrarsi da sé),
-poi una nuova Edge Function (stesso schema di `ai-proxy`: la chiave del
-provider resta un secret server-side) che prende l'XML già generato qui e
-lo trasmette. Poi: i moduli lato fornitore (ordini fornitore, fatture
-fornitore, note di credito — stesso schema, speculare), e Fase 5
-(abbonamenti).
+L'unico pezzo mancante per l'invio reale della fatturazione elettronica:
+un account presso un provider SDI (Aruba o un altro — l'azienda dovrà
+sceglierne e registrarsi da sé), poi una nuova Edge Function (stesso
+schema di `ai-proxy`) che prende l'XML già generato e lo trasmette. Poi:
+le note di credito (l'unico modulo documento ancora senza pagina), e
+Fase 5 (abbonamenti).

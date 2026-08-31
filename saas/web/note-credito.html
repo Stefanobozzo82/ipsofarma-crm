@@ -63,6 +63,7 @@
 </script>
 <script src="app/store.js"></script>
 <script src="app/nav.js"></script>
+<script src="app/resize.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -238,6 +239,7 @@
             <button class="danger" data-del="${n.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
+    window.SaasResize.makeColsResizable(area.querySelector('table'), 'note-credito-elenco');
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(elenco.find(x => x.id === btn.dataset.edit));

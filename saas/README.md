@@ -32,7 +32,8 @@ saas/
 │   └── app/
 │       ├── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 │       ├── theme.css                 sistema grafico condiviso (token colore, tipografia, componenti)
-│       └── nav.js                    sidebar di navigazione condivisa (sostituisce il menu orizzontale)
+│       ├── nav.js                    sidebar di navigazione condivisa (sostituisce il menu orizzontale)
+│       └── resize.js                 colonne ridimensionabili trascinando il bordo dell'intestazione
 └── supabase/
     ├── functions/
     │   ├── ai-proxy/index.ts             Edge Function: la chiave IA resta lato server (Fase 3)
@@ -812,6 +813,51 @@ ordina per la colonna scelta con la freccia e l'evidenziazione giuste, un
 secondo clic inverte la direzione, funziona sia su colonne testuali sia
 su colonne numeriche/calcolate. Rieseguita l'intera suite precedente (13
 file) — tutta verde. Collaudo visivo con screenshot.
+
+## Colonne ridimensionabili — trascinando il bordo dell'intestazione
+
+"Avevamo aggiunto anche che le colonne si potevano ridimensionare": vero
+anche questo, e mancava — nel gestionale originale ogni colonna di un
+elenco si allarga o si restringe trascinando il bordo destro della sua
+intestazione (`makeColsResizable` in `index.html`), con la scelta
+ricordata da una visita all'altra. Riportato qui in un file a sé,
+`app/resize.js`, applicato agli stessi nove elenchi appena resi
+ordinabili — non alla tabella delle righe di un documento in
+compilazione, dove ha poco senso ridimensionare mentre si scrive.
+
+La larghezza scelta si ricorda in `localStorage`, ma sotto una chiave
+diversa da quella del gestionale originale (`saas_colWidths`, non
+`colWidths`): sono due pagine web sullo stesso dominio
+(`stefanobozzo82.github.io`), quindi condividono lo stesso localStorage —
+usare la stessa chiave avrebbe fatto leggere/scrivere le preferenze
+dell'altro prodotto, mescolando due cose che devono restare separate.
+
+**Un bug reale trovato collaudando**, non presente per costruzione: la
+prima versione, copiata quasi pari pari dall'originale, impediva il clic
+di ordinamento fermando la propagazione del clic sulla sola maniglia —
+ma la maniglia segue il puntatore mentre la colonna si restringe (è
+ancorata al bordo della colonna, che si sposta ad ogni movimento), quindi
+il rilascio del trascinamento cade quasi sempre di nuovo sopra la
+maniglia stessa: il clic sintetizzato dal browser dopo un trascinamento
+finiva comunque per attivare l'ordinamento della colonna appena
+ridimensionata. Verificato con un log degli eventi, non per ipotesi.
+Corretto con un meccanismo più robusto: un'intestazione "appena
+ridimensionata" viene marcata per un solo clic, e quel clic viene
+intercettato in fase di cattura (prima che l'ascoltatore di ordinamento
+della pagina, aggiunto in fase di bolla, possa vederlo) — richiede anche
+che `resize.js` prenda in carico ogni colonna prima che la pagina
+colleghi l'ordinamento, non dopo: un dettaglio d'ordine che, invertito,
+faceva ripresentare lo stesso problema.
+
+**Collaudo**: nuovo file di test (test86) — la maniglia compare su ogni
+colonna tranne l'ultima, trascinarla restringe davvero la colonna,
+*il trascinamento non attiva l'ordinamento* (verificato sia sulla
+colonna già ordinata di default sia su una che non lo è — il primo
+controllo, ovvio mostra solo la classe "on", si è rivelato insufficiente:
+serviva guardare se la freccia cambiava verso), la larghezza scelta
+sopravvive a un ricaricamento della pagina, e non tocca la chiave
+`colWidths` del gestionale originale. Rieseguita l'intera suite
+precedente (14 file) — tutta verde. Collaudo visivo con screenshot.
 
 ## Prossimo passo
 

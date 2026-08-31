@@ -218,6 +218,15 @@ th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:
 th.thsort{ cursor:pointer; user-select:none; }
 th.thsort:hover{ color:var(--muted); }
 th.thsort.on{ color:var(--accent-d); }
+
+/* Maniglia per ridimensionare una colonna trascinando il bordo destro
+   della sua intestazione — stessa identica funzione del gestionale
+   originale (vedi app/resize.js), stesso aspetto: invisibile finché non
+   ci si passa sopra o non si trascina. */
+.col-resize-handle{ position:absolute; right:-4px; top:0; bottom:0; width:9px; cursor:col-resize; user-select:none; touch-action:none; z-index:1; }
+.col-resize-handle::after{ content:''; position:absolute; right:4px; top:22%; bottom:22%; width:2px; border-radius:2px; background:var(--border2); transition:background .12s; }
+th:hover .col-resize-handle::after{ background:var(--faint); }
+.col-resize-handle:hover::after, .col-resize-handle.active::after{ background:var(--accent-d) !important; }
 td{ padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
 tbody tr:last-child td{ border-bottom:none; }
 tbody tr:hover{ background:var(--surface2); }

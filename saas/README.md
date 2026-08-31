@@ -292,12 +292,50 @@ lascia intatto lo stato di incasso. Rieseguita l'intera suite precedente
 (`index.html`, `clienti.html`, `ordini.html`) per la navigazione condivisa
 aggiornata.
 
+## Fase 3 (in corso) — la chiave IA non è più nel browser di nessuno
+
+`supabase/functions/ai-proxy/index.ts` è la prima Edge Function del
+progetto: l'unico punto di passaggio verso Gemini. Il browser non vede mai
+la chiave — sta solo sul server, come secret del progetto Supabase, non
+nelle impostazioni di un'azienda come oggi in `index.html`.
+
+Il corpo della richiesta accettato è volutamente identico a quello che
+`aiComplete()` in `index.html` già costruisce per il provider `openai`
+(l'endpoint compatibile OpenAI di Gemini): `{model, temperature,
+max_tokens, messages}`. Quando l'assistente IA verrà collegato al
+prodotto multi-azienda, cambierà solo *a chi* viene mandata la richiesta,
+non come viene costruita.
+
+Tre controlli in sequenza, in ordine di severità crescente:
+1. **Chi chiama deve essere un utente autenticato vero**, non solo chi
+   possiede la chiave pubblica `anon` (che chiunque legge aprendo la
+   pagina) — verificato con `supabase.auth.getUser()` sul token del
+   chiamante, non su credenziali del server.
+2. **Deve appartenere ad almeno un'azienda** (interroga `my_memberships`):
+   un account creato ma non ancora collegato a una company non può
+   consumare la quota IA condivisa.
+3. **La chiave deve essere configurata sul server** (`GEMINI_API_KEY` come
+   secret del progetto Supabase, mai nel codice né nel repository).
+
+Distribuita con `supabase functions deploy --use-api` (bundling lato
+server, niente Docker — non disponibile in questo ambiente di sviluppo).
+`verify_jwt` attivo: Supabase stesso rifiuta le richieste senza un token
+valido prima ancora che la funzione parta, oltre al controllo che la
+funzione fa comunque per conto proprio.
+
+**Collaudato sul progetto reale**, tre casi in sequenza: nessun token →
+401 "Missing authorization header" (Supabase stesso, prima della
+funzione); token valido ma utente senza nessuna azienda → 403 "nessuna
+azienda associata"; utente con azienda ma chiave non ancora configurata
+sul server → 500 "chiave IA non configurata sul server". Dati di prova
+ripuliti subito dopo. Manca l'ultimo passo — una vera chiave Gemini
+impostata come secret, per collaudare anche la chiamata reale a Gemini —
+in attesa che l'utente ne fornisca una.
+
 ## Prossimo passo
 
-Con clienti → ordini → DDT → fatture funzionanti end-to-end, il primo giro
-di moduli documento è completo. Restano aperti, in ordine di urgenza
-crescente verso un prodotto vendibile: i moduli lato fornitore (ordini
-fornitore, fatture fornitore, note di credito — stesso schema, speculare),
-poi le fasi successive del piano originale (Fase 3: chiave IA lato
-server; Fase 4: fatturazione elettronica reale verso lo SDI; Fase 5:
-abbonamenti).
+Impostare `GEMINI_API_KEY` come secret del progetto e completare il
+collaudo con una vera chiamata a Gemini. Poi: i moduli lato fornitore
+(ordini fornitore, fatture fornitore, note di credito — stesso schema,
+speculare), e le fasi successive (Fase 4: fatturazione elettronica reale
+verso lo SDI; Fase 5: abbonamenti).

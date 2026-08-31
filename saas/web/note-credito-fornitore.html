@@ -22,6 +22,10 @@
       <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
+    <!-- Come per fatture-fornitore.html: una nota di credito ricevuta porta
+         il numero che il fornitore le ha dato, non uno generato da noi. -->
+    <label for="f-num">Numero nota di credito del fornitore</label>
+    <input id="f-num" type="text" placeholder="es. 5301021389">
     <label for="f-fattura">Fattura collegata (facoltativo)</label>
     <select id="f-fattura"><option value="">— nessuna —</option></select>
 
@@ -129,6 +133,7 @@
     $('f-fornitore').value = nc ? nc.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
     refreshFatturaOptions($('f-fornitore').value);
     $('f-fattura').value = nc ? (nc.fatturaId || '') : '';
+    $('f-num').value = nc ? nc.num : '';
     $('f-data').value = nc ? nc.data : today();
     $('righe-body').innerHTML = '';
     (nc ? nc.righe : [null]).forEach(addRigaRow);
@@ -145,27 +150,27 @@
   $('f-save').addEventListener('click', async () => {
     const fornitoreId = $('f-fornitore').value;
     const fatturaId = $('f-fattura').value || null;
+    const num = $('f-num').value.trim();
     const data = $('f-data').value;
     const righe = readRighe();
     if(!fornitoreId){ setMsg('Seleziona un fornitore.', 'error'); return; }
+    if(!num){ setMsg('Inserisci il numero della nota di credito del fornitore.', 'error'); return; }
     if(!data){ setMsg('Inserisci una data.', 'error'); return; }
     if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
 
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { fornitoreId, fatturaId, data, righe };
+      const doc = { fornitoreId, fatturaId, num, data, righe };
       if(editingId){
         doc.id = editingId;
-      } else {
-        const anno = Number(data.slice(0, 4));
-        doc.num = await store.nextNumber(companyId, 'NCF', anno);
       }
       await store.saveDoc('noteCreditoFornitore', doc, companyId);
       closeForm();
       await renderList();
     }catch(err){
-      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già una nota di credito con questo numero.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
     }finally{
       $('f-save').disabled = false;
     }

@@ -639,6 +639,41 @@ pulsante dentro la tabella — comportamento nativo del browser confermato
 (mettere a fuoco un pulsante dentro un contenitore scorrevole lo scorre
 in vista, esattamente come ci si aspetta su un telefono vero).
 
+## Importati i dati reali di Ipsofarma
+
+L'azienda "Ipsofarma" nel nuovo prodotto (creata con i dati anagrafici reali
+da `backup.json`: P.IVA, indirizzo, PEC) non parte più vuota: 29 clienti, 7
+fornitori, 21.278 prodotti a catalogo, 213 ordini cliente, 283 DDT, 283
+fatture cliente, 202 ordini fornitore, 276 fatture fornitore, 2 preventivi,
+2+2 note di credito — tutti collegati tra loro esattamente come nei dati
+originali (fattura↔DDT, fattura↔ordine, nota di credito↔fattura...), tutti
+i codici prodotto e i numeri documento verificati unici prima dell'import.
+
+I contatori di numerazione (`document_counters`) sono stati preimpostati sugli
+stessi valori che il gestionale attuale aveva raggiunto: il primo nuovo
+ordine/DDT/fattura/nota di credito cliente creato nel nuovo prodotto continua
+la numerazione da lì, senza mai ripetere un numero già usato.
+
+**Collaudo**: prima un'analisi completa dei dati sorgente (nessun riferimento
+orfano tra clienti/fornitori e documenti, nessun numero duplicato, nessun
+codice prodotto duplicato), poi l'intero import eseguito e verificato su un
+Postgres locale identico allo schema reale (conteggi, integrità dei
+collegamenti, isolamento RLS con un utente estraneo simulato), solo dopo un
+collaudo pulito eseguito sul progetto reale uno statement alla volta.
+Verificato a campione un documento reale con i suoi collegamenti (una nota
+di credito cliente risultava collegata esattamente alla fattura originale).
+
+**Difetto trovato durante l'analisi dei dati reali, non ipotetico**: a
+differenza di ordini/DDT/fatture cliente (numerati dal sistema), una fattura
+o nota di credito **fornitore** porta il numero che il fornitore stesso le
+ha dato (i dati reali importati lo confermano: numeri come `5718067132`, non
+`FTF/2026/0001`) — ma `fatture-fornitore.html` e
+`note-credito-fornitore.html` generavano comunque un numero automatico.
+Corretto: ora il numero si digita, in un campo dedicato, con lo stesso
+controllo di duplicato che il database già applicava silenziosamente
+(intercettato e trasformato in un messaggio leggibile invece dell'errore
+tecnico di Postgres).
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

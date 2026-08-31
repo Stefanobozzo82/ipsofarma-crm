@@ -27,6 +27,13 @@
       <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
+    <!-- A differenza di una fattura cliente (numerata da noi), una fattura
+         fornitore porta il numero che il FORNITORE le ha dato: qui si
+         digita, non si genera — coerente con come funziona una fattura
+         d'acquisto nella realtà (e con come il gestionale attuale la
+         registra: vedi i numeri reali importati, es. "5718067132"). -->
+    <label for="f-num">Numero fattura del fornitore</label>
+    <input id="f-num" type="text" placeholder="es. 5718067132">
     <label for="f-ordine">Ordine collegato (facoltativo)</label>
     <select id="f-ordine"><option value="">— nessuno —</option></select>
 
@@ -134,6 +141,7 @@
     $('f-fornitore').value = fattura ? fattura.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
     refreshOrdineOptions($('f-fornitore').value);
     $('f-ordine').value = fattura ? (fattura.ofId || '') : '';
+    $('f-num').value = fattura ? fattura.num : '';
     $('f-data').value = fattura ? fattura.data : today();
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
@@ -150,28 +158,29 @@
   $('f-save').addEventListener('click', async () => {
     const fornitoreId = $('f-fornitore').value;
     const ofId = $('f-ordine').value || null;
+    const num = $('f-num').value.trim();
     const data = $('f-data').value;
     const righe = readRighe();
     if(!fornitoreId){ setMsg('Seleziona un fornitore.', 'error'); return; }
+    if(!num){ setMsg('Inserisci il numero della fattura del fornitore.', 'error'); return; }
     if(!data){ setMsg('Inserisci una data.', 'error'); return; }
     if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
 
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { fornitoreId, ofId, data, righe };
+      const doc = { fornitoreId, ofId, num, data, righe };
       if(editingId){
-        doc.id = editingId; // numero e stato di pagamento restano quelli esistenti
+        doc.id = editingId; // lo stato di pagamento resta quello esistente
       } else {
-        const anno = Number(data.slice(0, 4));
-        doc.num = await store.nextNumber(companyId, 'FTF', anno);
         doc.paid = false; doc.paidDate = null; doc.pagamenti = [];
       }
       await store.saveDoc('fattureFornitore', doc, companyId);
       closeForm();
       await renderList();
     }catch(err){
-      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già una fattura fornitore con questo numero.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
     }finally{
       $('f-save').disabled = false;
     }

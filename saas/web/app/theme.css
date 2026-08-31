@@ -1,0 +1,174 @@
+/* ============================================================================
+   theme.css — sistema di design condiviso da tutte le pagine del prodotto.
+   Prima di questo file, ogni pagina portava ~60 righe di CSS quasi identico
+   copiate e incollate: un cambiamento (es. un colore) andava fatto 10 volte
+   a mano, con margine reale di incoerenza. Qui vive una volta sola.
+
+   Palette e font condivisi con il documento di piano "Dal monolite al
+   SaaS" (l'accento verde petrolio, IBM Plex): la stessa identità dal primo
+   documento di presentazione al prodotto vero, non due stili scollegati.
+   ============================================================================ */
+
+:root{
+  --ink:#16212c;
+  --paper:#eef0ec;
+  --card:#ffffff;
+  --line:#d3d7cb;
+  --line-soft:#e1e4d9;
+  --muted:#5c6670;
+  --accent:#2f6b66;
+  --accent-soft:#dceae7;
+  --accent-ink:#ffffff;
+  --danger:#b3402a;
+  --danger-soft:#f7e3de;
+  --warn:#a8651a;
+  --warn-soft:#f0dfc4;
+  --shadow: 0 1px 2px rgba(22,33,44,0.04), 0 6px 16px -10px rgba(22,33,44,0.12);
+  --sidebar-w: 234px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#e7eaee;
+    --paper:#12161d;
+    --card:#1a2029;
+    --line:#2a313c;
+    --line-soft:#232a38;
+    --muted:#94a0ab;
+    --accent:#5caba4;
+    --accent-soft:#1c2e2c;
+    --accent-ink:#0d1512;
+    --danger:#e08a72;
+    --danger-soft:#3a201a;
+    --warn:#dda05a;
+    --warn-soft:#3a2c19;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 22px -12px rgba(0,0,0,0.55);
+  }
+}
+
+*{ box-sizing:border-box; }
+html{ color-scheme:light dark; }
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'IBM Plex Sans', ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+code, .num, .tabular{ font-variant-numeric:tabular-nums; }
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+[hidden]{ display:none !important; }
+
+/* ---------------------------------------------------------------------------
+   Guscio dell'app: barra laterale fissa + contenuto. Sotto i 860px la barra
+   diventa una fascia orizzontale scorrevole in alto, invece di un cassetto
+   con stato JS da gestire — più semplice, sempre utilizzabile.
+--------------------------------------------------------------------------- */
+.app-shell{ display:flex; min-height:100vh; }
+.app-main{ flex:1; min-width:0; padding:32px 28px 60px; max-width:920px; margin:0 auto; width:100%; }
+
+.sidebar{
+  width:var(--sidebar-w); flex:0 0 auto;
+  background:var(--card); border-right:1px solid var(--line);
+  display:flex; flex-direction:column;
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.sidebar .brand{ padding:20px 20px 16px; border-bottom:1px solid var(--line-soft); }
+.sidebar .brand .eyebrow{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 3px; font-weight:600; }
+.sidebar .brand h1{ font-size:16px; margin:0; font-weight:600; line-height:1.25; word-break:break-word; }
+
+.sidebar nav{ flex:1; padding:14px 12px; }
+.sidebar .navgroup + .navgroup{ margin-top:18px; }
+.sidebar .navgroup .label{ font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); padding:0 10px; margin:0 0 6px; font-weight:600; }
+.sidebar a.navlink{
+  display:flex; align-items:center; gap:9px;
+  padding:8px 10px; margin:1px 0; border-radius:7px;
+  color:var(--ink); text-decoration:none; font-size:13.5px;
+  border-left:2.5px solid transparent;
+}
+.sidebar a.navlink:hover{ background:var(--paper); }
+.sidebar a.navlink.on{ background:var(--accent-soft); color:var(--accent); font-weight:600; border-left-color:var(--accent); }
+.sidebar a.navlink .dot{ width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.55; flex:0 0 auto; }
+
+.sidebar .account{ padding:14px 20px 18px; border-top:1px solid var(--line-soft); }
+.sidebar .account .email{ font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 8px; }
+.sidebar .account-links{ display:flex; gap:12px; flex-wrap:wrap; }
+.sidebar .account-links a, .sidebar .account-links button{
+  font-size:12.5px; color:var(--muted); background:none; border:none; cursor:pointer; padding:0; text-decoration:underline;
+}
+.sidebar .account-links a:hover, .sidebar .account-links button:hover{ color:var(--ink); }
+
+@media (max-width:860px){
+  .app-shell{ flex-direction:column; }
+  .sidebar{ width:100%; height:auto; position:sticky; top:0; z-index:5; flex-direction:row; align-items:center; overflow-x:auto; border-right:none; border-bottom:1px solid var(--line); }
+  .sidebar .brand{ border-bottom:none; border-right:1px solid var(--line-soft); flex:0 0 auto; white-space:nowrap; }
+  .sidebar nav{ display:flex; align-items:center; padding:8px 10px; flex:0 0 auto; }
+  .sidebar .navgroup{ display:flex; align-items:center; }
+  .sidebar .navgroup + .navgroup{ margin-top:0; margin-left:10px; padding-left:10px; border-left:1px solid var(--line-soft); }
+  .sidebar .navgroup .label{ display:none; }
+  .sidebar a.navlink{ border-left:none; border-bottom:2.5px solid transparent; border-radius:6px 6px 0 0; white-space:nowrap; }
+  .sidebar a.navlink.on{ border-left-color:transparent; border-bottom-color:var(--accent); }
+  .sidebar .account{ border-top:none; border-left:1px solid var(--line-soft); flex:0 0 auto; white-space:nowrap; }
+  .app-main{ padding:24px 18px 48px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Componenti condivisi dal contenuto delle pagine
+--------------------------------------------------------------------------- */
+.page-head{ margin-bottom:20px; }
+.page-head .eyebrow{ font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); margin:0 0 4px; font-weight:600; }
+.page-head h2{ font-size:21px; margin:0; font-weight:600; }
+
+.card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; box-shadow:var(--shadow); }
+.card + .card{ margin-top:16px; }
+
+.toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+.toolbar h3{ font-size:14.5px; margin:0; font-weight:600; }
+
+button.primary{ padding:8px 15px; border:none; border-radius:8px; background:var(--accent); color:var(--accent-ink); font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit; }
+button.primary:hover{ filter:brightness(1.06); }
+button.primary:disabled{ opacity:.5; cursor:default; filter:none; }
+button.ghost{ background:transparent; color:var(--accent); border:1px solid var(--line); border-radius:8px; padding:8px 15px; font-size:13.5px; cursor:pointer; font-family:inherit; }
+button.ghost:hover{ background:var(--paper); }
+button.linklike{ background:none; border:none; color:var(--accent); cursor:pointer; font-size:13px; text-decoration:underline; padding:0; font-family:inherit; }
+
+table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; padding:9px 8px; border-bottom:1px solid var(--line); }
+td{ padding:11px 8px; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+tbody tr:last-child td{ border-bottom:none; }
+tbody tr:hover{ background:var(--paper); }
+td.num-col{ font-variant-numeric:tabular-nums; font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; }
+td.actions{ text-align:right; white-space:nowrap; }
+td.actions button{ background:none; border:none; color:var(--accent); cursor:pointer; font-size:12.5px; text-decoration:underline; margin-left:10px; padding:0; font-family:inherit; }
+td.actions button.danger{ color:var(--danger); }
+.empty{ color:var(--muted); font-size:13.5px; padding:26px 0; text-align:center; }
+
+label{ display:block; font-size:12.5px; color:var(--muted); margin:12px 0 4px; font-weight:500; }
+label:first-of-type{ margin-top:0; }
+input, select, textarea{
+  width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px;
+  background:var(--paper); color:var(--ink); font-size:13.5px; font-family:inherit;
+}
+input:focus, select:focus, textarea:focus{ outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
+.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+@media (max-width:520px){ .grid2{ grid-template-columns:1fr; } }
+
+.righe-table th, .righe-table td{ padding:6px 4px; }
+.righe-table input{ padding:6px 8px; font-size:13px; }
+.righe-table td.rm{ text-align:center; }
+.righe-table td.rm button{ background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px; line-height:1; padding:2px 6px; }
+.righe-total{ text-align:right; font-size:13.5px; margin-top:8px; }
+.righe-total b{ font-variant-numeric:tabular-nums; font-family:'IBM Plex Mono', monospace; }
+
+.form-actions{ display:flex; gap:10px; margin-top:16px; }
+.msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:13.5px; }
+.msg.error{ background:var(--danger-soft); color:var(--danger); }
+.msg.ok{ background:var(--accent-soft); color:var(--accent); }
+
+.badge{ font-size:11.5px; padding:2px 9px; border-radius:99px; background:var(--paper); border:1px solid var(--line); color:var(--muted); font-family:'IBM Plex Mono', monospace; }
+.pill{ font-size:11.5px; padding:3px 10px; border-radius:99px; border:none; cursor:pointer; font-weight:600; font-family:inherit; }
+.pill.paid{ background:var(--accent-soft); color:var(--accent); }
+.pill.unpaid{ background:var(--warn-soft); color:var(--warn); }
+
+::selection{ background:var(--accent-soft); }

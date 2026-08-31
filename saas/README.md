@@ -29,7 +29,9 @@ saas/
 │   ├── note-credito-fornitore.html   note di credito fornitore
 │   ├── abbonamento.html              piano attuale + cambio piano (Fase 5)
 │   └── app/
-│       └── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
+│       ├── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
+│       ├── theme.css                 sistema grafico condiviso (token colore, tipografia, componenti)
+│       └── nav.js                    sidebar di navigazione condivisa (sostituisce il menu orizzontale)
 └── supabase/
     ├── functions/
     │   ├── ai-proxy/index.ts             Edge Function: la chiave IA resta lato server (Fase 3)
@@ -490,6 +492,72 @@ documentazione Stripe ed è corretta per costruzione, ma "corretto per
 costruzione" non è lo stesso di "verificato" — da fare non appena
 l'azienda ha le chiavi di test.
 
+## Veste grafica — sistema di design condiviso
+
+Con tutti e nove i moduli documento/anagrafica funzionanti (Fase 2-4) e
+Stripe/SDI in attesa di account reali (Fase 5), il passo successivo
+scelto è stato rendere il prodotto visivamente professionale — requisito
+esplicito per poterlo vendere ad altre aziende, non solo farlo
+funzionare.
+
+Prima di questo passaggio ogni pagina aveva un `<style>` inline duplicato
+(le stesse regole copiate e leggermente divergenti in dieci file) e una
+navigazione orizzontale scritta a mano, diventata via via più difficile
+da leggere man mano che i moduli crescevano da 4 a 10 voci.
+
+Due file nuovi in `web/app/`, condivisi da tutte le pagine:
+
+- **`theme.css`**: i token del sistema grafico (colore, spaziatura,
+  tipografia — IBM Plex Sans/Mono) definiti una sola volta, con supporto
+  automatico alla modalità scura via `prefers-color-scheme` — non un tema
+  scelto a mano, ma quello che il sistema operativo dell'utente già
+  preferisce. Classi condivise per la struttura (`.app-shell`,
+  `.sidebar`, `.app-main`, `.page-head`), le card, le tabelle, i form e i
+  pulsanti: ogni pagina le usa, nessuna le ridefinisce.
+- **`nav.js`** (`window.SaasNav.render(paginaCorrente, opts)`): la
+  sidebar verticale che sostituisce il vecchio menu orizzontale, con le
+  voci raggruppate per significato (Clienti, Fornitori, Azienda) invece
+  che in un'unica fila crescente. Motivo del cambio: un'unica fila di 11
+  voci (compreso "Abbonamento") non si legge più a colpo d'occhio — un
+  raggruppamento verticale sì, e si collassa in una barra scorrevole
+  sotto gli 860px di larghezza senza bisogno di un menu ad hamburger.
+
+Le **10 pagine del gestionale** (clienti, ordini, ddt, fatture,
+note-credito, fornitori, ordini-fornitore, fatture-fornitore,
+note-credito-fornitore, abbonamento) sono state riscritte per usare
+questo sistema: rimosso ogni `<style>` inline, aggiunta la struttura
+`.app-shell`/`.sidebar`/`.app-main`, e la sidebar viene ora popolata da
+`SaasNav.render()` invece che scritta a mano in ogni file. **Nessun ID
+o comportamento funzionale è cambiato** — solo l'involucro visivo:
+tutti i test di collaudo funzionale scritti nelle fasi precedenti
+continuano a valere senza modifiche alla logica che verificano, con la
+sola eccezione di due dettagli di selettore invalidati proprio dal nuovo
+disegno (non da un difetto):
+- `test77`/`test79`: la vecchia verifica di navigazione cercava un'
+  etichetta di testo univoca (es. "Ordini"); nel nuovo disegno etichette
+  come "Ordini" o "Fatture" compaiono di proposito sia nel gruppo Clienti
+  sia nel gruppo Fornitori (è il gruppo stesso a disambiguare, non serve
+  più abbreviare in "forn."). Corretto verificando per `href` invece che
+  per testo.
+- `test81`: il titolo del piano dentro ogni card è ora `<h4>` (annidato
+  sotto l'`<h3>` "Cambia piano" della card, non più un `<h3>` a sé).
+
+**Collaudo**: rieseguita l'intera suite di collaudo funzionale (10 file,
+tutte le pagine) dopo la trasformazione — tutta verde. In più, collaudo
+visivo con screenshot (Playwright) di `clienti.html` come pagina pilota:
+modalità chiara, modalità scura, form aperto, viewport mobile (420px) —
+confermato un aspetto pulito e coerente in tutti e quattro i casi prima
+di applicare la stessa trasformazione alle altre nove pagine.
+
+Un difetto reale introdotto (e corretto) durante la trasformazione
+automatica: lo script che ha applicato la stessa modifica a otto pagine
+in sequenza aveva sostituito `<h2 id="form-title">` con `<h3
+id="form-title">` solo nel tag di apertura, lasciando il tag di chiusura
+`</h2>` non corrispondente in tutti gli otto file — scoperto rileggendo
+i file dopo la trasformazione (non dal collaudo automatico, che in
+questo caso non l'avrebbe rilevato), corretto con un secondo passaggio
+mirato e verificato un fix per file, non di più e non di meno.
+
 ## Prossimo passo
 
 Creare un account Stripe (gratuito, modalità test, nessuna verifica
@@ -498,4 +566,5 @@ aziendale richiesta — stesso percorso già fatto con Supabase), impostare
 davvero checkout e webhook. In parallelo resta aperto l'invio reale della
 fatturazione elettronica (Fase 4): un account presso un provider SDI
 (Aruba o un altro), poi una nuova Edge Function che prende l'XML già
-generato e lo trasmette.
+generato e lo trasmette. Entrambi rimandati per scelta esplicita
+dell'azienda, in attesa che gli account vengano creati.

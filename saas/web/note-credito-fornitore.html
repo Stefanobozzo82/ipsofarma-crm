@@ -3,87 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Note di credito fornitori — banco di prova Fase 2</title>
+<title>Note di credito fornitori — Gestionale</title>
 <!-- Speculare a note-credito.html: verso un fornitore, collegata a una fattura fornitore. -->
-<style>
-  :root{
-    --ink:#16212c; --paper:#f3f4f1; --card:#ffffff; --line:#d7dad2;
-    --muted:#5c6670; --accent:#2f6b66; --accent-ink:#ffffff; --danger:#b3402a; --danger-soft:#f7e3de;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --ink:#e7eaee; --paper:#12161d; --card:#1a2029; --line:#2a313c; --muted:#94a0ab; --accent:#5caba4; --accent-ink:#0d1512; --danger:#e08a72; --danger-soft:#3a201a; }
-  }
-  *{box-sizing:border-box;}
-  body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap{ max-width:860px; margin:0 auto; padding:32px 20px 60px; }
-  header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:22px; gap:10px; flex-wrap:wrap; }
-  .eyebrow{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
-  h1{ font-size:20px; margin:0; }
-  .nav{ display:flex; gap:14px; align-items:center; font-size:13px; flex-wrap:wrap; row-gap:6px; }
-  .nav a, .nav button{ color:var(--muted); background:none; border:none; cursor:pointer; font-size:13px; padding:0; text-decoration:underline; }
-  .nav a.on{ color:var(--ink); font-weight:600; text-decoration:none; }
-  .nav .sep{ color:var(--line); }
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
-  .card + .card{ margin-top:16px; }
-  .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
-  .toolbar h2{ font-size:15px; margin:0; }
-  button.primary{ padding:8px 14px; border:none; border-radius:8px; background:var(--accent); color:var(--accent-ink); font-size:14px; font-weight:600; cursor:pointer; }
-  button.primary:disabled{ opacity:.55; cursor:default; }
-  button.ghost{ background:transparent; color:var(--accent); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer; }
-  button.linklike{ background:none; border:none; color:var(--accent); cursor:pointer; font-size:13px; text-decoration:underline; padding:0; }
-  table{ width:100%; border-collapse:collapse; font-size:14px; }
-  th{ text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); padding:8px 6px; border-bottom:1px solid var(--line); }
-  td{ padding:10px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
-  tr:last-child td{ border-bottom:none; }
-  td.num-col{ font-variant-numeric:tabular-nums; }
-  td.actions{ text-align:right; white-space:nowrap; }
-  td.actions button{ background:none; border:none; color:var(--accent); cursor:pointer; font-size:13px; text-decoration:underline; margin-left:10px; padding:0; }
-  td.actions button.danger{ color:var(--danger); }
-  .empty{ color:var(--muted); font-size:14px; padding:20px 0; text-align:center; }
-  label{ display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
-  label:first-of-type{ margin-top:0; }
-  input, select{ width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font-size:14px; font-family:inherit; }
-  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
-  .righe-table th, .righe-table td{ padding:6px 4px; }
-  .righe-table input{ padding:6px 8px; font-size:13px; }
-  .righe-table td.rm{ text-align:center; }
-  .righe-table td.rm button{ background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px; line-height:1; padding:2px 6px; }
-  .righe-total{ text-align:right; font-size:14px; margin-top:8px; }
-  .righe-total b{ font-variant-numeric:tabular-nums; }
-  .form-actions{ display:flex; gap:10px; margin-top:16px; }
-  .msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:14px; }
-  .msg.error{ background:var(--danger-soft); color:var(--danger); }
-  .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
-  [hidden]{ display:none !important; }
-</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="app/theme.css">
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <p class="eyebrow" id="company-eyebrow">Azienda</p>
-      <h1>Note di credito fornitori</h1>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+  <div class="page-head">
+      <p class="eyebrow">Documento</p>
+      <h2>Note di credito fornitori</h2>
     </div>
-    <div class="nav">
-      <a href="clienti.html">Clienti</a>
-      <a href="ordini.html">Ordini</a>
-      <a href="ddt.html">DDT</a>
-      <a href="fatture.html">Fatture</a>
-      <a href="note-credito.html">NC</a>
-      <span class="sep">·</span>
-      <a href="fornitori.html">Fornitori</a>
-      <a href="ordini-fornitore.html">Ordini forn.</a>
-      <a href="fatture-fornitore.html">Fatture forn.</a>
-      <a class="on" href="note-credito-fornitore.html">NC forn.</a>
-      <span class="sep">·</span>
-      <a href="abbonamento.html">Abbonamento</a>
-      <a href="index.html">← cambia azienda</a>
-      <button id="logout">Esci</button>
-    </div>
-  </header>
 
   <div class="card" id="form-card" hidden>
-    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuova nota di credito</h2>
+    <h3 id="form-title">Nuova nota di credito</h3>
     <div class="grid2">
       <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
@@ -108,11 +43,12 @@
 
   <div class="card">
     <div class="toolbar">
-      <h2>Elenco</h2>
+      <h3>Elenco</h3>
       <button class="primary" id="new-nc">+ Nuova nota di credito</button>
     </div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
+  </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -121,6 +57,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/nav.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -283,19 +220,23 @@
     return f ? f.num : '?';
   }
 
-  $('logout').addEventListener('click', async () => {
+  async function doLogout(){
     await store.signOut();
     localStorage.removeItem('saas_company_id');
     localStorage.removeItem('saas_company_nome');
     location.href = 'index.html';
-  });
+  }
 
   async function init(){
     const session = await store.getSession();
     if(!session){ location.href = 'index.html'; return; }
     companyId = localStorage.getItem('saas_company_id');
     if(!companyId){ location.href = 'index.html'; return; }
-    $('company-eyebrow').textContent = localStorage.getItem('saas_company_nome') || 'Azienda';
+    window.SaasNav.render('note-credito-fornitore', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
 
     const [fornitori, fatture] = await Promise.all([
       store.loadCollection('fornitori', companyId),

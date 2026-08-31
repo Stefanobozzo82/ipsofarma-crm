@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abbonamento — banco di prova Fase 5</title>
+<title>Abbonamento — Gestionale</title>
 <!--
   Fase 5: la pagina che mostra il piano corrente e permette a un admin di
   passare a un piano a pagamento. Non chiama mai Stripe direttamente — passa
@@ -15,70 +15,42 @@
   pagamento si vedrà quindi l'errore corretto e onesto invece di un
   pagamento vero: "questo piano non ha ancora un prezzo Stripe configurato".
 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="app/theme.css">
 <style>
-  :root{
-    --ink:#16212c; --paper:#f3f4f1; --card:#ffffff; --line:#d7dad2;
-    --muted:#5c6670; --accent:#2f6b66; --accent-ink:#ffffff; --danger:#b3402a; --danger-soft:#f7e3de;
-    --ok:#2f6b66; --ok-soft:#dceae7;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --ink:#e7eaee; --paper:#12161d; --card:#1a2029; --line:#2a313c; --muted:#94a0ab; --accent:#5caba4; --accent-ink:#0d1512; --danger:#e08a72; --danger-soft:#3a201a; --ok:#5caba4; --ok-soft:#1c2e2c; }
-  }
-  *{box-sizing:border-box;}
-  body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap{ max-width:820px; margin:0 auto; padding:32px 20px 60px; }
-  header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:22px; gap:10px; flex-wrap:wrap; }
-  .eyebrow{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
-  h1{ font-size:20px; margin:0; }
-  .nav{ display:flex; gap:14px; align-items:center; font-size:13px; flex-wrap:wrap; row-gap:6px; }
-  .nav a, .nav button{ color:var(--muted); background:none; border:none; cursor:pointer; font-size:13px; padding:0; text-decoration:underline; }
-  .nav a.on{ color:var(--ink); font-weight:600; text-decoration:none; }
-  .nav .sep{ color:var(--line); }
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
-  .card + .card{ margin-top:16px; }
+  /* Solo ciò che è specifico di questa pagina: il resto viene da theme.css */
   .stato{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  .badge{ font-size:12px; padding:3px 10px; border-radius:99px; background:var(--ok-soft); color:var(--ok); font-weight:600; text-transform:capitalize; }
+  .badge.accent{ background:var(--accent-soft); color:var(--accent); border:none; font-family:inherit; text-transform:capitalize; font-size:12px; padding:3px 10px; }
   .piani{ display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-top:16px; }
   .piano{ border:1px solid var(--line); border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:8px; }
   .piano.corrente{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
-  .piano h3{ margin:0; font-size:15px; }
-  .piano .prezzo{ font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
-  .piano .prezzo small{ font-size:13px; font-weight:400; color:var(--muted); }
+  .piano h4{ margin:0; font-size:14.5px; font-weight:600; }
+  .piano .prezzo{ font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; font-family:'IBM Plex Mono', monospace; }
+  .piano .prezzo small{ font-size:13px; font-weight:400; color:var(--muted); font-family:inherit; }
   .piano ul{ margin:0; padding-left:18px; font-size:13px; color:var(--muted); flex:1; }
-  button.primary{ padding:9px 14px; border:none; border-radius:8px; background:var(--accent); color:var(--accent-ink); font-size:14px; font-weight:600; cursor:pointer; }
-  button.primary:disabled{ opacity:.55; cursor:default; }
-  .msg{ margin-top:14px; padding:10px 12px; border-radius:8px; font-size:14px; }
-  .msg.error{ background:var(--danger-soft); color:var(--danger); }
-  .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
-  .empty{ color:var(--muted); font-size:14px; }
-  [hidden]{ display:none !important; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <p class="eyebrow" id="company-eyebrow">Azienda</p>
-      <h1>Abbonamento</h1>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <p class="eyebrow">Azienda</p>
+      <h2>Abbonamento</h2>
     </div>
-    <div class="nav">
-      <a href="clienti.html">Clienti</a>
-      <a href="index.html">← cambia azienda</a>
-      <button id="logout">Esci</button>
+
+    <div class="card">
+      <h3 style="margin:0 0 12px">Piano attuale</h3>
+      <div class="stato" id="stato-attuale"><p class="empty">Carico…</p></div>
     </div>
-  </header>
 
-  <div class="card">
-    <h2 style="font-size:15px;margin:0 0 12px">Piano attuale</h2>
-    <div class="stato" id="stato-attuale"><p class="empty">Carico…</p></div>
-  </div>
-
-  <div class="card">
-    <h2 style="font-size:15px;margin:0 0 4px">Cambia piano</h2>
-    <p class="empty" style="margin:0">Solo un amministratore dell'azienda può gestire l'abbonamento.</p>
-    <div class="piani" id="piani-area"></div>
-    <div class="msg" id="msg" hidden></div>
-  </div>
+    <div class="card">
+      <h3 style="margin:0 0 4px">Cambia piano</h3>
+      <p class="empty" style="margin:0;padding:6px 0 0;text-align:left">Solo un amministratore dell'azienda può gestire l'abbonamento.</p>
+      <div class="piani" id="piani-area"></div>
+      <div class="msg" id="msg" hidden></div>
+    </div>
+  </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -87,6 +59,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/nav.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -112,7 +85,7 @@
       ? ` · rinnova il ${new Date(company.current_period_end).toLocaleDateString('it-IT')}`
       : '';
     area.innerHTML = `
-      <span class="badge">${esc(company.piano)}</span>
+      <span class="badge accent">${esc(company.piano)}</span>
       <span>${esc(statoTesto)}${scadenza}</span>
     `;
   }
@@ -134,7 +107,7 @@
     $('piani-area').innerHTML = plans.map(p => {
       const corrente = p.id === company.piano;
       return `<div class="piano ${corrente ? 'corrente' : ''}">
-        <h3>${esc(p.nome)}</h3>
+        <h4>${esc(p.nome)}</h4>
         <div class="prezzo">${p.prezzo_mensile > 0 ? eur(p.prezzo_mensile) : 'Gratis'}${p.prezzo_mensile > 0 ? '<small>/mese</small>' : ''}</div>
         <ul>
           <li>${limiteTesto(p.limite_utenti)} utenti</li>
@@ -163,19 +136,23 @@
     });
   }
 
-  $('logout').addEventListener('click', async () => {
+  async function doLogout(){
     await store.signOut();
     localStorage.removeItem('saas_company_id');
     localStorage.removeItem('saas_company_nome');
     location.href = 'index.html';
-  });
+  }
 
   async function init(){
     const session = await store.getSession();
     if(!session){ location.href = 'index.html'; return; }
     companyId = localStorage.getItem('saas_company_id');
     if(!companyId){ location.href = 'index.html'; return; }
-    $('company-eyebrow').textContent = localStorage.getItem('saas_company_nome') || 'Azienda';
+    window.SaasNav.render('abbonamento', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
 
     const params = new URLSearchParams(location.search);
     if(params.get('abbonamento') === 'ok') setMsg('Pagamento completato: l\'abbonamento si aggiornerà a breve.', 'ok');

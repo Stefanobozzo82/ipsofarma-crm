@@ -22,9 +22,11 @@ saas/
 │   ├── ordini.html                   ordini cliente, con numerazione
 │   ├── ddt.html                      DDT, collegato a un ordine (facoltativo)
 │   ├── fatture.html                  fatture cliente, con stato di incasso
+│   ├── note-credito.html             note di credito cliente
 │   ├── fornitori.html                anagrafica fornitori
 │   ├── ordini-fornitore.html         ordini fornitore, con numerazione
 │   ├── fatture-fornitore.html        fatture fornitore, con stato di pagamento
+│   ├── note-credito-fornitore.html   note di credito fornitore
 │   └── app/
 │       └── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 └── supabase/
@@ -41,7 +43,6 @@ saas/
 
 ## Cosa NON c'è ancora (di proposito)
 
-- **Note di credito** (cliente e fornitore): tabelle già pronte dalla Fase 0, nessuna pagina ancora.
 - **Invio reale allo SDI**: l'XML si genera (Fase 4), ma trasmetterlo richiede un
   account presso un provider esterno che l'azienda dovrà scegliere e attivare da sé.
 - **Nessun abbonamento/Stripe**: Fase 5.
@@ -396,25 +397,41 @@ Navigazione unificata su tutte e sette le pagine del gestionale (Clienti
 · Ordini · DDT · Fatture, poi Fornitori · Ordini forn. · Fatture forn.),
 con la voce della pagina corrente sempre evidenziata.
 
-**Non ancora coperto, scelta deliberata**: le note di credito (né lato
-cliente né lato fornitore) — le tabelle esistono già dalla Fase 0
-(`note_credito`, `note_credito_fornitore`) ma non hanno ancora una pagina
-propria. Resta il pezzo più piccolo mancante per la parità con le
-collezioni del gestionale attuale.
-
 **Collaudo**: stesso doppio livello delle pagine precedenti — `SaasStore`
 simulato in browser reale per ciascuno dei tre nuovi moduli (creazione,
 modifica, cancellazione, numerazione con il prefisso giusto,
 precompilazione righe da un ordine collegato, toggle "pagata"/"da
 pagare" con i valori esatti), più la navigazione verificata coerente su
-ogni pagina. Rieseguita l'intera suite precedente (9 file di collaudo in
-totale) per la navigazione condivisa aggiornata — tutta verde.
+ogni pagina.
+
+## Fase 2 — completa: note di credito
+
+`web/note-credito.html` e `web/note-credito-fornitore.html` chiudono la
+parità documentale con il gestionale attuale: si collegano
+facoltativamente a una fattura (il caso più comune — uno storno parziale
+o totale), con la stessa precompilazione righe già vista per DDT/fatture,
+oppure esistono da sole. Numerazione atomica con prefissi `NC`/`NCF`.
+
+Navigazione unificata su tutte e nove le pagine del gestionale, in due
+gruppi separati da un divisore visivo (Clienti · Ordini · DDT · Fatture ·
+NC — poi Fornitori · Ordini forn. · Fatture forn. · NC forn.), voce
+corrente sempre evidenziata.
+
+**Collaudo**: menu fattura popolato e filtrato per cliente/fornitore,
+precompilazione righe, collegamento facoltativo (una nota di credito
+senza fattura funziona lo stesso), numerazione col prefisso giusto,
+navigazione coerente su entrambe le pagine. Rieseguita l'intera suite
+precedente (10 file di collaudo in totale) — tutta verde, nessuna
+regressione dall'aggiunta della navigazione condivisa.
+
+Con questo, tutte le collezioni documento del gestionale attuale hanno
+un modulo equivalente nel nuovo prodotto.
 
 ## Prossimo passo
 
 L'unico pezzo mancante per l'invio reale della fatturazione elettronica:
 un account presso un provider SDI (Aruba o un altro — l'azienda dovrà
 sceglierne e registrarsi da sé), poi una nuova Edge Function (stesso
-schema di `ai-proxy`) che prende l'XML già generato e lo trasmette. Poi:
-le note di credito (l'unico modulo documento ancora senza pagina), e
-Fase 5 (abbonamenti).
+schema di `ai-proxy`) che prende l'XML già generato e lo trasmette.
+Altrimenti: Fase 5 (abbonamenti/Stripe), l'ultimo pezzo per trasformare
+questo da "funziona" a "si vende da solo".

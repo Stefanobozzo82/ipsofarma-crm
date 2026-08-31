@@ -18,6 +18,7 @@
     { label: null, items: [
       { id: 'dashboard', label: 'Dashboard', href: 'dashboard.html', ic: '◫' },
       { id: 'scadenziario', label: 'Scadenziario', href: 'scadenziario.html', ic: '📅' },
+      { id: 'report', label: 'Report & Analisi', href: 'report.html', ic: '📊' },
     ] },
     { label: 'Clienti', items: [
       { id: 'clienti', label: 'Clienti', href: 'clienti.html', ic: '🏥' },

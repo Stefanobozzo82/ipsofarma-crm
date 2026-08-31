@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report &amp; Analisi — Gestionale</title>
+<!--
+  Porta diretta di reportView() in index.html: due pannelli, "Top prodotti
+  per fatturato" (da ordini + fatture cliente) e "Fatturato per cliente"
+  (da fatture cliente, con % sul totale), ognuno esportabile in Excel
+  (SheetJS, caricato da CDN al primo utilizzo — non nel bundle, stessa
+  idea di jsPDF in app/print.js).
+
+  Semplificato rispetto all'originale, di proposito: niente ancora
+  l'export PDF tabellare generico (bulkExportPDFTable) né il collegamento
+  "clic sul prodotto per aprirne la scheda" — l'originale li ha perché
+  nasce nello stesso file di tutto il resto del gestionale; qui restano
+  per un giro successivo, se servirà davvero.
+-->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Report &amp; Analisi</h2>
+      <p class="sub">Statistiche prodotti e fatturato per cliente, esportabili in Excel.</p>
+    </div>
+
+    <div id="content" style="display:grid;grid-template-columns:1fr 1fr;gap:18px" class="report-grid">
+      <div class="panel">
+        <div class="panel-h">Top prodotti per fatturato
+          <button class="ghost" id="export-prod" style="margin-left:auto">⬇ Excel</button>
+        </div>
+        <div class="table-scroll"><table style="margin:0">
+          <thead><tr><th>Codice</th><th>Descrizione</th><th style="text-align:right">Q.tà ordinata</th><th style="text-align:right">Fatturato</th></tr></thead>
+          <tbody id="prod-body"><tr><td colspan="4" class="empty">Carico…</td></tr></tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">Fatturato per cliente
+          <button class="ghost" id="export-cli" style="margin-left:auto">⬇ Excel</button>
+        </div>
+        <div class="table-scroll"><table style="margin:0">
+          <thead><tr><th>Cliente</th><th style="text-align:right">Imponibile</th><th style="text-align:right">%</th></tr></thead>
+          <tbody id="cli-body"><tr><td colspan="3" class="empty">Carico…</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+    <p class="empty" id="global-empty" hidden>Non ci sono ancora dati sufficienti per un report: crea qualche ordine o fattura cliente.</p>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let topProd = [];
+  let topCli = [];
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function today(){ return new Date().toISOString().slice(0, 10); }
+
+  // Stessa aritmetica dello sconto usata in tutte le pagine del SaaS.
+  function scFactor(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0).reduce((f, p) => f * (1 - p / 100), 1); }
+  function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
+  function imp(righe){ return (righe || []).reduce((s, r) => s + lineNet(r), 0); }
+
+  // ---- Excel: SheetJS caricato da CDN solo al primo export, non nel bundle.
+  async function loadXLSX(){
+    if(window.XLSX) return window.XLSX;
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Impossibile caricare il modulo Excel (serve una connessione a internet)'));
+      document.head.appendChild(s);
+    });
+    return window.XLSX;
+  }
+  async function xlsDownload(rows, filename, sheetName){
+    if(!rows || !rows.length){ alert('Nessun dato da esportare.'); return; }
+    try{
+      const XLSX = await loadXLSX();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const cols = Object.keys(rows[0] || {});
+      ws['!cols'] = cols.map(k => ({ wch: Math.max(k.length + 2, Math.max(...rows.map(r => String(r[k] || '').length)) + 2) }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Dati');
+      XLSX.writeFile(wb, filename);
+    }catch(err){
+      alert('Errore durante l\'esportazione: ' + (err.message || err));
+    }
+  }
+  $('export-prod').addEventListener('click', () => {
+    const rows = topProd.map(p => ({ Codice: p.cod, Descrizione: p.descr, 'Q.tà ordinata': p.qtyOrd, 'Fatturato €': +p.fatturato.toFixed(2) }));
+    xlsDownload(rows, 'Prodotti_' + today() + '.xlsx', 'Prodotti');
+  });
+  $('export-cli').addEventListener('click', () => {
+    const rows = topCli.map(c => ({ Cliente: c.nome, 'Imponibile €': +c.ricavi.toFixed(2) }));
+    xlsDownload(rows, 'Fatturato_clienti_' + today() + '.xlsx', 'Clienti');
+  });
+
+  async function renderReport(){
+    const [clienti, ordini, fatture] = await Promise.all([
+      store.loadCollection('clienti', companyId),
+      store.loadCollection('ordiniCliente', companyId),
+      store.loadCollection('fattureCliente', companyId),
+    ]);
+    const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
+
+    // Statistiche per prodotto (da ordini + fatture cliente) — stessa
+    // logica di reportView() nell'originale: il codice "VARIE" (righe
+    // libere senza un prodotto vero associato) non entra in classifica.
+    const prodStats = {};
+    ordini.forEach(o => (o.righe || []).forEach(r => {
+      if(!r.cod || r.cod === 'VARIE') return;
+      if(!prodStats[r.cod]) prodStats[r.cod] = { cod:r.cod, descr:r.descr, qtyOrd:0, fatturato:0 };
+      prodStats[r.cod].qtyOrd += r.qty || 0;
+      prodStats[r.cod].fatturato += lineNet(r) * (1 + (r.iva || 0) / 100);
+    }));
+    fatture.forEach(f => (f.righe || []).forEach(r => {
+      if(!r.cod || r.cod === 'VARIE') return;
+      if(!prodStats[r.cod]) prodStats[r.cod] = { cod:r.cod, descr:r.descr, qtyOrd:0, fatturato:0 };
+      prodStats[r.cod].fatturato += lineNet(r) * (1 + (r.iva || 0) / 100);
+    }));
+    topProd = Object.values(prodStats).sort((a, b) => b.fatturato - a.fatturato).slice(0, 15);
+
+    // Fatturato per cliente (imponibile delle fatture, con % sul totale).
+    const cliStats = {};
+    fatture.forEach(f => {
+      const k = f.clienteId;
+      if(!cliStats[k]) cliStats[k] = { id:k, nome:(clientiById[k] || {}).nome || '?', ricavi:0 };
+      cliStats[k].ricavi += imp(f.righe);
+    });
+    const totRicavi = Object.values(cliStats).reduce((s, c) => s + c.ricavi, 0);
+    topCli = Object.values(cliStats).sort((a, b) => b.ricavi - a.ricavi).slice(0, 12);
+
+    $('prod-body').innerHTML = topProd.length
+      ? topProd.map(p => `<tr><td class="num-col">${esc(p.cod)}</td><td>${esc(p.descr)}</td><td style="text-align:right">${p.qtyOrd || 0}</td><td style="text-align:right"><b>${eur(p.fatturato)}</b></td></tr>`).join('')
+      : '<tr><td colspan="4" class="empty">Nessun dato</td></tr>';
+    $('cli-body').innerHTML = topCli.length
+      ? topCli.map(c => `<tr><td>${esc(c.nome)}</td><td style="text-align:right">${eur(c.ricavi)}</td><td style="text-align:right">${totRicavi ? Math.round(c.ricavi / totRicavi * 100) + '%' : '—'}</td></tr>`).join('')
+      : '<tr><td colspan="3" class="empty">Nessun dato</td></tr>';
+
+    $('global-empty').hidden = !(ordini.length === 0 && fatture.length === 0);
+  }
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('report', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+    await renderReport();
+  }
+  init();
+</script>
+</body>
+</html>

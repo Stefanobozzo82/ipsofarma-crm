@@ -20,6 +20,7 @@ saas/
 │   ├── index.html                    login + registrazione azienda + scelta azienda
 │   ├── dashboard.html                quadro d'insieme: fatturato, incassi, evasione, grafico mensile
 │   ├── scadenziario.html             fatture cliente non incassate, ordinate per scadenza
+│   ├── report.html                   top prodotti e fatturato per cliente, esportabili in Excel
 │   ├── clienti.html                  anagrafica clienti
 │   ├── preventivi.html               preventivi, trasformabili in ordine cliente
 │   ├── ordini.html                   ordini cliente, con numerazione
@@ -1037,7 +1038,18 @@ rigore di tutto il resto di questo lavoro.
   li espone ancora tutti in modifica: un cliente creato da zero nel SaaS
   avrà bisogno di questi dati aggiunti (via SQL diretto, per ora) prima
   di poter generare un XML utilizzabile.
-- [ ] Report & Analisi
+- [x] **Report & Analisi** (`report.html`) — porta diretta di
+  `reportView()`: due pannelli, "Top prodotti per fatturato" (dai codici
+  ricorrenti su ordini + fatture cliente, i codici "VARIE" non contano —
+  sono righe libere senza un prodotto vero) e "Fatturato per cliente"
+  (imponibile delle fatture, con percentuale sul totale). Ognuno con un
+  pulsante "⬇ Excel" che genera il file con SheetJS, caricata da CDN al
+  primo utilizzo — stessa idea di jsPDF in `app/print.js`.
+  Semplificato rispetto all'originale, di proposito: niente ancora
+  l'export PDF tabellare generico (`bulkExportPDFTable`, per anagrafiche
+  senza un "documento" da stampare) né il collegamento diretto dal
+  prodotto alla sua scheda — restano per un giro successivo, se servirà
+  davvero.
 - [ ] Assistente AI (interfaccia di chat)
 - [ ] IA che crea documenti da un allegato (fattura/ordine/preventivo)
 

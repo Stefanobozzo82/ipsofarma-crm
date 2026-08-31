@@ -90,16 +90,37 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
 }
 .sidebar .account-links a:hover, .sidebar .account-links button:hover{ color:#fff; }
 
+/* Il pulsante ☰ che apre/chiude il menu su schermi stretti: nascosto da
+   desktop in su, esattamente come nel gestionale originale (.menu-btn). */
+.mobile-topbar{ display:none; }
+.mobile-topbar .menu-btn{
+  background:var(--surface); border:1px solid var(--border2); border-radius:8px;
+  padding:7px 12px; font-size:15px; cursor:pointer; line-height:1;
+}
+
 @media (max-width:860px){
-  .app-shell{ flex-direction:column; }
-  .sidebar{ width:100%; height:auto; position:sticky; top:0; z-index:5; flex-direction:row; align-items:center; overflow-x:auto; -webkit-overflow-scrolling:touch; border-right:none; border-bottom:1px solid var(--side-line); }
-  .sidebar .brand{ border-right:1px solid var(--side-line); flex:0 0 auto; white-space:nowrap; }
-  .sidebar nav{ display:flex; align-items:center; padding:8px 10px; flex:0 0 auto; }
-  .sidebar .navgroup{ display:flex; align-items:center; margin-top:0; }
-  .sidebar .navgroup + .navgroup{ margin-left:10px; padding-left:10px; border-left:1px solid var(--side-line); }
-  .sidebar .navgroup .label{ display:none; }
-  .sidebar a.navlink{ border-radius:6px; white-space:nowrap; padding:10px 10px; }
-  .sidebar .account{ border-top:none; border-left:1px solid var(--side-line); flex:0 0 auto; white-space:nowrap; }
+  /* Stesso comportamento del gestionale originale: il menu laterale resta
+     verticale (non diventa una barra orizzontale) ma vive fuori dal flusso
+     della pagina, nascosto a sinistra dello schermo finché non lo si apre
+     col pulsante ☰ — un "cassetto" che scorre sopra il contenuto, non lo
+     sposta. */
+  .sidebar{
+    position:fixed; left:0; top:0; bottom:0; height:100vh; z-index:40;
+    transform:translateX(-100%); transition:transform .22s ease;
+    box-shadow:0 0 40px rgba(0,0,0,.35);
+  }
+  .sidebar.open{ transform:translateX(0); }
+  /* Il cassetto aperto (z-index:40) copre fisicamente il pulsante ☰, che
+     nell'originale è nella topbar della pagina — qui invece vive dentro
+     .app-main, alla stessa coordinata x del cassetto. sticky + uno
+     z-index più alto lo tengono sempre sopra e sempre cliccabile, anche
+     a cassetto aperto: altrimenti l'unico modo per richiuderlo sarebbe
+     navigare altrove, non bastava più un secondo tocco su ☰. */
+  .mobile-topbar{
+    display:flex; align-items:center;
+    position:sticky; top:0; z-index:41;
+    margin:-20px -14px 14px; padding:12px 14px; background:var(--bg);
+  }
   .app-main{ padding:20px 14px 40px; }
 
   /* Tocco: sotto gli 860px il dispositivo è quasi sempre a controllo
@@ -107,7 +128,6 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
      leggibili senza dover pizzicare per ingrandire. */
   button.primary, button.ghost{ padding:10px 16px; }
   td.actions button{ padding:6px 8px; }
-  .sidebar .account-links a, .sidebar .account-links button{ padding:4px 0; }
 
   /* iOS Safari ingrandisce automaticamente la pagina quando si mette a
      fuoco un campo con font-size sotto i 16px: qui sotto gli 860px (dove

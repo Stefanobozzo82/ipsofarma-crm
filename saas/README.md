@@ -751,6 +751,44 @@ precedente (11 file) — tutta verde, nessuna regressione. Collaudo visivo
 con uno sconto a cascata reale (50%+15% su un prodotto dal catalogo
 Aesculap importato).
 
+## Menu su schermi stretti — cassetto verticale, non barra orizzontale
+
+Segnalato dall'utente: su telefono/finestra stretta il menu diventava una
+fascia orizzontale scorrevole in cima alla pagina — una scelta fatta
+apposta nella prima ottimizzazione mobile di questa sessione, ma diversa
+dal gestionale originale, che tiene il menu sempre verticale e lo nasconde
+dietro un pulsante ☰ (un "cassetto" che scorre da sinistra, non una
+trasformazione del menu stesso).
+
+Corretto per essere identico all'originale: sotto gli 860px il menu resta
+verticale esattamente come su desktop, ma esce dal flusso della pagina
+(`position:fixed`) e resta nascosto a sinistra dello schermo finché non lo
+si apre col pulsante ☰. Navigare a un'altra pagina lo richiude da solo
+(pagina nuova, cassetto di nuovo chiuso in partenza) — nessuna differenza
+di comportamento da gestire lì.
+
+**Un bug reale trovato durante il collaudo**, non nell'originale: a
+cassetto aperto, il pulsante ☰ finiva coperto dal cassetto stesso (stessa
+larghezza, stessa posizione a sinistra) — un secondo tocco per richiuderlo
+non funzionava più. Il gestionale originale non lo nota perché lì il menu
+si chiude sempre navigando (un'app di una sola pagina); qui, con undici
+pagine separate, un modo per richiuderlo senza navigare serve davvero.
+Corretto tenendo il pulsante sempre sopra al cassetto (`position:sticky`
+con uno z-index più alto), cliccabile in ogni momento.
+
+Il pulsante ☰ non è stato aggiunto a mano in undici file HTML: lo crea
+`nav.js` una volta sola, appena prima del contenuto di ogni pagina — la
+stessa filosofia già usata per il resto della sidebar condivisa.
+
+**Collaudo**: nuovo file di test (test84) — da desktop il pulsante resta
+invisibile e il menu è sempre in vista; su schermo stretto il menu parte
+fuori vista e il pulsante è visibile; toccandolo il menu scorre in vista
+restando verticale (voci impilate, non in fila); toccandolo di nuovo si
+richiude; stesso comportamento su una seconda pagina (dashboard) per
+verificare che non sia un caso isolato. Rieseguita l'intera suite
+precedente (12 file) — tutta verde. Collaudo visivo con screenshot,
+cassetto chiuso e aperto.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

@@ -73,6 +73,33 @@
     if (logoutBtn && opts.onLogout) {
       logoutBtn.addEventListener('click', () => { opts.onLogout(); });
     }
+
+    ensureMobileTopbar();
+  }
+
+  // Sotto gli 860px il menu laterale esce dal flusso della pagina e resta
+  // nascosto a sinistra (vedi theme.css: .sidebar diventa position:fixed,
+  // translateX(-100%)) — stesso identico comportamento del gestionale
+  // originale (☰ apre/chiude un cassetto, non trasforma il menu in una
+  // barra orizzontale). Il pulsante ☰ non esiste già nell'HTML di ogni
+  // pagina (sarebbe da aggiungere a mano in undici file): lo crea questa
+  // funzione, una volta sola, appena prima del contenuto di .app-main.
+  function ensureMobileTopbar() {
+    let bar = document.getElementById('mobile-topbar');
+    if (!bar) {
+      const main = document.querySelector('.app-main');
+      if (!main) return;
+      bar = document.createElement('div');
+      bar.id = 'mobile-topbar';
+      bar.className = 'mobile-topbar';
+      bar.innerHTML = '<button type="button" class="menu-btn" id="nav-menu-btn" aria-label="Apri il menu">☰</button>';
+      main.insertBefore(bar, main.firstChild);
+    }
+    const btn = document.getElementById('nav-menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    if (btn && sidebar) {
+      btn.onclick = () => { sidebar.classList.toggle('open'); };
+    }
   }
 
   global.SaasNav = { render };

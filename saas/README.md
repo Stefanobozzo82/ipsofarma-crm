@@ -332,10 +332,57 @@ ripuliti subito dopo. Manca l'ultimo passo — una vera chiave Gemini
 impostata come secret, per collaudare anche la chiamata reale a Gemini —
 in attesa che l'utente ne fornisca una.
 
+**Fase 3 completata**: chiave Gemini impostata come secret del progetto,
+collaudata con una vera chiamata attraverso `ai-proxy` (utente autenticato
++ azienda reale → risposta vera di Gemini). Dati di prova ripuliti.
+
+## Fase 4 (avvio) — generazione XML FatturaPA
+
+`supabase/migrations/0006_fatturapa.sql` costruisce la parte di
+fatturazione elettronica che **non dipende dal provider SDI** scelto in
+futuro (Aruba o un altro): il documento XML nel formato ufficiale
+richiesto dall'Agenzia delle Entrate (FPR12 — fatture verso aziende/
+privati; la Pubblica Amministrazione, formato FPA12, non è coperta qui).
+L'invio vero e proprio è un passo separato e successivo: richiede un
+account presso un provider che questa sessione non può creare al posto
+dell'azienda cliente (dati aziendali veri, spesso un contratto a
+pagamento) — vedi "Prossimo passo" più sotto.
+
+**`generate_fatturapa_xml(fattura_id)`** produce l'XML e lo salva sulla
+fattura stessa (`sdi_xml`, `sdi_progressivo`, `sdi_generato_at`), insieme
+al progressivo di trasmissione univoco (`next_progressivo_invio()`,
+stessa garanzia di atomicità di `next_document_number()` — mai un numero
+duplicato). Cinque validazioni prima di generare qualunque cosa, ognuna
+con un messaggio comprensibile invece di un errore tecnico: partita IVA e
+indirizzo completo dell'azienda mittente, partita IVA o codice fiscale
+del cliente, e infine un codice destinatario SDI oppure una PEC (con
+fallback automatico a `CodiceDestinatario=0000000` + `PECDestinatario`,
+lo standard per chi non ha comunicato un codice proprio).
+
+Un dettaglio di correttezza scoperto **durante il collaudo, non
+supposto**: le prime versioni controllavano la disponibilità di un
+codice destinatario/PEC *dopo* aver già consumato un progressivo di
+trasmissione — un tentativo fallito sprecava comunque un numero. Spostato
+il controllo prima: un progressivo non viene mai assegnato a una
+generazione che poi fallisce.
+
+**Collaudo**, in doppia mandata (locale poi sul progetto reale): XML
+ben formato (verificato con il parser XML di Postgres, non solo "sembra
+giusto"), struttura e importi esatti su una fattura con due aliquote IVA
+diverse, fallback PEC quando manca il codice destinatario, tutte le
+validazioni mancanti (partita IVA azienda, indirizzo azienda, cliente
+senza PIVA/CF, cliente senza SDI/PEC) con il messaggio giusto, isolamento
+tra aziende (una fattura di un'altra azienda risulta "non trovata", mai
+visibile), rigenerazione bloccata di default e la conferma che forzarla
+consuma davvero un progressivo nuovo — mai lo stesso. Dati di prova
+ripuliti dopo ogni collaudo sul progetto reale.
+
 ## Prossimo passo
 
-Impostare `GEMINI_API_KEY` come secret del progetto e completare il
-collaudo con una vera chiamata a Gemini. Poi: i moduli lato fornitore
-(ordini fornitore, fatture fornitore, note di credito — stesso schema,
-speculare), e le fasi successive (Fase 4: fatturazione elettronica reale
-verso lo SDI; Fase 5: abbonamenti).
+L'unico pezzo mancante per l'invio reale: un account presso un provider
+SDI (Aruba o un altro — l'azienda dovrà sceglierne e registrarsi da sé),
+poi una nuova Edge Function (stesso schema di `ai-proxy`: la chiave del
+provider resta un secret server-side) che prende l'XML già generato qui e
+lo trasmette. Poi: i moduli lato fornitore (ordini fornitore, fatture
+fornitore, note di credito — stesso schema, speculare), e Fase 5
+(abbonamenti).

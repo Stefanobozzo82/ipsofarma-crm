@@ -33,6 +33,11 @@
       <input id="f-email" type="email">
       <label for="f-note">Note</label>
       <textarea id="f-note" rows="2"></textarea>
+
+      <div class="form-sec">Destinazioni di consegna <span class="hint">indirizzi di spedizione oltre alla sede legale (reparti, magazzini, farmacia…)</span></div>
+      <div id="cdest"></div>
+      <button type="button" class="linklike" id="add-dest" style="margin-top:2px">+ aggiungi destinazione</button>
+
       <div class="form-actions">
         <button class="primary" id="f-save">Salva</button>
         <button class="ghost" id="f-cancel">Annulla</button>
@@ -68,6 +73,8 @@
   let editingId = null; // null = sto creando, altrimenti sto modificando questo id
   let SORT = { key: 'nome', dir: 'asc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  let CDEST = []; // destinazioni di consegna del cliente in editing, come CDEST nell'originale
+  let destUid = 0;
 
   function setMsg(text, kind){
     const el = $('form-msg');
@@ -115,6 +122,38 @@
     searchTimer = setTimeout(renderList, 200);
   });
 
+  // ---- destinazioni di consegna: elenco libero di indirizzi aggiuntivi
+  // oltre alla sede legale, come dest[] nel gestionale originale — usati
+  // da ddt.html e fatture.html per scegliere dove va consegnato/intestato
+  // un singolo documento.
+  function renderCDest(){
+    const el = $('cdest');
+    if(!CDEST.length){ el.innerHTML = '<div class="dest-empty">Nessuna destinazione aggiuntiva. Le consegne useranno la sede legale.</div>'; return; }
+    el.innerHTML = CDEST.map((d, i) => `<div class="dest-card">
+      <div class="dest-head">
+        <input data-dest="${i}" data-f="nome" placeholder="Nome destinazione (es. Farmacia, Blocco operatorio, Reparto…)" value="${esc(d.nome)}">
+        <button type="button" class="le-del" data-deldest="${i}" title="Rimuovi">×</button>
+      </div>
+      <input data-dest="${i}" data-f="via" placeholder="Indirizzo" value="${esc(d.via)}">
+      <div class="grid3">
+        <input data-dest="${i}" data-f="cap" placeholder="CAP" maxlength="5" value="${esc(d.cap)}">
+        <input data-dest="${i}" data-f="citta" placeholder="Città" value="${esc(d.citta)}">
+        <input data-dest="${i}" data-f="prov" placeholder="Prov" maxlength="2" value="${esc(d.prov)}">
+      </div>
+    </div>`).join('');
+    el.querySelectorAll('[data-dest]').forEach(inp => inp.addEventListener('input', () => {
+      CDEST[Number(inp.dataset.dest)][inp.dataset.f] = inp.value;
+    }));
+    el.querySelectorAll('[data-deldest]').forEach(btn => btn.addEventListener('click', () => {
+      CDEST.splice(Number(btn.dataset.deldest), 1);
+      renderCDest();
+    }));
+  }
+  $('add-dest').addEventListener('click', () => {
+    CDEST.push({ id: 'd' + (Date.now()) + '_' + (destUid++), nome:'', via:'', cap:'', citta:'', prov:'' });
+    renderCDest();
+  });
+
   function openForm(cliente){
     editingId = cliente ? cliente.id : null;
     $('form-title').textContent = cliente ? 'Modifica cliente' : 'Nuovo cliente';
@@ -125,6 +164,8 @@
     $('f-tel').value = cliente ? (cliente.tel || '') : '';
     $('f-email').value = cliente ? (cliente.email || '') : '';
     $('f-note').value = cliente ? (cliente.note || '') : '';
+    CDEST = (cliente && cliente.dest) ? cliente.dest.map(d => Object.assign({}, d)) : [];
+    renderCDest();
     setMsg('', '');
     $('form-card').hidden = false;
     $('f-nome').focus();
@@ -141,6 +182,10 @@
       nome, tipo: $('f-tipo').value, piva: $('f-piva').value.trim() || null,
       citta: $('f-citta').value.trim() || null, tel: $('f-tel').value.trim() || null,
       email: $('f-email').value.trim() || null, note: $('f-note').value.trim() || null,
+      dest: CDEST.filter(d => d.nome || d.via || d.citta).map(d => ({
+        id: d.id, nome: (d.nome || '').trim(), via: (d.via || '').trim(),
+        cap: (d.cap || '').trim(), citta: (d.citta || '').trim(), prov: (d.prov || '').trim().toUpperCase(),
+      })),
     };
     if(editingId) doc.id = editingId;
     $('f-save').disabled = true;

@@ -284,6 +284,21 @@ input, select, textarea{
 input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
 .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
 @media (max-width:520px){ .grid2{ grid-template-columns:1fr; } }
+.grid3{ display:grid; grid-template-columns:1fr 1.4fr 72px; gap:0 12px; }
+@media (max-width:520px){ .grid3{ grid-template-columns:1fr; } }
+
+/* Sezione "Destinazioni di consegna" nel form cliente — porta diretta di
+ * .dest-card/.dest-empty/.form-sec dell'originale. */
+.form-sec{ font-size:11px; text-transform:uppercase; letter-spacing:.7px; color:var(--accent-d); font-weight:700; margin:20px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+.form-sec .hint{ font-weight:400; color:var(--faint); font-size:10.5px; text-transform:none; letter-spacing:0; }
+.dest-card{ border:1px solid var(--border2); border-radius:9px; padding:12px; margin-bottom:10px; background:var(--surface2); }
+.dest-card input{ width:100%; background:#fff; border:1px solid var(--border2); color:var(--txt); padding:8px 10px; border-radius:7px; font-size:13px; font-family:inherit; margin-bottom:8px; box-sizing:border-box; }
+.dest-card input:focus{ outline:none; border-color:var(--accent); }
+.dest-card .dest-head{ display:flex; gap:8px; align-items:center; }
+.dest-card .dest-head input{ flex:1; margin-bottom:0; }
+.dest-empty{ font-size:12px; color:var(--faint); background:var(--surface2); border:1px dashed var(--border2); border-radius:8px; padding:12px; text-align:center; }
+.le-del{ background:none; border:none; color:var(--faint); font-size:17px; cursor:pointer; line-height:1; }
+.le-del:hover{ color:var(--red); }
 
 .righe-table th, .righe-table td{ padding:6px 4px; }
 .righe-table input{ padding:6px 8px; font-size:13px; }

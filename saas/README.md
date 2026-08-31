@@ -986,7 +986,22 @@ rigore di tutto il resto di questo lavoro.
   niente scaricamento PDF collettivo per più documenti selezionati insieme
   (la selezione multipla, item precedente, per ora serve solo a
   incassare/pagare in blocco).
-- [ ] Destinazioni multiple cliente
+- [x] **Destinazioni multiple cliente** (`clienti.html`, `ddt.html`,
+  `fatture.html`, `app/print.js`) — porta diretta di `CDEST`/`dest[]`
+  dell'originale. In `clienti.html`, il form di modifica ha ora una
+  sezione "Destinazioni di consegna": indirizzi aggiuntivi oltre alla sede
+  legale (reparti, magazzini, farmacia…), aggiungibili/rimovibili
+  liberamente. In `ddt.html` e `fatture.html` (le due collezioni con una
+  colonna `dest_id` già in schema) un menu "Destinazione di consegna"
+  compare — solo se il cliente scelto ne ha almeno una — per assegnare il
+  singolo documento a una sede specifica; l'elenco mostra un sottotitolo
+  "📍" sotto il nome del cliente quando è impostata, e la stampa/PDF
+  aggiunge un riquadro verde a parte con l'indirizzo di consegna (stessa
+  idea di `docDest()` nell'originale). Non estesa a ordini cliente e
+  preventivi in questo giro: nel loro caso `dest_id` non è ancora una
+  colonna della tabella — richiederebbe una migrazione a sé, lasciata per
+  quando servirà davvero (la consegna riguarda soprattutto DDT e fattura,
+  i due documenti dove nella pratica conta più spesso).
 - [ ] Autocompletamento riga da catalogo prodotti
 - [ ] Generazione/download XML FatturaPA da `fatture.html`
 - [ ] Report & Analisi

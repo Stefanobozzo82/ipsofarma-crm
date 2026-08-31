@@ -13,12 +13,15 @@
  *   CDN al primo utilizzo, non nel bundle): stesso template della stampa,
  *   così il PDF scaricato è sempre identico a quello che si vede stampando.
  *
- * Semplificazioni deliberate rispetto all'originale, in questo primo giro:
- * niente ancora destinazione di consegna multipla nel documento stampato
- * (arriva con l'item "Destinazioni multiple cliente" della lista di parità,
- * non ancora costruito), niente "stampa in ufficio" via coda GitHub/agente
- * Windows (specifico del gestionale originale, non ha senso per un SaaS
- * multi-azienda con stampanti diverse per ognuna).
+ * Se il documento indica una destinazione di consegna diversa dalla sede
+ * legale (destId, gestite in clienti.html — vedi CDEST), compare un
+ * riquadro verde a parte con l'indirizzo di consegna, esattamente come
+ * nell'originale (docDest()).
+ *
+ * Semplificazioni deliberate rispetto all'originale: niente "stampa in
+ * ufficio" via coda GitHub/agente Windows (specifico del gestionale
+ * originale, non ha senso per un SaaS multi-azienda con stampanti diverse
+ * per ognuna), niente PDF collettivo per più documenti insieme.
  * ============================================================================ */
 
 (function (global) {
@@ -61,6 +64,7 @@
 .pa-pn{font-weight:700;font-size:13px;margin:2px 0 4px}
 .pa-pa{color:#444}
 .pa-pm{color:#777;font-size:10.5px;margin-top:5px}
+.pa-ship{border-color:#0ea371;background:#f4fbf8}
 .pa-info{width:100%;border-collapse:collapse;margin-bottom:16px}
 .pa-info td{border:1px solid #d6dce3;padding:8px 10px;width:25%;vertical-align:top;font-size:11px}
 .pa-info b{font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;color:#999;font-weight:700}
@@ -98,7 +102,16 @@
     const azLine = [ind.via, `${ind.cap || ''} ${ind.citta || ''}${ind.prov ? ' (' + ind.prov + ')' : ''}`.trim()].filter(Boolean).join('<br>');
     const azMeta = [az.piva ? 'P.IVA ' + az.piva : '', az.cf && az.cf !== az.piva ? 'C.F. ' + az.cf : '', set.tel ? 'Tel ' + set.tel : '', set.email || '', az.pec ? 'PEC ' + az.pec : '', set.web || ''].filter(Boolean).join(' · ');
     const pAddr = [p.via, `${p.cap || ''} ${p.citta || ''}${p.prov ? ' (' + p.prov + ')' : ''}`.trim()].filter(Boolean).join('<br>');
-    const partyLabel = isForn ? 'Spettabile fornitore' : 'Spettabile cliente';
+    // Destinazione di consegna diversa dalla sede legale, se il documento
+    // ne indica una (destId) e il cliente ne ha di registrate — stessa
+    // idea di docDest() nell'originale.
+    const dst = (!isForn && it.destId && p.dest) ? p.dest.find(x => x.id === it.destId) || null : null;
+    const dstAddr = dst ? [dst.via, `${dst.cap || ''} ${dst.citta || ''}${dst.prov ? ' (' + dst.prov + ')' : ''}`.trim()].filter(Boolean).join('<br>') : '';
+    const shipBlock = dst ? `<div class="pa-party pa-ship"><div class="pa-pl">Luogo di consegna</div><div class="pa-pn">${esc(dst.nome) || esc(p.nome)}</div><div class="pa-pa">${dstAddr}</div></div>` : '';
+    // Col riquadro di consegna separato, quello del cliente indica solo il
+    // destinatario (altrimenti i due riquadri si contraddicono, entrambi
+    // etichettati "luogo di consegna" ma con indirizzi diversi).
+    const partyLabel = isForn ? 'Spettabile fornitore' : (coll === 'ddt' ? (dst ? 'Destinatario' : 'Destinatario / luogo di consegna') : 'Spettabile cliente');
     const pMeta = [p.piva ? 'P.IVA ' + p.piva : '', p.cf && p.cf !== p.piva ? 'C.F. ' + p.cf : '', p.sdi ? 'Cod. SDI ' + p.sdi : '', p.pec ? 'PEC ' + p.pec : ''].filter(Boolean).join('<br>');
     const isDDT = coll === 'ddt';
     const righe = it.righe || [];
@@ -125,6 +138,7 @@
         <div class="pa-docbox"><div class="pa-t">${TITLES[coll] || ''}</div><div class="pa-n">${esc(it.num)}</div><div class="pa-d">del ${fdate(it.data)}</div></div>
       </div>
       <div class="pa-party"><div class="pa-pl">${partyLabel}</div><div class="pa-pn">${esc(p.nome)}</div><div class="pa-pa">${pAddr}</div><div class="pa-pm">${pMeta}</div></div>
+      ${shipBlock}
       ${ddtBlock}
       <table class="pa-lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hasLot ? '<th>Lotto</th><th class="r">Scadenza</th>' : ''}<th class="r">Q.tà</th>${isDDT ? '' : `<th class="r">Prezzo</th><th class="r">Imponibile</th>${hasSc ? '<th class="r">Sconto</th>' : ''}<th class="r">IVA</th><th class="r">Totale</th>`}</tr></thead><tbody>${rows}</tbody></table>
       ${isDDT ? '' : `<div class="pa-tot"><table>

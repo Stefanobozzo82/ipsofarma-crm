@@ -35,6 +35,7 @@
         <select id="f-ddt"><option value="">— nessuno —</option></select>
       </div>
     </div>
+    <div id="f-dest-wrap"><label for="f-dest">Destinazione di consegna</label><select id="f-dest"></select></div>
 
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
@@ -91,6 +92,13 @@
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco,
+  // quando il documento indica una destinazione diversa dalla sede legale.
+  function destSub(it){
+    const cliente = clientiById[it.clienteId];
+    const dest = (it.destId && cliente && cliente.dest) ? cliente.dest.find(d => d.id === it.destId) : null;
+    return dest ? `<div style="font-size:11px;color:var(--faint);margin-top:1px">📍 ${esc(dest.nome || dest.citta || 'Sede')}</div>` : '';
+  }
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
@@ -183,7 +191,16 @@
     $('f-ddt').innerHTML = '<option value="">— nessuno —</option>' +
       ddts.map(d => `<option value="${d.id}">${esc(d.num)}</option>`).join('');
   }
-  $('f-cliente').addEventListener('change', () => refreshLinkedOptions($('f-cliente').value));
+  // Le destinazioni di consegna sono gestite in clienti.html (CDEST): qui
+  // si sceglie solo quale usare per QUESTO documento.
+  function refreshDestOptions(clienteId){
+    const cliente = clientiById[clienteId];
+    const dest = (cliente && cliente.dest) || [];
+    $('f-dest-wrap').hidden = dest.length === 0;
+    $('f-dest').innerHTML = '<option value="">Sede legale</option>' +
+      dest.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
+  }
+  $('f-cliente').addEventListener('change', () => { refreshLinkedOptions($('f-cliente').value); refreshDestOptions($('f-cliente').value); });
   $('f-ddt').addEventListener('change', () => {
     const righeVuote = readRighe().length === 0;
     const ddt = allDdtById[$('f-ddt').value];
@@ -198,8 +215,10 @@
     $('form-title').textContent = fattura ? `Modifica ${fattura.num}` : 'Nuova fattura';
     $('f-cliente').value = fattura ? fattura.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
     refreshLinkedOptions($('f-cliente').value);
+    refreshDestOptions($('f-cliente').value);
     $('f-ordine').value = fattura ? (fattura.ocId || '') : '';
     $('f-ddt').value = fattura ? (fattura.ddtId || '') : '';
+    $('f-dest').value = fattura ? (fattura.destId || '') : '';
     $('f-data').value = fattura ? fattura.data : today();
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
@@ -217,6 +236,7 @@
     const clienteId = $('f-cliente').value;
     const ocId = $('f-ordine').value || null;
     const ddtId = $('f-ddt').value || null;
+    const destId = $('f-dest').value || null;
     const data = $('f-data').value;
     const righe = readRighe();
     if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
@@ -226,7 +246,7 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { clienteId, ocId, ddtId, data, righe };
+      const doc = { clienteId, ocId, ddtId, destId, data, righe };
       if(editingId){
         doc.id = editingId; // numero e stato di incasso restano quelli esistenti
       } else {
@@ -318,7 +338,7 @@
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(f.num)}</td>
           <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
-          <td>${esc((clientiById[f.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
+          <td>${esc((clientiById[f.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(f)}</td>
           <td class="num-col">${eur(docTotale(f.righe))}</td>
           <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('incassata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da incassare'}</button></td>
           <td class="actions">

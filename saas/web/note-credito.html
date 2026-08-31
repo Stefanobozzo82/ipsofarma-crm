@@ -33,10 +33,10 @@
     <select id="f-fattura"><option value="">— nessuna —</option></select>
 
     <label>Righe</label>
-    <table class="righe-table">
+    <div class="table-scroll"><table class="righe-table">
       <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
-    </table>
+    </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
     <p class="righe-total">Totale accreditato: <b id="righe-totale">0,00 €</b></p>
 
@@ -193,7 +193,7 @@
       return;
     }
     elenco.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
-    area.innerHTML = `<table><thead><tr>
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
         <th>Numero</th><th>Data</th><th>Cliente</th><th>Fattura</th><th>Importo</th><th></th>
       </tr></thead><tbody>${elenco.map(n => `
         <tr>
@@ -206,7 +206,7 @@
             <button data-edit="${n.id}">Modifica</button>
             <button class="danger" data-del="${n.id}">Elimina</button>
           </td>
-        </tr>`).join('')}</tbody></table>`;
+        </tr>`).join('')}</tbody></table></div>`;
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(elenco.find(x => x.id === btn.dataset.edit));
     }));

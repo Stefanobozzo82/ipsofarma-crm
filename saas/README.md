@@ -558,13 +558,53 @@ i file dopo la trasformazione (non dal collaudo automatico, che in
 questo caso non l'avrebbe rilevato), corretto con un secondo passaggio
 mirato e verificato un fix per file, non di più e non di meno.
 
+## Ottimizzazione mobile
+
+Le pagine erano già "responsive" nel senso minimo (la sidebar collassa
+sotto 860px), ma non erano ancora davvero comode da usare su un telefono
+vero — tre problemi concreti, non ipotetici, corretti in `theme.css` e
+nelle 9 pagine con tabelle:
+
+- **Le tabelle più larghe (l'elenco righe di un documento, con 5-6
+  colonne) non stavano nello schermo di un telefono.** Prima rompevano il
+  layout della pagina intera (tutta la pagina scorreva di lato, sidebar
+  compresa); ora ogni tabella vive dentro un proprio contenitore
+  `.table-scroll` che scorre orizzontalmente per conto suo — il resto
+  della pagina resta fermo. Collaudato non "a occhio" ma misurando
+  `scrollWidth`/`clientWidth` del contenitore e verificando che
+  `document.body` non scorra mai in orizzontale.
+- **Su iPhone, toccare un campo con font-size sotto i 16px fa scattare lo
+  zoom automatico di Safari** (pensato per pagine non ottimizzate): sotto
+  gli 860px, `input`/`select`/`textarea` passano a 16px apposta per
+  evitarlo — un dettaglio invisibile su desktop, fastidioso ogni singola
+  volta su un telefono vero.
+- **Le aree cliccabili (pulsanti, "Modifica"/"Elimina" nell'elenco) erano
+  dimensionate per un mouse**, non per un dito: sotto gli 860px crescono
+  di padding, così restano precise da toccare senza dover zoomare.
+
+**Collaudo**: rieseguita l'intera suite di collaudo funzionale (9 file) —
+tutta verde, nessuna regressione (i wrapper aggiunti stanno *dentro*
+`#list-area` e attorno alla tabella righe, gli ID che i test verificano
+non si spostano). In più, verifica visiva dedicata su un viewport 390×844
+(taglia iPhone): screenshot dell'elenco clienti, dell'elenco ordini e del
+form con due righe di documento aperto, prima e dopo aver toccato un
+pulsante dentro la tabella — comportamento nativo del browser confermato
+(mettere a fuoco un pulsante dentro un contenitore scorrevole lo scorre
+in vista, esattamente come ci si aspetta su un telefono vero).
+
 ## Prossimo passo
 
-Creare un account Stripe (gratuito, modalità test, nessuna verifica
-aziendale richiesta — stesso percorso già fatto con Supabase), impostare
-`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` come secret e collaudare per
-davvero checkout e webhook. In parallelo resta aperto l'invio reale della
-fatturazione elettronica (Fase 4): un account presso un provider SDI
-(Aruba o un altro), poi una nuova Edge Function che prende l'XML già
-generato e lo trasmette. Entrambi rimandati per scelta esplicita
-dell'azienda, in attesa che gli account vengano creati.
+Due filoni distinti, entrambi rimandati per scelta esplicita
+dell'azienda:
+
+1. **Stripe/SDI**: creare un account Stripe (gratuito, modalità test,
+   nessuna verifica aziendale richiesta — stesso percorso già fatto con
+   Supabase), impostare `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` come
+   secret e collaudare per davvero checkout e webhook. In parallelo resta
+   aperto l'invio reale della fatturazione elettronica (Fase 4): un
+   account presso un provider SDI (Aruba o un altro), poi una nuova Edge
+   Function che prende l'XML già generato e lo trasmette.
+2. **Un'app vera**, non solo un sito ottimizzato per telefono: la
+   versione web (questa) resta comunque utile e usabile nel frattempo —
+   ma un'app installabile (iOS/Android) è un progetto a sé, da pianificare
+   separatamente quando si arriva a quel punto.

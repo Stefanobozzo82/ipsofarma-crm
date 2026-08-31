@@ -101,17 +101,42 @@ code, .num, .tabular{ font-variant-numeric:tabular-nums; }
 
 @media (max-width:860px){
   .app-shell{ flex-direction:column; }
-  .sidebar{ width:100%; height:auto; position:sticky; top:0; z-index:5; flex-direction:row; align-items:center; overflow-x:auto; border-right:none; border-bottom:1px solid var(--line); }
+  .sidebar{ width:100%; height:auto; position:sticky; top:0; z-index:5; flex-direction:row; align-items:center; overflow-x:auto; -webkit-overflow-scrolling:touch; border-right:none; border-bottom:1px solid var(--line); }
   .sidebar .brand{ border-bottom:none; border-right:1px solid var(--line-soft); flex:0 0 auto; white-space:nowrap; }
   .sidebar nav{ display:flex; align-items:center; padding:8px 10px; flex:0 0 auto; }
   .sidebar .navgroup{ display:flex; align-items:center; }
   .sidebar .navgroup + .navgroup{ margin-top:0; margin-left:10px; padding-left:10px; border-left:1px solid var(--line-soft); }
   .sidebar .navgroup .label{ display:none; }
-  .sidebar a.navlink{ border-left:none; border-bottom:2.5px solid transparent; border-radius:6px 6px 0 0; white-space:nowrap; }
+  .sidebar a.navlink{ border-left:none; border-bottom:2.5px solid transparent; border-radius:6px 6px 0 0; white-space:nowrap; padding:10px 10px; }
   .sidebar a.navlink.on{ border-left-color:transparent; border-bottom-color:var(--accent); }
   .sidebar .account{ border-top:none; border-left:1px solid var(--line-soft); flex:0 0 auto; white-space:nowrap; }
-  .app-main{ padding:24px 18px 48px; }
+  .app-main{ padding:20px 14px 40px; }
+
+  /* Tocco: sotto gli 860px il dispositivo è quasi sempre a controllo
+     touch, non mouse — le aree cliccabili crescono, i testi restano
+     leggibili senza dover pizzicare per ingrandire. */
+  button.primary, button.ghost{ padding:10px 16px; }
+  td.actions button{ padding:6px 2px; margin-left:4px; }
+  td.actions button + button{ margin-left:12px; }
+  .sidebar .account-links a, .sidebar .account-links button{ padding:4px 0; }
+
+  /* iOS Safari ingrandisce automaticamente la pagina quando si mette a
+     fuoco un campo con font-size sotto i 16px: qui sotto gli 860px (dove
+     il dispositivo è quasi sempre un telefono) i campi passano a 16px
+     apposta per evitare lo zoom involontario ad ogni tocco. */
+  input, select, textarea{ font-size:16px; padding:10px 11px; }
+  .righe-table input{ font-size:14px; padding:7px 8px; }
 }
+
+/* ---------------------------------------------------------------------------
+   Tabelle larghe (elenchi, righe di un documento): su un telefono possono
+   avere più colonne di quante ne stiano nello schermo. Piuttosto che
+   spezzare il layout della pagina intera, la tabella scorre solo dentro
+   il proprio contenitore — il resto della pagina resta fermo.
+--------------------------------------------------------------------------- */
+.table-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.table-scroll table{ min-width:520px; }
+.table-scroll table.righe-table{ min-width:460px; }
 
 /* ---------------------------------------------------------------------------
    Componenti condivisi dal contenuto delle pagine

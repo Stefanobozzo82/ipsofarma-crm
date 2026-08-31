@@ -131,7 +131,7 @@
       return;
     }
     fornitori.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it'));
-    area.innerHTML = `<table><thead><tr>
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
         <th>Nome</th><th>P.IVA</th><th>Città</th><th>Telefono</th><th></th>
       </tr></thead><tbody>${fornitori.map(f => `
         <tr>
@@ -143,7 +143,7 @@
             <button data-edit="${f.id}">Modifica</button>
             <button class="danger" data-del="${f.id}">Elimina</button>
           </td>
-        </tr>`).join('')}</tbody></table>`;
+        </tr>`).join('')}</tbody></table></div>`;
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(fornitori.find(x => x.id === btn.dataset.edit));
     }));

@@ -38,10 +38,10 @@
     </div>
 
     <label>Righe</label>
-    <table class="righe-table">
+    <div class="table-scroll"><table class="righe-table">
       <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
-    </table>
+    </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
     <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
 
@@ -187,7 +187,7 @@
       return;
     }
     ordini.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
-    area.innerHTML = `<table><thead><tr>
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
         <th>Numero</th><th>Data</th><th>Cliente</th><th>Totale</th><th></th>
       </tr></thead><tbody>${ordini.map(o => `
         <tr>
@@ -199,7 +199,7 @@
             <button data-edit="${o.id}">Modifica</button>
             <button class="danger" data-del="${o.id}">Elimina</button>
           </td>
-        </tr>`).join('')}</tbody></table>`;
+        </tr>`).join('')}</tbody></table></div>`;
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(ordini.find(x => x.id === btn.dataset.edit));
     }));

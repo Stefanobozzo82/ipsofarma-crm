@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prodotti — Gestionale</title>
+<!--
+  Modulo Prodotti: il catalogo che gli altri moduli documento useranno per
+  l'autocompletamento delle righe (non ancora collegato — passo successivo).
+  A differenza di clienti.html/fornitori.html, qui NON si carica l'intera
+  collezione: per Ipsofarma sono 21.278 righe, scaricarle tutte in browser
+  solo per mostrarne una pagina sarebbe lento e inutile. Si cerca invece
+  lato server (store.searchProdotti), filtrato e limitato a un tetto
+  ragionevole di risultati per volta.
+-->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Prodotti</h2>
+      <p class="sub">Catalogo prodotti. Cerca per codice o descrizione.</p>
+    </div>
+
+    <div class="card" id="form-card" hidden>
+      <h3 id="form-title">Nuovo prodotto</h3>
+      <div class="grid2">
+        <div><label for="f-cod">Codice</label><input id="f-cod" type="text" placeholder="es. B0068598"></div>
+        <div><label for="f-unita">Confezione</label><input id="f-unita" type="text" placeholder="es. 1"></div>
+      </div>
+      <label for="f-descr">Descrizione</label>
+      <input id="f-descr" type="text" placeholder="Descrizione prodotto">
+      <div class="grid2">
+        <div><label for="f-acq">Prezzo acquisto</label><input id="f-acq" type="number" min="0" step="0.01"></div>
+        <div><label for="f-ven">Prezzo vendita</label><input id="f-ven" type="number" min="0" step="0.01"></div>
+      </div>
+      <label for="f-iva">IVA %</label>
+      <input id="f-iva" type="number" min="0" step="1" value="22">
+      <div class="form-actions">
+        <button class="primary" id="f-save">Salva</button>
+        <button class="ghost" id="f-cancel">Annulla</button>
+      </div>
+      <div class="msg" id="form-msg" hidden></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <h3>Catalogo</h3>
+        <button class="primary" id="new-prodotto">+ Nuovo prodotto</button>
+      </div>
+      <label for="q" style="margin-top:0">Cerca</label>
+      <input id="q" type="text" placeholder="codice o descrizione…">
+      <div id="list-area" style="margin-top:14px"><p class="empty">Digita qualcosa oppure guarda gli ultimi prodotti qui sotto.</p></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/resize.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let editingId = null;
+  let SORT = { key: 'cod', dir: 'asc' };
+  let lastResults = [];
+  let searchTimer = null;
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return n == null ? '—' : (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function setMsg(text, kind){
+    const el = $('form-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  // ---- ordinamento colonne: come nel gestionale originale — un clic
+  // sull'intestazione ordina, un secondo clic inverte la direzione. Qui
+  // agisce solo sulla pagina di risultati già arrivata dal server, non
+  // sull'intero catalogo (che non è mai tutto in memoria).
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, p){
+    if(key === 'cod') return p.cod || '';
+    if(key === 'descr') return p.descr || '';
+    if(key === 'acq') return Number(p.listinoAcq) || 0;
+    if(key === 'ven') return Number(p.listinoVen) || 0;
+    if(key === 'iva') return Number(p.iva) || 0;
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = 'asc'; }
+    renderResults();
+  }
+
+  function openForm(p){
+    editingId = p ? p.id : null;
+    $('form-title').textContent = p ? 'Modifica prodotto' : 'Nuovo prodotto';
+    $('f-cod').value = p ? (p.cod || '') : '';
+    $('f-descr').value = p ? (p.descr || '') : '';
+    $('f-unita').value = p ? (p.unita || '') : '';
+    $('f-acq').value = p && p.listinoAcq != null ? p.listinoAcq : '';
+    $('f-ven').value = p && p.listinoVen != null ? p.listinoVen : '';
+    $('f-iva').value = p && p.iva != null ? p.iva : 22;
+    setMsg('', '');
+    $('form-card').hidden = false;
+    $('f-cod').focus();
+  }
+  function closeForm(){ $('form-card').hidden = true; editingId = null; }
+  $('new-prodotto').addEventListener('click', () => openForm(null));
+  $('f-cancel').addEventListener('click', closeForm);
+
+  $('f-save').addEventListener('click', async () => {
+    const cod = $('f-cod').value.trim();
+    const descr = $('f-descr').value.trim();
+    if(!cod){ setMsg('Il codice è obbligatorio.', 'error'); return; }
+    if(!descr){ setMsg('La descrizione è obbligatoria.', 'error'); return; }
+    const doc = {
+      cod, descr,
+      unita: $('f-unita').value.trim() || null,
+      listinoAcq: $('f-acq').value === '' ? null : Number($('f-acq').value),
+      listinoVen: $('f-ven').value === '' ? null : Number($('f-ven').value),
+      iva: Number($('f-iva').value) || 0,
+    };
+    if(editingId) doc.id = editingId;
+    $('f-save').disabled = true;
+    setMsg('', '');
+    try{
+      await store.saveDoc('prodotti', doc, companyId);
+      closeForm();
+      await runSearch();
+    }catch(err){
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già un prodotto con questo codice.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
+    }finally{
+      $('f-save').disabled = false;
+    }
+  });
+
+  function renderResults(){
+    const area = $('list-area');
+    if(lastResults.length === 0){
+      area.innerHTML = '<p class="empty">Nessun prodotto trovato.</p>';
+      return;
+    }
+    const rows = [...lastResults].sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        ${th('cod','Codice')}${th('descr','Descrizione')}${th('acq','Acquisto')}${th('ven','Vendita')}${th('iva','IVA %')}<th></th>
+      </tr></thead><tbody>${rows.map(p => `
+        <tr>
+          <td class="num-col">${esc(p.cod)}</td>
+          <td>${esc(p.descr)}</td>
+          <td class="num-col">${eur(p.listinoAcq)}</td>
+          <td class="num-col">${eur(p.listinoVen)}</td>
+          <td class="num-col">${p.iva != null ? p.iva + '%' : '—'}</td>
+          <td class="actions">
+            <button data-edit="${p.id}">Modifica</button>
+            <button class="danger" data-del="${p.id}">Elimina</button>
+          </td>
+        </tr>`).join('')}</tbody></table></div>`;
+    window.SaasResize.makeColsResizable(area.querySelector('table'), 'prodotti-elenco');
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
+    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
+      openForm(lastResults.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
+      const p = lastResults.find(x => x.id === btn.dataset.del);
+      if(!confirm(`Eliminare "${p.cod} — ${p.descr}"? L'operazione non si può annullare.`)) return;
+      try{
+        await store.removeDoc('prodotti', p.id);
+        await runSearch();
+      }catch(err){
+        alert('Errore durante l\'eliminazione: ' + err.message);
+      }
+    }));
+  }
+
+  async function runSearch(){
+    const area = $('list-area');
+    area.innerHTML = '<p class="empty">Cerco…</p>';
+    try{
+      lastResults = await store.searchProdotti(companyId, $('q').value, 200);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nella ricerca: ${esc(err.message)}</p>`;
+      return;
+    }
+    renderResults();
+  }
+  $('q').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 250);
+  });
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('prodotti', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+    await runSearch();
+  }
+  init();
+</script>
+</body>
+</html>

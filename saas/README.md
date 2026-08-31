@@ -28,6 +28,7 @@ saas/
 │   ├── ordini-fornitore.html         ordini fornitore, con numerazione
 │   ├── fatture-fornitore.html        fatture fornitore, con stato di pagamento
 │   ├── note-credito-fornitore.html   note di credito fornitore
+│   ├── prodotti.html                 catalogo prodotti, con ricerca lato server
 │   ├── abbonamento.html              piano attuale + cambio piano (Fase 5)
 │   └── app/
 │       ├── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
@@ -858,6 +859,43 @@ serviva guardare se la freccia cambiava verso), la larghezza scelta
 sopravvive a un ricaricamento della pagina, e non tocca la chiave
 `colWidths` del gestionale originale. Rieseguita l'intera suite
 precedente (14 file) — tutta verde. Collaudo visivo con screenshot.
+
+## Verso la parità col gestionale originale
+
+Chiesto esplicitamente dall'utente: cosa c'era nel gestionale originale che
+manca ancora qui? Il confronto (rifatto leggendo `index.html`, non a
+memoria) ha prodotto una lista di 15 voci, di cui questa sezione tiene
+traccia mano a mano che vengono costruite — un pezzo alla volta, ciascuno
+collaudato e pubblicato prima di passare al successivo, con lo stesso
+rigore di tutto il resto di questo lavoro.
+
+- [x] **Prodotti** (`prodotti.html`) — catalogo con ricerca. A differenza
+  di clienti/fornitori, NON scarica l'intera collezione (21.278 righe per
+  Ipsofarma): `store.searchProdotti()` filtra e limita lato server
+  (`.ilike()` su codice/descrizione, tetto di 200 risultati), altrimenti
+  ogni apertura della pagina scaricherebbe l'intero catalogo solo per
+  mostrarne una schermata. Ricerca con un piccolo ritardo (250ms) per non
+  interrogare il database ad ogni battuta.
+- [ ] Preventivi
+- [ ] Incassi / Pagamenti (storico)
+- [ ] Scadenziario
+- [ ] Impostazioni azienda
+- [ ] Ricerca testuale negli elenchi documento
+- [ ] Filtri elenco (fornitore/stato/intervallo date)
+- [ ] Selezione multipla e azioni collettive
+- [ ] Stampa/PDF di un documento
+- [ ] Destinazioni multiple cliente
+- [ ] Autocompletamento riga da catalogo prodotti
+- [ ] Generazione/download XML FatturaPA da `fatture.html`
+- [ ] Report & Analisi
+- [ ] Assistente AI (interfaccia di chat)
+- [ ] IA che crea documenti da un allegato (fattura/ordine/preventivo)
+
+Non nella lista di proposito — non è "gestionale mancante", è
+un'integrazione specifica del modo di lavorare di Ipsofarma da ripensare,
+non semplicemente copiare, se e quando servirà a un cliente del SaaS:
+l'import automatico ordini da Google Sheet e il monitoraggio Gmail per
+nuove fatture fornitore.
 
 ## Prossimo passo
 

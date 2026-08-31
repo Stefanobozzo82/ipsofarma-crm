@@ -31,6 +31,9 @@
       { id: 'fatture-fornitore', label: 'Fatture', href: 'fatture-fornitore.html', ic: '📑' },
       { id: 'note-credito-fornitore', label: 'Note di credito', href: 'note-credito-fornitore.html', ic: '↩' },
     ] },
+    { label: 'Catalogo', items: [
+      { id: 'prodotti', label: 'Prodotti', href: 'prodotti.html', ic: '⊞' },
+    ] },
     { label: 'Azienda', items: [
       { id: 'abbonamento', label: 'Abbonamento', href: 'abbonamento.html', ic: '⚙' },
     ] },

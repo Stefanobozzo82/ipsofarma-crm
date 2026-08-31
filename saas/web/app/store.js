@@ -21,11 +21,11 @@
  *     questo store ai punti del gestionale che creano documenti richiederà
  *     rendere asincrono anche quel passaggio: è la prossima decisione di
  *     disegno da prendere, non ancora presa qui.
- *   - "prodotti" (il catalogo, ~21.000 righe in Ipsofarma) non è ancora
- *     mappato: la sua forma reale in catalogo.json non è stata ancora presa
- *     in esame nel dettaglio, e i nuovi clienti del SaaS partirebbero
- *     comunque con un catalogo vuoto o importato da un file proprio, non da
- *     quello di Ipsofarma.
+ *
+ * "prodotti" è mappato (vedi COLLECTIONS sotto), ma con una differenza
+ * voluta rispetto alle altre collection: loadCollection() scaricherebbe
+ * TUTTO il catalogo (21.278 righe per Ipsofarma) solo per mostrarne una
+ * pagina — usa invece searchProdotti(), che filtra e limita lato server.
  * ============================================================================
  */
 
@@ -83,6 +83,10 @@
     }, hasExtra:true },
     noteCreditoFornitore: { table: 'note_credito_fornitore', numbered: 'NCF', cols: {
       num:'num', data:'data', fornitoreId:'fornitore_id', fatturaId:'fattura_id', righe:'righe',
+    }, hasExtra:true },
+    prodotti: { table: 'prodotti', cols: {
+      cod:'cod', descr:'descr', fornitoreId:'fornitore_id',
+      listinoAcq:'listino_acq', listinoVen:'listino_ven', iva:'iva', unita:'unita',
     }, hasExtra:true },
   };
 
@@ -193,6 +197,23 @@
     return data.map(row => rowToDoc(collName, row));
   }
 
+  // Catalogo prodotti: filtrato e limitato lato server, mai scaricato per
+  // intero (21.278 righe per Ipsofarma — vedi nota in testa al file). Query
+  // vuota -> gli ultimi prodotti per codice, utile come punto di partenza.
+  async function searchProdotti(companyId, query, limit) {
+    limit = limit || 100;
+    // '.or()' di supabase-js usa la virgola come separatore di condizioni:
+    // una virgola nel testo digitato spezzerebbe il filtro. Il catalogo non
+    // ha mai codici/descrizioni con virgole (verificato sui dati reali), ma
+    // la rimuoviamo comunque per non dipendere da quella coincidenza.
+    const q = (query || '').trim().replace(/[,()%]/g, '');
+    let req = client().from('prodotti').select('*').eq('company_id', companyId).order('cod').limit(limit);
+    if (q) req = req.or(`cod.ilike.%${q}%,descr.ilike.%${q}%`);
+    const { data, error } = await req;
+    if (error) throw error;
+    return data.map(row => rowToDoc('prodotti', row));
+  }
+
   // ---------------------------------------------------------------------------
   // Scrittura di un singolo documento — sostituisce il "push in DB.xxx +
   // persist()" del gestionale attuale. Un id già presente aggiorna la riga
@@ -229,6 +250,6 @@
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    getCompany, loadPlans, startCheckout,
+    getCompany, loadPlans, startCheckout, searchProdotti,
   };
 })(window);

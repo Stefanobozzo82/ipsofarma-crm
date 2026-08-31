@@ -345,6 +345,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:13px; }
 .msg.error{ background:var(--red-s); color:var(--red); }
 .msg.ok{ background:var(--accent-soft); color:var(--accent-d); }
+.msg.info{ background:var(--blue-s); color:var(--blue); }
 
 /* Badge/pill: stessa forma del gestionale originale — un pallino colorato
    più il testo, su uno sfondo tenue della stessa tinta, mai un colore

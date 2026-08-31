@@ -878,6 +878,13 @@ traccia mano a mano che vengono costruite — un pezzo alla volta, ciascuno
 collaudato e pubblicato prima di passare al successivo, con lo stesso
 rigore di tutto il resto di questo lavoro.
 
+**Le 15 voci sono ora tutte costruite, collaudate e pubblicate.** Questo
+non significa "parità completa e definitiva col gestionale originale" —
+diverse voci portano semplificazioni deliberate, annotate voce per voce
+qui sotto, che restano possibili giri successivi se e quando serviranno
+davvero a un cliente del SaaS. Significa che ogni funzionalità della
+lista originale ha oggi un equivalente funzionante in questo prodotto.
+
 - [x] **Prodotti** (`prodotti.html`) — catalogo con ricerca. A differenza
   di clienti/fornitori, NON scarica l'intera collezione (21.278 righe per
   Ipsofarma): `store.searchProdotti()` filtra e limita lato server
@@ -1069,7 +1076,27 @@ rigore di tutto il resto di questo lavoro.
   La parte "piano di azioni" (creare/modificare un documento da
   un'istruzione o da un allegato) resta per il prossimo — e più grande —
   pezzo della lista.
-- [ ] IA che crea documenti da un allegato (fattura/ordine/preventivo)
+- [x] **IA che crea documenti da un allegato** (`fatture-fornitore.html`)
+  — porta di `pdfExtractSupplierInvoice()`/`openXmlImport()`
+  dell'originale, semplificata: un pulsante "📎 Importa da PDF/foto (AI)"
+  legge un allegato (PDF o foto di una fattura fornitore) e precompila il
+  form "Nuova fattura" già esistente — fornitore (cercato per nome tra
+  quelli già registrati), numero, data, righe — pronto da controllare e
+  salvare con la stessa validazione di sempre (compreso il controllo di
+  numero duplicato). Un PDF non è leggibile come tale da un modello di
+  chat: le pagine vengono prima trasformate in immagini (pdf.js, da CDN,
+  come `jsPDF`/`SheetJS` altrove), poi inviate come messaggio multimodale
+  a `store.aiComplete()` — stessa `ai-proxy` di Fase 3, la chiave resta
+  sul server. Se il fornitore letto non corrisponde a nessuno già
+  registrato, il form si precompila comunque (numero/data/righe) con un
+  avviso esplicito, invece di bloccare l'importazione.
+  Semplificato rispetto all'originale, di proposito — è la voce più
+  grande della lista, lasciata per ultima: niente ancora lettura diretta
+  di XML/P7M della fattura elettronica (percorso deterministico separato,
+  qui si passa sempre dall'AI), niente confronto riga per riga con
+  l'ordine fornitore collegato né importazione multipla in un colpo solo,
+  niente estrazione per ordini/preventivi (l'originale stesso ha questo
+  percorso solo per le fatture fornitore).
 
 Non nella lista di proposito — non è "gestionale mancante", è
 un'integrazione specifica del modo di lavorare di Ipsofarma da ripensare,

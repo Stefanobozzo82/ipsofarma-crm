@@ -58,9 +58,12 @@
       <h3>Elenco</h3>
       <div class="toolbar-right">
         <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per numero o fornitore…"></div>
+        <button class="ghost" id="ai-import-btn">📎 Importa da PDF/foto (AI)</button>
+        <input type="file" id="ai-import-file" accept="application/pdf,image/*" hidden>
         <button class="primary" id="new-fattura">+ Nuova fattura</button>
       </div>
     </div>
+    <p class="msg" id="ai-import-status" hidden></p>
     <div id="filter-area"></div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -251,6 +254,122 @@
     openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
+
+  // ---- importa fattura da PDF/foto con l'AI ------------------------------
+  // Porta di pdfExtractSupplierInvoice()/openXmlImport() nel gestionale
+  // originale, semplificata: qui i dati letti dall'AI precompilano
+  // direttamente il form "Nuova fattura" già esistente (stessa validazione,
+  // stesso controllo di numero duplicato al salvataggio) invece di un
+  // percorso di importazione a sé con anteprima/confronto ordine dedicati —
+  // quelli restano un possibile giro successivo. Niente ancora lettura
+  // diretta di XML/P7M della fattura elettronica (percorso deterministico,
+  // separato da questo): qui si legge sempre tramite AI, PDF o foto che sia.
+  function aiImportStatus(text, kind){
+    const el = $('ai-import-status');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
+  }
+  function readFileAsDataUrl(file){
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(new Error('lettura del file non riuscita'));
+      r.readAsDataURL(file);
+    });
+  }
+  let pdfJsPromise = null;
+  function loadPdfJs(){
+    if(pdfJsPromise) return pdfJsPromise;
+    pdfJsPromise = new Promise((resolve, reject) => {
+      if(window.pdfjsLib){ resolve(window.pdfjsLib); return; }
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = () => {
+        try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; resolve(window.pdfjsLib); }
+        catch(e){ reject(e); }
+      };
+      s.onerror = () => reject(new Error('impossibile caricare il lettore PDF (serve una connessione a internet)'));
+      document.head.appendChild(s);
+    });
+    return pdfJsPromise;
+  }
+  // Un modello di chat non legge un PDF come tale: le pagine vanno
+  // trasformate in immagini prima di inviarle (stesso motivo per cui
+  // l'originale fa lo stesso per il provider compatibile OpenAI, quello
+  // usato anche qui da ai-proxy). Limitate alle prime 4 pagine: una fattura
+  // raramente ne ha di più, e ogni pagina in più pesa sulla richiesta.
+  async function pdfToImageDataUrls(file, maxPages){
+    const lib = await loadPdfJs();
+    const buf = await file.arrayBuffer();
+    const pdf = await lib.getDocument({ data: buf }).promise;
+    const n = Math.min(pdf.numPages, maxPages || 4);
+    const imgs = [];
+    for(let i = 1; i <= n; i++){
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({ scale: 1.6 });
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      imgs.push(canvas.toDataURL('image/png'));
+    }
+    return imgs;
+  }
+  function findFornitoreByNome(nome){
+    if(!nome) return null;
+    const n = nome.trim().toLowerCase();
+    if(!n) return null;
+    return fornitoriArr.find(f => (f.nome || '').toLowerCase() === n)
+      || fornitoriArr.find(f => (f.nome || '').toLowerCase().includes(n) || n.includes((f.nome || '').toLowerCase()));
+  }
+  function parseAiJson(text){
+    let t = String(text || '').replace(/```json|```/g, '').trim();
+    try{ return JSON.parse(t); }catch(e){}
+    const m = t.match(/\{[\s\S]*\}/);
+    if(m){ try{ return JSON.parse(m[0]); }catch(e){} }
+    throw new Error('risposta dell\'AI non interpretabile come JSON' + (t ? ' — ricevuto: ' + t.slice(0, 200) : ''));
+  }
+  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
+  $('ai-import-file').addEventListener('change', async () => {
+    const file = $('ai-import-file').files[0];
+    $('ai-import-file').value = '';
+    if(!file) return;
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+    aiImportStatus('Sto leggendo ' + file.name + ' con l\'AI…', 'info');
+    try{
+      const images = isPdf ? await pdfToImageDataUrls(file, 4) : [await readFileAsDataUrl(file)];
+      const instr = "Nel documento allegato c'è una FATTURA di un FORNITORE. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore emittente), numero (numero della fattura), data (formato AAAA-MM-GG), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità fatturata, numero), prezzo (prezzo unitario PIENO prima di eventuali sconti, numero), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", oppure stringa vuota se non c'è sconto), iva (aliquota IVA, numero).";
+      const content = [{ type:'text', text: instr }].concat(images.map(url => ({ type:'image_url', image_url:{ url } })));
+      const reply = await store.aiComplete([
+        { role:'system', content:"Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick." },
+        { role:'user', content },
+      ], { maxTokens: 4000 });
+      const p = parseAiJson(reply);
+      if(!p.numero && !p.righe){ throw new Error('l\'AI non ha riconosciuto una fattura fornitore in questo file'); }
+
+      openForm(null);
+      const match = findFornitoreByNome(p.fornitore);
+      if(match){ $('f-fornitore').value = match.id; refreshOrdineOptions(match.id); }
+      $('f-num').value = String(p.numero || '').trim();
+      $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
+      $('righe-body').innerHTML = '';
+      const righe = Array.isArray(p.righe) ? p.righe : [];
+      (righe.length ? righe : [null]).forEach(r => addRigaRow(r ? {
+        cod: String(r.cod || '').trim(), descr: String(r.descr || '').trim(),
+        qty: Math.max(1, parseInt(r.qty) || 1),
+        prezzo: r.prezzo != null && r.prezzo !== '' ? parseFloat(r.prezzo) || 0 : 0,
+        sconto: String(r.sconto || '').replace(/\s/g, ''),
+        iva: r.iva != null && r.iva !== '' ? parseFloat(r.iva) : 22,
+      } : null));
+      aiImportStatus(
+        match
+          ? `Letto con l'AI: fornitore riconosciuto come "${match.nome}". Controlla i dati prima di salvare.`
+          : `Letto con l'AI, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`,
+        match ? 'ok' : 'error'
+      );
+    }catch(err){
+      aiImportStatus('Lettura non riuscita: ' + (err.message || err), 'error');
+    }
+  });
 
   $('f-save').addEventListener('click', async () => {
     const fornitoreId = $('f-fornitore').value;

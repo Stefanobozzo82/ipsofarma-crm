@@ -19,6 +19,7 @@ saas/
 ├── web/
 │   ├── index.html                    login + registrazione azienda + scelta azienda
 │   ├── dashboard.html                quadro d'insieme: fatturato, incassi, evasione, grafico mensile
+│   ├── scadenziario.html             fatture cliente non incassate, ordinate per scadenza
 │   ├── clienti.html                  anagrafica clienti
 │   ├── preventivi.html               preventivi, trasformabili in ordine cliente
 │   ├── ordini.html                   ordini cliente, con numerazione
@@ -896,7 +897,22 @@ rigore di tutto il resto di questo lavoro.
   (incassato/pagato nell'anno corrente e in totale). Non si registra un
   incasso/pagamento da qui — resta un'azione di `fatture.html`/
   `fatture-fornitore.html`, come oggi — queste pagine lo mostrano soltanto.
-- [ ] Scadenziario
+- [x] **Scadenziario** (`scadenziario.html`) — tutte le fatture cliente
+  non ancora incassate del tutto, ordinate per data di scadenza (data
+  fattura + termini di pagamento del cliente, default 30 giorni — stessa
+  formula `dueDate()` dell'originale), con residuo calcolato tenendo conto
+  di pagamenti parziali e note di credito. Tre riquadri: scadute, in
+  scadenza entro 7 e entro 30 giorni (finestre cumulative, non esclusive
+  a vicenda — stessa semantica dell'originale). **Il badge rosso col
+  numero di fatture scadute** compare ora sulla voce "Scadenziario" della
+  sidebar su **ogni** pagina, non solo su questa: calcolato una volta in
+  `nav.js` (una query in più, asincrona e silenziosa — se fallisce la
+  sidebar resta comunque utilizzabile, semplicemente senza badge) invece
+  di doverlo ricalcolare in ognuna delle altre pagine.
+  Semplificato rispetto all'originale, di proposito: un unico elenco
+  piatto invece di un raggruppamento per cliente con vista di dettaglio,
+  niente ancora "invia sollecito" via email (serve un provider email
+  configurato) né esportazione Excel.
 - [ ] Impostazioni azienda
 - [ ] Ricerca testuale negli elenchi documento
 - [ ] Filtri elenco (fornitore/stato/intervallo date)

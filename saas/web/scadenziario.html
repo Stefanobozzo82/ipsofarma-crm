@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scadenziario — Gestionale</title>
+<!--
+  Tutte le fatture cliente non ancora incassate del tutto, ordinate per
+  data di scadenza (data fattura + termini di pagamento del cliente,
+  default 30 giorni — stessa formula di dueDate() nel gestionale
+  originale). Il residuo tiene conto di pagamenti parziali e note di
+  credito collegate (stessa aritmetica di dashboard.html), non solo del
+  flag "pagata sì/no".
+
+  Semplificato rispetto all'originale, di proposito: qui è un unico
+  elenco piatto, non un raggruppamento per cliente con vista di dettaglio
+  al clic; niente ancora "invia sollecito" via email (serve un provider
+  email configurato, non ancora fatto) né esportazione Excel.
+-->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Scadenziario</h2>
+      <p class="sub">Tutte le fatture clienti non incassate, ordinate per data di scadenza.</p>
+    </div>
+
+    <div class="stats" id="stats-riga" style="grid-template-columns:repeat(3,1fr)"></div>
+
+    <div class="card">
+      <div class="toolbar"><h3>Elenco</h3></div>
+      <div id="list-area"><p class="empty">Carico…</p></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/resize.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let SORT = { key: 'scadenza', dir: 'asc' };
+  let righe = [];
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function eur0(n){ return '€ ' + Math.round(Number(n) || 0).toLocaleString('it-IT', { maximumFractionDigits:0 }); }
+
+  // ---- stessa aritmetica di dashboard.html: sconto riga, residuo che
+  // tiene conto di pagamenti parziali e note di credito collegate.
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function lineNet(x){ return (x.qty || 0) * (x.prezzo || 0) * scFactor(x.sconto); }
+  function imp(righeArr){ return (righeArr || []).reduce((s, x) => s + lineNet(x), 0); }
+  function ivaT(righeArr){ return (righeArr || []).reduce((s, x) => s + lineNet(x) * (x.iva || 0) / 100, 0); }
+  function tot(righeArr){ return imp(righeArr) + ivaT(righeArr); }
+  function payTot(it){
+    if(it.pagamenti == null) return it.paid ? tot(it.righe) : 0;
+    return it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0);
+  }
+  function ncCreditoFor(nc, ftNum){
+    const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
+    if(!ids.includes(ftNum)) return 0;
+    return ids.length <= 1 ? tot(nc.righe) : tot(nc.righe) / ids.length;
+  }
+  function payState(it, noteCredito){
+    const totaleRaw = tot(it.righe);
+    const sign = totaleRaw < 0 ? -1 : 1;
+    const totale = totaleRaw * sign;
+    const creditato = it.num ? (noteCredito || []).reduce((s, nc) => s + ncCreditoFor(nc, it.num), 0) : 0;
+    const pagato = (payTot(it) + creditato) * sign;
+    const state = pagato <= 0.004 ? 'aperto' : pagato >= totale - 0.01 ? 'completo' : 'parziale';
+    return { state, residuo: Math.max(0, totale - pagato) * sign };
+  }
+
+  // Stessa formula di dueDate()/isOverdue() nel gestionale originale:
+  // data fattura + termini di pagamento del cliente (default 30 giorni).
+  function dueDate(cliente, fattura, oggi){
+    const days = cliente && cliente.term != null && cliente.term !== '' ? parseInt(cliente.term) : 30;
+    const d = new Date((fattura.data || oggi) + 'T00:00:00');
+    d.setDate(d.getDate() + (isNaN(days) ? 30 : days));
+    return d.toISOString().slice(0, 10);
+  }
+
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, r){
+    if(key === 'num') return r.num || '';
+    if(key === 'cliente') return r.cliente || '';
+    if(key === 'data') return r.data || '';
+    if(key === 'scadenza') return r.scadenza || '';
+    if(key === 'residuo') return r.residuo || 0;
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = 'asc'; }
+    renderList();
+  }
+
+  function statoBadge(r){
+    if(r.overdue) return `<span class="pill unpaid">scaduta da ${Math.abs(r.days)} gg</span>`;
+    if(r.days <= 7) return `<span class="pill unpaid">scade tra ${r.days} gg</span>`;
+    return `<span class="pill" style="color:var(--blue);background:var(--blue-s)">scade tra ${r.days} gg</span>`;
+  }
+
+  function renderStats(){
+    const overdue = righe.filter(r => r.overdue);
+    const week = righe.filter(r => !r.overdue && r.days <= 7);
+    const month = righe.filter(r => !r.overdue && r.days <= 30);
+    const sum = arr => arr.reduce((s, r) => s + r.residuo, 0);
+    $('stats-riga').innerHTML = `
+      <div class="stat"><div class="sl">Scadute</div><div class="sv" style="color:var(--red)">${eur0(sum(overdue))}</div><div class="sx">${overdue.length} fatture</div></div>
+      <div class="stat"><div class="sl">Scadono in 7 gg</div><div class="sv" style="color:var(--amber)">${eur0(sum(week))}</div><div class="sx">${week.length} fatture</div></div>
+      <div class="stat"><div class="sl">Scadono in 30 gg</div><div class="sv" style="color:var(--blue)">${eur0(sum(month))}</div><div class="sx">${month.length} fatture</div></div>
+    `;
+  }
+
+  function renderList(){
+    const area = $('list-area');
+    if(righe.length === 0){
+      area.innerHTML = '<p class="empty">Nessuna fattura da incassare: tutte le fatture cliente risultano incassate.</p>';
+      return;
+    }
+    const rows = [...righe].sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        ${th('num','Fattura')}${th('cliente','Cliente')}${th('data','Emessa')}${th('scadenza','Scadenza')}${th('residuo','Residuo')}<th>Stato</th>
+      </tr></thead><tbody>${rows.map(r => `
+        <tr>
+          <td class="num-col">${esc(r.num)}</td>
+          <td>${esc(r.cliente)}</td>
+          <td>${r.data ? new Date(r.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${r.scadenza ? new Date(r.scadenza).toLocaleDateString('it-IT') : '—'}</td>
+          <td class="num-col">${eur(r.residuo)}</td>
+          <td>${statoBadge(r)}</td>
+        </tr>`).join('')}</tbody></table></div>`;
+    window.SaasResize.makeColsResizable(area.querySelector('table'), 'scadenziario-elenco');
+    area.querySelectorAll('[data-sort]').forEach(t => t.addEventListener('click', () => setSort(t.dataset.sort)));
+  }
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('scadenziario', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const area = $('list-area');
+    let clienti, fatture, noteCredito;
+    try{
+      [clienti, fatture, noteCredito] = await Promise.all([
+        store.loadCollection('clienti', companyId),
+        store.loadCollection('fattureCliente', companyId),
+        store.loadCollection('noteCredito', companyId),
+      ]);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
+    const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
+    const oggi = new Date().toISOString().slice(0, 10);
+    righe = [];
+    fatture.forEach(f => {
+      const ps = payState(f, noteCredito);
+      if(ps.state === 'completo' || ps.residuo <= 0) return;
+      const cliente = clientiById[f.clienteId];
+      const scadenza = dueDate(cliente, f, oggi);
+      const days = Math.round((new Date(scadenza) - new Date(oggi)) / 86400000);
+      righe.push({
+        num: f.num, data: f.data, scadenza, residuo: ps.residuo,
+        cliente: (cliente || {}).nome || '(cliente non trovato)',
+        overdue: scadenza < oggi, days: Math.abs(days),
+      });
+    });
+    renderStats();
+    renderList();
+  }
+  init();
+</script>
+</body>
+</html>

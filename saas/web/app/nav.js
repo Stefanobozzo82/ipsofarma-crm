@@ -17,6 +17,7 @@
   const GROUPS = [
     { label: null, items: [
       { id: 'dashboard', label: 'Dashboard', href: 'dashboard.html', ic: '◫' },
+      { id: 'scadenziario', label: 'Scadenziario', href: 'scadenziario.html', ic: '📅' },
     ] },
     { label: 'Clienti', items: [
       { id: 'clienti', label: 'Clienti', href: 'clienti.html', ic: '🏥' },
@@ -81,6 +82,42 @@
     }
 
     ensureMobileTopbar();
+    renderOverdueBadge();
+  }
+
+  // Il badge rosso sulla voce "Scadenziario" (quante fatture cliente sono
+  // scadute e non incassate) — stessa idea di overdueCount() nel
+  // gestionale originale, calcolata qui invece che in ogni singola pagina:
+  // così tutte la mostrano senza che ognuna debba rifare la stessa query.
+  // Asincrono e silenzioso di proposito: se fallisce (rete, azienda ancora
+  // senza fatture...) la sidebar resta comunque utilizzabile, semplicemente
+  // senza badge — non deve mai bloccare la navigazione.
+  async function renderOverdueBadge() {
+    try {
+      const companyId = localStorage.getItem('saas_company_id');
+      if (!companyId || !global.SaasStore) return;
+      const [clienti, fatture] = await Promise.all([
+        global.SaasStore.loadCollection('clienti', companyId),
+        global.SaasStore.loadCollection('fattureCliente', companyId),
+      ]);
+      const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
+      const oggi = new Date().toISOString().slice(0, 10);
+      const count = fatture.filter(f => {
+        if (f.paid) return false;
+        const cliente = clientiById[f.clienteId];
+        const days = cliente && cliente.term != null && cliente.term !== '' ? parseInt(cliente.term) : 30;
+        const d = new Date((f.data || oggi) + 'T00:00:00');
+        d.setDate(d.getDate() + (isNaN(days) ? 30 : days));
+        return d.toISOString().slice(0, 10) < oggi;
+      }).length;
+      if (count <= 0) return;
+      const link = document.querySelector('.sidebar a.navlink[href="scadenziario.html"]');
+      if (!link || link.querySelector('.overdue-badge')) return;
+      const badge = document.createElement('span');
+      badge.className = 'overdue-badge';
+      badge.textContent = String(count);
+      link.appendChild(badge);
+    } catch (e) { /* silenzioso di proposito, vedi sopra */ }
   }
 
   // Sotto gli 860px il menu laterale esce dal flusso della pagina e resta

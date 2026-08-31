@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clienti — banco di prova Fase 2</title>
+<!--
+  Primo modulo reale del gestionale collegato a Supabase invece che a
+  GitHub (via saas/web/app/store.js). Non è ancora l'interfaccia finale:
+  serve a provare, su un caso concreto, che la lettura/scrittura tramite
+  store.js funziona nell'uso reale, prima di estendere lo stesso schema ai
+  documenti (ordini, ddt, fatture — che a differenza di clienti/fornitori
+  richiedono anche la numerazione asincrona, vedi README).
+-->
+<style>
+  :root{
+    --ink:#16212c; --paper:#f3f4f1; --card:#ffffff; --line:#d7dad2;
+    --muted:#5c6670; --accent:#2f6b66; --accent-ink:#ffffff; --danger:#b3402a; --danger-soft:#f7e3de;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#e7eaee; --paper:#12161d; --card:#1a2029; --line:#2a313c; --muted:#94a0ab; --accent:#5caba4; --accent-ink:#0d1512; --danger:#e08a72; --danger-soft:#3a201a; }
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap{ max-width:760px; margin:0 auto; padding:32px 20px 60px; }
+  header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:22px; gap:10px; flex-wrap:wrap; }
+  .eyebrow{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
+  h1{ font-size:20px; margin:0; }
+  .nav{ display:flex; gap:14px; align-items:center; font-size:13px; }
+  .nav a, .nav button{ color:var(--muted); background:none; border:none; cursor:pointer; font-size:13px; padding:0; text-decoration:underline; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
+  .card + .card{ margin-top:16px; }
+  .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .toolbar h2{ font-size:15px; margin:0; }
+  button.primary{ padding:8px 14px; border:none; border-radius:8px; background:var(--accent); color:var(--accent-ink); font-size:14px; font-weight:600; cursor:pointer; }
+  button.primary:disabled{ opacity:.55; cursor:default; }
+  button.ghost{ background:transparent; color:var(--accent); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer; }
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  th{ text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); padding:8px 6px; border-bottom:1px solid var(--line); }
+  td{ padding:10px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  td.actions{ text-align:right; white-space:nowrap; }
+  td.actions button{ background:none; border:none; color:var(--accent); cursor:pointer; font-size:13px; text-decoration:underline; margin-left:10px; padding:0; }
+  td.actions button.danger{ color:var(--danger); }
+  .empty{ color:var(--muted); font-size:14px; padding:20px 0; text-align:center; }
+  label{ display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  label:first-of-type{ margin-top:0; }
+  input, select, textarea{ width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font-size:14px; font-family:inherit; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+  .form-actions{ display:flex; gap:10px; margin-top:16px; }
+  .msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:14px; }
+  .msg.error{ background:var(--danger-soft); color:var(--danger); }
+  .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow" id="company-eyebrow">Azienda</p>
+      <h1>Clienti</h1>
+    </div>
+    <div class="nav">
+      <a href="index.html">← cambia azienda</a>
+      <button id="logout">Esci</button>
+    </div>
+  </header>
+
+  <div class="card" id="form-card" hidden>
+    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuovo cliente</h2>
+    <label for="f-nome">Nome / ragione sociale</label>
+    <input id="f-nome" type="text" placeholder="Farmacia Rossi Srl">
+    <div class="grid2">
+      <div><label for="f-tipo">Tipo</label>
+        <select id="f-tipo"><option value="PG">Persona giuridica</option><option value="PF">Persona fisica</option></select>
+      </div>
+      <div><label for="f-piva">Partita IVA</label><input id="f-piva" type="text"></div>
+    </div>
+    <div class="grid2">
+      <div><label for="f-citta">Città</label><input id="f-citta" type="text"></div>
+      <div><label for="f-tel">Telefono</label><input id="f-tel" type="text"></div>
+    </div>
+    <label for="f-email">Email</label>
+    <input id="f-email" type="email">
+    <label for="f-note">Note</label>
+    <textarea id="f-note" rows="2"></textarea>
+    <div class="form-actions">
+      <button class="primary" id="f-save">Salva</button>
+      <button class="ghost" id="f-cancel">Annulla</button>
+    </div>
+    <div class="msg" id="form-msg" hidden></div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2>Elenco</h2>
+      <button class="primary" id="new-cliente">+ Nuovo cliente</button>
+    </div>
+    <div id="list-area"><p class="empty">Carico…</p></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let editingId = null; // null = sto creando, altrimenti sto modificando questo id
+
+  function setMsg(text, kind){
+    const el = $('form-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  function openForm(cliente){
+    editingId = cliente ? cliente.id : null;
+    $('form-title').textContent = cliente ? 'Modifica cliente' : 'Nuovo cliente';
+    $('f-nome').value = cliente ? (cliente.nome || '') : '';
+    $('f-tipo').value = cliente ? (cliente.tipo || 'PG') : 'PG';
+    $('f-piva').value = cliente ? (cliente.piva || '') : '';
+    $('f-citta').value = cliente ? (cliente.citta || '') : '';
+    $('f-tel').value = cliente ? (cliente.tel || '') : '';
+    $('f-email').value = cliente ? (cliente.email || '') : '';
+    $('f-note').value = cliente ? (cliente.note || '') : '';
+    setMsg('', '');
+    $('form-card').hidden = false;
+    $('f-nome').focus();
+  }
+  function closeForm(){ $('form-card').hidden = true; editingId = null; }
+
+  $('new-cliente').addEventListener('click', () => openForm(null));
+  $('f-cancel').addEventListener('click', closeForm);
+
+  $('f-save').addEventListener('click', async () => {
+    const nome = $('f-nome').value.trim();
+    if(!nome){ setMsg('Il nome è obbligatorio.', 'error'); return; }
+    const doc = {
+      nome, tipo: $('f-tipo').value, piva: $('f-piva').value.trim() || null,
+      citta: $('f-citta').value.trim() || null, tel: $('f-tel').value.trim() || null,
+      email: $('f-email').value.trim() || null, note: $('f-note').value.trim() || null,
+    };
+    if(editingId) doc.id = editingId;
+    $('f-save').disabled = true;
+    try{
+      await store.saveDoc('clienti', doc, companyId);
+      closeForm();
+      await renderList();
+    }catch(err){
+      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+    }finally{
+      $('f-save').disabled = false;
+    }
+  });
+
+  async function renderList(){
+    const area = $('list-area');
+    area.innerHTML = '<p class="empty">Carico…</p>';
+    let clienti;
+    try{
+      clienti = await store.loadCollection('clienti', companyId);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
+    if(clienti.length === 0){
+      area.innerHTML = '<p class="empty">Nessun cliente ancora. Aggiungine uno con "+ Nuovo cliente".</p>';
+      return;
+    }
+    clienti.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it'));
+    area.innerHTML = `<table><thead><tr>
+        <th>Nome</th><th>P.IVA</th><th>Città</th><th>Telefono</th><th></th>
+      </tr></thead><tbody>${clienti.map(c => `
+        <tr>
+          <td>${esc(c.nome)}</td>
+          <td>${esc(c.piva) || '—'}</td>
+          <td>${esc(c.citta) || '—'}</td>
+          <td>${esc(c.tel) || '—'}</td>
+          <td class="actions">
+            <button data-edit="${c.id}">Modifica</button>
+            <button class="danger" data-del="${c.id}">Elimina</button>
+          </td>
+        </tr>`).join('')}</tbody></table>`;
+    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
+      const c = clienti.find(x => x.id === btn.dataset.edit);
+      openForm(c);
+    }));
+    area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
+      const c = clienti.find(x => x.id === btn.dataset.del);
+      if(!confirm(`Eliminare "${c.nome}"? L'operazione non si può annullare.`)) return;
+      try{
+        await store.removeDoc('clienti', c.id);
+        await renderList();
+      }catch(err){
+        alert('Errore durante l\'eliminazione: ' + err.message);
+      }
+    }));
+  }
+
+  $('logout').addEventListener('click', async () => {
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  });
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    $('company-eyebrow').textContent = localStorage.getItem('saas_company_nome') || 'Azienda';
+    await renderList();
+  }
+  init();
+</script>
+</body>
+</html>

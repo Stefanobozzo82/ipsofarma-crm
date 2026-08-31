@@ -1,4 +1,4 @@
-# Dal monolite al SaaS — Fase 0 e Fase 1
+# Dal monolite al SaaS — Fase 0, Fase 1, Fase 2 (in corso)
 
 Questa cartella è il punto di partenza del **nuovo prodotto multi-azienda**, costruito
 in parallelo al gestionale che usi ogni giorno. Niente qui tocca `index.html`,
@@ -7,9 +7,8 @@ come oggi, sincronizzata su GitHub come sempre.
 
 Il piano completo (diagnosi, stack, fasi, costi) è nel documento
 "Dal monolite al SaaS" già condiviso. Questa cartella copre la **Fase 0**
-(fondamenta dati — un database vero, multi-azienda, con isolamento reale) e la
-**Fase 1** (accessi: login vero, registrazione self-service di una nuova
-azienda cliente, ruoli).
+(fondamenta dati), la **Fase 1** (accessi) e l'inizio della **Fase 2**
+(il primo modulo reale del gestionale collegato a Supabase).
 
 ## Cosa c'è qui
 
@@ -18,7 +17,10 @@ saas/
 ├── README.md                         questo file
 ├── .env.example                      variabili d'ambiente (mai committare quelle vere)
 ├── web/
-│   └── index.html                    banco di prova Fase 1: login + registrazione azienda
+│   ├── index.html                    login + registrazione azienda + scelta azienda
+│   ├── clienti.html                  primo modulo reale: elenco clienti (Fase 2)
+│   └── app/
+│       └── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 └── supabase/
     └── migrations/
         ├── 0001_aziende_e_utenti.sql        tabella aziende, utenti↔aziende, ruoli, funzioni di isolamento
@@ -182,10 +184,37 @@ questa sessione ha un limite di rete specifico (non regge le richieste
 HTTP/2 di Chromium verso host esterni) che non riguarda i browser reali
 degli utenti finali.
 
+## Fase 2 (in corso) — il primo modulo reale: clienti
+
+`web/clienti.html` è il primo pezzo vero del gestionale collegato a
+`store.js`, non più un banco di prova: elenco, creazione, modifica ed
+eliminazione dei clienti di un'azienda, letti e scritti davvero su
+Supabase. Volutamente parte da clienti/fornitori — anagrafiche semplici,
+senza numerazione — proprio per provare tutto il percorso (sessione →
+azienda scelta → lettura → scrittura → rilettura) prima di affrontare i
+documenti, che in più richiedono la numerazione asincrona descritta sopra.
+
+Da `web/index.html`, ogni azienda nell'elenco ha ora un pulsante "Apri
+gestionale →": salva l'azienda scelta in `localStorage`
+(`saas_company_id`/`saas_company_nome`) e apre `clienti.html`. Più aziende
+per lo stesso utente (es. un commercialista con più clienti) sono già
+gestite: si sceglie quale aprire a ogni accesso.
+
+Aggiunta anche `loadCollection(collezione, companyId)` a `store.js`: come
+`loadCompany()` ma per una sola collezione, per non dover scaricare tutte
+e dieci le tabelle solo per mostrare un elenco.
+
+**Collaudo**: `clienti.html` è stata verificata con un `SaasStore` finto
+(Playwright, browser reale) — creazione, modifica con precompilazione del
+form, cancellazione con conferma, validazione del nome obbligatorio,
+redirect a `index.html` se non si è collegati o non si è scelta
+un'azienda, pulizia dello stato al logout. La logica di lettura/scrittura
+sottostante (`store.js`) resta quella già collaudata contro il progetto
+Supabase reale nel passaggio precedente.
+
 ## Prossimo passo
 
-Continuare la Fase 2: decidere insieme come diventare asincrona la
-numerazione nel gestionale, poi iniziare a collegare `store.js` ai punti
-reali di `index.html` — probabilmente partendo dalla collezione più
-semplice (clienti/fornitori) per collaudare il percorso end-to-end prima di
-estenderlo ai documenti.
+Decidere insieme come diventare asincrona la numerazione nel gestionale
+(`nextNum()`/`consumeNum()`), poi estendere lo stesso schema di
+`clienti.html` ai documenti — probabilmente partendo da ordini cliente,
+il primo caso che tocca anche numerazione e collegamento a un'anagrafica.

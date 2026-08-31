@@ -37,7 +37,8 @@
   .msg{ margin-top:14px; padding:10px 12px; border-radius:8px; font-size:14px; }
   .msg.error{ background:var(--danger-soft); color:var(--danger); }
   .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
-  .company{ padding:12px 14px; border:1px solid var(--line); border-radius:8px; display:flex; justify-content:space-between; align-items:center; }
+  .company{ padding:12px 14px; border:1px solid var(--line); border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .company-open{ width:auto; margin:0; padding:6px 12px; font-size:13px; }
   .company + .company{ margin-top:8px; }
   .role{ font-size:12px; padding:2px 8px; border-radius:99px; background:var(--paper); border:1px solid var(--line); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
   .hint{ font-size:13px; color:var(--muted); margin-top:6px; }
@@ -195,10 +196,21 @@
     $('page-title').textContent = 'Le tue aziende';
     $('dashboard-email').textContent = session.user.email;
     $('company-list').innerHTML = memberships.map(m =>
-      `<div class="company"><span>${m.company_nome}</span><span class="role">${m.role}</span></div>`
+      `<div class="company">
+         <span>${m.company_nome} <span class="role">${m.role}</span></span>
+         <button class="company-open" data-company-id="${m.company_id}" data-company-nome="${m.company_nome}">Apri gestionale →</button>
+       </div>`
     ).join('');
     show('dashboard-box');
   }
+
+  $('company-list').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.company-open');
+    if(!btn) return;
+    localStorage.setItem('saas_company_id', btn.dataset.companyId);
+    localStorage.setItem('saas_company_nome', btn.dataset.companyNome);
+    location.href = 'clienti.html';
+  });
 
   refresh();
 </script>

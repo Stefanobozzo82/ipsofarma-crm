@@ -152,6 +152,16 @@
     return db;
   }
 
+  // Come loadCompany(), ma per una sola collection: usata dalle pagine che
+  // mostrano un solo modulo (es. la lista clienti) invece dell'intera azienda.
+  async function loadCollection(collName, companyId) {
+    const def = COLLECTIONS[collName];
+    if (!def) throw new Error('collection sconosciuta: ' + collName);
+    const { data, error } = await client().from(def.table).select('*').eq('company_id', companyId);
+    if (error) throw error;
+    return data.map(row => rowToDoc(collName, row));
+  }
+
   // ---------------------------------------------------------------------------
   // Scrittura di un singolo documento — sostituisce il "push in DB.xxx +
   // persist()" del gestionale attuale. Un id già presente aggiorna la riga
@@ -187,6 +197,6 @@
 
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
-    myMemberships, registerCompany, loadCompany, saveDoc, removeDoc, nextNumber,
+    myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
   };
 })(window);

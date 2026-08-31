@@ -1,4 +1,4 @@
-# Dal monolite al SaaS — Fase 0: Fondamenta
+# Dal monolite al SaaS — Fase 0 e Fase 1
 
 Questa cartella è il punto di partenza del **nuovo prodotto multi-azienda**, costruito
 in parallelo al gestionale che usi ogni giorno. Niente qui tocca `index.html`,
@@ -6,9 +6,10 @@ in parallelo al gestionale che usi ogni giorno. Niente qui tocca `index.html`,
 come oggi, sincronizzata su GitHub come sempre.
 
 Il piano completo (diagnosi, stack, fasi, costi) è nel documento
-"Dal monolite al SaaS" già condiviso. Questa cartella copre solo la **Fase 0**:
-le fondamenta dati — un database vero, multi-azienda, con isolamento reale tra
-i clienti che pagheranno l'abbonamento.
+"Dal monolite al SaaS" già condiviso. Questa cartella copre la **Fase 0**
+(fondamenta dati — un database vero, multi-azienda, con isolamento reale) e la
+**Fase 1** (accessi: login vero, registrazione self-service di una nuova
+azienda cliente, ruoli).
 
 ## Cosa c'è qui
 
@@ -16,18 +17,23 @@ i clienti che pagheranno l'abbonamento.
 saas/
 ├── README.md                         questo file
 ├── .env.example                      variabili d'ambiente (mai committare quelle vere)
+├── web/
+│   └── index.html                    banco di prova Fase 1: login + registrazione azienda
 └── supabase/
     └── migrations/
-        ├── 0001_aziende_e_utenti.sql     tabella aziende, utenti↔aziende, ruoli, funzioni di isolamento
-        ├── 0002_anagrafiche.sql          clienti, fornitori, prodotti
-        ├── 0003_documenti.sql            preventivi, ordini, ddt, fatture, note di credito
-        └── 0004_numerazione.sql          numerazione documenti atomica (OC/OF/DDT/FT/...)
+        ├── 0001_aziende_e_utenti.sql        tabella aziende, utenti↔aziende, ruoli, funzioni di isolamento
+        ├── 0002_anagrafiche.sql             clienti, fornitori, prodotti
+        ├── 0003_documenti.sql               preventivi, ordini, ddt, fatture, note di credito
+        ├── 0004_numerazione.sql             numerazione documenti atomica (OC/OF/DDT/FT/...)
+        └── 0005_registrazione_azienda.sql   registrazione self-service di una nuova azienda (Fase 1)
 ```
 
 ## Cosa NON c'è ancora (di proposito)
 
-- **Nessun'interfaccia**: l'app frontend continua a essere `index.html`. La versione
-  multi-azienda dell'interfaccia è la Fase 2 ("migrare la logica, non riscriverla").
+- **Nessuna interfaccia del gestionale vero**: `web/index.html` è solo un banco di
+  prova per collaudare login/registrazione, non l'interfaccia reale — quella resta
+  `index.html` nella root del repo, invariata, fino alla Fase 2
+  ("migrare la logica, non riscriverla").
 - **Nessuna chiave IA lato server**: Fase 3.
 - **Nessuna fatturazione elettronica (SDI)**: Fase 4.
 - **Nessun abbonamento/Stripe**: Fase 5.
@@ -43,12 +49,17 @@ schema dati una volta che ci sono già clienti sopra.
    - `Project URL`
    - `anon public key`
    - `service_role key` (questa è segreta: mai nel codice, mai su GitHub — vedi `.env.example`)
-3. Apri **SQL Editor** nel pannello Supabase ed esegui i 4 file dentro
+3. Apri **SQL Editor** nel pannello Supabase ed esegui i 5 file dentro
    `supabase/migrations/` **in ordine numerico**, uno alla volta, incollando il
    contenuto e premendo *Run*.
 4. Verifica che l'isolamento funzioni davvero (vedi sotto, "Come verificare").
 5. Copia `.env.example` in `.env.local` (dentro `saas/`, mai nella root del repo) e
    incolla i tuoi valori. Questo file non va mai committato.
+6. In `web/index.html`, sostituisci `SUPABASE_URL_DA_COMPLETARE` e
+   `SUPABASE_ANON_KEY_DA_COMPLETARE` con `Project URL` e `anon public key` (sono
+   valori pubblici, protetti dalla RLS — a differenza della service_role key non
+   vanno mai trattati come segreti). Poi apri la pagina in un browser per
+   collaudare login, registrazione azienda e ruoli sul progetto reale.
 
 ## Perché questo schema, non un altro
 
@@ -105,7 +116,35 @@ Poi, da **Authentication → Users**, crea due utenti di test, collegali a
 `memberships` (uno per azienda), e verifica dal client Supabase che l'utente
 dell'azienda A non veda mai righe dell'azienda B.
 
+## Fase 1 — registrazione self-service di un'azienda
+
+`0005_registrazione_azienda.sql` aggiunge:
+
+- **`register_company(nome, slug)`**: l'unico modo per un utente appena
+  autenticato di creare un'azienda. Fa in una sola transazione atomica
+  quello che altrimenti richiederebbe due scritture separate (le policy RLS
+  della Fase 0 impediscono di proposito a un utente senza membership di
+  scrivere direttamente su `companies` o `memberships`): crea l'azienda e
+  rende chi l'ha chiamata il suo primo admin. Se lo slug è già in uso,
+  restituisce un errore leggibile invece di un codice tecnico.
+- **`my_memberships`**: la vista che il client interroga subito dopo il
+  login — "a quali aziende appartengo, con che ruolo" — per decidere se
+  mostrare "crea la tua azienda" oppure aprire il gestionale.
+
+`web/index.html` è il banco di prova: login/registrazione utente (email +
+password), poi — se l'utente non appartiene ancora a nessuna azienda — un
+form per crearne una, poi una vista che conferma azienda e ruolo. Non è
+l'interfaccia finale, serve a verificare che l'intero percorso funzioni
+prima di adattare il gestionale vero nella Fase 2.
+
+Verificato prima su Postgres locale (login di due utenti indipendenti,
+isolamento reciproco, slug duplicato rifiutato) e poi con un test
+automatico della pagina stessa (Playwright, Supabase simulato) prima di
+collegarla al progetto reale.
+
 ## Prossimo passo
 
-Fase 1 — Accessi e isolamento: login vero, pagina di registrazione di una
-nuova azienda cliente, ruoli admin/operatore collegati all'interfaccia.
+Fase 2 — Migrare la logica, non riscriverla: adattare l'interfaccia del
+gestionale a parlare con questo database invece che con GitHub, riusando
+numerazione documenti, calcolo IVA, prezzi storici e assistente IA così
+come sono oggi.

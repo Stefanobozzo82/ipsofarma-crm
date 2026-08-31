@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fase 1 — verifica accessi</title>
+<!--
+  Questa pagina NON è l'interfaccia del gestionale (quella resta index.html
+  nella root del repo, invariata). È il banco di prova della Fase 1: collauda
+  login, registrazione di un'azienda e ruoli contro il database Supabase
+  reale, prima di adattare l'interfaccia vera nella Fase 2.
+-->
+<style>
+  :root{
+    --ink:#16212c; --paper:#f3f4f1; --card:#ffffff; --line:#d7dad2;
+    --muted:#5c6670; --accent:#2f6b66; --accent-ink:#ffffff; --danger:#b3402a; --danger-soft:#f7e3de;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#e7eaee; --paper:#12161d; --card:#1a2029; --line:#2a313c; --muted:#94a0ab; --accent:#5caba4; --accent-ink:#0d1512; --danger:#e08a72; --danger-soft:#3a201a; }
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap{ max-width:420px; margin:0 auto; padding:56px 20px; }
+  .eyebrow{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 6px; }
+  h1{ font-size:22px; margin:0 0 26px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; }
+  .card + .card{ margin-top:16px; }
+  label{ display:block; font-size:13px; color:var(--muted); margin:14px 0 5px; }
+  label:first-of-type{ margin-top:0; }
+  input{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font-size:15px; }
+  input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  button{ width:100%; margin-top:18px; padding:11px; border:none; border-radius:8px; background:var(--accent); color:var(--accent-ink); font-size:15px; font-weight:600; cursor:pointer; }
+  button:disabled{ opacity:.55; cursor:default; }
+  button.ghost{ background:transparent; color:var(--accent); border:1px solid var(--line); margin-top:8px; }
+  .switch{ text-align:center; margin-top:16px; font-size:14px; color:var(--muted); }
+  .switch a{ color:var(--accent); cursor:pointer; text-decoration:underline; }
+  .msg{ margin-top:14px; padding:10px 12px; border-radius:8px; font-size:14px; }
+  .msg.error{ background:var(--danger-soft); color:var(--danger); }
+  .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
+  .company{ padding:12px 14px; border:1px solid var(--line); border-radius:8px; display:flex; justify-content:space-between; align-items:center; }
+  .company + .company{ margin-top:8px; }
+  .role{ font-size:12px; padding:2px 8px; border-radius:99px; background:var(--paper); border:1px solid var(--line); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .hint{ font-size:13px; color:var(--muted); margin-top:6px; }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Fase 1 — banco di prova</p>
+  <h1 id="page-title">Accesso</h1>
+
+  <!-- stato: caricamento -->
+  <div class="card" id="loading">
+    <p class="hint">Verifico la sessione…</p>
+  </div>
+
+  <!-- stato: non collegato -->
+  <div class="card" id="auth-box" hidden>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email" placeholder="tu@azienda.it">
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="almeno 8 caratteri">
+    <button id="auth-submit">Accedi</button>
+    <div class="switch">
+      <span id="switch-text">Non hai un account?</span> <a id="switch-link">Registrati</a>
+    </div>
+    <div class="msg" id="auth-msg" hidden></div>
+  </div>
+
+  <!-- stato: collegato, nessuna azienda -->
+  <div class="card" id="register-box" hidden>
+    <p class="hint" style="margin-top:0">Sei collegato. Non appartieni ancora a nessuna azienda: creane una per iniziare.</p>
+    <label for="company-nome">Nome azienda</label>
+    <input id="company-nome" type="text" placeholder="Farmacia Rossi">
+    <label for="company-slug">Indirizzo azienda</label>
+    <input id="company-slug" type="text" placeholder="farmacia-rossi">
+    <p class="hint">Solo lettere minuscole, numeri e trattini — sarà l'identificatore univoco dell'azienda.</p>
+    <button id="register-submit">Crea azienda</button>
+    <div class="msg" id="register-msg" hidden></div>
+  </div>
+
+  <!-- stato: collegato, con aziende -->
+  <div class="card" id="dashboard-box" hidden>
+    <p class="hint" style="margin-top:0" id="dashboard-email"></p>
+    <div id="company-list"></div>
+    <button class="ghost" id="logout">Esci</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // Valori pubblici (protetti dalla Row Level Security, non da tenere segreti):
+  const SUPABASE_URL = 'SUPABASE_URL_DA_COMPLETARE';
+  const SUPABASE_ANON_KEY = 'SUPABASE_ANON_KEY_DA_COMPLETARE';
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const $ = id => document.getElementById(id);
+  const show = (...ids) => { ['loading','auth-box','register-box','dashboard-box'].forEach(i => $(i).hidden = !ids.includes(i)); };
+
+  let mode = 'signin'; // 'signin' | 'signup'
+
+  function setMsg(id, text, kind){
+    const el = $(id);
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  function slugify(s){
+    return s.toLowerCase().trim()
+      .normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,50);
+  }
+  $('company-nome').addEventListener('input', () => { $('company-slug').value = slugify($('company-nome').value); });
+
+  $('switch-link').addEventListener('click', () => {
+    mode = mode === 'signin' ? 'signup' : 'signin';
+    $('page-title').textContent = mode === 'signin' ? 'Accesso' : 'Registrazione';
+    $('auth-submit').textContent = mode === 'signin' ? 'Accedi' : 'Crea account';
+    $('switch-text').textContent = mode === 'signin' ? 'Non hai un account?' : 'Hai già un account?';
+    $('switch-link').textContent = mode === 'signin' ? 'Registrati' : 'Accedi';
+    setMsg('auth-msg', '', '');
+  });
+
+  $('auth-submit').addEventListener('click', async () => {
+    const email = $('email').value.trim();
+    const password = $('password').value;
+    if(!email || !password){ setMsg('auth-msg', 'Inserisci email e password.', 'error'); return; }
+    $('auth-submit').disabled = true;
+    setMsg('auth-msg', '', '');
+    try{
+      if(mode === 'signup'){
+        const { error } = await sb.auth.signUp({ email, password });
+        if(error) throw error;
+        setMsg('auth-msg', 'Account creato. Se è richiesta la conferma email, controlla la casella di posta prima di accedere.', 'ok');
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if(error) throw error;
+      }
+      await refresh();
+    } catch(err){
+      setMsg('auth-msg', err.message || 'Errore imprevisto.', 'error');
+    } finally {
+      $('auth-submit').disabled = false;
+    }
+  });
+
+  $('register-submit').addEventListener('click', async () => {
+    const nome = $('company-nome').value.trim();
+    const slug = $('company-slug').value.trim();
+    if(!nome || !slug){ setMsg('register-msg', 'Inserisci nome e indirizzo azienda.', 'error'); return; }
+    $('register-submit').disabled = true;
+    setMsg('register-msg', '', '');
+    try{
+      const { error } = await sb.rpc('register_company', { p_nome: nome, p_slug: slug });
+      if(error) throw error;
+      await refresh();
+    } catch(err){
+      setMsg('register-msg', err.message || 'Errore imprevisto.', 'error');
+    } finally {
+      $('register-submit').disabled = false;
+    }
+  });
+
+  $('logout').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    mode = 'signin'; // dopo il logout ci si aspetta di dover accedere, non registrarsi di nuovo
+    $('page-title').textContent = 'Accesso';
+    $('auth-submit').textContent = 'Accedi';
+    $('switch-text').textContent = 'Non hai un account?';
+    $('switch-link').textContent = 'Registrati';
+    await refresh();
+  });
+
+  async function refresh(){
+    show('loading');
+    const { data: { session } } = await sb.auth.getSession();
+    if(!session){
+      $('page-title').textContent = mode === 'signin' ? 'Accesso' : 'Registrazione';
+      show('auth-box');
+      return;
+    }
+    const { data: memberships, error } = await sb.from('my_memberships').select('*');
+    if(error){
+      $('page-title').textContent = 'Accesso';
+      show('auth-box');
+      setMsg('auth-msg', 'Sessione presente ma non riesco a leggere le aziende: ' + error.message, 'error');
+      return;
+    }
+    if(!memberships || memberships.length === 0){
+      $('page-title').textContent = 'Nuova azienda';
+      show('register-box');
+      return;
+    }
+    $('page-title').textContent = 'Le tue aziende';
+    $('dashboard-email').textContent = session.user.email;
+    $('company-list').innerHTML = memberships.map(m =>
+      `<div class="company"><span>${m.company_nome}</span><span class="role">${m.role}</span></div>`
+    ).join('');
+    show('dashboard-box');
+  }
+
+  refresh();
+</script>
+</body>
+</html>

@@ -67,10 +67,12 @@
 <script src="app/store.js"></script>
 <script src="app/nav.js"></script>
 <script src="app/resize.js"></script>
+<script src="app/print.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
   let companyId = null;
+  let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
   let clientiById = {};
   let fatturePerCliente = {};
@@ -257,7 +259,7 @@
           <td>${n.fatturaId ? esc(fatturaNumById(n.clienteId, n.fatturaId)) : '—'}</td>
           <td class="num-col">${eur(docTotale(n.righe))}</td>
           <td class="actions">
-            <button data-edit="${n.id}">Modifica</button>
+            <button data-print="${n.id}" title="Stampa">🖨</button><button data-pdf="${n.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${n.id}">Modifica</button>
             <button class="danger" data-del="${n.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
@@ -265,6 +267,21 @@
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(elenco.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('[data-print]').forEach(btn => btn.addEventListener('click', () => {
+      const it = elenco.find(x => x.id === btn.dataset.print);
+      window.SaasPrint.openPrintWindow('noteCredito', it, clientiById[it.clienteId], company);
+    }));
+    area.querySelectorAll('[data-pdf]').forEach(btn => btn.addEventListener('click', async () => {
+      const it = elenco.find(x => x.id === btn.dataset.pdf);
+      btn.disabled = true;
+      try{
+        await window.SaasPrint.downloadPDF('noteCredito', it, clientiById[it.clienteId], company);
+      }catch(err){
+        alert('Errore durante la generazione del PDF: ' + (err.message || err));
+      }finally{
+        btn.disabled = false;
+      }
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const n = elenco.find(x => x.id === btn.dataset.del);
@@ -294,6 +311,7 @@
     if(!session){ location.href = 'index.html'; return; }
     companyId = localStorage.getItem('saas_company_id');
     if(!companyId){ location.href = 'index.html'; return; }
+    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
     window.SaasNav.render('note-credito', {
       companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
       email: session.user.email,

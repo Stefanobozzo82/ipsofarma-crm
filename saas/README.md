@@ -39,7 +39,8 @@ saas/
 │       ├── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 │       ├── theme.css                 sistema grafico condiviso (token colore, tipografia, componenti)
 │       ├── nav.js                    sidebar di navigazione condivisa (sostituisce il menu orizzontale)
-│       └── resize.js                 colonne ridimensionabili trascinando il bordo dell'intestazione
+│       ├── resize.js                 colonne ridimensionabili trascinando il bordo dell'intestazione
+│       └── print.js                  stampa e PDF di un documento (stesso template dell'originale)
 └── supabase/
     ├── functions/
     │   ├── ai-proxy/index.ts             Edge Function: la chiave IA resta lato server (Fase 3)
@@ -964,7 +965,27 @@ rigore di tutto il resto di questo lavoro.
   selezione si azzera dopo ogni azione collettiva ed è calcolata solo sulle
   righe attualmente visibili (dopo ricerca e filtri), stessa semantica di
   `filteredDocRows()` nell'originale.
-- [ ] Stampa/PDF di un documento
+- [x] **Stampa/PDF di un documento** (`app/print.js`, condiviso da tutti
+  gli 8 elenchi documento: ordini, DDT, fatture, note di credito, sia
+  cliente che fornitore, più preventivi) — due pulsanti per riga, "🖨" e
+  "⬇ PDF". "🖨" apre una finestra a sé con lo stesso template e chiama
+  subito `window.print()`, senza librerie esterne. "⬇ PDF" genera un file
+  scaricabile con jsPDF + html2canvas (caricate da CDN al primo utilizzo,
+  non nel bundle) usando **lo stesso identico template HTML** della
+  stampa — porta diretta di `buildPrintHTML`/`PA_PRINT_CSS`
+  dell'originale, con i nomi di campo del SaaS e i dati azienda letti da
+  `companies` invece che da `DB.azienda`. Il caricamento dei dati azienda
+  in ogni pagina non blocca il resto se fallisce (try/catch): niente
+  stampa/PDF corretti finché non arrivano, ma il resto della pagina resta
+  utilizzabile.
+  Semplificazioni deliberate rispetto all'originale: niente ancora
+  destinazione di consegna multipla nel documento stampato (arriva col
+  prossimo punto della lista), niente "stampa in ufficio" via coda
+  GitHub/agente Windows (specifico del gestionale di una singola azienda,
+  non ha senso per un SaaS multi-tenant con stampanti diverse per ognuna),
+  niente scaricamento PDF collettivo per più documenti selezionati insieme
+  (la selezione multipla, item precedente, per ora serve solo a
+  incassare/pagare in blocco).
 - [ ] Destinazioni multiple cliente
 - [ ] Autocompletamento riga da catalogo prodotti
 - [ ] Generazione/download XML FatturaPA da `fatture.html`

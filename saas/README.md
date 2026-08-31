@@ -20,6 +20,7 @@ saas/
 │   ├── index.html                    login + registrazione azienda + scelta azienda
 │   ├── dashboard.html                quadro d'insieme: fatturato, incassi, evasione, grafico mensile
 │   ├── clienti.html                  anagrafica clienti
+│   ├── preventivi.html               preventivi, trasformabili in ordine cliente
 │   ├── ordini.html                   ordini cliente, con numerazione
 │   ├── ddt.html                      DDT, collegato a un ordine (facoltativo)
 │   ├── fatture.html                  fatture cliente, con stato di incasso
@@ -876,7 +877,17 @@ rigore di tutto il resto di questo lavoro.
   ogni apertura della pagina scaricherebbe l'intero catalogo solo per
   mostrarne una schermata. Ricerca con un piccolo ritardo (250ms) per non
   interrogare il database ad ogni battuta.
-- [ ] Preventivi
+- [x] **Preventivi** (`preventivi.html`) — speculare a `ordini.html`
+  (cliente, righe con sconto, numerazione PREV), con l'aggiunta di
+  "Trasforma in ordine": crea un vero ordine cliente con le stesse righe
+  (collegato via `prev_id`) e marca il preventivo come convertito
+  (`oc_id`), un preventivo già convertito non è più ritrasformabile.
+  Un dettaglio di correttezza rispettato di proposito: marcare un
+  preventivo come convertito passa sempre l'oggetto completo già in
+  memoria, non solo `{id, ocId}` — un salvataggio parziale avrebbe
+  svuotato silenziosamente i campi meno comuni (nota, ecc.), che finiscono
+  nella colonna `extra` ricalcolata da zero ad ogni `saveDoc()`; verificato
+  esplicitamente nel collaudo che la nota sopravviva alla trasformazione.
 - [ ] Incassi / Pagamenti (storico)
 - [ ] Scadenziario
 - [ ] Impostazioni azienda

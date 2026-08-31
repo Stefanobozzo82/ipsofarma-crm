@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preventivi — Gestionale</title>
+<!--
+  Speculare a ordini.html — stessa forma di dati (cliente, righe con
+  sconto, numerazione PREV), con un'aggiunta: "Trasforma in ordine" crea
+  un vero ordini_cliente a partire dalle stesse righe (l'utente può
+  ancora modificarle prima di salvare) e marca il preventivo come
+  convertito (oc_id), esattamente come nel gestionale originale.
+-->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+  <div class="page-head">
+      <h2>Preventivi</h2>
+      <p class="sub">Crea preventivi e trasformali in ordini cliente con un clic.</p>
+    </div>
+
+  <div class="card" id="form-card" hidden>
+    <h3 id="form-title">Nuovo preventivo</h3>
+    <div class="grid2">
+      <div><label for="f-cliente">Cliente</label><select id="f-cliente"></select></div>
+      <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
+    </div>
+
+    <label>Righe</label>
+    <div class="table-scroll"><table class="righe-table">
+      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+      <tbody id="righe-body"></tbody>
+    </table></div>
+    <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
+    <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
+
+    <label for="f-note">Note (facoltativo)</label>
+    <textarea id="f-note" rows="2"></textarea>
+
+    <div class="form-actions">
+      <button class="primary" id="f-save">Salva</button>
+      <button class="ghost" id="f-cancel">Annulla</button>
+    </div>
+    <div class="msg" id="form-msg" hidden></div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h3>Elenco</h3>
+      <button class="primary" id="new-preventivo">+ Nuovo preventivo</button>
+    </div>
+    <div id="list-area"><p class="empty">Carico…</p></div>
+  </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/resize.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let editingId = null;
+  let clientiById = {};
+  let SORT = { key: 'num', dir: 'desc' };
+
+  function today(){ return new Date().toISOString().slice(0, 10); }
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function setMsg(text, kind){
+    const el = $('form-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  function rigaRowHtml(r){
+    r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
+    return `<tr>
+      <td><input class="r-cod" value="${esc(r.cod)}" placeholder="cod."></td>
+      <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
+      <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
+      <td style="width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
+      <td style="width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
+      <td style="width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
+      <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
+    </tr>`;
+  }
+  function addRigaRow(r){
+    $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
+    bindRigaRow($('righe-body').lastElementChild);
+    updateTotale();
+  }
+  function bindRigaRow(tr){
+    tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+  }
+  function readRighe(){
+    return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      cod: tr.querySelector('.r-cod').value.trim(),
+      descr: tr.querySelector('.r-descr').value.trim(),
+      qty: Number(tr.querySelector('.r-qty').value) || 0,
+      prezzo: Number(tr.querySelector('.r-prezzo').value) || 0,
+      sconto: tr.querySelector('.r-sconto').value.trim(),
+      iva: Number(tr.querySelector('.r-iva').value) || 0,
+    })).filter(r => r.descr || r.cod);
+  }
+  // Stessa aritmetica dello sconto del gestionale originale, cascata
+  // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
+  function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
+  function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
+  $('add-riga').addEventListener('click', () => addRigaRow(null));
+
+  // ---- ordinamento colonne
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, p){
+    if(key === 'num') return p.num || '';
+    if(key === 'data') return p.data || '';
+    if(key === 'cliente') return (clientiById[p.clienteId] || {}).nome || '';
+    if(key === 'totale') return docTotale(p.righe || []);
+    if(key === 'stato') return p.ocId ? 1 : 0;
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
+    renderList();
+  }
+
+  function openForm(preventivo){
+    editingId = preventivo ? preventivo.id : null;
+    $('form-title').textContent = preventivo ? `Modifica ${preventivo.num}` : 'Nuovo preventivo';
+    $('f-cliente').value = preventivo ? preventivo.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
+    $('f-data').value = preventivo ? preventivo.data : today();
+    $('f-note').value = preventivo ? (preventivo.note || '') : '';
+    $('righe-body').innerHTML = '';
+    (preventivo ? preventivo.righe : [null]).forEach(addRigaRow);
+    setMsg('', '');
+    $('form-card').hidden = false;
+  }
+  function closeForm(){ $('form-card').hidden = true; editingId = null; }
+  $('new-preventivo').addEventListener('click', () => {
+    if($('f-cliente').options.length === 0){ alert('Crea prima almeno un cliente.'); return; }
+    openForm(null);
+  });
+  $('f-cancel').addEventListener('click', closeForm);
+
+  $('f-save').addEventListener('click', async () => {
+    const clienteId = $('f-cliente').value;
+    const data = $('f-data').value;
+    const note = $('f-note').value.trim() || null;
+    const righe = readRighe();
+    if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
+    if(!data){ setMsg('Inserisci una data.', 'error'); return; }
+    if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
+
+    $('f-save').disabled = true;
+    setMsg('', '');
+    try{
+      const doc = { clienteId, data, righe, note };
+      if(editingId){
+        doc.id = editingId; // il numero non cambia in modifica
+      } else {
+        const anno = Number(data.slice(0, 4));
+        doc.num = await store.nextNumber(companyId, 'PREV', anno);
+      }
+      await store.saveDoc('preventivi', doc, companyId);
+      closeForm();
+      await renderList();
+    }catch(err){
+      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+    }finally{
+      $('f-save').disabled = false;
+    }
+  });
+
+  // "Trasforma in ordine": crea un vero ordine cliente con le stesse righe,
+  // collegato al preventivo (prev_id), e marca il preventivo come
+  // convertito (oc_id) — non tocca gli altri campi del preventivo: si passa
+  // sempre l'oggetto completo già in memoria, altrimenti un salvataggio
+  // parziale svuoterebbe silenziosamente i campi meno comuni (finiscono
+  // nella colonna "extra", ricalcolata da zero ad ogni saveDoc).
+  async function trasformaInOrdine(preventivo){
+    if(!confirm(`Trasformare il preventivo ${preventivo.num} in un ordine cliente?`)) return;
+    try{
+      const anno = Number((preventivo.data || today()).slice(0, 4));
+      const num = await store.nextNumber(companyId, 'OC', anno);
+      const ordine = await store.saveDoc('ordiniCliente', {
+        clienteId: preventivo.clienteId, data: today(), righe: preventivo.righe,
+        prevId: preventivo.id, num,
+      }, companyId);
+      await store.saveDoc('preventivi', Object.assign({}, preventivo, { ocId: ordine.id }), companyId);
+      await renderList();
+    }catch(err){
+      alert('Errore durante la trasformazione in ordine: ' + err.message);
+    }
+  }
+
+  async function renderList(){
+    const area = $('list-area');
+    area.innerHTML = '<p class="empty">Carico…</p>';
+    let elenco;
+    try{
+      elenco = await store.loadCollection('preventivi', companyId);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
+    if(elenco.length === 0){
+      area.innerHTML = '<p class="empty">Nessun preventivo ancora. Crea prima un cliente, poi aggiungine uno con "+ Nuovo preventivo".</p>';
+      return;
+    }
+    elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('totale','Totale')}${th('stato','Stato')}<th></th>
+      </tr></thead><tbody>${elenco.map(p => `
+        <tr>
+          <td class="num-col">${esc(p.num)}</td>
+          <td>${p.data ? new Date(p.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${esc((clientiById[p.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
+          <td class="num-col">${eur(docTotale(p.righe || []))}</td>
+          <td>${p.ocId ? '<span class="pill paid">convertito</span>' : '<span class="pill unpaid">aperto</span>'}</td>
+          <td class="actions">
+            ${p.ocId ? '' : `<button data-trasforma="${p.id}">Trasforma in ordine</button>`}
+            <button data-edit="${p.id}">Modifica</button>
+            <button class="danger" data-del="${p.id}">Elimina</button>
+          </td>
+        </tr>`).join('')}</tbody></table></div>`;
+    window.SaasResize.makeColsResizable(area.querySelector('table'), 'preventivi-elenco');
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
+    area.querySelectorAll('[data-trasforma]').forEach(btn => btn.addEventListener('click', () => {
+      trasformaInOrdine(elenco.find(x => x.id === btn.dataset.trasforma));
+    }));
+    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
+      openForm(elenco.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
+      const p = elenco.find(x => x.id === btn.dataset.del);
+      if(!confirm(`Eliminare il preventivo ${p.num}? L'operazione non si può annullare.`)) return;
+      try{
+        await store.removeDoc('preventivi', p.id);
+        await renderList();
+      }catch(err){
+        alert('Errore durante l\'eliminazione: ' + err.message);
+      }
+    }));
+  }
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('preventivi', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const clienti = await store.loadCollection('clienti', companyId);
+    clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
+    $('f-cliente').innerHTML = clienti.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+
+    await renderList();
+  }
+  init();
+</script>
+</body>
+</html>

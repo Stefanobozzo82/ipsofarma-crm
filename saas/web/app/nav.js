@@ -20,6 +20,7 @@
     ] },
     { label: 'Clienti', items: [
       { id: 'clienti', label: 'Clienti', href: 'clienti.html', ic: '🏥' },
+      { id: 'preventivi', label: 'Preventivi', href: 'preventivi.html', ic: '📝' },
       { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: '🛒' },
       { id: 'ddt', label: 'DDT', href: 'ddt.html', ic: '🚚' },
       { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: '🧾' },

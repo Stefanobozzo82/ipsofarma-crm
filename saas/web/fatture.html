@@ -84,6 +84,7 @@
   let allDdtById = {};
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -255,6 +256,23 @@
     await renderList();
   }
 
+  // Azione collettiva: segna incassate/da incassare tutte le fatture
+  // selezionate in un colpo solo — stesso schema di bulkPaid() nel
+  // gestionale originale, ma qui ogni fattura riceve la stessa data di
+  // incasso odierna (una data diversa per ognuna richiederebbe un modulo
+  // di dettaglio che l'originale non ha in questo passaggio collettivo).
+  async function bulkMarkPaid(paid, righePerId){
+    const doc = paid
+      ? { paid: true, paidDate: today() }
+      : { paid: false, paidDate: null, pagamenti: [] };
+    await Promise.all([...PICK].map(id => store.saveDoc('fattureCliente', Object.assign({ id }, doc,
+      paid ? { pagamenti: [{ data: today(), importo: docTotale(righePerId[id] || []) }] } : {}
+    ), companyId)));
+    PICK.clear();
+    await renderList();
+  }
+  function deselectAll(){ PICK.clear(); renderList(); }
+
   async function renderList(){
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
@@ -275,10 +293,27 @@
       return;
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
-    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+
+    // Barra delle azioni collettive: compare solo se c'è almeno una riga
+    // selezionata (tra quelle attualmente visibili, come nell'originale).
+    const selRows = elenco.filter(f => PICK.has(f.id));
+    let bulkHtml = '';
+    if(selRows.length){
+      const anyUnpaid = selRows.some(f => !f.paid), anyPaid = selRows.some(f => f.paid);
+      const selTot = selRows.reduce((s, f) => s + docTotale(f.righe), 0);
+      bulkHtml = `<div class="bulkbar"><span>${selRows.length} selezionat${selRows.length === 1 ? 'a' : 'e'} · Totale ${eur(selTot)}</span><div class="sp"></div>
+        ${anyUnpaid ? `<button type="button" class="primary" id="bulk-paid">✓ Segna incassate</button>` : ''}
+        ${anyPaid ? `<button type="button" id="bulk-unpaid">↺ Segna da incassare</button>` : ''}
+        <button type="button" id="bulk-deselect">✕ Deseleziona</button></div>`;
+    }
+    const allChecked = elenco.length > 0 && elenco.every(f => PICK.has(f.id));
+
+    area.innerHTML = bulkHtml + `<div class="table-scroll"><table><thead><tr>
+        <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('totale','Totale')}${th('incasso','Incasso')}<th></th>
       </tr></thead><tbody>${elenco.map(f => `
         <tr>
+          <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(f.num)}</td>
           <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[f.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
@@ -307,6 +342,21 @@
         alert('Errore durante l\'eliminazione: ' + err.message);
       }
     }));
+    $('check-all').addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) elenco.forEach(f => PICK.add(f.id));
+      else elenco.forEach(f => PICK.delete(f.id));
+      renderList();
+    });
+    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
+      renderList();
+    }));
+    const righePerId = Object.fromEntries(elenco.map(f => [f.id, f.righe]));
+    const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, righePerId));
+    const bu = $('bulk-unpaid'); if(bu) bu.addEventListener('click', () => bulkMarkPaid(false, righePerId));
+    const bd = $('bulk-deselect'); if(bd) bd.addEventListener('click', deselectAll);
   }
 
   async function doLogout(){

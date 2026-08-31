@@ -89,6 +89,7 @@
   // dove filtrare per fornitore/stato/intervallo di date è particolarmente
   // utile (è il modulo con più righe, e con più fornitori diversi).
   let FFILT = { forn: '', paid: '', from: '', to: '' };
+  let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -292,6 +293,21 @@
     await renderList();
   }
 
+  // Azione collettiva: segna pagate/da pagare tutte le fatture selezionate
+  // in un colpo solo — stesso schema di bulkPaid() nel gestionale
+  // originale, con la data odierna per ognuna.
+  async function bulkMarkPaid(paid, righePerId){
+    const doc = paid
+      ? { paid: true, paidDate: today() }
+      : { paid: false, paidDate: null, pagamenti: [] };
+    await Promise.all([...PICK].map(id => store.saveDoc('fattureFornitore', Object.assign({ id }, doc,
+      paid ? { pagamenti: [{ data: today(), importo: docTotale(righePerId[id] || []) }] } : {}
+    ), companyId)));
+    PICK.clear();
+    await renderList();
+  }
+  function deselectAll(){ PICK.clear(); renderList(); }
+
   async function renderList(){
     renderFilterbar();
     const area = $('list-area');
@@ -313,10 +329,25 @@
       return;
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
-    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+
+    const selRows = elenco.filter(f => PICK.has(f.id));
+    let bulkHtml = '';
+    if(selRows.length){
+      const anyUnpaid = selRows.some(f => !f.paid), anyPaid = selRows.some(f => f.paid);
+      const selTot = selRows.reduce((s, f) => s + docTotale(f.righe), 0);
+      bulkHtml = `<div class="bulkbar"><span>${selRows.length} selezionat${selRows.length === 1 ? 'a' : 'e'} · Totale ${eur(selTot)}</span><div class="sp"></div>
+        ${anyUnpaid ? `<button type="button" class="primary" id="bulk-paid">✓ Segna pagate</button>` : ''}
+        ${anyPaid ? `<button type="button" id="bulk-unpaid">↺ Segna da pagare</button>` : ''}
+        <button type="button" id="bulk-deselect">✕ Deseleziona</button></div>`;
+    }
+    const allChecked = elenco.length > 0 && elenco.every(f => PICK.has(f.id));
+
+    area.innerHTML = bulkHtml + `<div class="table-scroll"><table><thead><tr>
+        <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('totale','Totale')}${th('pagamento','Pagamento')}<th></th>
       </tr></thead><tbody>${elenco.map(f => `
         <tr>
+          <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(f.num)}</td>
           <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((fornitoriById[f.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
@@ -345,6 +376,21 @@
         alert('Errore durante l\'eliminazione: ' + err.message);
       }
     }));
+    $('check-all').addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) elenco.forEach(f => PICK.add(f.id));
+      else elenco.forEach(f => PICK.delete(f.id));
+      renderList();
+    });
+    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
+      renderList();
+    }));
+    const righePerId = Object.fromEntries(elenco.map(f => [f.id, f.righe]));
+    const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, righePerId));
+    const bu = $('bulk-unpaid'); if(bu) bu.addEventListener('click', () => bulkMarkPaid(false, righePerId));
+    const bd = $('bulk-deselect'); if(bd) bd.addEventListener('click', deselectAll);
   }
 
   async function doLogout(){

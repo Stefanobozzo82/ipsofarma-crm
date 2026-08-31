@@ -51,6 +51,7 @@
       th.appendChild(wrap);
 
       if (i === ths.length - 1) return; // l'ultima colonna riempie lo spazio residuo: nessuna maniglia
+      if (th.classList.contains('check-col')) return; // colonna di selezione multipla: larghezza fissa, non ha senso ridimensionarla
 
       const handle = document.createElement('span');
       handle.className = 'col-resize-handle';

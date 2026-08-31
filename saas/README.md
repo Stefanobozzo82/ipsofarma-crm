@@ -949,7 +949,21 @@ rigore di tutto il resto di questo lavoro.
   credito) restano per ora con la sola ricerca testuale; se servirà
   estendere gli stessi filtri anche lì, la funzione `renderFilterbar()`
   qui è già scritta in modo da poter essere riusata quasi tale e quale.
-- [ ] Selezione multipla e azioni collettive
+- [x] **Selezione multipla e azioni collettive** (`fatture.html` e
+  `fatture-fornitore.html`) — checkbox per riga più "seleziona tutto" in
+  testata, con una `bulkbar` verde scura (stessa idea di quella
+  dell'originale) che compare appena c'è almeno una riga selezionata: mostra
+  quante e il totale, e propone "✓ Segna incassate/pagate" o "↺ Segna da
+  incassare/pagare" a seconda dello stato di quelle selezionate (entrambi i
+  pulsanti se la selezione è mista), più "✕ Deseleziona". Limitato di
+  proposito a queste due pagine: sono le uniche dove un'azione collettiva
+  ha un effetto reale oggi (cambiare stato di incasso/pagamento in blocco);
+  l'originale mostra le checkbox anche su ordini/DDT/note di credito perché
+  lì l'azione collettiva è scaricare PDF/Excel in blocco — funzionalità non
+  ancora costruita qui (vedi "Stampa/PDF di un documento" più sotto). La
+  selezione si azzera dopo ogni azione collettiva ed è calcolata solo sulle
+  righe attualmente visibili (dopo ricerca e filtri), stessa semantica di
+  `filteredDocRows()` nell'originale.
 - [ ] Stampa/PDF di un documento
 - [ ] Destinazioni multiple cliente
 - [ ] Autocompletamento riga da catalogo prodotti

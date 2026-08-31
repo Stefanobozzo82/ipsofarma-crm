@@ -1019,7 +1019,24 @@ rigore di tutto il resto di questo lavoro.
   righe — conseguenza pratica, il tasto Invio su un codice digitato per
   intero lo trova "esatto" solo se è già tra i risultati arrivati dal
   server (di solito lo è).
-- [ ] Generazione/download XML FatturaPA da `fatture.html`
+- [x] **Generazione/download XML FatturaPA** (`fatture.html`) — porta
+  diretta di `buildFatturaPAXml()`/`downloadFatturaPAXml()` in
+  `index.html`: stesso schema XSD (v1.2 dell'Agenzia delle Entrate),
+  stessi codici (`RF01` regime fiscale, `TD01` tipo documento, `TP02`
+  condizioni di pagamento, `MP05`/`MP12`/`MP01` per bonifico/RiBa/
+  contanti). Un pulsante "XML" per riga scarica il file
+  `IT{piva}_{numero}.xml`, pronto da caricare su "Fatture e
+  Corrispettivi" o inviare via PEC. Se al cliente mancano sia il Codice
+  Destinatario che la PEC (obbligatori nell'header di trasmissione), il
+  pulsante avvisa invece di generare un file che verrebbe comunque
+  scartato dal Sistema di Interscambio.
+  Nota onesta: i campi che la fattura elettronica richiede (SDI o PEC,
+  indirizzo completo, codice fiscale, termini di pagamento, split IVA…)
+  sono già colonne della tabella `clienti` — per i clienti importati dal
+  gestionale originale arrivano già popolati, ma `clienti.html` oggi non
+  li espone ancora tutti in modifica: un cliente creato da zero nel SaaS
+  avrà bisogno di questi dati aggiunti (via SQL diretto, per ora) prima
+  di poter generare un XML utilizzabile.
 - [ ] Report & Analisi
 - [ ] Assistente AI (interfaccia di chat)
 - [ ] IA che crea documenti da un allegato (fattura/ordine/preventivo)

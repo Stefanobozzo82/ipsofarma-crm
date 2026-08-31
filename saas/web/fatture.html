@@ -182,6 +182,8 @@
   function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
   function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
   function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
+  function scEff(s){ return +(((1 - scFactor(s)) * 100).toFixed(2)); }
+  function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
@@ -297,6 +299,142 @@
   }
   function deselectAll(){ PICK.clear(); renderList(); }
 
+  // ---- generazione XML FatturaPA -----------------------------------------
+  // Porta diretta di buildFatturaPAXml()/downloadFatturaPAXml() in
+  // index.html: stesso schema XSD (v1.2), stessi codici (RF01, TP02, MP05...).
+  // Nota: i campi del cliente che la fattura elettronica richiede (SDI o
+  // PEC, indirizzo completo, codice fiscale, termini di pagamento...) sono
+  // già colonne della tabella "clienti" — arrivano popolati per i clienti
+  // importati dal gestionale originale, ma il form di clienti.html oggi non
+  // li espone ancora tutti in modifica: senza SDI/PEC il pulsante avvisa e
+  // non genera un file comunque da caricare, invece di produrne uno incompleto.
+  function xmlEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); }
+  function dueDate(cliente, inv){
+    const days = cliente && cliente.term != null && cliente.term !== '' ? parseInt(cliente.term) : 30;
+    const d = new Date((inv.data || today()) + 'T00:00:00');
+    d.setDate(d.getDate() + (isNaN(days) ? 30 : days));
+    return d.toISOString().slice(0, 10);
+  }
+  function buildFatturaPAXml(ft, cli, az){
+    const ind = az.indirizzo || {}, set = az.settings || {};
+    const progressivo = String(ft.num || '').replace(/\D/g, '').slice(-8).padStart(5, '0') || '00001';
+    const codDest = (cli.sdi || '').trim().toUpperCase();
+    const pecDest = (cli.pec || '').trim();
+    const codiceDestinatario = codDest || (pecDest ? '0000000' : 'XXXXXXX');
+    const formato = cli.tipo === 'PA' ? 'FPA12' : 'FPR12';
+    // Un blocco DatiRiepilogo per aliquota IVA (obbligatorio, una per gruppo).
+    const gruppi = {};
+    (ft.righe || []).forEach(r => {
+      const al = r.iva || 0;
+      if(!gruppi[al]) gruppi[al] = { imponibile:0, imposta:0 };
+      const netto = lineNet(r);
+      gruppi[al].imponibile += netto;
+      gruppi[al].imposta += netto * al / 100;
+    });
+    const esigibilita = cli.split === 'si' ? 'S' : (cli.esig === 'D' ? 'D' : 'I');
+    const n2 = v => Number(v || 0).toFixed(2);
+    const righeXml = (ft.righe || []).map((r, i) => `<DettaglioLinee>
+        <NumeroLinea>${i + 1}</NumeroLinea>
+        <Descrizione>${xmlEsc(r.descr || r.cod || 'Prodotto')}</Descrizione>
+        <Quantita>${n2(r.qty)}</Quantita>
+        <PrezzoUnitario>${(r.prezzo || 0).toFixed(4)}</PrezzoUnitario>
+        ${scEff(r.sconto) > 0 ? `<ScontoMaggiorazione><Tipo>SC</Tipo><Percentuale>${scEff(r.sconto)}</Percentuale></ScontoMaggiorazione>` : ''}
+        <PrezzoTotale>${n2(lineNet(r))}</PrezzoTotale>
+        <AliquotaIVA>${n2(r.iva)}</AliquotaIVA>
+      </DettaglioLinee>`).join('\n      ');
+    const riepilogoXml = Object.keys(gruppi).map(al => `<DatiRiepilogo>
+        <AliquotaIVA>${n2(al)}</AliquotaIVA>
+        <ImponibileImporto>${n2(gruppi[al].imponibile)}</ImponibileImporto>
+        <Imposta>${n2(gruppi[al].imposta)}</Imposta>
+        <EsigibilitaIVA>${esigibilita}</EsigibilitaIVA>
+      </DatiRiepilogo>`).join('\n      ');
+    const scad = dueDate(cli, ft);
+    const mpMap = { Bonifico:'MP05', RiBa:'MP12', Contanti:'MP01' };
+    const modPag = mpMap[cli.pag] || 'MP05';
+    const cessIdFiscale = cli.piva ? `<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>${xmlEsc(cli.piva)}</IdCodice></IdFiscaleIVA>` : '';
+    const cessCF = cli.cf ? `<CodiceFiscale>${xmlEsc(cli.cf)}</CodiceFiscale>` : '';
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<p:FatturaElettronica xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2" versione="${formato}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <FatturaElettronicaHeader>
+    <DatiTrasmissione>
+      <IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>${xmlEsc(az.piva)}</IdCodice></IdTrasmittente>
+      <ProgressivoInvio>${progressivo}</ProgressivoInvio>
+      <FormatoTrasmissione>${formato}</FormatoTrasmissione>
+      <CodiceDestinatario>${xmlEsc(codiceDestinatario)}</CodiceDestinatario>
+      ${!codDest && pecDest ? `<PECDestinatario>${xmlEsc(pecDest)}</PECDestinatario>` : ''}
+    </DatiTrasmissione>
+    <CedentePrestatore>
+      <DatiAnagrafici>
+        <IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>${xmlEsc(az.piva)}</IdCodice></IdFiscaleIVA>
+        ${az.cf ? `<CodiceFiscale>${xmlEsc(az.cf)}</CodiceFiscale>` : ''}
+        <Anagrafica><Denominazione>${xmlEsc(az.nome)}</Denominazione></Anagrafica>
+        <RegimeFiscale>RF01</RegimeFiscale>
+      </DatiAnagrafici>
+      <Sede>
+        <Indirizzo>${xmlEsc(ind.via)}</Indirizzo>
+        <CAP>${xmlEsc(ind.cap)}</CAP>
+        <Comune>${xmlEsc(ind.citta)}</Comune>
+        <Provincia>${xmlEsc(ind.prov)}</Provincia>
+        <Nazione>IT</Nazione>
+      </Sede>
+    </CedentePrestatore>
+    <CessionarioCommittente>
+      <DatiAnagrafici>
+        ${cessIdFiscale}${cessCF}
+        <Anagrafica><Denominazione>${xmlEsc(cli.nome)}</Denominazione></Anagrafica>
+      </DatiAnagrafici>
+      <Sede>
+        <Indirizzo>${xmlEsc(cli.via)}</Indirizzo>
+        <CAP>${xmlEsc(cli.cap)}</CAP>
+        <Comune>${xmlEsc(cli.citta)}</Comune>
+        <Provincia>${xmlEsc(cli.prov)}</Provincia>
+        <Nazione>IT</Nazione>
+      </Sede>
+    </CessionarioCommittente>
+  </FatturaElettronicaHeader>
+  <FatturaElettronicaBody>
+    <DatiGenerali>
+      <DatiGeneraliDocumento>
+        <TipoDocumento>TD01</TipoDocumento>
+        <Divisa>EUR</Divisa>
+        <Data>${ft.data}</Data>
+        <Numero>${xmlEsc(ft.num)}</Numero>
+        <ImportoTotaleDocumento>${n2(docTotale(ft.righe))}</ImportoTotaleDocumento>
+      </DatiGeneraliDocumento>
+    </DatiGenerali>
+    <DatiBeniServizi>
+      ${righeXml}
+      ${riepilogoXml}
+    </DatiBeniServizi>
+    <DatiPagamento>
+      <CondizioniPagamento>TP02</CondizioniPagamento>
+      <DettaglioPagamento>
+        <ModalitaPagamento>${modPag}</ModalitaPagamento>
+        <DataScadenzaPagamento>${scad}</DataScadenzaPagamento>
+        <ImportoPagamento>${n2(docTotale(ft.righe))}</ImportoPagamento>
+        ${cli.iban || set.iban ? `<IBAN>${xmlEsc(set.iban)}</IBAN>` : ''}
+      </DettaglioPagamento>
+    </DatiPagamento>
+  </FatturaElettronicaBody>
+</p:FatturaElettronica>`;
+  }
+  function downloadFatturaPAXml(ft){
+    const cli = clientiById[ft.clienteId] || {};
+    if(!cli.sdi && !cli.pec){
+      alert('Manca il Codice Destinatario o la PEC del cliente: aggiungilo alla scheda cliente prima di generare il file.');
+      return;
+    }
+    const xml = buildFatturaPAXml(ft, cli, company);
+    const blob = new Blob([xml], { type:'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const piva = ((company && company.piva) || 'ITXXXXXXXXXXX').replace(/\D/g, '');
+    a.href = url;
+    a.download = 'IT' + piva + '_' + String(ft.num || '').replace(/\W/g, '') + '.xml';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   async function renderList(){
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
@@ -344,7 +482,7 @@
           <td class="num-col">${eur(docTotale(f.righe))}</td>
           <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('incassata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da incassare'}</button></td>
           <td class="actions">
-            <button data-print="${f.id}" title="Stampa">🖨</button><button data-pdf="${f.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${f.id}">Modifica</button>
+            <button data-print="${f.id}" title="Stampa">🖨</button><button data-pdf="${f.id}" title="Scarica PDF">⬇ PDF</button><button data-xml="${f.id}" title="Genera XML FatturaPA">XML</button><button data-edit="${f.id}">Modifica</button>
             <button class="danger" data-del="${f.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
@@ -370,6 +508,9 @@
       }finally{
         btn.disabled = false;
       }
+    }));
+    area.querySelectorAll('[data-xml]').forEach(btn => btn.addEventListener('click', () => {
+      downloadFatturaPAXml(elenco.find(x => x.id === btn.dataset.xml));
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const f = elenco.find(x => x.id === btn.dataset.del);

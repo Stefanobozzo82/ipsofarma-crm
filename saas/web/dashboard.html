@@ -11,15 +11,19 @@
   incassare/pagare, quanto resta da evadere/ricevere, e l'andamento mensile
   in un grafico a barre con margine in linea.
 
-  Una differenza onesta rispetto all'originale: i moduli ordini.html/
-  ddt.html/ecc. di questo prodotto non hanno ancora un editor per lo sconto
-  riga (l'originale sì) né per la evasione parziale quantità per quantità
-  (qtyEv) quando si crea un nuovo ordine da qui. I dati REALI importati da
-  Ipsofarma però li portano già con sé (fanno parte del blob "righe", non
-  filtrati da store.js) — quindi qui sotto il calcolo li usa comunque,
-  correttamente, per i documenti storici; per i documenti creati da questo
-  prodotto (senza sconto/qtyEv) il calcolo resta comunque corretto, dà solo
-  "nessuno sconto"/"niente ancora evaso" perché quei campi mancano.
+  Lo sconto riga (anche a cascata "N+M") è ora un campo vero anche negli
+  editor di ordini/fatture/note di credito, non solo qui: i totali di
+  questa dashboard e quelli mostrati nell'elenco di ogni pagina documento
+  usano la stessa identica aritmetica, coerenti tra loro.
+
+  Una differenza onesta rimasta: la evasione parziale quantità per
+  quantità (qtyEv) non ha ancora un editor in questo prodotto quando si
+  crea un nuovo ordine da qui. I dati REALI importati da Ipsofarma la
+  portano già con sé (fa parte del blob "righe", non filtrato da
+  store.js) — quindi qui sotto il calcolo la usa comunque, correttamente,
+  per i documenti storici; per i documenti creati da questo prodotto
+  (senza qtyEv) il calcolo resta corretto, dà solo "niente ancora evaso"
+  perché quel campo manca.
 -->
 <link rel="stylesheet" href="app/theme.css">
 </head>

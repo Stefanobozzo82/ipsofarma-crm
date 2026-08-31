@@ -723,6 +723,34 @@ condiviso in `nav.js` — tutta verde, nessuna regressione. Collaudo
 visivo con screenshot desktop, dati di prova su più mesi per vedere il
 grafico popolato.
 
+## Sconto riga — corretto in tutti i moduli documento
+
+I sei moduli con righe di prezzo (`ordini.html`, `fatture.html`,
+`note-credito.html`, `ordini-fornitore.html`, `fatture-fornitore.html`,
+`note-credito-fornitore.html` — non `ddt.html`, che non ha mai avuto
+prezzi) avevano un campo `sconto` **assente dall'editor**: il totale
+calcolato ignorava sempre lo sconto, anche quando il documento (importato
+da dati reali, o modificato a mano) lo aveva. Corretto: nuova colonna
+"Sconto %" tra Prezzo e IVA %, stessa aritmetica del gestionale originale
+— compresa la cascata "N+M" (es. "50+15" = 50% e poi un altro 15% sul
+residuo, non 65% secco), già presente nei dati reali importati.
+
+Tre punti di collaudo scelti apposta a coprire i casi che contano
+davvero, non solo "il campo esiste": lo sconto digitato riduce il totale
+in tempo reale mentre si scrive; selezionare una fattura collegata (in
+note-credito.html/fatture-fornitore.html/note-credito-fornitore.html)
+porta con sé lo sconto della riga originale, non solo cod/descr/qty/
+prezzo/iva come prima; riaprire in modifica un documento con sconto lo
+mostra nel campo, non lo perde. La dashboard (sezione precedente) usava
+già questa aritmetica corretta — ora i suoi numeri e quelli che ogni
+pagina documento mostra nel proprio elenco sono coerenti tra loro, non
+più disallineati.
+
+**Collaudo**: nuovo file di test (test83), rieseguita l'intera suite
+precedente (11 file) — tutta verde, nessuna regressione. Collaudo visivo
+con uno sconto a cascata reale (50%+15% su un prodotto dal catalogo
+Aesculap importato).
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

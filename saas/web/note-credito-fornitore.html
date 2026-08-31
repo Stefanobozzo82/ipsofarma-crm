@@ -31,7 +31,7 @@
 
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>IVA %</th><th></th></tr></thead>
+      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -79,12 +79,13 @@
   }
 
   function rigaRowHtml(r){
-    r = r || { cod:'', descr:'', qty:1, prezzo:0, iva:22 };
+    r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
     return `<tr>
       <td><input class="r-cod" value="${esc(r.cod)}" placeholder="cod."></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
       <td style="width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
+      <td style="width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
       <td style="width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
     </tr>`;
@@ -104,10 +105,15 @@
       descr: tr.querySelector('.r-descr').value.trim(),
       qty: Number(tr.querySelector('.r-qty').value) || 0,
       prezzo: Number(tr.querySelector('.r-prezzo').value) || 0,
+      sconto: tr.querySelector('.r-sconto').value.trim(),
       iva: Number(tr.querySelector('.r-iva').value) || 0,
     })).filter(r => r.descr || r.cod);
   }
-  function rigaTotale(r){ const imp = r.qty * r.prezzo; return imp + imp * r.iva / 100; }
+  // Stessa aritmetica dello sconto del gestionale originale, cascata
+  // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
   function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   $('add-riga').addEventListener('click', () => addRigaRow(null));
@@ -123,7 +129,7 @@
     const fattura = (fatturePerFornitore[$('f-fornitore').value] || []).find(f => f.id === $('f-fattura').value);
     if(fattura && righeVuote){
       $('righe-body').innerHTML = '';
-      (fattura.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, iva:r.iva || 22 }));
+      (fattura.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, sconto:r.sconto || '', iva:r.iva || 22 }));
     }
   });
 

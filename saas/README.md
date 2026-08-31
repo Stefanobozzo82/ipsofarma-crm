@@ -19,6 +19,7 @@ saas/
 ├── web/
 │   ├── index.html                    login + registrazione azienda + scelta azienda
 │   ├── clienti.html                  primo modulo reale: elenco clienti (Fase 2)
+│   ├── ordini.html                   secondo modulo reale: ordini cliente, con numerazione (Fase 2)
 │   └── app/
 │       └── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 └── supabase/
@@ -212,9 +213,53 @@ un'azienda, pulizia dello stato al logout. La logica di lettura/scrittura
 sottostante (`store.js`) resta quella già collaudata contro il progetto
 Supabase reale nel passaggio precedente.
 
+## Fase 2 (in corso) — il primo documento: ordini cliente
+
+`web/ordini.html` è il primo modulo che tocca un **documento numerato**,
+non solo un'anagrafica: elenco, creazione (con righe multiple e calcolo
+del totale), modifica ed eliminazione di ordini cliente. La differenza
+rispetto a `clienti.html` è tutta nella numerazione — qui presa davvero
+sul serio, non aggirata:
+
+- In creazione, `store.nextNumber(companyId, 'OC', anno)` viene chiamata
+  **prima** di `saveDoc()` e il risultato diventa il `num` del documento —
+  collaudato esplicitamente che l'ordine delle due chiamate sia questo e
+  non il contrario.
+- In modifica, il numero esistente non cambia mai: non viene richiesto un
+  nuovo numero solo perché si salva di nuovo lo stesso documento —
+  anche questo collaudato esplicitamente.
+- L'attesa di rete per ottenere il numero (impercettibile nell'uso reale,
+  ma reale) è la conseguenza pratica della decisione presa: la
+  numerazione qui è sempre asincrona, a differenza di `nextNum()` nel
+  gestionale attuale.
+
+Il form delle righe (codice, descrizione, quantità, prezzo, IVA) è
+volutamente un sottoinsieme di quello vero — manca sconto, lotto,
+scadenza: l'obiettivo di questo modulo è provare il meccanismo
+(numerazione + righe + collegamento a un cliente), non ancora la parità
+completa dei campi.
+
+**Collaudo**: `ordini.html` verificata con un `SaasStore` finto (Playwright,
+browser reale) — calcolo del totale su più righe con aggiunta/rimozione
+dinamica, ordine delle chiamate numerazione→salvataggio, nessuna nuova
+numerazione in modifica, validazioni (nessun cliente, nessuna riga
+valida), elenco con cliente risolto. Rieseguiti anche i test di
+`clienti.html` e `index.html` per la voce di navigazione aggiunta.
+
+## Nota operativa: impostazioni Auth temporaneamente cambiate
+
+Per sbloccare i test (il servizio email gratuito di Supabase ha un limite
+di invii molto basso, superato più volte durante lo sviluppo), la
+conferma email obbligatoria è stata **disattivata temporaneamente**
+(`mailer_autoconfirm: true`) sul progetto reale. Va riattivata prima di
+avere il primo cliente vero — senza conferma email chiunque potrebbe
+registrarsi con un indirizzo non suo. La soluzione definitiva, comunque
+necessaria prima di vendere il prodotto, è collegare un provider email
+vero (Fase 5/6): il limite gratuito integrato scatterebbe comunque anche
+con pochi utenti al giorno.
+
 ## Prossimo passo
 
-Decidere insieme come diventare asincrona la numerazione nel gestionale
-(`nextNum()`/`consumeNum()`), poi estendere lo stesso schema di
-`clienti.html` ai documenti — probabilmente partendo da ordini cliente,
-il primo caso che tocca anche numerazione e collegamento a un'anagrafica.
+Estendere lo stesso schema di `ordini.html` ai documenti collegati fra
+loro — DDT e fatture, che si aggiungono al collegamento con un ordine (non
+solo con un cliente) e, per le fatture, allo stato di incasso.

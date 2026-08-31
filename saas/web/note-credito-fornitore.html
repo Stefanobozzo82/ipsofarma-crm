@@ -68,10 +68,35 @@
   let editingId = null;
   let fornitoriById = {};
   let fatturePerFornitore = {};
+  let SORT = { key: 'num', dir: 'desc' };
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  // ---- ordinamento colonne: come nel gestionale originale — un clic
+  // sull'intestazione ordina, un secondo clic inverte la direzione.
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, n){
+    if(key === 'num') return n.num || '';
+    if(key === 'data') return n.data || '';
+    if(key === 'fornitore') return (fornitoriById[n.fornitoreId] || {}).nome || '';
+    if(key === 'fattura') return n.fatturaId ? fatturaNumById(n.fornitoreId, n.fatturaId) : '';
+    if(key === 'importo') return docTotale(n.righe || []);
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
+    renderList();
+  }
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
@@ -196,9 +221,9 @@
       area.innerHTML = '<p class="empty">Nessuna nota di credito ancora. Crea prima un fornitore, poi aggiungine una con "+ Nuova nota di credito".</p>';
       return;
     }
-    elenco.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
+    elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        <th>Numero</th><th>Data</th><th>Fornitore</th><th>Fattura</th><th>Importo</th><th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('fattura','Fattura')}${th('importo','Importo')}<th></th>
       </tr></thead><tbody>${elenco.map(n => `
         <tr>
           <td class="num-col">${esc(n.num)}</td>
@@ -211,6 +236,7 @@
             <button class="danger" data-del="${n.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(elenco.find(x => x.id === btn.dataset.edit));
     }));

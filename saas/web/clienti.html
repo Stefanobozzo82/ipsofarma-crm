@@ -62,6 +62,7 @@
   const store = window.SaasStore;
   let companyId = null;
   let editingId = null; // null = sto creando, altrimenti sto modificando questo id
+  let SORT = { key: 'nome', dir: 'asc' };
 
   function setMsg(text, kind){
     const el = $('form-msg');
@@ -69,6 +70,30 @@
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
   }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  // ---- ordinamento colonne: come nel gestionale originale — un clic
+  // sull'intestazione ordina, un secondo clic inverte la direzione.
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, c){
+    if(key === 'nome') return c.nome || '';
+    if(key === 'piva') return c.piva || '';
+    if(key === 'citta') return c.citta || '';
+    if(key === 'tel') return c.tel || '';
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = 'asc'; }
+    renderList();
+  }
 
   function openForm(cliente){
     editingId = cliente ? cliente.id : null;
@@ -124,9 +149,9 @@
       area.innerHTML = '<p class="empty">Nessun cliente ancora. Aggiungine uno con "+ Nuovo cliente".</p>';
       return;
     }
-    clienti.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it'));
+    clienti.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        <th>Nome</th><th>P.IVA</th><th>Città</th><th>Telefono</th><th></th>
+        ${th('nome','Nome')}${th('piva','P.IVA')}${th('citta','Città')}${th('tel','Telefono')}<th></th>
       </tr></thead><tbody>${clienti.map(c => `
         <tr>
           <td>${esc(c.nome)}</td>
@@ -138,6 +163,7 @@
             <button class="danger" data-del="${c.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       const c = clienti.find(x => x.id === btn.dataset.edit);
       openForm(c);

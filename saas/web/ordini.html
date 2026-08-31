@@ -74,6 +74,7 @@
   let companyId = null;
   let editingId = null;
   let clientiById = {};
+  let SORT = { key: 'num', dir: 'desc' };
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -82,6 +83,30 @@
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  // ---- ordinamento colonne: come nel gestionale originale — un clic
+  // sull'intestazione ordina, un secondo clic inverte la direzione.
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, o){
+    if(key === 'num') return o.num || '';
+    if(key === 'data') return o.data || '';
+    if(key === 'cliente') return (clientiById[o.clienteId] || {}).nome || '';
+    if(key === 'totale') return docTotale(o.righe || []);
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
+    renderList();
   }
 
   // ---- righe: editor dinamico -------------------------------------------
@@ -191,9 +216,9 @@
       area.innerHTML = '<p class="empty">Nessun ordine ancora. Crea prima un cliente, poi aggiungi un ordine con "+ Nuovo ordine".</p>';
       return;
     }
-    ordini.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
+    ordini.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        <th>Numero</th><th>Data</th><th>Cliente</th><th>Totale</th><th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('totale','Totale')}<th></th>
       </tr></thead><tbody>${ordini.map(o => `
         <tr>
           <td class="num-col">${esc(o.num)}</td>
@@ -205,6 +230,7 @@
             <button class="danger" data-del="${o.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(ordini.find(x => x.id === btn.dataset.edit));
     }));

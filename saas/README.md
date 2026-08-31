@@ -789,6 +789,30 @@ verificare che non sia un caso isolato. Rieseguita l'intera suite
 precedente (12 file) — tutta verde. Collaudo visivo con screenshot,
 cassetto chiuso e aperto.
 
+## Colonne ordinabili — segnalato dall'utente
+
+"Ho notato che le colonne non sono ordinabili se ci clicco": vero, mancava
+del tutto — nel gestionale originale ogni intestazione di colonna è
+cliccabile (classe `.thsort`, un clic ordina, un secondo clic inverte la
+direzione, freccia ↑/↓ e colore d'accento sulla colonna attiva), qui erano
+`<th>` statici.
+
+Aggiunto a tutte e nove le pagine con un elenco (clienti, fornitori,
+ordini, DDT, fatture, note di credito — sia lato cliente sia fornitore),
+non alla tabella delle righe di un documento in fase di compilazione (lì
+l'ordine è quello in cui l'utente le inserisce, non ha senso riordinarle).
+Colonne di testo (nome, città...), numeriche (totale, importo) e persino
+calcolate al volo (il totale di un documento, lo stato pagata/da pagare)
+si ordinano tutte con lo stesso meccanismo — non solo un `localeCompare`
+su una colonna sola.
+
+**Collaudo**: nuovo file di test (test85) — ordine di default invariato
+rispetto a prima (nessuna sorpresa per chi già usa il prodotto), un clic
+ordina per la colonna scelta con la freccia e l'evidenziazione giuste, un
+secondo clic inverte la direzione, funziona sia su colonne testuali sia
+su colonne numeriche/calcolate. Rieseguita l'intera suite precedente (13
+file) — tutta verde. Collaudo visivo con screenshot.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

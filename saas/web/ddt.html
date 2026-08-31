@@ -69,6 +69,7 @@
   let clientiById = {};
   let ordiniPerCliente = {}; // clienteId -> [ordini]
   let allOrdiniById = {};
+  let SORT = { key: 'num', dir: 'desc' };
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -76,6 +77,30 @@
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  // ---- ordinamento colonne: come nel gestionale originale — un clic
+  // sull'intestazione ordina, un secondo clic inverte la direzione.
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, d){
+    if(key === 'num') return d.num || '';
+    if(key === 'data') return d.data || '';
+    if(key === 'cliente') return (clientiById[d.clienteId] || {}).nome || '';
+    if(key === 'ordine') return d.ocId ? ((allOrdiniById[d.ocId] || {}).num || '') : '';
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
+    renderList();
   }
 
   function rigaRowHtml(r){
@@ -179,9 +204,9 @@
       area.innerHTML = '<p class="empty">Nessun DDT ancora. Crea prima un cliente, poi aggiungi un DDT con "+ Nuovo DDT".</p>';
       return;
     }
-    elenco.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
+    elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        <th>Numero</th><th>Data</th><th>Cliente</th><th>Ordine</th><th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('ordine','Ordine')}<th></th>
       </tr></thead><tbody>${elenco.map(d => `
         <tr>
           <td class="num-col">${esc(d.num)}</td>
@@ -193,6 +218,7 @@
             <button class="danger" data-del="${d.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(elenco.find(x => x.id === btn.dataset.edit));
     }));

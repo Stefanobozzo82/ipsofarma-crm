@@ -67,12 +67,37 @@
   const store = window.SaasStore;
   let companyId = null;
   let editingId = null;
+  let SORT = { key: 'nome', dir: 'asc' };
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  // ---- ordinamento colonne: come nel gestionale originale — un clic
+  // sull'intestazione ordina, un secondo clic inverte la direzione.
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, f){
+    if(key === 'nome') return f.nome || '';
+    if(key === 'piva') return f.piva || '';
+    if(key === 'citta') return f.citta || '';
+    if(key === 'tel') return f.tel || '';
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = 'asc'; }
+    renderList();
   }
 
   function openForm(fornitore){
@@ -129,9 +154,9 @@
       area.innerHTML = '<p class="empty">Nessun fornitore ancora. Aggiungine uno con "+ Nuovo fornitore".</p>';
       return;
     }
-    fornitori.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it'));
+    fornitori.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        <th>Nome</th><th>P.IVA</th><th>Città</th><th>Telefono</th><th></th>
+        ${th('nome','Nome')}${th('piva','P.IVA')}${th('citta','Città')}${th('tel','Telefono')}<th></th>
       </tr></thead><tbody>${fornitori.map(f => `
         <tr>
           <td>${esc(f.nome)}</td>
@@ -143,6 +168,7 @@
             <button class="danger" data-del="${f.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(fornitori.find(x => x.id === btn.dataset.edit));
     }));

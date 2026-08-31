@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impostazioni azienda — Gestionale</title>
+<!--
+  Modifica l'anagrafica dell'azienda (companies): nome, P.IVA/CF, PEC,
+  codice destinatario SDI, indirizzo, e qualche dato non sensibile in più
+  (telefono, email, sito, IBAN) tenuto nella colonna JSONB "settings".
+  Solo un admin può salvare — la RLS lo impone comunque lato database,
+  qui si nasconde solo il pulsante per chi non lo è, coerenza con
+  abbonamento.html.
+-->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Impostazioni</h2>
+      <p class="sub">Intestazione azienda: dati usati nei documenti e nella fatturazione elettronica.</p>
+    </div>
+
+    <div class="card" id="form-card">
+      <p class="empty" id="loading-msg">Carico…</p>
+      <div id="form-body" hidden>
+        <p class="empty" id="viewer-note" hidden style="text-align:left;padding:0 0 14px">Solo un amministratore dell'azienda può modificare questi dati.</p>
+
+        <label for="f-nome">Ragione sociale</label>
+        <input id="f-nome" type="text">
+        <div class="grid2">
+          <div><label for="f-piva">Partita IVA</label><input id="f-piva" type="text"></div>
+          <div><label for="f-cf">Codice fiscale</label><input id="f-cf" type="text"></div>
+        </div>
+
+        <div class="grid2">
+          <div><label for="f-pec">PEC</label><input id="f-pec" type="text"></div>
+          <div><label for="f-sdi">Codice destinatario SDI</label><input id="f-sdi" type="text" placeholder="7 caratteri, es. 0000000"></div>
+        </div>
+
+        <label for="f-via">Indirizzo</label>
+        <input id="f-via" type="text" placeholder="Via/Piazza e numero civico">
+        <div class="grid2">
+          <div><label for="f-cap">CAP</label><input id="f-cap" type="text"></div>
+          <div><label for="f-citta">Città</label><input id="f-citta" type="text"></div>
+        </div>
+        <label for="f-prov">Provincia</label>
+        <input id="f-prov" type="text" maxlength="2" style="max-width:100px">
+
+        <div class="grid2">
+          <div><label for="f-tel">Telefono</label><input id="f-tel" type="text"></div>
+          <div><label for="f-email">Email</label><input id="f-email" type="text"></div>
+        </div>
+        <div class="grid2">
+          <div><label for="f-web">Sito web</label><input id="f-web" type="text"></div>
+          <div><label for="f-iban">IBAN</label><input id="f-iban" type="text"></div>
+        </div>
+
+        <div class="form-actions">
+          <button class="primary" id="f-save">Salva</button>
+        </div>
+        <div class="msg" id="form-msg" hidden></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let isAdmin = false;
+
+  function setMsg(text, kind){
+    const el = $('form-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  function fillForm(company){
+    const ind = company.indirizzo || {};
+    const set = company.settings || {};
+    $('f-nome').value = company.nome || '';
+    $('f-piva').value = company.piva || '';
+    $('f-cf').value = company.cf || '';
+    $('f-pec').value = company.pec || '';
+    $('f-sdi').value = company.sdi_codice || '';
+    $('f-via').value = ind.via || '';
+    $('f-cap').value = ind.cap || '';
+    $('f-citta').value = ind.citta || '';
+    $('f-prov').value = ind.prov || '';
+    $('f-tel').value = set.tel || '';
+    $('f-email').value = set.email || '';
+    $('f-web').value = set.web || '';
+    $('f-iban').value = set.iban || '';
+  }
+
+  $('f-save').addEventListener('click', async () => {
+    const nome = $('f-nome').value.trim();
+    if(!nome){ setMsg('La ragione sociale è obbligatoria.', 'error'); return; }
+    const patch = {
+      nome,
+      piva: $('f-piva').value.trim() || null,
+      cf: $('f-cf').value.trim() || null,
+      pec: $('f-pec').value.trim() || null,
+      sdi_codice: $('f-sdi').value.trim() || null,
+      indirizzo: {
+        via: $('f-via').value.trim(), cap: $('f-cap').value.trim(),
+        citta: $('f-citta').value.trim(), prov: $('f-prov').value.trim().toUpperCase(),
+      },
+      // "settings" tiene solo dati non sensibili (mai chiavi API: quelle,
+      // dalla Fase 3, vivono lato server) — vedi commento in store.js.
+      settings: {
+        tel: $('f-tel').value.trim(), email: $('f-email').value.trim(),
+        web: $('f-web').value.trim(), iban: $('f-iban').value.trim(),
+      },
+    };
+    $('f-save').disabled = true;
+    setMsg('', '');
+    try{
+      await store.saveCompany(companyId, patch);
+      localStorage.setItem('saas_company_nome', nome);
+      setMsg('Salvato.', 'ok');
+    }catch(err){
+      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+    }finally{
+      $('f-save').disabled = false;
+    }
+  });
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('impostazioni-azienda', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    try{
+      const [company, memberships] = await Promise.all([
+        store.getCompany(companyId),
+        store.myMemberships(),
+      ]);
+      isAdmin = memberships.some(m => m.company_id === companyId && m.role === 'admin');
+      fillForm(company);
+      $('loading-msg').hidden = true;
+      $('form-body').hidden = false;
+      if(!isAdmin){
+        $('viewer-note').hidden = false;
+        $('f-save').hidden = true;
+        [...document.querySelectorAll('#form-body input')].forEach(el => el.disabled = true);
+      }
+    }catch(err){
+      $('loading-msg').textContent = 'Errore nel caricamento: ' + err.message;
+    }
+  }
+  init();
+</script>
+</body>
+</html>

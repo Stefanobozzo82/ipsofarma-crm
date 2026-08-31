@@ -39,7 +39,8 @@
       { id: 'prodotti', label: 'Prodotti', href: 'prodotti.html', ic: '⊞' },
     ] },
     { label: 'Azienda', items: [
-      { id: 'abbonamento', label: 'Abbonamento', href: 'abbonamento.html', ic: '⚙' },
+      { id: 'impostazioni-azienda', label: 'Impostazioni', href: 'impostazioni-azienda.html', ic: '⚙' },
+      { id: 'abbonamento', label: 'Abbonamento', href: 'abbonamento.html', ic: '🔁' },
     ] },
   ];
 

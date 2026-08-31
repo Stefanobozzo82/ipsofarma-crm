@@ -156,6 +156,18 @@
     return data;
   }
 
+  // Modifica l'anagrafica azienda (nome, P.IVA, indirizzo...). La RLS di
+  // 0001_aziende_e_utenti.sql permette l'update solo a un admin: un
+  // operatore che ci provasse otterrebbe zero righe modificate, e
+  // .single() lo trasforma in un errore esplicito invece di un
+  // fallimento silenzioso. impostazioni-azienda.html nasconde comunque
+  // il pulsante di salvataggio a chi non è admin, per non arrivarci mai.
+  async function saveCompany(companyId, patch) {
+    const { data, error } = await client().from('companies').update(patch).eq('id', companyId).select().single();
+    if (error) throw error;
+    return data;
+  }
+
   async function startCheckout(companyId, planId, successUrl, cancelUrl) {
     const session = await getSession();
     if (!session) throw new Error('devi essere collegato');
@@ -250,6 +262,6 @@
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    getCompany, loadPlans, startCheckout, searchProdotti,
+    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany,
   };
 })(window);

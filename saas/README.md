@@ -33,6 +33,7 @@ saas/
 │   ├── note-credito-fornitore.html   note di credito fornitore
 │   ├── pagamenti.html                storico pagamenti a fornitori (sola lettura)
 │   ├── prodotti.html                 catalogo prodotti, con ricerca lato server
+│   ├── impostazioni-azienda.html     anagrafica azienda (nome, P.IVA, indirizzo...)
 │   ├── abbonamento.html              piano attuale + cambio piano (Fase 5)
 │   └── app/
 │       ├── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
@@ -913,7 +914,14 @@ rigore di tutto il resto di questo lavoro.
   piatto invece di un raggruppamento per cliente con vista di dettaglio,
   niente ancora "invia sollecito" via email (serve un provider email
   configurato) né esportazione Excel.
-- [ ] Impostazioni azienda
+- [x] **Impostazioni azienda** (`impostazioni-azienda.html`) — modifica
+  l'anagrafica dell'azienda (ragione sociale, P.IVA/CF, PEC, codice
+  destinatario SDI, indirizzo, telefono/email/sito/IBAN) da interfaccia:
+  prima erano dati modificabili solo via SQL diretto (come per l'import
+  iniziale). Nuova `store.saveCompany()`. Solo un admin può salvare — la
+  RLS lo impone già lato database (vedi `0001_aziende_e_utenti.sql`), qui
+  si nasconde in più il pulsante e si disabilitano i campi a chi non lo
+  è, per coerenza visiva con `abbonamento.html`, non come unica difesa.
 - [ ] Ricerca testuale negli elenchi documento
 - [ ] Filtri elenco (fornitore/stato/intervallo date)
 - [ ] Selezione multipla e azioni collettive

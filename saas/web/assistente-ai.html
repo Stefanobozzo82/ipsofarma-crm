@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assistente AI — Gestionale</title>
+<!--
+  Interfaccia di chat per l'assistente AI. Passa sempre dall'Edge Function
+  ai-proxy (Fase 3): il browser non vede mai la chiave del provider IA
+  (Gemini) — sta solo come secret del progetto Supabase.
+
+  Diversa di proposito dall'assistente del gestionale originale (aiView()):
+  lì è un'unica istruzione in linguaggio naturale che l'IA traduce in un
+  PIANO di azioni (crea/modifica documenti) con anteprima prima di
+  applicarlo — qui è una conversazione vera, sola lettura: risponde a
+  domande sui dati aziendali (chi deve pagare/incassare cosa, fatturato del
+  mese...) usando un riepilogo calcolato al volo, ma non crea né modifica
+  nulla. Quella parte (creare un documento da un'istruzione o da un
+  allegato) è il prossimo — e più grande — pezzo della lista di parità.
+-->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Assistente AI</h2>
+      <p class="sub">Fai una domanda sui dati aziendali: chi deve pagare/incassare cosa, fatturato del mese, ordini aperti…</p>
+    </div>
+
+    <div class="card ai-wrap">
+      <p class="ai-intro">Le risposte si basano su un riepilogo dei dati aziendali calcolato ad ogni domanda — nessun dato lascia il server del provider IA se non quello. L'assistente non può ancora creare o modificare documenti: per quello resta il resto del gestionale.</p>
+      <div class="ai-examples">
+        <button type="button" class="ai-chip" data-fill>Quanto devo ancora pagare ai fornitori?</button>
+        <button type="button" class="ai-chip" data-fill>Quali clienti hanno fatture da incassare?</button>
+        <button type="button" class="ai-chip" data-fill>Quanto ho fatturato questo mese?</button>
+        <button type="button" class="ai-chip" data-fill>Quanti ordini fornitore sono ancora da ricevere?</button>
+      </div>
+
+      <div class="ai-thread" id="thread"></div>
+
+      <div class="ai-inputrow" style="margin-top:14px">
+        <textarea id="ai-q" rows="2" placeholder="Scrivi qui la tua domanda…"></textarea>
+        <button class="primary" id="ai-go">Invia</button>
+      </div>
+      <p class="empty" id="no-context" hidden>Non ci sono ancora dati sufficienti per rispondere a domande sull'azienda: crea qualche cliente, fornitore o documento prima di usare l'assistente.</p>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let SYSTEM_PROMPT = '';
+  // Cronologia inviata al provider ad ogni domanda (oltre al messaggio di
+  // sistema): una conversazione vera, non un singolo giro come nel
+  // gestionale originale.
+  let HISTORY = [];
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function today(){ return new Date().toISOString().slice(0, 10); }
+
+  function scFactor(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0).reduce((f, p) => f * (1 - p / 100), 1); }
+  function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
+  function tot(righe){ return (righe || []).reduce((s, r) => { const n = lineNet(r); return s + n + n * (r.iva || 0) / 100; }, 0); }
+  function payTot(it){ return it.pagamenti == null ? (it.paid ? tot(it.righe) : 0) : it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0); }
+  function residuo(it){ return Math.max(0, tot(it.righe) - payTot(it)); }
+
+  function addBubble(role, text){
+    const el = document.createElement('div');
+    el.className = 'ai-bubble ' + role;
+    el.textContent = text;
+    $('thread').appendChild(el);
+    el.scrollIntoView({ block:'end', behavior:'smooth' });
+    return el;
+  }
+
+  // Riepilogo dei dati aziendali calcolato al volo — è tutto ciò che
+  // l'assistente "vede": nessuna cronologia documenti, nessun dettaglio
+  // riga per riga, solo aggregati già utili per le domande più comuni.
+  function buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore){
+    const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
+    const fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    const mese = today().slice(0, 7);
+
+    const daIncassare = {};
+    fattureCliente.forEach(f => {
+      const r = residuo(f);
+      if(r <= 0.01) return;
+      const nome = (clientiById[f.clienteId] || {}).nome || 'cliente sconosciuto';
+      daIncassare[nome] = (daIncassare[nome] || 0) + r;
+    });
+    const daPagare = {};
+    fattureFornitore.forEach(f => {
+      const r = residuo(f);
+      if(r <= 0.01) return;
+      const nome = (fornitoriById[f.fornitoreId] || {}).nome || 'fornitore sconosciuto';
+      daPagare[nome] = (daPagare[nome] || 0) + r;
+    });
+    const fatturatoMese = fattureCliente.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0);
+    const acquistiMese = fattureFornitore.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0);
+    const ocIdFatturati = new Set(fattureCliente.map(f => f.ocId).filter(Boolean));
+    const ordCliAperti = ordiniCliente.filter(o => !ocIdFatturati.has(o.id)).length;
+    const ordFornAperti = ordiniFornitore.filter(o => !(o.righe || []).every(r => (r.qtyEv || 0) >= (r.qty || 0))).length;
+
+    const lines = [];
+    lines.push('Data odierna: ' + today() + '.');
+    lines.push('Clienti con fatture ancora da incassare (residuo, IVA inclusa):');
+    lines.push(Object.keys(daIncassare).length
+      ? Object.entries(daIncassare).sort((a, b) => b[1] - a[1]).map(([n, v]) => `- ${n}: ${eur(v)}`).join('\n')
+      : '- nessuno, tutte le fatture cliente risultano incassate');
+    lines.push('Fornitori con fatture ancora da pagare (residuo, IVA inclusa):');
+    lines.push(Object.keys(daPagare).length
+      ? Object.entries(daPagare).sort((a, b) => b[1] - a[1]).map(([n, v]) => `- ${n}: ${eur(v)}`).join('\n')
+      : '- nessuno, tutte le fatture fornitore risultano pagate');
+    lines.push(`Fatturato clienti nel mese corrente (${mese}): ${eur(fatturatoMese)}.`);
+    lines.push(`Acquisti da fornitori nel mese corrente (${mese}): ${eur(acquistiMese)}.`);
+    lines.push(`Ordini cliente ancora aperti (non fatturati): ${ordCliAperti}.`);
+    lines.push(`Ordini fornitore ancora aperti (non completamente ricevuti): ${ordFornAperti}.`);
+    return {
+      text: lines.join('\n'),
+      hasData: clienti.length > 0 || fornitori.length > 0 || fattureCliente.length > 0 || fattureFornitore.length > 0,
+    };
+  }
+
+  async function send(question){
+    question = (question || '').trim();
+    if(!question) return;
+    addBubble('user', question);
+    HISTORY.push({ role:'user', content: question });
+    $('ai-q').value = '';
+    $('ai-go').disabled = true;
+    const pending = addBubble('pending', 'Sto pensando…');
+    try{
+      const messages = [{ role:'system', content: SYSTEM_PROMPT }, ...HISTORY];
+      const reply = await store.aiComplete(messages);
+      pending.remove();
+      addBubble('assistant', reply);
+      HISTORY.push({ role:'assistant', content: reply });
+      // Cronologia limitata: una conversazione lunghissima farebbe solo
+      // crescere inutilmente ogni richiesta successiva (e il relativo
+      // consumo) — le ultime domande/risposte bastano per dare contesto.
+      if(HISTORY.length > 20) HISTORY = HISTORY.slice(-20);
+    }catch(err){
+      pending.remove();
+      addBubble('error', 'Non sono riuscito a rispondere: ' + (err.message || err));
+      HISTORY.pop(); // non tenere in cronologia una domanda rimasta senza risposta
+    }finally{
+      $('ai-go').disabled = false;
+      $('ai-q').focus();
+    }
+  }
+  $('ai-go').addEventListener('click', () => send($('ai-q').value));
+  $('ai-q').addEventListener('keydown', e => {
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send($('ai-q').value); }
+  });
+  document.querySelectorAll('[data-fill]').forEach(btn => btn.addEventListener('click', () => {
+    $('ai-q').value = btn.textContent;
+    $('ai-q').focus();
+  }));
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    const companyName = localStorage.getItem('saas_company_nome') || 'Azienda';
+    window.SaasNav.render('assistente-ai', {
+      companyName,
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore] = await Promise.all([
+      store.loadCollection('clienti', companyId),
+      store.loadCollection('fornitori', companyId),
+      store.loadCollection('fattureCliente', companyId),
+      store.loadCollection('fattureFornitore', companyId),
+      store.loadCollection('ordiniCliente', companyId),
+      store.loadCollection('ordiniFornitore', companyId),
+    ]);
+    const ctx = buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore);
+    $('no-context').hidden = ctx.hasData;
+    SYSTEM_PROMPT = `Sei l'assistente del gestionale di "${companyName}", un'azienda che vende a farmacie e strutture sanitarie. Rispondi SEMPRE in italiano, in modo conciso e diretto. Usa SOLO i dati del riepilogo qui sotto: non inventare cifre e non citare clienti, fornitori o importi che non compaiono nel riepilogo. Se ti manca un dato per rispondere, dillo chiaramente invece di indovinare. Non puoi creare, modificare o eliminare nulla nel gestionale: se ti viene chiesto, spiega gentilmente che questa funzione non è ancora disponibile qui e che va fatta dalle pagine del gestionale.\n\nRiepilogo dei dati aziendali:\n${ctx.text}`;
+  }
+  init();
+</script>
+</body>
+</html>

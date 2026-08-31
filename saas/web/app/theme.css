@@ -321,6 +321,26 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .righe-total{ text-align:right; font-size:13.5px; margin-top:8px; }
 .righe-total b{ font-variant-numeric:tabular-nums; font-family:var(--mono); }
 
+/* Assistente AI (assistente-ai.html) — .ai-intro/.ai-chip/.ai-inputrow
+ * porta diretta dell'originale; il filo di conversazione (.ai-thread/
+ * .ai-bubble) è nuovo, l'originale ha un'unica istruzione + anteprima,
+ * non un vero avanti-e-indietro. */
+.ai-wrap{ max-width:760px; }
+.ai-intro{ font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 14px; }
+.ai-examples{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.ai-chip{ font-size:12px; padding:7px 12px; border:1px solid var(--border2); border-radius:999px; background:var(--surface); color:var(--muted); cursor:pointer; font-family:inherit; }
+.ai-chip:hover{ background:var(--surface2); color:var(--txt); }
+.ai-inputrow{ display:flex; gap:10px; align-items:flex-end; margin-bottom:18px; }
+.ai-inputrow textarea{ flex:1; resize:vertical; min-height:46px; border:1px solid var(--border2); border-radius:10px; padding:11px 13px; font-family:inherit; font-size:14px; background:var(--surface); color:var(--txt); }
+.ai-inputrow textarea:focus{ outline:none; border-color:var(--accent); }
+.ai-thread{ display:flex; flex-direction:column; gap:12px; }
+.ai-bubble{ max-width:80%; padding:10px 14px; border-radius:12px; font-size:13.5px; line-height:1.55; white-space:pre-wrap; }
+.ai-bubble.user{ align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:3px; }
+.ai-bubble.assistant{ align-self:flex-start; background:var(--surface2); color:var(--txt); border:1px solid var(--border); border-bottom-left-radius:3px; }
+.ai-bubble.error{ align-self:flex-start; background:#fdf1f0; color:var(--red); border:1px solid #e9c6c3; }
+.ai-bubble.pending{ align-self:flex-start; color:var(--faint); font-style:italic; }
+@media(max-width:680px){ .ai-bubble{ max-width:92%; } }
+
 .form-actions{ display:flex; gap:10px; margin-top:16px; }
 .msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:13px; }
 .msg.error{ background:var(--red-s); color:var(--red); }

@@ -182,6 +182,36 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Assistente AI (Fase 6). Stesso principio di startCheckout(): il client
+  // non parla mai direttamente col provider IA né vede la sua chiave, passa
+  // sempre dall'Edge Function ai-proxy (Fase 3) — dove la chiave Gemini vive
+  // come secret del progetto. Il corpo è volutamente identico a quello che
+  // aiComplete() in index.html costruisce per il provider 'openai'
+  // (l'endpoint compatibile OpenAI di Gemini): {model, temperature,
+  // max_tokens, messages}.
+  // ---------------------------------------------------------------------------
+  async function aiComplete(messages, opts) {
+    opts = opts || {};
+    const session = await getSession();
+    if (!session) throw new Error('devi essere collegato');
+    const res = await fetch(global.SUPABASE_URL + '/functions/v1/ai-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify({
+        model: opts.model || 'gemini-2.5-flash',
+        temperature: opts.temperature != null ? opts.temperature : 0.3,
+        max_tokens: opts.maxTokens || 900,
+        messages,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || ('errore HTTP ' + res.status));
+    const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!reply) throw new Error('risposta vuota o inattesa dal provider IA');
+    return reply;
+  }
+
+  // ---------------------------------------------------------------------------
   // Lettura: ricompone un oggetto DB-shaped, come quello che oggi arriva da
   // ghFetchBoth() — l'intera azienda in un colpo solo.
   // ---------------------------------------------------------------------------
@@ -262,6 +292,6 @@
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany,
+    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete,
   };
 })(window);

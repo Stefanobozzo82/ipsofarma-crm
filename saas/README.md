@@ -21,6 +21,7 @@ saas/
 │   ├── dashboard.html                quadro d'insieme: fatturato, incassi, evasione, grafico mensile
 │   ├── scadenziario.html             fatture cliente non incassate, ordinate per scadenza
 │   ├── report.html                   top prodotti e fatturato per cliente, esportabili in Excel
+│   ├── assistente-ai.html            chat sui dati aziendali, tramite l'Edge Function ai-proxy
 │   ├── clienti.html                  anagrafica clienti
 │   ├── preventivi.html               preventivi, trasformabili in ordine cliente
 │   ├── ordini.html                   ordini cliente, con numerazione
@@ -1050,7 +1051,24 @@ rigore di tutto il resto di questo lavoro.
   senza un "documento" da stampare) né il collegamento diretto dal
   prodotto alla sua scheda — restano per un giro successivo, se servirà
   davvero.
-- [ ] Assistente AI (interfaccia di chat)
+- [x] **Assistente AI** (`assistente-ai.html`) — usa l'Edge Function
+  `ai-proxy` costruita in Fase 3 (il browser non vede mai la chiave
+  Gemini). Nuova `store.aiComplete()`, stesso schema di
+  `store.startCheckout()`: passa sempre dal server, mai una chiamata
+  diretta al provider. Diversa di proposito dall'assistente
+  dell'originale (`aiView()`): lì è un'unica istruzione che l'IA traduce
+  in un **piano di azioni** (crea/modifica documenti) con anteprima prima
+  di applicarlo; qui è una **conversazione vera, sola lettura** — risponde
+  a domande sui dati aziendali (chi deve pagare/incassare cosa, fatturato
+  del mese, ordini aperti) usando un riepilogo calcolato al volo ad ogni
+  domanda (residui per cliente/fornitore, fatturato/acquisti del mese
+  corrente), passato come messaggio di sistema insieme a un'istruzione
+  esplicita di non inventare cifre. La cronologia della conversazione
+  viaggia col messaggio successivo (fino alle ultime 20 battute, poi
+  viene tagliata) — non un singolo giro come nell'originale.
+  La parte "piano di azioni" (creare/modificare un documento da
+  un'istruzione o da un allegato) resta per il prossimo — e più grande —
+  pezzo della lista.
 - [ ] IA che crea documenti da un allegato (fattura/ordine/preventivo)
 
 Non nella lista di proposito — non è "gestionale mancante", è

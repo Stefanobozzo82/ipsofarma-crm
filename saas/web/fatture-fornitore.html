@@ -60,6 +60,7 @@
         <button class="primary" id="new-fattura">+ Nuova fattura</button>
       </div>
     </div>
+    <div id="filter-area"></div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
   </main>
@@ -79,9 +80,15 @@
   let companyId = null;
   let editingId = null;
   let fornitoriById = {};
+  let fornitoriArr = [];
   let ordiniPerFornitore = {};
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  // Filtri sopra l'elenco: stessa idea di FFILT nel gestionale originale
+  // (filterbar sui moduli documento) — qui applicata a fatture fornitore,
+  // dove filtrare per fornitore/stato/intervallo di date è particolarmente
+  // utile (è il modulo con più righe, e con più fornitori diversi).
+  let FFILT = { forn: '', paid: '', from: '', to: '' };
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -123,6 +130,42 @@
     clearTimeout(searchTimer);
     searchTimer = setTimeout(renderList, 200);
   });
+
+  // ---- filtri: fornitore, stato pagamento, intervallo date --------------
+  function matchesFilter(f){
+    if(FFILT.forn && f.fornitoreId !== FFILT.forn) return false;
+    if(FFILT.paid === 'paid' && !f.paid) return false;
+    if(FFILT.paid === 'unpaid' && f.paid) return false;
+    if(FFILT.from && (f.data || '') < FFILT.from) return false;
+    if(FFILT.to && (f.data || '') > FFILT.to) return false;
+    return true;
+  }
+  function setFFilt(k, v){ FFILT[k] = v; renderList(); }
+  function clearFFilt(){ FFILT = { forn:'', paid:'', from:'', to:'' }; renderList(); }
+  function renderFilterbar(){
+    const active = FFILT.forn || FFILT.paid || FFILT.from || FFILT.to;
+    const fopts = '<option value="">Tutti i fornitori</option>' +
+      fornitoriArr.map(f => `<option value="${f.id}" ${FFILT.forn === f.id ? 'selected' : ''}>${esc(f.nome)}</option>`).join('');
+    $('filter-area').innerHTML = `<div class="filterbar">
+      <select id="ff-forn">${fopts}</select>
+      <select id="ff-paid">
+        <option value="">Tutti gli stati</option>
+        <option value="paid" ${FFILT.paid === 'paid' ? 'selected' : ''}>Pagate</option>
+        <option value="unpaid" ${FFILT.paid === 'unpaid' ? 'selected' : ''}>Da pagare</option>
+      </select>
+      <div class="fdate-group">
+        <label class="fdate">Dal <input type="date" id="ff-from" value="${FFILT.from}"></label>
+        <label class="fdate">Al <input type="date" id="ff-to" value="${FFILT.to}"></label>
+      </div>
+      ${active ? '<button type="button" class="ffclear" id="ff-clear">✕ Azzera filtri</button>' : ''}
+    </div>`;
+    $('ff-forn').addEventListener('change', () => setFFilt('forn', $('ff-forn').value));
+    $('ff-paid').addEventListener('change', () => setFFilt('paid', $('ff-paid').value));
+    $('ff-from').addEventListener('change', () => setFFilt('from', $('ff-from').value));
+    $('ff-to').addEventListener('change', () => setFFilt('to', $('ff-to').value));
+    if(active) $('ff-clear').addEventListener('click', clearFFilt);
+  }
+
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
@@ -250,6 +293,7 @@
   }
 
   async function renderList(){
+    renderFilterbar();
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
     let elenco;
@@ -263,9 +307,9 @@
       area.innerHTML = '<p class="empty">Nessuna fattura ancora. Crea prima un fornitore, poi aggiungi una fattura con "+ Nuova fattura".</p>';
       return;
     }
-    elenco = elenco.filter(matchesQuery);
+    elenco = elenco.filter(matchesQuery).filter(matchesFilter);
     if(elenco.length === 0){
-      area.innerHTML = '<p class="empty">Nessuna fattura trovata per la ricerca.</p>';
+      area.innerHTML = '<p class="empty">Nessuna fattura trovata con questi criteri.</p>';
       return;
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
@@ -326,6 +370,7 @@
       store.loadCollection('ordiniFornitore', companyId),
     ]);
     fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    fornitoriArr = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity: 'base' }));
     ordiniPerFornitore = {};
     ordini.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
     $('f-fornitore').innerHTML = fornitori.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');

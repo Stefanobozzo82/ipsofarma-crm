@@ -938,7 +938,17 @@ rigore di tutto il resto di questo lavoro.
   ad ogni battuta. Non tocca l'ordinamento né il ridimensionamento delle
   colonne, già presenti: la ricerca filtra le righe prima che vengano
   ordinate e disegnate.
-- [ ] Filtri elenco (fornitore/stato/intervallo date)
+- [x] **Filtri elenco fatture fornitore** (`fatture-fornitore.html`) —
+  porta diretta della `.filterbar`/`FFILT` del gestionale originale: filtro
+  per fornitore, per stato (pagate/da pagare) e per intervallo di date,
+  combinabili tra loro e con la ricerca testuale già presente. Un pulsante
+  "✕ Azzera filtri" compare solo quando almeno un filtro è attivo, stessa
+  idea dell'originale. Scelto questo elenco per primo perché è quello con
+  più righe e più fornitori diversi nel gestionale reale di Ipsofarma —
+  gli altri elenchi documento (ordini, DDT, fatture cliente, note di
+  credito) restano per ora con la sola ricerca testuale; se servirà
+  estendere gli stessi filtri anche lì, la funzione `renderFilterbar()`
+  qui è già scritta in modo da poter essere riusata quasi tale e quale.
 - [ ] Selezione multipla e azioni collettive
 - [ ] Stampa/PDF di un documento
 - [ ] Destinazioni multiple cliente

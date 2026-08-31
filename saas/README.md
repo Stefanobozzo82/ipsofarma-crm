@@ -25,10 +25,12 @@ saas/
 │   ├── ddt.html                      DDT, collegato a un ordine (facoltativo)
 │   ├── fatture.html                  fatture cliente, con stato di incasso
 │   ├── note-credito.html             note di credito cliente
+│   ├── incassi.html                  storico incassi (sola lettura)
 │   ├── fornitori.html                anagrafica fornitori
 │   ├── ordini-fornitore.html         ordini fornitore, con numerazione
 │   ├── fatture-fornitore.html        fatture fornitore, con stato di pagamento
 │   ├── note-credito-fornitore.html   note di credito fornitore
+│   ├── pagamenti.html                storico pagamenti a fornitori (sola lettura)
 │   ├── prodotti.html                 catalogo prodotti, con ricerca lato server
 │   ├── abbonamento.html              piano attuale + cambio piano (Fase 5)
 │   └── app/
@@ -888,7 +890,12 @@ rigore di tutto il resto di questo lavoro.
   svuotato silenziosamente i campi meno comuni (nota, ecc.), che finiscono
   nella colonna `extra` ricalcolata da zero ad ogni `saveDoc()`; verificato
   esplicitamente nel collaudo che la nota sopravviva alla trasformazione.
-- [ ] Incassi / Pagamenti (storico)
+- [x] **Incassi / Pagamenti** (`incassi.html`/`pagamenti.html`) — sola
+  lettura: appiattiscono l'array `pagamenti` già presente su ogni fattura
+  cliente/fornitore in un unico elenco cronologico, con due riquadri
+  (incassato/pagato nell'anno corrente e in totale). Non si registra un
+  incasso/pagamento da qui — resta un'azione di `fatture.html`/
+  `fatture-fornitore.html`, come oggi — queste pagine lo mostrano soltanto.
 - [ ] Scadenziario
 - [ ] Impostazioni azienda
 - [ ] Ricerca testuale negli elenchi documento

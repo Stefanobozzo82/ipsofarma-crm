@@ -25,12 +25,14 @@
       { id: 'ddt', label: 'DDT', href: 'ddt.html', ic: '🚚' },
       { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: '🧾' },
       { id: 'note-credito', label: 'Note di credito', href: 'note-credito.html', ic: '↩' },
+      { id: 'incassi', label: 'Incassi', href: 'incassi.html', ic: '💶' },
     ] },
     { label: 'Fornitori', items: [
       { id: 'fornitori', label: 'Fornitori', href: 'fornitori.html', ic: '🏢' },
       { id: 'ordini-fornitore', label: 'Ordini', href: 'ordini-fornitore.html', ic: '📦' },
       { id: 'fatture-fornitore', label: 'Fatture', href: 'fatture-fornitore.html', ic: '📑' },
       { id: 'note-credito-fornitore', label: 'Note di credito', href: 'note-credito-fornitore.html', ic: '↩' },
+      { id: 'pagamenti', label: 'Pagamenti', href: 'pagamenti.html', ic: '💳' },
     ] },
     { label: 'Catalogo', items: [
       { id: 'prodotti', label: 'Prodotti', href: 'prodotti.html', ic: '⊞' },

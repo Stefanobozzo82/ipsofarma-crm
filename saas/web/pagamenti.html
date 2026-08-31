@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pagamenti — Gestionale</title>
+<!-- Speculare a incassi.html: storico dei pagamenti registrati sulle fatture fornitore. -->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Pagamenti</h2>
+      <p class="sub">Storico di tutti i pagamenti registrati sulle fatture fornitore.</p>
+    </div>
+
+    <div class="stats" id="stats-riga" style="grid-template-columns:repeat(2,1fr)"></div>
+
+    <div class="card">
+      <div class="toolbar"><h3>Elenco</h3></div>
+      <div id="list-area"><p class="empty">Carico…</p></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/resize.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let SORT = { key: 'data', dir: 'desc' };
+  let righe = [];
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function eur0(n){ return '€ ' + Math.round(Number(n) || 0).toLocaleString('it-IT', { maximumFractionDigits:0 }); }
+
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, r){
+    if(key === 'data') return r.data || '';
+    if(key === 'fornitore') return r.fornitore || '';
+    if(key === 'fattura') return r.fattura || '';
+    if(key === 'importo') return r.importo || 0;
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = key === 'data' ? 'desc' : 'asc'; }
+    renderList();
+  }
+
+  function renderStats(){
+    const anno = new Date().toISOString().slice(0, 4);
+    const totAnno = righe.filter(r => (r.data || '').startsWith(anno)).reduce((s, r) => s + r.importo, 0);
+    const totTutti = righe.reduce((s, r) => s + r.importo, 0);
+    $('stats-riga').innerHTML = `
+      <div class="stat"><div class="sl">Pagato nel ${anno}</div><div class="sv" style="color:var(--violet)">${eur0(totAnno)}</div><div class="sx">${righe.filter(r => (r.data||'').startsWith(anno)).length} pagamenti</div></div>
+      <div class="stat"><div class="sl">Pagato in totale</div><div class="sv" style="color:var(--violet)">${eur0(totTutti)}</div><div class="sx">${righe.length} pagamenti registrati</div></div>
+    `;
+  }
+
+  function renderList(){
+    const area = $('list-area');
+    if(righe.length === 0){
+      area.innerHTML = '<p class="empty">Nessun pagamento registrato ancora. Si registra segnando una fattura fornitore come "pagata" in Fatture fornitore.</p>';
+      return;
+    }
+    const rows = [...righe].sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        ${th('data','Data')}${th('fornitore','Fornitore')}${th('fattura','Fattura')}${th('importo','Importo')}
+      </tr></thead><tbody>${rows.map(r => `
+        <tr>
+          <td>${r.data ? new Date(r.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${esc(r.fornitore)}</td>
+          <td class="num-col">${esc(r.fattura)}</td>
+          <td class="num-col">${eur(r.importo)}</td>
+        </tr>`).join('')}</tbody></table></div>`;
+    window.SaasResize.makeColsResizable(area.querySelector('table'), 'pagamenti-elenco');
+    area.querySelectorAll('[data-sort]').forEach(t => t.addEventListener('click', () => setSort(t.dataset.sort)));
+  }
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('pagamenti', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const area = $('list-area');
+    let fornitori, fatture;
+    try{
+      [fornitori, fatture] = await Promise.all([
+        store.loadCollection('fornitori', companyId),
+        store.loadCollection('fattureFornitore', companyId),
+      ]);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
+    const fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    righe = [];
+    fatture.forEach(f => {
+      (f.pagamenti || []).forEach(p => {
+        righe.push({
+          data: p.data,
+          importo: Number(p.importo) || 0,
+          fattura: f.num,
+          fornitore: (fornitoriById[f.fornitoreId] || {}).nome || '(fornitore non trovato)',
+        });
+      });
+    });
+    renderStats();
+    renderList();
+  }
+  init();
+</script>
+</body>
+</html>

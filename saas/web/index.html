@@ -3,51 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fase 1 — verifica accessi</title>
-<!--
-  Questa pagina NON è l'interfaccia del gestionale (quella resta index.html
-  nella root del repo, invariata). È il banco di prova della Fase 1: collauda
-  login, registrazione di un'azienda e ruoli contro il database Supabase
-  reale, prima di adattare l'interfaccia vera nella Fase 2.
--->
+<title>Accesso — Gestionale</title>
 <style>
+  /* Stessi colori e stessa tipografia del resto del prodotto (app/theme.css):
+     questa pagina resta un file a sé (nessuna sidebar, nessuna azienda
+     ancora scelta) ma non deve sembrare un prodotto diverso. */
   :root{
-    --ink:#16212c; --paper:#f3f4f1; --card:#ffffff; --line:#d7dad2;
-    --muted:#5c6670; --accent:#2f6b66; --accent-ink:#ffffff; --danger:#b3402a; --danger-soft:#f7e3de;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --ink:#e7eaee; --paper:#12161d; --card:#1a2029; --line:#2a313c; --muted:#94a0ab; --accent:#5caba4; --accent-ink:#0d1512; --danger:#e08a72; --danger-soft:#3a201a; }
+    --txt:#1b2531; --bg:#f4f6f8; --surface:#ffffff; --border:#e5e9ee; --border2:#d6dce3;
+    --muted:#5f6b7a; --faint:#9aa5b2; --accent:#0ea371; --accent-d:#0b855d;
+    --red:#d85c54; --red-s:#d85c541a;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    --sh: 0 1px 2px #1b25310a, 0 1px 3px #1b25310f;
   }
   *{box-sizing:border-box;}
-  body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
+  body{ margin:0; background:var(--bg); color:var(--txt); font:16px/1.5 var(--sans); }
   .wrap{ max-width:420px; margin:0 auto; padding:56px 20px; }
-  .eyebrow{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 6px; }
-  h1{ font-size:22px; margin:0 0 26px; }
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; }
+  .brand{ display:flex; align-items:center; gap:10px; margin:0 0 28px; }
+  .brand .mark{ width:34px; height:34px; border-radius:8px; background:linear-gradient(135deg,#16c98c,#0c8a5e); display:grid; place-items:center; color:#04231a; font-weight:800; font-size:16px; flex:0 0 auto; }
+  .brand .nm{ font-weight:700; font-size:16px; }
+  h1{ font-size:20px; margin:0 0 22px; font-weight:700; }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:22px; box-shadow:var(--sh); }
   .card + .card{ margin-top:16px; }
-  label{ display:block; font-size:13px; color:var(--muted); margin:14px 0 5px; }
+  label{ display:block; font-size:11.5px; color:var(--muted); margin:14px 0 5px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
   label:first-of-type{ margin-top:0; }
-  input{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font-size:15px; }
-  input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
-  button{ width:100%; margin-top:18px; padding:11px; border:none; border-radius:8px; background:var(--accent); color:var(--accent-ink); font-size:15px; font-weight:600; cursor:pointer; }
+  input{ width:100%; padding:10px 12px; border:1px solid var(--border2); border-radius:8px; background:#fff; color:var(--txt); font-size:14px; font-family:inherit; }
+  input:focus{ outline:none; border-color:var(--accent); }
+  button{ width:100%; margin-top:18px; padding:10px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; }
+  button:hover{ background:var(--accent-d); }
   button:disabled{ opacity:.55; cursor:default; }
-  button.ghost{ background:transparent; color:var(--accent); border:1px solid var(--line); margin-top:8px; }
-  .switch{ text-align:center; margin-top:16px; font-size:14px; color:var(--muted); }
-  .switch a{ color:var(--accent); cursor:pointer; text-decoration:underline; }
-  .msg{ margin-top:14px; padding:10px 12px; border-radius:8px; font-size:14px; }
-  .msg.error{ background:var(--danger-soft); color:var(--danger); }
-  .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
-  .company{ padding:12px 14px; border:1px solid var(--line); border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
-  .company-open{ width:auto; margin:0; padding:6px 12px; font-size:13px; }
+  button.ghost{ background:#fff; color:var(--txt); border:1px solid var(--border2); margin-top:8px; }
+  .switch{ text-align:center; margin-top:16px; font-size:13.5px; color:var(--muted); }
+  .switch a{ color:var(--accent-d); cursor:pointer; text-decoration:underline; }
+  .msg{ margin-top:14px; padding:10px 12px; border-radius:8px; font-size:13.5px; }
+  .msg.error{ background:var(--red-s); color:var(--red); }
+  .msg.ok{ background:var(--surface); border:1px solid var(--accent); color:var(--accent-d); }
+  .company{ padding:12px 14px; border:1px solid var(--border); border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .company-open{ width:auto; margin:0; padding:6px 12px; font-size:12.5px; }
   .company + .company{ margin-top:8px; }
-  .role{ font-size:12px; padding:2px 8px; border-radius:99px; background:var(--paper); border:1px solid var(--line); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .role{ font-size:11px; padding:2px 8px; border-radius:99px; background:var(--bg); border:1px solid var(--border); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
   .hint{ font-size:13px; color:var(--muted); margin-top:6px; }
   [hidden]{ display:none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <p class="eyebrow">Fase 1 — banco di prova</p>
+  <div class="brand"><div class="mark">G</div><div class="nm">Gestionale</div></div>
   <h1 id="page-title">Accesso</h1>
 
   <!-- stato: caricamento -->

@@ -10,22 +10,26 @@
 (function (global) {
   'use strict';
 
+  // Stessa idea della sidebar del gestionale Ipsofarma (index.html): icona +
+  // etichetta per voce, raggruppate per significato. Le icone qui ricalcano
+  // apposta quelle già usate là dove il modulo è lo stesso (es. 🏥 clienti,
+  // 🚚 DDT), così chi già conosce il gestionale originale si orienta subito.
   const GROUPS = [
     { label: 'Clienti', items: [
-      { id: 'clienti', label: 'Clienti', href: 'clienti.html' },
-      { id: 'ordini', label: 'Ordini', href: 'ordini.html' },
-      { id: 'ddt', label: 'DDT', href: 'ddt.html' },
-      { id: 'fatture', label: 'Fatture', href: 'fatture.html' },
-      { id: 'note-credito', label: 'Note di credito', href: 'note-credito.html' },
+      { id: 'clienti', label: 'Clienti', href: 'clienti.html', ic: '🏥' },
+      { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: '🛒' },
+      { id: 'ddt', label: 'DDT', href: 'ddt.html', ic: '🚚' },
+      { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: '🧾' },
+      { id: 'note-credito', label: 'Note di credito', href: 'note-credito.html', ic: '↩' },
     ] },
     { label: 'Fornitori', items: [
-      { id: 'fornitori', label: 'Fornitori', href: 'fornitori.html' },
-      { id: 'ordini-fornitore', label: 'Ordini', href: 'ordini-fornitore.html' },
-      { id: 'fatture-fornitore', label: 'Fatture', href: 'fatture-fornitore.html' },
-      { id: 'note-credito-fornitore', label: 'Note di credito', href: 'note-credito-fornitore.html' },
+      { id: 'fornitori', label: 'Fornitori', href: 'fornitori.html', ic: '🏢' },
+      { id: 'ordini-fornitore', label: 'Ordini', href: 'ordini-fornitore.html', ic: '📦' },
+      { id: 'fatture-fornitore', label: 'Fatture', href: 'fatture-fornitore.html', ic: '📑' },
+      { id: 'note-credito-fornitore', label: 'Note di credito', href: 'note-credito-fornitore.html', ic: '↩' },
     ] },
     { label: 'Azienda', items: [
-      { id: 'abbonamento', label: 'Abbonamento', href: 'abbonamento.html' },
+      { id: 'abbonamento', label: 'Abbonamento', href: 'abbonamento.html', ic: '⚙' },
     ] },
   ];
 
@@ -42,14 +46,15 @@
     const groupsHtml = GROUPS.map(g => `
       <div class="navgroup">
         <p class="label">${esc(g.label)}</p>
-        ${g.items.map(it => `<a class="navlink ${it.id === currentId ? 'on' : ''}" href="${it.href}"><span class="dot"></span>${esc(it.label)}</a>`).join('')}
+        ${g.items.map(it => `<a class="navlink ${it.id === currentId ? 'on' : ''}" href="${it.href}"><span class="ic">${it.ic}</span>${esc(it.label)}</a>`).join('')}
       </div>
     `).join('');
 
+    const nome = opts.companyName || 'Azienda';
     el.innerHTML = `
       <div class="brand">
-        <p class="eyebrow">Gestionale</p>
-        <h1>${esc(opts.companyName || 'Azienda')}</h1>
+        <div class="mark">${esc(nome.charAt(0).toUpperCase() || 'A')}</div>
+        <div class="nm">${esc(nome)}<small>Gestionale</small></div>
       </div>
       <nav>${groupsHtml}</nav>
       <div class="account">

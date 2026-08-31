@@ -15,17 +15,16 @@
   pagamento si vedrà quindi l'errore corretto e onesto invece di un
   pagamento vero: "questo piano non ha ancora un prezzo Stripe configurato".
 -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="app/theme.css">
 <style>
   /* Solo ciò che è specifico di questa pagina: il resto viene da theme.css */
   .stato{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  .badge.accent{ background:var(--accent-soft); color:var(--accent); border:none; font-family:inherit; text-transform:capitalize; font-size:12px; padding:3px 10px; }
+  .badge.accent{ background:var(--accent-soft); color:var(--accent-d); border:none; font-family:inherit; text-transform:capitalize; font-size:12px; padding:3px 10px; }
   .piani{ display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-top:16px; }
-  .piano{ border:1px solid var(--line); border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:8px; }
+  .piano{ border:1px solid var(--border); border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:8px; }
   .piano.corrente{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
   .piano h4{ margin:0; font-size:14.5px; font-weight:600; }
-  .piano .prezzo{ font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; font-family:'IBM Plex Mono', monospace; }
+  .piano .prezzo{ font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; font-family:var(--mono); }
   .piano .prezzo small{ font-size:13px; font-weight:400; color:var(--muted); font-family:inherit; }
   .piano ul{ margin:0; padding-left:18px; font-size:13px; color:var(--muted); flex:1; }
 </style>
@@ -35,8 +34,8 @@
   <aside class="sidebar" id="sidebar"></aside>
   <main class="app-main">
     <div class="page-head">
-      <p class="eyebrow">Azienda</p>
       <h2>Abbonamento</h2>
+      <p class="sub">Piano attuale e cambio piano per la tua azienda.</p>
     </div>
 
     <div class="card">

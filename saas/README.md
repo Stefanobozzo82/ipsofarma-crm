@@ -558,6 +558,53 @@ i file dopo la trasformazione (non dal collaudo automatico, che in
 questo caso non l'avrebbe rilevato), corretto con un secondo passaggio
 mirato e verificato un fix per file, non di più e non di meno.
 
+## Veste grafica — allineata al gestionale originale, non più uno stile a sé
+
+La prima versione di `theme.css`/`nav.js` (sezione precedente) era uno stile
+nuovo, inventato da zero — chiaro/scuro automatico, sidebar chiara, font
+IBM Plex caricato da Google Fonts. Su richiesta esplicita, questa versione lo
+sostituisce con **la stessa identità grafica del gestionale Ipsofarma
+esistente** (`index.html` nella root del repo): non due prodotti che sembrano
+di aziende diverse, ma lo stesso linguaggio visivo, così chi già usa il
+gestionale originale si orienta subito nel nuovo prodotto multi-azienda.
+
+Cosa cambia, token per token — copiati (non reinventati) da `index.html`:
+- **Sidebar blu scuro** (`#192231`) con voce attiva evidenziata, non più una
+  barra chiara — stesso schema del gestionale originale, con la stessa
+  icona-più-etichetta per voce (le icone ricalcano quelle già in uso là dove
+  il modulo è lo stesso: 🏥 clienti, 🚚 DDT, 🧾 fatture...).
+- **Verde accento `#0ea371`** (non più il verde petrolio della prima
+  versione), stesso identico colore del pulsante primario, dei link e dei
+  numeri di documento nel gestionale originale.
+- **Font di sistema** (`system-ui`/-apple-system/Segoe UI/Roboto), non più
+  IBM Plex caricato da Google Fonts: stessa scelta del gestionale originale,
+  e un effetto collaterale utile — niente più chiamata di rete a
+  `fonts.googleapis.com` ad ogni caricamento pagina (fonte, tra l'altro, di
+  parte della lentezza/instabilità osservata nei collaudi precedenti).
+- **Numeri in monospazio** (`ui-monospace`/SF Mono/JetBrains Mono) su
+  P.IVA, importi e totali — stessa convenzione tipografica del gestionale
+  originale, non un dettaglio decorativo: rende i numeri allineabili e
+  scansionabili a colpo d'occhio in una colonna.
+- **Un solo tema** (chiaro): il gestionale originale non ha una modalità
+  scura automatica, quindi nemmeno questo la mantiene — replicare "fatto
+  come quello" significa anche non aggiungere funzionalità che l'originale
+  non ha.
+- Pulsanti, tabelle e badge di stato ridisegnati con lo stesso linguaggio
+  (bordi sottili, ombra minima, badge con pallino colorato su sfondo
+  tenue) invece dello stile "flat" della prima versione.
+
+**Nessun ID o comportamento funzionale è cambiato** — solo colori,
+tipografia e la sidebar (rigenerata da `nav.js`, che nessuna pagina scrive a
+mano). Anche `index.html` di `saas/web/` (la pagina di accesso, un file a sé
+che non usa `theme.css`) è stato riallineato agli stessi colori, per non
+avere uno stile diverso solo nella schermata di login.
+
+**Collaudo**: rieseguita l'intera suite di collaudo funzionale (10 file) —
+tutta verde, senza toccare un solo test (nessun ID, nessuna struttura DOM
+che i test verificano è cambiata). Collaudo visivo con screenshot
+(Playwright, viewport desktop 1400px) su `clienti.html` — elenco e form
+aperto — a confronto diretto con l'aspetto del gestionale originale.
+
 ## Ottimizzazione mobile
 
 Le pagine erano già "responsive" nel senso minimo (la sidebar collassa

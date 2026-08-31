@@ -15,6 +15,9 @@
   // apposta quelle già usate là dove il modulo è lo stesso (es. 🏥 clienti,
   // 🚚 DDT), così chi già conosce il gestionale originale si orienta subito.
   const GROUPS = [
+    { label: null, items: [
+      { id: 'dashboard', label: 'Dashboard', href: 'dashboard.html', ic: '◫' },
+    ] },
     { label: 'Clienti', items: [
       { id: 'clienti', label: 'Clienti', href: 'clienti.html', ic: '🏥' },
       { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: '🛒' },
@@ -45,7 +48,7 @@
 
     const groupsHtml = GROUPS.map(g => `
       <div class="navgroup">
-        <p class="label">${esc(g.label)}</p>
+        ${g.label ? `<p class="label">${esc(g.label)}</p>` : ''}
         ${g.items.map(it => `<a class="navlink ${it.id === currentId ? 'on' : ''}" href="${it.href}"><span class="ic">${it.ic}</span>${esc(it.label)}</a>`).join('')}
       </div>
     `).join('');

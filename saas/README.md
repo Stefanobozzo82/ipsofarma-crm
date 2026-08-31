@@ -18,6 +18,7 @@ saas/
 ├── .env.example                      variabili d'ambiente (mai committare quelle vere)
 ├── web/
 │   ├── index.html                    login + registrazione azienda + scelta azienda
+│   ├── dashboard.html                quadro d'insieme: fatturato, incassi, evasione, grafico mensile
 │   ├── clienti.html                  anagrafica clienti
 │   ├── ordini.html                   ordini cliente, con numerazione
 │   ├── ddt.html                      DDT, collegato a un ordine (facoltativo)
@@ -673,6 +674,54 @@ Corretto: ora il numero si digita, in un campo dedicato, con lo stesso
 controllo di duplicato che il database già applicava silenziosamente
 (intercettato e trasformato in un messaggio leggibile invece dell'errore
 tecnico di Postgres).
+
+## Dashboard — lo stesso quadro d'insieme del gestionale originale
+
+`web/dashboard.html` non è un modulo disegnato da zero: riporta la stessa
+logica di `dashboard()`/`buildMonthly()`/`barChart()` del gestionale
+originale (`index.html` nella root), la stessa aritmetica (compreso lo
+sconto riga, anche a cascata "N+M", che i moduli documento di questo
+prodotto non hanno ancora un campo per inserire — vedi sotto), lo stesso
+grafico a barre in SVG con tooltip al passaggio del mouse.
+
+Sei riquadri: **totale fatturato** e **totale acquisti** dell'anno
+selezionato (IVA inclusa, al netto delle note di credito), **da incassare
+dai clienti** e **da pagare ai fornitori** (residuo reale: pagamenti già
+registrati e note di credito collegate riducono quanto resta aperto — non
+solo "pagata sì/no"), **prodotti da evadere** e **da ricevere dai
+fornitori** (sulla quantità residua per riga, `qty - qtyEv`). Sotto, lo
+stesso grafico mensile fatturato/acquisti/margine, con un filtro per anno
+identico a quello originale.
+
+Aggiunta la voce "Dashboard" in cima alla sidebar (`nav.js`), fuori dai
+tre gruppi esistenti — come nel gestionale originale, dove sta sopra
+"Clienti"/"Fornitori"/"Azienda", non dentro uno di essi.
+
+**Un limite onesto, scoperto proprio scrivendo questo modulo**: i moduli
+ordini/DDT/fatture/note-credito di questo prodotto non hanno ancora un
+campo "sconto" nell'editor delle righe (l'originale sì), quindi calcolano
+il totale di un documento ignorandolo — sui **dati reali importati**
+questo non è ipotetico: 14 fatture cliente e 17 fatture fornitore su
+oltre 550 hanno davvero uno sconto riga diverso da zero, e per quei
+documenti il totale mostrato nell'elenco della pagina è più alto di
+quello vero. La dashboard invece lo calcola correttamente (stessa
+aritmetica dell'originale) perché lo sconto, quando presente nei dati
+importati, resta comunque dentro il blob `righe` anche se nessuna pagina
+lo mostra ancora — quindi i numeri qui sono giusti, ma non ancora coerenti
+con quelli che le pagine elenco mostrano per quegli stessi documenti.
+Non corretto in questo passaggio (richiede aggiungere il campo sconto a
+otto editor di righe, un lavoro a sé), segnalato esplicitamente.
+
+**Collaudo**: nuovo file di test dedicato (11° della suite, ora 10 file
+in totale contando anche quelli di navigazione condivisa) — sconto riga
+che riduce correttamente il totale, pagamento parziale + nota di credito
+che riducono il residuo "da incassare", evasione parziale quantità per
+quantità, filtro anno che esclude davvero i documenti fuori periodo,
+grafico disegnato con almeno una barra, voce "Dashboard" evidenziata in
+sidebar. Rieseguita l'intera suite precedente per il cambiamento
+condiviso in `nav.js` — tutta verde, nessuna regressione. Collaudo
+visivo con screenshot desktop, dati di prova su più mesi per vedere il
+grafico popolato.
 
 ## Prossimo passo
 

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Gestionale</title>
+<!--
+  Stesso quadro d'insieme del gestionale originale (index.html: funzione
+  dashboard(), buildMonthly(), barChart()) — non un modulo nuovo, la stessa
+  logica riportata qui: fatturato/acquisti dell'anno, quanto resta da
+  incassare/pagare, quanto resta da evadere/ricevere, e l'andamento mensile
+  in un grafico a barre con margine in linea.
+
+  Una differenza onesta rispetto all'originale: i moduli ordini.html/
+  ddt.html/ecc. di questo prodotto non hanno ancora un editor per lo sconto
+  riga (l'originale sì) né per la evasione parziale quantità per quantità
+  (qtyEv) quando si crea un nuovo ordine da qui. I dati REALI importati da
+  Ipsofarma però li portano già con sé (fanno parte del blob "righe", non
+  filtrati da store.js) — quindi qui sotto il calcolo li usa comunque,
+  correttamente, per i documenti storici; per i documenti creati da questo
+  prodotto (senza sconto/qtyEv) il calcolo resta comunque corretto, dà solo
+  "nessuno sconto"/"niente ancora evaso" perché quei campi mancano.
+-->
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+  <div class="page-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px">
+      <div><h2 style="margin:0">Dashboard</h2><p class="sub">Quadro d'insieme di ordini, consegne e fatturato.</p></div>
+      <div class="dash-period" id="anni"></div>
+    </div>
+
+    <div class="stats" id="stats-riga1"></div>
+    <div class="stats" id="stats-riga2"></div>
+    <div class="stats" id="stats-riga3"></div>
+
+    <div class="panel">
+      <div class="panel-h">
+        <span id="panel-title">Andamento mensile (IVA inclusa)</span>
+        <div class="legend">
+          <span class="lg"><i style="background:#0ea371"></i>Fatturato</span>
+          <span class="lg"><i style="background:#7c5cd6"></i>Acquisti</span>
+          <span class="lg"><i style="background:#f59e0b"></i>Margine</span>
+        </div>
+      </div>
+      <div class="chart-wrap" id="chart-wrap">
+        <p class="empty">Carico…</p>
+        <div class="chart-tip" id="chartTip"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/nav.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let DB = null;       // { ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore }
+  let DASHY = new Date().toISOString().slice(0, 4);
+  let MONTHLY = [];
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return '€ ' + (Number(n) || 0).toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+  function eur0(n){ return '€ ' + Math.round(Number(n) || 0).toLocaleString('it-IT', { maximumFractionDigits:0 }); }
+
+  // ---- stessa aritmetica del gestionale originale: sconto (anche a cascata
+  // "N+M"), IVA, totale riga/documento — non una versione semplificata.
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function lineNet(x){ return (x.qty || 0) * (x.prezzo || 0) * scFactor(x.sconto); }
+  function imp(righe){ return (righe || []).reduce((s, x) => s + lineNet(x), 0); }
+  function ivaT(righe){ return (righe || []).reduce((s, x) => s + lineNet(x) * (x.iva || 0) / 100, 0); }
+  function tot(righe){ return imp(righe) + ivaT(righe); }
+
+  function payTot(it){
+    if(it.pagamenti == null) return it.paid ? tot(it.righe) : 0;
+    return it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0);
+  }
+  // Quanto di una nota di credito va imputato a una specifica fattura cliente.
+  function ncCreditoFor(nc, ftNum){
+    const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
+    if(!ids.includes(ftNum)) return 0;
+    return ids.length <= 1 ? tot(nc.righe) : tot(nc.righe) / ids.length;
+  }
+  function payState(it, noteCredito, noteCreditoFornitore, isFornitore){
+    const totaleRaw = tot(it.righe);
+    const sign = totaleRaw < 0 ? -1 : 1;
+    const totale = totaleRaw * sign;
+    const creditato = it.num
+      ? (isFornitore
+          ? (noteCreditoFornitore || []).filter(ncf => ncf.ftfId === it.num).reduce((s, ncf) => s + tot(ncf.righe), 0)
+          : (noteCredito || []).reduce((s, nc) => s + ncCreditoFor(nc, it.num), 0))
+      : 0;
+    const pagato = (payTot(it) + creditato) * sign;
+    const state = pagato <= 0.004 ? 'aperto' : pagato >= totale - 0.01 ? 'completo' : 'parziale';
+    const residuo = Math.max(0, totale - pagato) * sign;
+    return { state, residuo };
+  }
+
+  function evasione(o){
+    const righe = o.righe || [];
+    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
+    const evQ = righe.reduce((s, r) => s + Math.min(r.qtyEv || 0, r.qty || 0), 0);
+    const complete = righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
+    return { state: evQ <= 0 ? 'aperto' : complete ? 'completo' : 'parziale' };
+  }
+  function daEvaderePer(ordini){
+    let importo = 0, n = 0;
+    ordini.forEach(o => {
+      if(evasione(o).state === 'completo') return;
+      let ov = 0;
+      (o.righe || []).forEach(r => {
+        const res = Math.max(0, (r.qty || 0) - (r.qtyEv != null ? r.qtyEv : 0));
+        if(res > 0) ov += tot([Object.assign({}, r, { qty: res })]);
+      });
+      if(ov > 0){ importo += ov; n++; }
+    });
+    return { importo, n };
+  }
+
+  function stat(label, valore, sotto, colore, href){
+    const tag = href ? 'a' : 'div';
+    const hrefAttr = href ? ` href="${href}"` : '';
+    return `<${tag} class="stat"${hrefAttr}>
+      <div class="sl">${esc(label)}</div>
+      <div class="sv" style="color:${colore}">${valore}</div>
+      <div class="sx">${esc(sotto)}</div>
+    </${tag}>`;
+  }
+
+  function renderAnni(){
+    const anni = [...new Set([...DB.fattureCliente, ...DB.fattureFornitore].map(f => (f.data || '').slice(0, 4)).filter(Boolean))].sort();
+    $('anni').innerHTML = `<a class="${DASHY === '' ? 'on' : ''}" href="#" data-y="">Tutti</a>` +
+      anni.map(y => `<a class="${DASHY === y ? 'on' : ''}" href="#" data-y="${y}">${y}</a>`).join('');
+    $('anni').querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      DASHY = a.dataset.y;
+      renderDashboard();
+    }));
+  }
+
+  function renderDashboard(){
+    renderAnni();
+    const inY = f => !DASHY || (f.data || '').startsWith(DASHY);
+    const fc = DB.fattureCliente.filter(inY), ff = DB.fattureFornitore.filter(inY);
+    const nc = DB.noteCredito.filter(inY), ncf = DB.noteCreditoFornitore.filter(inY);
+    const ncTot = nc.reduce((s, n) => s + tot(n.righe), 0);
+    const ncfTot = ncf.reduce((s, n) => s + tot(n.righe), 0);
+    const vendTot = fc.reduce((s, f) => s + tot(f.righe), 0) - ncTot;
+    const acqTot = ff.reduce((s, f) => s + tot(f.righe), 0) - ncfTot;
+
+    const ftOpen = fc.filter(f => payState(f, DB.noteCredito, DB.noteCreditoFornitore, false).state !== 'completo');
+    const ftfOpen = ff.filter(f => payState(f, DB.noteCredito, DB.noteCreditoFornitore, true).state !== 'completo');
+    const daInc = ftOpen.reduce((s, f) => s + payState(f, DB.noteCredito, DB.noteCreditoFornitore, false).residuo, 0);
+    const daPag = ftfOpen.reduce((s, f) => s + payState(f, DB.noteCredito, DB.noteCreditoFornitore, true).residuo, 0);
+
+    const oc = daEvaderePer(DB.ordiniCliente);
+    const of = daEvaderePer(DB.ordiniFornitore);
+
+    $('stats-riga1').innerHTML =
+      stat('Totale fatturato', eur0(vendTot), fc.length + ' fatture cliente' + (nc.length ? ' − ' + nc.length + ' note di credito' : '') + ' · IVA incl.', 'var(--accent-d)', 'fatture.html') +
+      stat('Totale acquisti', eur0(acqTot), ff.length + ' fatture fornitore' + (ncf.length ? ' − ' + ncf.length + ' note di credito' : '') + ' · IVA incl.', 'var(--violet)', 'fatture-fornitore.html');
+    $('stats-riga2').innerHTML =
+      stat('Da incassare dai clienti', eur0(daInc), ftOpen.length + ' fatture cliente aperte', 'var(--amber)', 'fatture.html') +
+      stat('Da pagare ai fornitori', eur0(daPag), ftfOpen.length + ' fatture fornitore aperte', 'var(--red)', 'fatture-fornitore.html');
+    $('stats-riga3').innerHTML =
+      stat('Prodotti da evadere', eur0(oc.importo), oc.n + ' ordin' + (oc.n === 1 ? 'e' : 'i') + ' aperti o parziali · IVA incl.', 'var(--blue)', 'ordini.html') +
+      stat('Da ricevere dai fornitori', eur0(of.importo), of.n + ' ordin' + (of.n === 1 ? 'e' : 'i') + ' fornitore aperti o parziali · IVA incl.', 'var(--violet)', 'ordini-fornitore.html');
+
+    $('panel-title').textContent = 'Andamento mensile (IVA inclusa)' + (DASHY ? ' — ' + DASHY : '');
+    renderChart();
+  }
+
+  const MESI = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  function buildMonthly(){
+    const map = {};
+    const add = (ym, k, v) => { (map[ym] = map[ym] || { vend:0, acq:0 })[k] += v; };
+    const inY = f => !DASHY || (f.data || '').startsWith(DASHY);
+    DB.fattureCliente.filter(inY).forEach(f => add(f.data.slice(0, 7), 'vend', tot(f.righe)));
+    DB.noteCredito.filter(inY).forEach(n => add(n.data.slice(0, 7), 'vend', -tot(n.righe)));
+    DB.fattureFornitore.filter(inY).forEach(f => add(f.data.slice(0, 7), 'acq', tot(f.righe)));
+    return Object.keys(map).sort().map(ym => { const [y, m] = ym.split('-'); return { label: MESI[+m - 1] + ' ' + y.slice(2), vend: map[ym].vend, acq: map[ym].acq }; });
+  }
+  function niceMax(v){ if(v <= 0) return 100; const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10; return m * p; }
+  function barChart(data){
+    if(!data.length) return '<div class="chart-empty">Nessuna fattura registrata. Il grafico si popola man mano che emetti fatture cliente e registri fatture fornitore.</div>';
+    const W = 760, H = 280, padL = 60, padR = 18, padT = 16, padB = 34;
+    const plotW = W - padL - padR, plotH = H - padT - padB, base = padT + plotH;
+    const max = niceMax(Math.max(...data.flatMap(d => [d.vend, d.acq]), 1));
+    const n = data.length, gw = plotW / n, bw = Math.min(36, gw * 0.30), gap = 6;
+    const y = v => base - (v / max) * plotH;
+    const fmt = val => val >= 1000 ? (val / 1000).toFixed(val % 1000 ? 1 : 0) + 'k' : Math.round(val);
+    let g = '', hits = '';
+    for(let i = 0; i <= 4; i++){ const val = max * i / 4, yy = base - (plotH * i / 4); g += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#e5e9ee"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end" fill="#9aa5b2" font-size="10" font-family="monospace">${fmt(val)}</text>`; }
+    data.forEach((d, i) => {
+      const cx = padL + gw * i + gw / 2, x1 = cx - bw - gap / 2, x2 = cx + gap / 2;
+      g += `<rect class="cbar" style="animation-delay:${i * 30}ms" x="${x1}" y="${y(d.vend)}" width="${bw}" height="${base - y(d.vend)}" rx="3" fill="#0ea371"/>`;
+      g += `<rect class="cbar" style="animation-delay:${i * 30 + 15}ms" x="${x2}" y="${y(d.acq)}" width="${bw}" height="${base - y(d.acq)}" rx="3" fill="#7c5cd6"/>`;
+      g += `<text x="${cx}" y="${base + 18}" text-anchor="middle" fill="#5f6b7a" font-size="11">${d.label}</text>`;
+      hits += `<rect class="hit" id="hit${i}" x="${padL + gw * i}" y="${padT}" width="${gw}" height="${plotH}" data-i="${i}" onmousemove="chartTip(event,${i})" onmouseleave="chartHide()" onclick="chartTip(event,${i})"/>`;
+    });
+    const mY = i => Math.min(base, Math.max(padT, y(data[i].vend - data[i].acq)));
+    const mpts = data.map((d, i) => (padL + gw * i + gw / 2) + ',' + mY(i)).join(' ');
+    g += `<polyline fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${mpts}"/>`;
+    data.forEach((d, i) => { g += `<circle cx="${padL + gw * i + gw / 2}" cy="${mY(i)}" r="3.6" fill="#fff" stroke="#f59e0b" stroke-width="2"/>`; });
+    g += `<line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="#d6dce3"/>` + hits;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" font-family="system-ui">${g}</svg>`;
+  }
+  function renderChart(){
+    const data = buildMonthly();
+    MONTHLY = data;
+    $('chart-wrap').innerHTML = barChart(data) + '<div class="chart-tip" id="chartTip"></div>';
+  }
+  window.chartTip = function(e, i){
+    const wrap = document.getElementById('chart-wrap'), tip = document.getElementById('chartTip'), d = MONTHLY[i];
+    if(!wrap || !tip || !d) return;
+    const r = wrap.getBoundingClientRect();
+    const px = ((e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) - r.left);
+    const py = ((e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY) - r.top);
+    const wrapW = r.width;
+    const mg = d.vend - d.acq;
+    tip.innerHTML = `<div class="ct-m">${esc(d.label)}</div>
+      <div class="ct-r"><span><i style="background:#0ea371"></i>Fatturato</span><b>${eur(d.vend)}</b></div>
+      <div class="ct-r"><span><i style="background:#7c5cd6"></i>Acquisti</span><b>${eur(d.acq)}</b></div>
+      <div class="ct-r ct-mg"><span>Margine</span><b style="color:${mg >= 0 ? '#5fe3ad' : '#ff9a9a'}">${eur(mg)}</b></div>`;
+    tip.classList.add('show');
+    const half = tip.offsetWidth / 2 + 8;
+    tip.style.left = Math.max(half, Math.min(px, wrapW - half)) + 'px';
+    tip.style.top = Math.max(tip.offsetHeight + 8, py - 16) + 'px';
+    document.querySelectorAll('.hit.act').forEach(h => h.classList.remove('act'));
+    const hit = document.getElementById('hit' + i); if(hit) hit.classList.add('act');
+  };
+  window.chartHide = function(){
+    const t = document.getElementById('chartTip'); if(t) t.classList.remove('show');
+    document.querySelectorAll('.hit.act').forEach(h => h.classList.remove('act'));
+  };
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('dashboard', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const [ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore] = await Promise.all([
+      store.loadCollection('ordiniCliente', companyId),
+      store.loadCollection('ordiniFornitore', companyId),
+      store.loadCollection('fattureCliente', companyId),
+      store.loadCollection('fattureFornitore', companyId),
+      store.loadCollection('noteCredito', companyId),
+      store.loadCollection('noteCreditoFornitore', companyId),
+    ]);
+    DB = { ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore };
+
+    renderDashboard();
+  }
+  init();
+</script>
+</body>
+</html>

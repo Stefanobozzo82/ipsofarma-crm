@@ -135,6 +135,37 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Abbonamenti (Fase 5). getCompany()/loadPlans() sono letture dirette (RLS
+  // già le protegge: companies è visibile solo ai membri, plans è pubblica).
+  // startCheckout() invece passa SEMPRE dall'Edge Function stripe-checkout:
+  // è lì che vive la chiave segreta Stripe, mai nel client.
+  // ---------------------------------------------------------------------------
+  async function getCompany(companyId) {
+    const { data, error } = await client().from('companies').select('*').eq('id', companyId).single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function loadPlans() {
+    const { data, error } = await client().from('plans').select('*').order('prezzo_mensile');
+    if (error) throw error;
+    return data;
+  }
+
+  async function startCheckout(companyId, planId, successUrl, cancelUrl) {
+    const session = await getSession();
+    if (!session) throw new Error('devi essere collegato');
+    const res = await fetch(global.SUPABASE_URL + '/functions/v1/stripe-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify({ company_id: companyId, plan_id: planId, success_url: successUrl, cancel_url: cancelUrl }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ('errore HTTP ' + res.status));
+    return data; // { url: '...' }
+  }
+
+  // ---------------------------------------------------------------------------
   // Lettura: ricompone un oggetto DB-shaped, come quello che oggi arriva da
   // ghFetchBoth() — l'intera azienda in un colpo solo.
   // ---------------------------------------------------------------------------
@@ -198,5 +229,6 @@
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
+    getCompany, loadPlans, startCheckout,
   };
 })(window);

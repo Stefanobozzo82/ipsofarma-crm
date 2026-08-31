@@ -27,25 +27,31 @@ saas/
 │   ├── ordini-fornitore.html         ordini fornitore, con numerazione
 │   ├── fatture-fornitore.html        fatture fornitore, con stato di pagamento
 │   ├── note-credito-fornitore.html   note di credito fornitore
+│   ├── abbonamento.html              piano attuale + cambio piano (Fase 5)
 │   └── app/
 │       └── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 └── supabase/
     ├── functions/
-    │   └── ai-proxy/index.ts             Edge Function: la chiave IA resta lato server (Fase 3)
+    │   ├── ai-proxy/index.ts             Edge Function: la chiave IA resta lato server (Fase 3)
+    │   ├── stripe-checkout/index.ts       Edge Function: avvia un abbonamento (Fase 5)
+    │   └── stripe-webhook/index.ts        Edge Function: sincronizza lo stato da Stripe (Fase 5)
     └── migrations/
         ├── 0001_aziende_e_utenti.sql        tabella aziende, utenti↔aziende, ruoli, funzioni di isolamento
         ├── 0002_anagrafiche.sql             clienti, fornitori, prodotti
         ├── 0003_documenti.sql               preventivi, ordini, ddt, fatture, note di credito
         ├── 0004_numerazione.sql             numerazione documenti atomica (OC/OF/DDT/FT/...)
         ├── 0005_registrazione_azienda.sql   registrazione self-service di una nuova azienda (Fase 1)
-        └── 0006_fatturapa.sql               generazione XML FatturaPA (Fase 4, invio non incluso)
+        ├── 0006_fatturapa.sql               generazione XML FatturaPA (Fase 4, invio non incluso)
+        └── 0007_abbonamenti.sql             piani e stato Stripe (Fase 5)
 ```
 
 ## Cosa NON c'è ancora (di proposito)
 
 - **Invio reale allo SDI**: l'XML si genera (Fase 4), ma trasmetterlo richiede un
   account presso un provider esterno che l'azienda dovrà scegliere e attivare da sé.
-- **Nessun abbonamento/Stripe**: Fase 5.
+- **Chiamate Stripe reali mai collaudate**: l'account non esiste ancora (Fase 5) —
+  la logica di `stripe-checkout`/`stripe-webhook` è corretta per costruzione,
+  verificata dove possibile senza Stripe vero, ma non ancora con un pagamento reale.
 
 Costruire solo le fondamenta prima, e verificarle bene, evita di dover rifare lo
 schema dati una volta che ci sono già clienti sopra.
@@ -427,11 +433,69 @@ regressione dall'aggiunta della navigazione condivisa.
 Con questo, tutte le collezioni documento del gestionale attuale hanno
 un modulo equivalente nel nuovo prodotto.
 
+## Fase 5 (avvio) — abbonamenti Stripe
+
+Come per Supabase all'inizio, serve un account (qui Stripe) che questa
+sessione non può creare al posto dell'azienda — a differenza di Supabase
+però, non ne esisteva ancora uno nemmeno in modalità test quando è stato
+scritto questo lavoro. Quanto segue è quindi **costruito e verificato per
+quanto possibile senza Stripe reale**, con un avviso esplicito su cosa
+resta da collaudare quando l'account ci sarà.
+
+`0007_abbonamenti.sql` aggiunge:
+- **`plans`**: catalogo pubblico dei piani (trial/base/pro), con
+  `stripe_price_id` — vuoto per tutti finché non esistono prezzi Stripe
+  veri da collegare.
+- **`companies`**: `stripe_customer_id`, `stripe_subscription_id`,
+  `subscription_status`, `current_period_end` — scritti solo dal
+  webhook, mai dal client. `companies.piano` (già esistente dalla Fase 0)
+  resta il campo che il gestionale legge per i limiti effettivi.
+
+Due nuove Edge Function, stesso principio di `ai-proxy` (Fase 3) — la
+chiave segreta Stripe non è mai vista dal browser:
+- **`stripe-checkout`**: un admin avvia un abbonamento; verifica il
+  ruolo, crea (o riusa) il cliente Stripe dell'azienda, crea una sessione
+  di pagamento, restituisce l'URL a cui reindirizzare.
+- **`stripe-webhook`**: riceve gli eventi Stripe (nessun utente collegato
+  qui: l'autenticazione è la firma `Stripe-Signature`, verificata via
+  HMAC-SHA256 con Web Crypto — niente SDK Stripe, per restare senza
+  dipendenze da bundlare) e tiene `companies.piano` sincronizzato con
+  l'abbonamento reale.
+
+`web/abbonamento.html`: mostra il piano attuale e i piani disponibili.
+Un difetto reale trovato **durante il collaudo**: la prima versione
+confondeva "questo piano non è ancora acquistabile da nessuno" (manca il
+prezzo Stripe) con "tu non puoi comprarlo" (serve un admin) nello stesso
+generico "Non disponibile" — corretto con tre stati distinti, ciascuno
+con il proprio messaggio.
+
+**Collaudato, in tre modi diversi secondo cosa richiedeva Stripe vero**:
+1. Migrazione: in locale poi sul progetto reale (piani pubblici
+   leggibili, piano di default "trial", vincolo di unicità su
+   `stripe_customer_id`).
+2. Verifica della firma webhook: la STESSA funzione usata in produzione,
+   testata con l'HMAC-SHA256 reale di Node — firma corretta accettata,
+   corpo manomesso rifiutato, secret sbagliato rifiutato, timestamp
+   vecchio rifiutato (anti-replay) — e poi una richiesta con firma vera
+   inviata alla funzione reale già distribuita, accettata correttamente.
+3. Autorizzazione di `stripe-checkout` con utenti reali sul progetto:
+   nessun token → rifiutato; operatore non-admin → rifiutato con
+   messaggio chiaro; admin → passa tutti i controlli fino al piano
+   richiesto. `abbonamento.html` collaudata con `SaasStore` simulato.
+
+**Cosa NON è stato possibile collaudare, onestamente**: nessuna chiamata
+vera a Stripe (creazione cliente, sessione di pagamento, evento reale di
+sottoscrizione) — serve l'account. La logica segue esattamente la
+documentazione Stripe ed è corretta per costruzione, ma "corretto per
+costruzione" non è lo stesso di "verificato" — da fare non appena
+l'azienda ha le chiavi di test.
+
 ## Prossimo passo
 
-L'unico pezzo mancante per l'invio reale della fatturazione elettronica:
-un account presso un provider SDI (Aruba o un altro — l'azienda dovrà
-sceglierne e registrarsi da sé), poi una nuova Edge Function (stesso
-schema di `ai-proxy`) che prende l'XML già generato e lo trasmette.
-Altrimenti: Fase 5 (abbonamenti/Stripe), l'ultimo pezzo per trasformare
-questo da "funziona" a "si vende da solo".
+Creare un account Stripe (gratuito, modalità test, nessuna verifica
+aziendale richiesta — stesso percorso già fatto con Supabase), impostare
+`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` come secret e collaudare per
+davvero checkout e webhook. In parallelo resta aperto l'invio reale della
+fatturazione elettronica (Fase 4): un account presso un provider SDI
+(Aruba o un altro), poi una nuova Edge Function che prende l'XML già
+generato e lo trasmette.

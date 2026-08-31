@@ -40,7 +40,8 @@ saas/
 │       ├── theme.css                 sistema grafico condiviso (token colore, tipografia, componenti)
 │       ├── nav.js                    sidebar di navigazione condivisa (sostituisce il menu orizzontale)
 │       ├── resize.js                 colonne ridimensionabili trascinando il bordo dell'intestazione
-│       └── print.js                  stampa e PDF di un documento (stesso template dell'originale)
+│       ├── print.js                  stampa e PDF di un documento (stesso template dell'originale)
+│       └── prodpicker.js             autocompletamento riga da catalogo prodotti
 └── supabase/
     ├── functions/
     │   ├── ai-proxy/index.ts             Edge Function: la chiave IA resta lato server (Fase 3)
@@ -1002,7 +1003,22 @@ rigore di tutto il resto di questo lavoro.
   colonna della tabella — richiederebbe una migrazione a sé, lasciata per
   quando servirà davvero (la consegna riguarda soprattutto DDT e fattura,
   i due documenti dove nella pratica conta più spesso).
-- [ ] Autocompletamento riga da catalogo prodotti
+- [x] **Autocompletamento riga da catalogo prodotti** (`app/prodpicker.js`,
+  condiviso da tutti gli 8 elenchi documento: ordini, DDT, fatture, note di
+  credito — cliente e fornitore — più preventivi) — porta diretta di
+  `prodSearch()`/`prodKeyNav()`/`addProdToOrder()` dell'originale: un
+  campo di ricerca sopra l'editor delle righe, con un menu di
+  suggerimenti (codice, descrizione, prezzo) navigabile con ↑/↓ e Invio;
+  scegliendo un prodotto (clic o Invio) aggiunge una riga precompilata
+  (codice, descrizione, prezzo dal listino giusto — vendita lato cliente,
+  acquisto lato fornitore — IVA). Su `ddt.html`, che non ha colonne di
+  prezzo/sconto/IVA nelle sue righe, precompila solo codice e descrizione.
+  Differenza dall'originale: lì la ricerca scorre un array di prodotti
+  già in memoria; qui passa da `store.searchProdotti()` (server-side,
+  come già fa `prodotti.html`) perché il catalogo può avere ~21.000
+  righe — conseguenza pratica, il tasto Invio su un codice digitato per
+  intero lo trova "esatto" solo se è già tra i risultati arrivati dal
+  server (di solito lo è).
 - [ ] Generazione/download XML FatturaPA da `fatture.html`
 - [ ] Report & Analisi
 - [ ] Assistente AI (interfaccia di chat)

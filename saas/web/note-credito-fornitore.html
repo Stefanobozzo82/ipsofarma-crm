@@ -29,6 +29,7 @@
     <label for="f-fattura">Fattura collegata (facoltativo)</label>
     <select id="f-fattura"><option value="">— nessuna —</option></select>
 
+    <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
       <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
@@ -66,6 +67,7 @@
 <script src="app/nav.js"></script>
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
+<script src="app/prodpicker.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -324,6 +326,11 @@
     fatturePerFornitore = {};
     fatture.forEach(f => { (fatturePerFornitore[f.fornitoreId] = fatturePerFornitore[f.fornitoreId] || []).push(f); });
     $('f-fornitore').innerHTML = fornitori.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+
+    window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
+      companyId, priceField: 'listinoAcq',
+      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: p.listinoAcq || 0, sconto: '', iva: p.iva || 22 }),
+    });
 
     await renderList();
   }

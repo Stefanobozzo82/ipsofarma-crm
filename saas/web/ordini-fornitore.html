@@ -23,6 +23,7 @@
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
 
+    <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
       <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
@@ -60,6 +61,7 @@
 <script src="app/nav.js"></script>
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
+<script src="app/prodpicker.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -289,6 +291,11 @@
     const fornitori = await store.loadCollection('fornitori', companyId);
     fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
     $('f-fornitore').innerHTML = fornitori.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+
+    window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
+      companyId, priceField: 'listinoAcq',
+      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: p.listinoAcq || 0, sconto: '', iva: p.iva || 22 }),
+    });
 
     await renderList();
   }

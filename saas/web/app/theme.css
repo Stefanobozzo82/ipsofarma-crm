@@ -300,6 +300,19 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .le-del{ background:none; border:none; color:var(--faint); font-size:17px; cursor:pointer; line-height:1; }
 .le-del:hover{ color:var(--red); }
 
+/* Autocompletamento riga da catalogo prodotti (app/prodpicker.js) —
+ * porta diretta di .prod-sugg/.sugg-item/.code dell'originale. */
+.prod-pick{ position:relative; margin-bottom:10px; }
+.prod-sugg{ position:absolute; left:0; right:0; top:calc(100% - 1px); background:#fff; border:1px solid var(--border2); border-radius:0 0 8px 8px; box-shadow:0 10px 24px #1b25311f; z-index:10; max-height:260px; overflow-y:auto; }
+.prod-sugg:empty{ display:none; }
+.sugg-item{ display:flex; align-items:center; gap:9px; padding:8px 11px; cursor:pointer; font-size:12.5px; border-bottom:1px solid var(--border); }
+.sugg-item:last-child{ border-bottom:none; }
+.sugg-item:hover, .sugg-item.active{ background:var(--surface2); }
+.sugg-item .code{ flex-shrink:0; font-family:var(--mono); color:var(--blue); font-size:12px; }
+.sugg-d{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; color:var(--txt); }
+.sugg-pr{ margin-left:auto; font-family:var(--mono); color:var(--muted); flex-shrink:0; }
+.sugg-empty{ padding:10px 12px; color:var(--faint); font-size:12px; }
+
 .righe-table th, .righe-table td{ padding:6px 4px; }
 .righe-table input{ padding:6px 8px; font-size:13px; }
 .righe-table td.rm{ text-align:center; }

@@ -142,9 +142,50 @@ isolamento reciproco, slug duplicato rifiutato) e poi con un test
 automatico della pagina stessa (Playwright, Supabase simulato) prima di
 collegarla al progetto reale.
 
+## Fase 2 (iniziata) — l'adattatore di persistenza
+
+`web/app/store.js` è il pezzo più delicato della Fase 2: il rimpiazzo di
+`ghSave`/`ghLoad`/`ghBootSync`/`persist()` di `index.html`. Non tocca né
+riscrive la logica del gestionale — offre solo un modo diverso di leggere e
+scrivere gli stessi oggetti (`{id, num, data, clienteId, righe, paid, ...}`)
+che il gestionale già usa, stavolta contro Supabase invece che GitHub:
+
+- `loadCompany(companyId)` → ricompone un oggetto `{clienti:[...], ordiniCliente:[...], ...}`,
+  equivalente a ciò che oggi restituisce `ghFetchBoth()`.
+- `saveDoc(collezione, doc, companyId)` → un `upsert`: con `id` aggiorna,
+  senza `id` crea (l'id lo assegna Postgres).
+- `removeDoc(collezione, id)`, `nextNumber(companyId, prefisso, anno)` (usa
+  `next_document_number()`, vedi Fase 0), più `signUp/signIn/signOut`,
+  `myMemberships`, `registerCompany` (Fase 1).
+- Ogni campo dell'oggetto che non ha una colonna dedicata finisce
+  automaticamente nella colonna `extra` invece di andare perso — collaudato
+  esplicitamente con un campo "inventato" che sopravvive al giro completo
+  salva→ricarica.
+
+**Una decisione di disegno ancora aperta, non presa qui di proposito**:
+`nextNum()`/`consumeNum()` nel gestionale attuale sono *sincrone*
+(`DB.counters[t]++`), mentre `nextNumber()` qui è *asincrona* (una vera
+chiamata di rete, l'unica che garantisce numerazione mai duplicata).
+Collegare questo store ai punti del gestionale che creano documenti
+richiederà rendere asincrono anche quel passaggio — è la prossima cosa da
+decidere insieme prima di procedere oltre.
+
+**Collaudo**: la logica di mappatura è stata verificata due volte, in modo
+complementare — (1) il file `store.js` vero, in un browser reale, con un
+Supabase simulato (Playwright), e (2) la stessa identica sequenza di
+chiamate contro il progetto Supabase reale via REST diretto (due utenti
+indipendenti, azienda, cliente, ordine con `righe` e un campo fuori mappa,
+numerazione, isolamento reciproco) — poi ripulita senza lasciare tracce.
+Non è stato possibile, in questo passaggio, collaudare `store.js` con un
+browser reale *e* una rete reale insieme: il sandbox di sviluppo usato in
+questa sessione ha un limite di rete specifico (non regge le richieste
+HTTP/2 di Chromium verso host esterni) che non riguarda i browser reali
+degli utenti finali.
+
 ## Prossimo passo
 
-Fase 2 — Migrare la logica, non riscriverla: adattare l'interfaccia del
-gestionale a parlare con questo database invece che con GitHub, riusando
-numerazione documenti, calcolo IVA, prezzi storici e assistente IA così
-come sono oggi.
+Continuare la Fase 2: decidere insieme come diventare asincrona la
+numerazione nel gestionale, poi iniziare a collegare `store.js` ai punti
+reali di `index.html` — probabilmente partendo dalla collezione più
+semplice (clienti/fornitori) per collaudare il percorso end-to-end prima di
+estenderlo ai documenti.

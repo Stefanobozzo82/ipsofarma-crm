@@ -3,18 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ordini cliente — banco di prova Fase 2</title>
+<title>DDT — banco di prova Fase 2</title>
 <!--
-  Secondo modulo reale del gestionale collegato a Supabase, dopo clienti.html.
-  A differenza delle anagrafiche, un ordine è un DOCUMENTO NUMERATO: qui la
-  numerazione passa per store.nextNumber(), che a differenza di nextNum() nel
-  gestionale attuale è una vera chiamata di rete (asincrona) — è la parte
-  nuova che questo modulo prova, non solo lettura/scrittura come clienti.html.
-
-  Il form delle righe è volutamente un sottoinsieme di quello vero (manca
-  sconto, lotto, scadenza...): l'obiettivo di questo passaggio è provare il
-  meccanismo (numerazione + righe + collegamento a un cliente), non ancora
-  arrivare alla parità completa dei campi con il gestionale attuale.
+  Terzo modulo reale del gestionale collegato a Supabase. Rispetto a
+  ordini.html aggiunge il primo caso di documento che si collega a un
+  ALTRO documento (ocId, oltre a clienteId) — non solo a un'anagrafica.
+  Il campo ordine è facoltativo (un DDT può anche essere autonomo).
 -->
 <style>
   :root{
@@ -58,12 +52,11 @@
   .righe-table input{ padding:6px 8px; font-size:13px; }
   .righe-table td.rm{ text-align:center; }
   .righe-table td.rm button{ background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px; line-height:1; padding:2px 6px; }
-  .righe-total{ text-align:right; font-size:14px; margin-top:8px; }
-  .righe-total b{ font-variant-numeric:tabular-nums; }
   .form-actions{ display:flex; gap:10px; margin-top:16px; }
   .msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:14px; }
   .msg.error{ background:var(--danger-soft); color:var(--danger); }
   .msg.ok{ background:var(--card); border:1px solid var(--accent); color:var(--accent); }
+  .badge{ font-size:12px; padding:2px 8px; border-radius:99px; background:var(--paper); border:1px solid var(--line); color:var(--muted); }
   [hidden]{ display:none !important; }
 </style>
 </head>
@@ -72,12 +65,12 @@
   <header>
     <div>
       <p class="eyebrow" id="company-eyebrow">Azienda</p>
-      <h1>Ordini cliente</h1>
+      <h1>DDT</h1>
     </div>
     <div class="nav">
       <a href="clienti.html">Clienti</a>
-      <a class="on" href="ordini.html">Ordini</a>
-      <a href="ddt.html">DDT</a>
+      <a href="ordini.html">Ordini</a>
+      <a class="on" href="ddt.html">DDT</a>
       <a href="fatture.html">Fatture</a>
       <a href="index.html">← cambia azienda</a>
       <button id="logout">Esci</button>
@@ -85,21 +78,20 @@
   </header>
 
   <div class="card" id="form-card" hidden>
-    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuovo ordine</h2>
+    <h2 id="form-title" style="font-size:15px;margin:0 0 4px">Nuovo DDT</h2>
     <div class="grid2">
-      <div><label for="f-cliente">Cliente</label>
-        <select id="f-cliente"></select>
-      </div>
+      <div><label for="f-cliente">Cliente</label><select id="f-cliente"></select></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
+    <label for="f-ordine">Ordine collegato (facoltativo)</label>
+    <select id="f-ordine"><option value="">— nessuno —</option></select>
 
     <label>Righe</label>
     <table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>IVA %</th><th></th></tr></thead>
+      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
-    <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
 
     <div class="form-actions">
       <button class="primary" id="f-save">Salva</button>
@@ -111,7 +103,7 @@
   <div class="card">
     <div class="toolbar">
       <h2>Elenco</h2>
-      <button class="primary" id="new-ordine">+ Nuovo ordine</button>
+      <button class="primary" id="new-ddt">+ Nuovo DDT</button>
     </div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -129,65 +121,70 @@
   let companyId = null;
   let editingId = null;
   let clientiById = {};
+  let ordiniPerCliente = {}; // clienteId -> [ordini]
+  let allOrdiniById = {};
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
   }
 
-  // ---- righe: editor dinamico -------------------------------------------
   function rigaRowHtml(r){
-    r = r || { cod:'', descr:'', qty:1, prezzo:0, iva:22 };
+    r = r || { cod:'', descr:'', qty:1 };
     return `<tr>
       <td><input class="r-cod" value="${esc(r.cod)}" placeholder="cod."></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
-      <td style="width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
-      <td style="width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
     </tr>`;
   }
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
-    bindRigaRow($('righe-body').lastElementChild);
-    updateTotale();
-  }
-  function bindRigaRow(tr){
-    tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
-    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    $('righe-body').lastElementChild.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); });
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
       qty: Number(tr.querySelector('.r-qty').value) || 0,
-      prezzo: Number(tr.querySelector('.r-prezzo').value) || 0,
-      iva: Number(tr.querySelector('.r-iva').value) || 0,
     })).filter(r => r.descr || r.cod);
   }
-  function rigaTotale(r){ const imp = r.qty * r.prezzo; return imp + imp * r.iva / 100; }
-  function docTotale(righe){ return righe.reduce((s, r) => s + rigaTotale(r), 0); }
-  function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
-
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
-  // ---- form apri/chiudi ---------------------------------------------------
-  function openForm(ordine){
-    editingId = ordine ? ordine.id : null;
-    $('form-title').textContent = ordine ? `Modifica ${ordine.num}` : 'Nuovo ordine';
-    $('f-cliente').value = ordine ? ordine.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
-    $('f-data').value = ordine ? ordine.data : today();
+  function refreshOrdineOptions(clienteId){
+    const ordini = ordiniPerCliente[clienteId] || [];
+    $('f-ordine').innerHTML = '<option value="">— nessuno —</option>' +
+      ordini.map(o => `<option value="${o.id}">${esc(o.num)}</option>`).join('');
+  }
+  $('f-cliente').addEventListener('change', () => refreshOrdineOptions($('f-cliente').value));
+  $('f-ordine').addEventListener('change', () => {
+    // comodità: se non sono ancora state scritte righe, precompila da quelle
+    // dell'ordine selezionato (l'utente può comunque modificarle o svuotarle)
+    const righeVuote = readRighe().length === 0;
+    const ordine = allOrdiniById[$('f-ordine').value];
+    if(ordine && righeVuote){
+      $('righe-body').innerHTML = '';
+      (ordine.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty }));
+    }
+  });
+
+  function openForm(ddt){
+    editingId = ddt ? ddt.id : null;
+    $('form-title').textContent = ddt ? `Modifica ${ddt.num}` : 'Nuovo DDT';
+    $('f-cliente').value = ddt ? ddt.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
+    refreshOrdineOptions($('f-cliente').value);
+    $('f-ordine').value = ddt ? (ddt.ocId || '') : '';
+    $('f-data').value = ddt ? ddt.data : today();
     $('righe-body').innerHTML = '';
-    (ordine ? ordine.righe : [null]).forEach(addRigaRow);
+    (ddt ? ddt.righe : [null]).forEach(addRigaRow);
     setMsg('', '');
     $('form-card').hidden = false;
   }
   function closeForm(){ $('form-card').hidden = true; editingId = null; }
-  $('new-ordine').addEventListener('click', () => {
+  $('new-ddt').addEventListener('click', () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
     openForm(null);
   });
@@ -195,6 +192,7 @@
 
   $('f-save').addEventListener('click', async () => {
     const clienteId = $('f-cliente').value;
+    const ocId = $('f-ordine').value || null;
     const data = $('f-data').value;
     const righe = readRighe();
     if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
@@ -204,18 +202,14 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { clienteId, data, righe };
+      const doc = { clienteId, ocId, data, righe };
       if(editingId){
-        doc.id = editingId; // il numero di un ordine esistente non cambia
+        doc.id = editingId;
       } else {
-        // Numerazione asincrona: a differenza di nextNum() nel gestionale
-        // attuale (immediata), qui è una vera chiamata al database — l'unica
-        // che garantisce che due dispositivi non ricevano mai lo stesso
-        // numero (vedi supabase/migrations/0004_numerazione.sql).
         const anno = Number(data.slice(0, 4));
-        doc.num = await store.nextNumber(companyId, 'OC', anno);
+        doc.num = await store.nextNumber(companyId, 'DDT', anno);
       }
-      await store.saveDoc('ordiniCliente', doc, companyId);
+      await store.saveDoc('ddt', doc, companyId);
       closeForm();
       await renderList();
     }catch(err){
@@ -225,43 +219,42 @@
     }
   });
 
-  // ---- elenco ---------------------------------------------------------------
   async function renderList(){
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let ordini;
+    let elenco;
     try{
-      ordini = await store.loadCollection('ordiniCliente', companyId);
+      elenco = await store.loadCollection('ddt', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(ordini.length === 0){
-      area.innerHTML = '<p class="empty">Nessun ordine ancora. Crea prima un cliente, poi aggiungi un ordine con "+ Nuovo ordine".</p>';
+    if(elenco.length === 0){
+      area.innerHTML = '<p class="empty">Nessun DDT ancora. Crea prima un cliente, poi aggiungi un DDT con "+ Nuovo DDT".</p>';
       return;
     }
-    ordini.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
+    elenco.sort((a, b) => (b.num || '').localeCompare(a.num || '', 'it', { numeric:true }));
     area.innerHTML = `<table><thead><tr>
-        <th>Numero</th><th>Data</th><th>Cliente</th><th>Totale</th><th></th>
-      </tr></thead><tbody>${ordini.map(o => `
+        <th>Numero</th><th>Data</th><th>Cliente</th><th>Ordine</th><th></th>
+      </tr></thead><tbody>${elenco.map(d => `
         <tr>
-          <td class="num-col">${esc(o.num)}</td>
-          <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
-          <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
-          <td class="num-col">${eur(docTotale(o.righe || []))}</td>
+          <td class="num-col">${esc(d.num)}</td>
+          <td>${d.data ? new Date(d.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${esc((clientiById[d.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
+          <td>${d.ocId ? `<span class="badge">${esc((allOrdiniById[d.ocId] || {}).num || '?')}</span>` : '—'}</td>
           <td class="actions">
-            <button data-edit="${o.id}">Modifica</button>
-            <button class="danger" data-del="${o.id}">Elimina</button>
+            <button data-edit="${d.id}">Modifica</button>
+            <button class="danger" data-del="${d.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table>`;
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      openForm(ordini.find(x => x.id === btn.dataset.edit));
+      openForm(elenco.find(x => x.id === btn.dataset.edit));
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
-      const o = ordini.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare l'ordine ${o.num}? L'operazione non si può annullare.`)) return;
+      const d = elenco.find(x => x.id === btn.dataset.del);
+      if(!confirm(`Eliminare il DDT ${d.num}? L'operazione non si può annullare.`)) return;
       try{
-        await store.removeDoc('ordiniCliente', o.id);
+        await store.removeDoc('ddt', d.id);
         await renderList();
       }catch(err){
         alert('Errore durante l\'eliminazione: ' + err.message);
@@ -283,8 +276,14 @@
     if(!companyId){ location.href = 'index.html'; return; }
     $('company-eyebrow').textContent = localStorage.getItem('saas_company_nome') || 'Azienda';
 
-    const clienti = await store.loadCollection('clienti', companyId);
+    const [clienti, ordini] = await Promise.all([
+      store.loadCollection('clienti', companyId),
+      store.loadCollection('ordiniCliente', companyId),
+    ]);
     clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
+    allOrdiniById = Object.fromEntries(ordini.map(o => [o.id, o]));
+    ordiniPerCliente = {};
+    ordini.forEach(o => { (ordiniPerCliente[o.clienteId] = ordiniPerCliente[o.clienteId] || []).push(o); });
     $('f-cliente').innerHTML = clienti.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 
     await renderList();

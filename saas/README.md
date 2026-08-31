@@ -20,6 +20,8 @@ saas/
 │   ├── index.html                    login + registrazione azienda + scelta azienda
 │   ├── clienti.html                  primo modulo reale: elenco clienti (Fase 2)
 │   ├── ordini.html                   secondo modulo reale: ordini cliente, con numerazione (Fase 2)
+│   ├── ddt.html                      terzo modulo: DDT, collegato a un ordine (facoltativo)
+│   ├── fatture.html                  quarto modulo: fatture cliente, con stato di incasso
 │   └── app/
 │       └── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 └── supabase/
@@ -258,8 +260,44 @@ necessaria prima di vendere il prodotto, è collegare un provider email
 vero (Fase 5/6): il limite gratuito integrato scatterebbe comunque anche
 con pochi utenti al giorno.
 
+## Fase 2 (in corso) — DDT e fatture: documenti collegati fra loro
+
+`web/ddt.html` e `web/fatture.html` completano il primo giro di moduli
+documento. Cosa aggiungono rispetto a `ordini.html`:
+
+- **Collegamento a un altro documento, non solo a un'anagrafica.** Un DDT
+  può (facoltativamente) riferirsi a un ordine (`ocId`); una fattura può
+  riferirsi sia a un ordine sia a un DDT (`ocId` e `ddtId`). Il menu a
+  tendina si aggiorna in base al cliente scelto; selezionare l'ordine (o
+  il DDT) precompila le righe per comodità, solo se non ne erano già state
+  scritte — collaudato esplicitamente in entrambi i casi.
+- **Stato di incasso sulle fatture**, con la stessa identica forma di dati
+  già usata oggi in `index.html` (`paid`, `paidDate`,
+  `pagamenti:[{data, importo}]`): un pulsante nell'elenco commuta tra
+  "da incassare" e "incassata", impostando la data odierna e l'importo
+  pari al totale del documento — o azzerando tutto se si torna indietro.
+  Punto collaudato esplicitamente: **modificare una fattura non tocca mai
+  lo stato di incasso già impostato** (il salvataggio in modifica non
+  include affatto quei campi, a differenza della creazione che li
+  inizializza a "non incassata").
+- Navigazione coerente in tutte e quattro le pagine (Clienti · Ordini ·
+  DDT · Fatture), con la voce della pagina corrente evidenziata.
+
+**Collaudo**: entrambe le pagine verificate con `SaasStore` finto in un
+browser reale — precompilazione delle righe da ordine/DDT, collegamento
+corretto salvato, DDT creabile anche senza ordine collegato (campo
+davvero facoltativo), toggle dell'incasso in entrambe le direzioni con i
+valori esatti, e — il caso più delicato — la modifica di una fattura che
+lascia intatto lo stato di incasso. Rieseguita l'intera suite precedente
+(`index.html`, `clienti.html`, `ordini.html`) per la navigazione condivisa
+aggiornata.
+
 ## Prossimo passo
 
-Estendere lo stesso schema di `ordini.html` ai documenti collegati fra
-loro — DDT e fatture, che si aggiungono al collegamento con un ordine (non
-solo con un cliente) e, per le fatture, allo stato di incasso.
+Con clienti → ordini → DDT → fatture funzionanti end-to-end, il primo giro
+di moduli documento è completo. Restano aperti, in ordine di urgenza
+crescente verso un prodotto vendibile: i moduli lato fornitore (ordini
+fornitore, fatture fornitore, note di credito — stesso schema, speculare),
+poi le fasi successive del piano originale (Fase 3: chiave IA lato
+server; Fase 4: fatturazione elettronica reale verso lo SDI; Fase 5:
+abbonamenti).

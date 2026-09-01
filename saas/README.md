@@ -1444,9 +1444,10 @@ elenco inviti in sospeso con "copia link"/revoca. Un operatore/viewer
 vede il team ma non tocca ruoli né invita.
 
 Nuovo `test113_inviti.py`. Regressione completa (43 file) passata.
-**La migrazione non è ancora distribuita**: va applicata su Supabase
-(non basta il push su GitHub, come già per le Edge Function) prima che
-il flusso funzioni contro il progetto reale.
+**Migrazione distribuita**: applicata su Supabase (progetto reale) via
+Management API — tabella `invites` e le 4 funzioni (`create_invite`,
+`invite_preview`, `accept_invite`, `list_members`) verificate presenti
+e funzionanti. Il flusso è operativo end-to-end.
 
 ## Prossimo passo
 

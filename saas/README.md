@@ -1801,6 +1801,47 @@ precompilati, controparte giusta cercata — gli scenari di errore
 restano coperti una sola volta, nel modulo condiviso, da
 `test101_importa_ai.py`). Regressione completa (46 file) passata.
 
+## IA — piano di miglioramento, punto 2: assistente più ricco di dettaglio
+
+**Punto 2**: `assistente-ai.html` prima passava all'IA solo aggregati
+(quanto deve un cliente in totale, quanto fatturato nel mese) — non
+c'era modo di chiedere "la fattura FT-123 è stata pagata?" o "cosa mi
+deve ancora Farmacia Bianchi, nel dettaglio?" senza che l'IA
+rispondesse a vuoto (i dati non erano nel contesto). Due modifiche:
+
+1. **Riepilogo più ricco** (`buildContext()`, sempre inviato): oltre ai
+   totali per cliente/fornitore, ora elenca le fatture scadute (non
+   solo "da incassare" — proprio quelle il cui termine di pagamento è
+   già passato, le più vecchie per prima, con un tetto di 15 righe
+   nel messaggio così l'elenco non cresce senza limite con aziende
+   grandi), i 5 prodotti più venduti/acquistati nel mese (quantità),
+   e i conteggi di preventivi/DDT ancora aperti — collezioni prima
+   non caricate affatto da questa pagina.
+2. **Ricerca mirata** (`findMirroredDetail()`, nuova): se la domanda
+   cita per intero il numero di un documento (una qualunque delle 8
+   collezioni: fatture, ordini, note credito, preventivi, DDT) o il
+   nome esatto di un cliente/fornitore, un secondo messaggio di
+   sistema — più specifico del riepilogo aggregato, esplicitamente
+   segnalato come tale nel prompt — allega il dettaglio vero: righe
+   con prezzo/sconto/IVA e stato di pagamento per un documento
+   preciso, oppure lo storico delle fatture ancora aperte per una
+   controparte precisa. Deliberatamente una corrispondenza di
+   stringa, non un retrieval semantico vero: con numeri documento e
+   nomi propri è quasi sempre sufficiente, e non richiede un indice a
+   parte da mantenere aggiornato.
+
+`DB` (le collezioni caricate una volta all'apertura, tenute in
+memoria) è ora condiviso tra `buildContext()` e `findMirroredDetail()`
+invece di essere ricalcolato o passato come argomenti posizionali.
+
+Nuovi scenari in `test100_assistente_ai.py`: il riepilogo aggregato
+contiene le nuove sezioni (scadute, top prodotti, preventivi/DDT); una
+domanda che cita un nome esatto allega il dettaglio del cliente
+(fatture aperte, importi); una domanda che cita un numero documento
+esatto allega il dettaglio riga per riga di quel documento. Regressione
+completa (61 file — sono stati aggiunti test dall'ultimo conteggio)
+passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -63,6 +63,10 @@
   const store = window.SaasStore;
   let companyId = null;
   let SYSTEM_PROMPT = '';
+  // Tutte le collezioni caricate una volta all'apertura, tenute in memoria
+  // per la ricerca mirata (findMirroredDetail) oltre che per il riepilogo
+  // di apertura — evita di ricaricare tutto a ogni domanda.
+  let DB = null;
   // Cronologia inviata al provider ad ogni domanda (oltre al messaggio di
   // sistema): una conversazione vera, non un singolo giro come nel
   // gestionale originale.
@@ -104,6 +108,35 @@
     const creditato = it.num ? (noteCreditoColl || []).reduce((s, nc) => s + ncCreditoFor(nc, it.num, fattureColl), 0) : 0;
     return Math.max(0, tot(it.righe) - payTot(it) - creditato);
   }
+  // Stessa formula di scadenziario.html: data documento + termini di
+  // pagamento della controparte (default 30 giorni) — vale sia per un
+  // cliente sia per un fornitore, stesso campo "term" in anagrafica.
+  function dueDate(party, doc){
+    const days = party && party.term != null && party.term !== '' ? parseInt(party.term) : 30;
+    const d = new Date((doc.data || today()) + 'T00:00:00');
+    d.setDate(d.getDate() + (isNaN(days) ? 30 : days));
+    return d.toISOString().slice(0, 10);
+  }
+  // Le N righe di un elenco (già filtrato/ordinato) come testo, con una
+  // nota se ce ne sono di più — mai un elenco che cresce senza limite nel
+  // messaggio di sistema, qualunque sia la dimensione reale dell'azienda.
+  function capped(righe, n){
+    if(righe.length === 0) return '- nessuna';
+    const shown = righe.slice(0, n).join('\n');
+    return righe.length > n ? shown + `\n- (altre ${righe.length - n}, chiedi con un nome o un numero più specifico per il dettaglio)` : shown;
+  }
+  // Prodotti più movimentati nel mese corrente, per quantità — utile per
+  // "cosa vendo/acquisto di più": aggregato dalle righe già caricate, non
+  // una query a sé (il catalogo può avere ~21.000 prodotti, ma qui contano
+  // solo quelli comparsi in un documento del mese, sempre un numero piccolo).
+  function topProdotti(fatture, mese, n){
+    const tot = {};
+    fatture.filter(f => (f.data || '').startsWith(mese)).forEach(f => (f.righe || []).forEach(r => {
+      if(!r.descr) return;
+      tot[r.descr] = (tot[r.descr] || 0) + (r.qty || 0);
+    }));
+    return Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, n);
+  }
 
   function addBubble(role, text){
     const el = document.createElement('div');
@@ -114,22 +147,32 @@
     return el;
   }
 
-  // Riepilogo dei dati aziendali calcolato al volo — è tutto ciò che
-  // l'assistente "vede": nessuna cronologia documenti, nessun dettaglio
-  // riga per riga, solo aggregati già utili per le domande più comuni.
-  function buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore){
+  // Riepilogo dei dati aziendali calcolato al volo — quello che l'assistente
+  // vede SEMPRE, ad ogni domanda. Aggregati (non l'elenco riga per riga di
+  // ogni documento: per quello c'è findMirroredDetail, agganciato solo
+  // quando la domanda cita qualcosa di specifico) più, da questo giro, un
+  // elenco delle scadenze più urgenti — prima c'era solo il totale per
+  // cliente/fornitore, non "quali" fatture e "quando".
+  function buildContext(db){
+    const { clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore, preventivi, ddt } = db;
     const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     const fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
     const mese = today().slice(0, 7);
+    const oggi = today();
 
     const daIncassare = {};
+    const scaduteCliente = [];
     fattureCliente.forEach(f => {
       const r = residuo(f, noteCredito, fattureCliente);
       if(r <= 0.01) return;
-      const nome = (clientiById[f.clienteId] || {}).nome || 'cliente sconosciuto';
+      const party = clientiById[f.clienteId];
+      const nome = (party || {}).nome || 'cliente sconosciuto';
       daIncassare[nome] = (daIncassare[nome] || 0) + r;
+      const scad = dueDate(party, f);
+      if(scad < oggi) scaduteCliente.push({ num: f.num, nome, scad, r });
     });
     const daPagare = {};
+    const scaduteFornitore = [];
     fattureFornitore.forEach(f => {
       // Le note di credito fornitore si collegano via ftfId (numero della
       // fattura fornitore), non via ftId/ftIds come quelle cliente — non
@@ -138,33 +181,109 @@
       const creditato = f.num ? (noteCreditoFornitore || []).filter(ncf => ncf.ftfId === f.num).reduce((s, ncf) => s + tot(ncf.righe), 0) : 0;
       const r = Math.max(0, tot(f.righe) - payTot(f) - creditato);
       if(r <= 0.01) return;
-      const nome = (fornitoriById[f.fornitoreId] || {}).nome || 'fornitore sconosciuto';
+      const party = fornitoriById[f.fornitoreId];
+      const nome = (party || {}).nome || 'fornitore sconosciuto';
       daPagare[nome] = (daPagare[nome] || 0) + r;
+      const scad = dueDate(party, f);
+      if(scad < oggi) scaduteFornitore.push({ num: f.num, nome, scad, r });
     });
+    scaduteCliente.sort((a, b) => a.scad.localeCompare(b.scad)); // più vecchie prima
+    scaduteFornitore.sort((a, b) => a.scad.localeCompare(b.scad));
+
     const fatturatoMese = fattureCliente.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0);
     const acquistiMese = fattureFornitore.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0);
     const ocIdFatturati = new Set(fattureCliente.map(f => f.ocId).filter(Boolean));
-    const ordCliAperti = ordiniCliente.filter(o => !ocIdFatturati.has(o.id)).length;
-    const ordFornAperti = ordiniFornitore.filter(o => !(o.righe || []).every(r => (r.qtyEv || 0) >= (r.qty || 0))).length;
+    const ordCliAperti = ordiniCliente.filter(o => !ocIdFatturati.has(o.id));
+    const ordFornAperti = ordiniFornitore.filter(o => !(o.righe || []).every(r => (r.qtyEv || 0) >= (r.qty || 0)));
+    const preventiviAperti = (preventivi || []).filter(p => !p.ocId);
+    const ddtMese = (ddt || []).filter(d => (d.data || '').startsWith(mese));
+    const venduti = topProdotti(fattureCliente, mese, 5);
+    const acquistati = topProdotti(fattureFornitore, mese, 5);
 
     const lines = [];
-    lines.push('Data odierna: ' + today() + '.');
-    lines.push('Clienti con fatture ancora da incassare (residuo, IVA inclusa):');
+    lines.push('Data odierna: ' + oggi + '.');
+    lines.push('Clienti con fatture ancora da incassare (residuo totale, IVA inclusa):');
     lines.push(Object.keys(daIncassare).length
       ? Object.entries(daIncassare).sort((a, b) => b[1] - a[1]).map(([n, v]) => `- ${n}: ${eur(v)}`).join('\n')
       : '- nessuno, tutte le fatture cliente risultano incassate');
-    lines.push('Fornitori con fatture ancora da pagare (residuo, IVA inclusa):');
+    lines.push('Fatture cliente SCADUTE (non solo da incassare — la scadenza è già passata), le più vecchie prima:');
+    lines.push(capped(scaduteCliente.map(x => `- ${x.num} (${x.nome}), scaduta il ${x.scad}: ${eur(x.r)}`), 15));
+    lines.push('Fornitori con fatture ancora da pagare (residuo totale, IVA inclusa):');
     lines.push(Object.keys(daPagare).length
       ? Object.entries(daPagare).sort((a, b) => b[1] - a[1]).map(([n, v]) => `- ${n}: ${eur(v)}`).join('\n')
       : '- nessuno, tutte le fatture fornitore risultano pagate');
+    lines.push('Fatture fornitore SCADUTE (non pagate entro i termini), le più vecchie prima:');
+    lines.push(capped(scaduteFornitore.map(x => `- ${x.num} (${x.nome}), scaduta il ${x.scad}: ${eur(x.r)}`), 15));
     lines.push(`Fatturato clienti nel mese corrente (${mese}): ${eur(fatturatoMese)}.`);
     lines.push(`Acquisti da fornitori nel mese corrente (${mese}): ${eur(acquistiMese)}.`);
-    lines.push(`Ordini cliente ancora aperti (non fatturati): ${ordCliAperti}.`);
-    lines.push(`Ordini fornitore ancora aperti (non completamente ricevuti): ${ordFornAperti}.`);
+    lines.push(`Prodotti più venduti ai clienti questo mese (quantità):`);
+    lines.push(venduti.length ? venduti.map(([n, q]) => `- ${n}: ${q}`).join('\n') : '- nessuna vendita ancora questo mese');
+    lines.push(`Prodotti più acquistati dai fornitori questo mese (quantità):`);
+    lines.push(acquistati.length ? acquistati.map(([n, q]) => `- ${n}: ${q}`).join('\n') : '- nessun acquisto ancora questo mese');
+    lines.push(`Ordini cliente ancora aperti (non fatturati): ${ordCliAperti.length}${ordCliAperti.length ? ' — ' + ordCliAperti.map(o => o.num).slice(0, 15).join(', ') : ''}.`);
+    lines.push(`Ordini fornitore ancora aperti (non completamente ricevuti): ${ordFornAperti.length}${ordFornAperti.length ? ' — ' + ordFornAperti.map(o => o.num).slice(0, 15).join(', ') : ''}.`);
+    lines.push(`Preventivi ancora aperti (non trasformati in ordine): ${preventiviAperti.length}.`);
+    lines.push(`DDT emessi nel mese corrente (${mese}): ${ddtMese.length}.`);
     return {
       text: lines.join('\n'),
       hasData: clienti.length > 0 || fornitori.length > 0 || fattureCliente.length > 0 || fattureFornitore.length > 0,
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ricerca mirata: quando la domanda cita un numero documento esatto o il
+  // nome di un cliente/fornitore, allega il dettaglio vero (righe, prezzi,
+  // stato pagamento) invece del solo riepilogo aggregato di buildContext().
+  // Deliberatamente semplice (corrispondenza di stringa, non un vero
+  // retrieval semantico): con numeri documento e nomi propri è quasi sempre
+  // sufficiente, e non richiede un indice a parte da tenere aggiornato.
+  // ---------------------------------------------------------------------------
+  const DOC_COLLS = [
+    ['fattureCliente', 'Fattura cliente'], ['fattureFornitore', 'Fattura fornitore'],
+    ['ordiniCliente', 'Ordine cliente'], ['ordiniFornitore', 'Ordine fornitore'],
+    ['noteCredito', 'Nota di credito cliente'], ['noteCreditoFornitore', 'Nota di credito fornitore'],
+    ['preventivi', 'Preventivo'], ['ddt', 'DDT'],
+  ];
+  function docDetailText(label, it, party){
+    const righeTxt = (it.righe || []).map(r => `  - ${r.descr || r.cod || '(riga senza descrizione)'}: qty ${r.qty}, prezzo ${eur(r.prezzo)}${r.sconto ? ', sconto ' + r.sconto + '%' : ''}, IVA ${r.iva}%`).join('\n');
+    const lines = [`${label} ${it.num}, del ${it.data || '?'}, controparte: ${(party || {}).nome || '?'}.`];
+    if(it.righe) lines.push('Righe:\n' + (righeTxt || '  (nessuna)'));
+    if('paid' in it) lines.push(it.paid ? `Stato: saldata${it.paidDate ? ' il ' + it.paidDate : ''}.` : 'Stato: non ancora saldata.');
+    return lines.join('\n');
+  }
+  function findMirroredDetail(question, db){
+    const q = question.toUpperCase();
+    const blocks = [];
+    // 1) un numero documento citato per intero, in una qualunque collezione
+    for(const [collName, label] of DOC_COLLS){
+      for(const it of (db[collName] || [])){
+        if(it.num && q.includes(it.num.toUpperCase())){
+          const party = collName.includes('Fornitore') ? db.fornitoriById[it.fornitoreId] : db.clientiById[it.clienteId];
+          blocks.push(docDetailText(label, it, party));
+        }
+      }
+    }
+    // 2) il nome di un cliente o fornitore, citato per intero — storico
+    // sintetico (non ogni singola fattura: solo quelle ancora aperte, più
+    // il totale) invece del dettaglio riga per riga di ogni documento suo.
+    const qLower = question.toLowerCase();
+    const matchParty = (elenco) => elenco.filter(p => p.nome && p.nome.length > 3 && qLower.includes(p.nome.toLowerCase()))
+      .sort((a, b) => b.nome.length - a.nome.length)[0];
+    const cliente = matchParty(db.clienti);
+    if(cliente){
+      const aperte = db.fattureCliente.filter(f => f.clienteId === cliente.id).map(f => ({ f, r: residuo(f, db.noteCredito, db.fattureCliente) })).filter(x => x.r > 0.01);
+      const tot_ = aperte.reduce((s, x) => s + x.r, 0);
+      blocks.push(`Cliente "${cliente.nome}": ${aperte.length} fatture ancora aperte, totale da incassare ${eur(tot_)}.\n` +
+        (aperte.length ? aperte.map(x => `  - ${x.f.num} del ${x.f.data}: ${eur(x.r)}`).join('\n') : '  (nessuna fattura aperta)'));
+    }
+    const fornitore = matchParty(db.fornitori);
+    if(fornitore){
+      const aperte = db.fattureFornitore.filter(f => f.fornitoreId === fornitore.id).map(f => ({ f, r: residuo(f, [], db.fattureFornitore) })).filter(x => x.r > 0.01);
+      const tot_ = aperte.reduce((s, x) => s + x.r, 0);
+      blocks.push(`Fornitore "${fornitore.nome}": ${aperte.length} fatture ancora aperte, totale da pagare ${eur(tot_)}.\n` +
+        (aperte.length ? aperte.map(x => `  - ${x.f.num} del ${x.f.data}: ${eur(x.r)}`).join('\n') : '  (nessuna fattura aperta)'));
+    }
+    return blocks.length ? blocks.join('\n\n') : null;
   }
 
   async function send(question){
@@ -176,7 +295,10 @@
     $('ai-go').disabled = true;
     const pending = addBubble('pending', 'Sto pensando…');
     try{
-      const messages = [{ role:'system', content: SYSTEM_PROMPT }, ...HISTORY];
+      const mirrored = DB ? findMirroredDetail(question, DB) : null;
+      const messages = [{ role:'system', content: SYSTEM_PROMPT }];
+      if(mirrored) messages.push({ role:'system', content: 'Dettaglio pertinente alla domanda corrente (più preciso del riepilogo generale, usalo se la domanda riguarda uno di questi documenti o controparti):\n\n' + mirrored });
+      messages.push(...HISTORY);
       const reply = await store.aiComplete(messages);
       pending.remove();
       addBubble('assistant', reply);
@@ -222,7 +344,7 @@
       onLogout: doLogout,
     });
 
-    const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore] = await Promise.all([
+    const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore, preventivi, ddt] = await Promise.all([
       store.loadCollection('clienti', companyId),
       store.loadCollection('fornitori', companyId),
       store.loadCollection('fattureCliente', companyId),
@@ -231,8 +353,16 @@
       store.loadCollection('ordiniFornitore', companyId),
       store.loadCollection('noteCredito', companyId),
       store.loadCollection('noteCreditoFornitore', companyId),
+      store.loadCollection('preventivi', companyId),
+      store.loadCollection('ddt', companyId),
     ]);
-    const ctx = buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore);
+    DB = {
+      clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore,
+      noteCredito, noteCreditoFornitore, preventivi, ddt,
+      clientiById: Object.fromEntries(clienti.map(c => [c.id, c])),
+      fornitoriById: Object.fromEntries(fornitori.map(f => [f.id, f])),
+    };
+    const ctx = buildContext(DB);
     $('no-context').hidden = ctx.hasData;
     SYSTEM_PROMPT = `Sei l'assistente del gestionale di "${companyName}", un'azienda che vende a farmacie e strutture sanitarie. Rispondi SEMPRE in italiano, in modo conciso e diretto. Usa SOLO i dati del riepilogo qui sotto: non inventare cifre e non citare clienti, fornitori o importi che non compaiono nel riepilogo. Se ti manca un dato per rispondere, dillo chiaramente invece di indovinare. Non puoi creare, modificare o eliminare nulla nel gestionale: se ti viene chiesto, spiega gentilmente che questa funzione non è ancora disponibile qui e che va fatta dalle pagine del gestionale.\n\nRiepilogo dei dati aziendali:\n${ctx.text}`;
   }

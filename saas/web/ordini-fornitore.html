@@ -49,6 +49,7 @@
         <button class="primary" id="new-ordine">+ Nuovo ordine</button>
       </div>
     </div>
+    <div id="filter-area"></div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
   </main>
@@ -86,6 +87,7 @@
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
+  let FFILT = { fornitore: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
   function sortCmp(va, vb, dir){
     const mul = dir === 'asc' ? 1 : -1;
     if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
@@ -122,6 +124,34 @@
     clearTimeout(searchTimer);
     searchTimer = setTimeout(renderList, 200);
   });
+
+  // ---- filtri: fornitore, intervallo date --------------------------------
+  function matchesFilter(o){
+    if(FFILT.fornitore && o.fornitoreId !== FFILT.fornitore) return false;
+    if(FFILT.from && (o.data || '') < FFILT.from) return false;
+    if(FFILT.to && (o.data || '') > FFILT.to) return false;
+    return true;
+  }
+  function setFFilt(k, v){ FFILT[k] = v; renderList(); }
+  function clearFFilt(){ FFILT = { fornitore:'', from:'', to:'' }; renderList(); }
+  function renderFilterbar(){
+    const active = FFILT.fornitore || FFILT.from || FFILT.to;
+    const fornitoriArr = Object.values(fornitoriById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
+    const fopts = '<option value="">Tutti i fornitori</option>' +
+      fornitoriArr.map(f => `<option value="${f.id}" ${FFILT.fornitore === f.id ? 'selected' : ''}>${esc(f.nome)}</option>`).join('');
+    $('filter-area').innerHTML = `<div class="filterbar">
+      <select id="ff-fornitore">${fopts}</select>
+      <div class="fdate-group">
+        <label class="fdate">Dal <input type="date" id="ff-from" value="${FFILT.from}"></label>
+        <label class="fdate">Al <input type="date" id="ff-to" value="${FFILT.to}"></label>
+      </div>
+      ${active ? '<button type="button" class="ffclear" id="ff-clear">✕ Azzera filtri</button>' : ''}
+    </div>`;
+    $('ff-fornitore').addEventListener('change', () => setFFilt('fornitore', $('ff-fornitore').value));
+    $('ff-from').addEventListener('change', () => setFFilt('from', $('ff-from').value));
+    $('ff-to').addEventListener('change', () => setFFilt('to', $('ff-to').value));
+    if(active) $('ff-clear').addEventListener('click', clearFFilt);
+  }
 
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
@@ -233,6 +263,7 @@
   let fornitoriById = {};
 
   async function renderList(){
+    renderFilterbar();
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
     let ordini;
@@ -246,9 +277,9 @@
       area.innerHTML = '<p class="empty">Nessun ordine ancora. Crea prima un fornitore, poi aggiungi un ordine con "+ Nuovo ordine".</p>';
       return;
     }
-    ordini = ordini.filter(matchesQuery);
+    ordini = ordini.filter(matchesQuery).filter(matchesFilter);
     if(ordini.length === 0){
-      area.innerHTML = '<p class="empty">Nessun ordine trovato per la ricerca.</p>';
+      area.innerHTML = '<p class="empty">Nessun ordine trovato con questi criteri.</p>';
       return;
     }
     ordini.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));

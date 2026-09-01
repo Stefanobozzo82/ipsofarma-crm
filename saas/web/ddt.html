@@ -56,6 +56,7 @@
         <button class="primary" id="new-ddt">+ Nuovo DDT</button>
       </div>
     </div>
+    <div id="filter-area"></div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
   </main>
@@ -84,6 +85,7 @@
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
+  let FFILT = { cliente: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -136,6 +138,34 @@
     clearTimeout(searchTimer);
     searchTimer = setTimeout(renderList, 200);
   });
+
+  // ---- filtri: cliente, intervallo date ----------------------------------
+  function matchesFilter(d){
+    if(FFILT.cliente && d.clienteId !== FFILT.cliente) return false;
+    if(FFILT.from && (d.data || '') < FFILT.from) return false;
+    if(FFILT.to && (d.data || '') > FFILT.to) return false;
+    return true;
+  }
+  function setFFilt(k, v){ FFILT[k] = v; renderList(); }
+  function clearFFilt(){ FFILT = { cliente:'', from:'', to:'' }; renderList(); }
+  function renderFilterbar(){
+    const active = FFILT.cliente || FFILT.from || FFILT.to;
+    const clientiArr = Object.values(clientiById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
+    const copts = '<option value="">Tutti i clienti</option>' +
+      clientiArr.map(c => `<option value="${c.id}" ${FFILT.cliente === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('');
+    $('filter-area').innerHTML = `<div class="filterbar">
+      <select id="ff-cliente">${copts}</select>
+      <div class="fdate-group">
+        <label class="fdate">Dal <input type="date" id="ff-from" value="${FFILT.from}"></label>
+        <label class="fdate">Al <input type="date" id="ff-to" value="${FFILT.to}"></label>
+      </div>
+      ${active ? '<button type="button" class="ffclear" id="ff-clear">✕ Azzera filtri</button>' : ''}
+    </div>`;
+    $('ff-cliente').addEventListener('change', () => setFFilt('cliente', $('ff-cliente').value));
+    $('ff-from').addEventListener('change', () => setFFilt('from', $('ff-from').value));
+    $('ff-to').addEventListener('change', () => setFFilt('to', $('ff-to').value));
+    if(active) $('ff-clear').addEventListener('click', clearFFilt);
+  }
 
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, lotto:'', scad:'' };
@@ -259,6 +289,7 @@
   });
 
   async function renderList(){
+    renderFilterbar();
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
     let elenco;
@@ -272,9 +303,9 @@
       area.innerHTML = '<p class="empty">Nessun DDT ancora. Crea prima un cliente, poi aggiungi un DDT con "+ Nuovo DDT".</p>';
       return;
     }
-    elenco = elenco.filter(matchesQuery);
+    elenco = elenco.filter(matchesQuery).filter(matchesFilter);
     if(elenco.length === 0){
-      area.innerHTML = '<p class="empty">Nessun DDT trovato per la ricerca.</p>';
+      area.innerHTML = '<p class="empty">Nessun DDT trovato con questi criteri.</p>';
       return;
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));

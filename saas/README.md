@@ -1353,6 +1353,24 @@ Pagamento → Contatti). Collaudato con un nuovo
 `test110_clienti_fornitori_campi.py`. Regressione completa (40 file)
 passata.
 
+## Filtri di ricerca in tutti i moduli documento
+
+Richiesto dall'utente: `fatture-fornitore.html` aveva già una filterbar
+(fornitore/stato/intervallo date, task #7 di questa lista) — estesa a
+tutti gli altri 7 moduli documento, stesso pattern (`FFILT`,
+`matchesFilter()`, `renderFilterbar()`, pulsante "✕ Azzera filtri" quando
+almeno un filtro è attivo): `ordini.html`, `ordini-fornitore.html`,
+`ddt.html`, `note-credito.html`, `note-credito-fornitore.html` (cliente/
+fornitore + intervallo date — nessuno stato: questo port non traccia
+ancora evasione/fatturazione DDT), `fatture.html` (cliente + stato
+incasso + date, mirror esatto dell'esistente su fatture fornitore),
+`preventivi.html` (cliente + stato convertito/aperto, basato su `ocId` —
+l'unico stato realmente tracciato per i preventivi).
+
+Filtri e ricerca testuale (`Q`) si combinano (`.filter(matchesQuery)
+.filter(matchesFilter)`). Collaudato con un nuovo
+`test111_filtri_moduli.py`. Regressione completa (41 file) passata.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

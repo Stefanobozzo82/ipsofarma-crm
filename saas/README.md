@@ -1659,6 +1659,50 @@ Giacenza). Regressione completa (44 file) passata.
 Management API — tabelle `depositi`/`movimenti_magazzino` e vista
 `giacenze` verificate presenti. Il modulo è operativo end-to-end.
 
+## Riconciliazione bancaria (via CSV)
+
+Ultimo gap del confronto risolvibile senza un account esterno (gli
+altri due — pagamenti online in fattura, invio reale allo SDI —
+restano in attesa di Stripe/un provider SDI). Fatture in
+Cloud/TeamSystem collegano il conto corrente direttamente via Open
+Banking, un provider a pagamento che non esiste qui: l'alternativa
+praticabile senza account esterni è il file — carichi l'estratto conto
+in CSV, il gestionale propone gli abbinamenti con le fatture aperte.
+
+Nuova pagina `riconciliazione.html` (voce "Riconciliazione bancaria" in
+sidebar, vicino a Scadenziario — tocca sia le fatture cliente sia
+quelle fornitore, non stava bene in nessuno dei due gruppi):
+
+1. **Carica il file** — un parser CSV minimale scritto direttamente
+   nella pagina (nessuna Edge Function: legge e abbina solo dati già
+   suoi, niente da nascondere lato server), virgola o punto e virgola,
+   campi tra virgolette.
+2. **Mappa le colonne** — ogni banca esporta un formato diverso, non
+   c'è un formato "corretto" da indovinare: l'utente sceglie quale
+   colonna è la data, quale la descrizione, quale l'importo (con un
+   suggerimento automatico dal nome della colonna, sempre correggibile)
+   — mai un riconoscimento silenzioso su un'operazione che tocca i
+   soldi. Supporta sia un'unica colonna con importo con segno sia due
+   colonne separate Entrate/Uscite.
+3. **Rivedi gli abbinamenti proposti** — un abbinamento viene proposto
+   **solo per corrispondenza esatta** (al centesimo) col residuo di una
+   fattura aperta (stessa aritmetica di `dashboard.html`: sconto, IVA,
+   note di credito già dedotte, sia lato cliente sia lato fornitore).
+   Nessun "abbinamento probabile" scelto in automatico: sbagliarlo
+   registrerebbe un incasso/pagamento sulla fattura sbagliata. Senza
+   corrispondenza esatta, la riga resta senza spunta e l'utente sceglie
+   a mano dal menu (o la salta).
+4. **Registra** — stesso schema già usato da `togglePaid()`/
+   `bulkMarkPaid()` in `fatture.html`/`fatture-fornitore.html`: un
+   patch parziale `{id, pagamenti, paid, paidDate}` via
+   `store.saveDoc()`, non l'intero documento. Nessuna funzione nuova in
+   `store.js` — riusa quella già esistente e già collaudata.
+
+Nuovo `test116_riconciliazione.py` (mappatura con suggerimento
+automatico dal nome colonna, due abbinamenti esatti proposti e uno
+scartato, registrazione che aggiorna le fatture giuste). Regressione
+completa (45 file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -18,6 +18,7 @@
     { label: null, items: [
       { id: 'dashboard', label: 'Dashboard', href: 'dashboard.html', ic: '◫' },
       { id: 'scadenziario', label: 'Scadenziario', href: 'scadenziario.html', ic: '📅' },
+      { id: 'riconciliazione', label: 'Riconciliazione bancaria', href: 'riconciliazione.html', ic: '🏦' },
       { id: 'report', label: 'Report & Analisi', href: 'report.html', ic: '📊' },
       { id: 'assistente-ai', label: 'Assistente AI', href: 'assistente-ai.html', ic: '🤖' },
     ] },

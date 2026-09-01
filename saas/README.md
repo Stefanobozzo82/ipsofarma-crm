@@ -1913,6 +1913,65 @@ Nuova asserzione in `test101_importa_ai.py`/`test117_importa_ai_estesa.py`:
 la chiamata a `store.aiComplete()` durante un import porta sempre
 `opts.model === 'gemini-2.5-pro'`. Regressione completa passata.
 
+## IA — piano di miglioramento, punto 3: azioni autonome con anteprima
+
+**Punto 3**, l'ultimo e il più rischioso della lista — rimandato apposta a
+quando tutto il resto era solido. Porta di `aiView()`/`aiResolve()`/
+`aiShowPlan()`/`aiExecute()` dal gestionale originale (`index.html`): lì
+un'unica istruzione in linguaggio naturale diventa un PIANO di azioni in
+JSON, ognuna risolta in un'anteprima testuale — **nessuna scrittura
+avviene prima che l'utente clicchi "Conferma ed esegui"**.
+
+**Scoperta di percorso, prima di scrivere codice**: la cascata "genera
+DDT/fattura/ordine fornitore da un ordine cliente" (`aiGenDDT`/`aiGenFT`/
+`aiGenOF` nell'originale) NON esiste ancora come funzione di base del
+prodotto SaaS — `ordini.html` qui non ha nemmeno i campi per tracciarla
+(`qtyEv`/`ddtId`/`ftId`). Aggiungerla è un pezzo a sé, non piccolo,
+indipendente dall'IA. Chiesto esplicitamente: procedere solo con le
+azioni già del tutto supportate oggi, lasciando la cascata come pezzo
+futuro a sé (prima come funzione normale del gestionale, poi
+eventualmente agganciata all'IA) — scelta confermata dall'azienda.
+
+**Cosa fa** (nuova sezione "Esegui un'azione" in `assistente-ai.html`,
+sotto la chat esistente — deliberatamente separata dalla chat sola-lettura,
+niente ambiguità nell'interpretare un'istruzione come domanda o comando):
+- `mark_paid`/`mark_unpaid` — segna pagate/da pagare le fatture cliente o
+  fornitore, filtrabili per controparte e periodo (un mese o un intervallo).
+- `create_order`/`create_quote` — crea un ordine cliente o un preventivo:
+  cliente cercato in anagrafica (mai creato automaticamente — stessa
+  scelta del punto 1: se non esiste, va creato prima a mano), righe
+  prodotto cercate a catalogo (`store.searchProdotti`, stessa euristica di
+  `aiFindProd()` nell'originale: codice esatto, poi descrizione con tutte
+  le parole cercate, poi il primo risultato).
+
+Ogni azione risolta produce `{desc, apply}`: `desc` è l'anteprima HTML
+mostrata SEMPRE (anche per un'azione non eseguibile, con il motivo); `apply`
+è `null` se non eseguibile, altrimenti una funzione asincrona che scrive
+solo quando l'utente conferma (`store.saveDoc`/`nextNumber`/
+`checkDocLimit` — le stesse chiamate che usano già le pagine normali).
+Dopo l'esecuzione, tutte le collezioni vengono ricaricate (`loadDB()`,
+fattorizzata da `init()` per essere richiamabile anche da qui): la chat e
+la ricerca mirata (punto 2) vedono subito i dati aggiornati, senza
+ricaricare la pagina.
+
+Come il punto 4, l'interpretazione dell'istruzione usa `gemini-2.5-pro`
+(non l'economico `gemini-2.5-flash` della chat): un'azione mal
+interpretata scrive un documento vero, non solo una risposta imprecisa.
+
+Nuovo `test118_azioni_ai.py` (10 scenari): anteprima corretta per
+mark_paid/mark_unpaid con controparte+periodo, create_order/create_quote
+con prodotto cercato a catalogo e prezzo indicato dall'utente o dal
+listino, nessuna scrittura prima della conferma, cliente non trovato →
+non eseguibile senza pulsante Conferma, un piano misto esegue solo la
+parte valida, nessuna azione riconosciuta → spiegazione senza pulsante,
+risposta non-JSON dall'AI → errore chiaro, limite piano raggiunto →
+errore mostrato senza scrivere nulla, modello richiesto sempre
+`gemini-2.5-pro`, ricaricamento dati dopo la conferma. Regressione
+completa (62 file) passata.
+
+Con questo si chiude l'intero piano di miglioramento IA (1→2→5→4→3)
+concordato con l'azienda.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

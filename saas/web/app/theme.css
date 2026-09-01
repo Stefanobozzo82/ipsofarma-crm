@@ -416,6 +416,20 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .ai-bubble.pending{ align-self:flex-start; color:var(--faint); font-style:italic; }
 @media(max-width:680px){ .ai-bubble{ max-width:92%; } }
 
+/* Punto 3 del piano di miglioramento IA (azioni autonome con anteprima,
+ * assistente-ai.html #action-card) — il riquadro di anteprima di un piano
+ * di azioni prima che l'utente lo confermi: stessa idea di
+ * aiShowPlan()/.ai-card nel gestionale originale, qui riproposta con le
+ * classi di questo foglio. */
+.ai-plan{ border:1px solid var(--border2); border-radius:10px; padding:14px 16px; background:var(--surface2); margin-top:4px; }
+.ai-plan.done{ border-color:var(--accent); background:var(--accent-soft); }
+.ai-plan-expl{ font-size:13.5px; font-weight:600; margin-bottom:8px; }
+.ai-plan-list{ margin:0 0 10px; padding-left:20px; font-size:13px; line-height:1.6; }
+.ai-plan-list li{ margin-bottom:6px; }
+.ai-plan-sub{ margin:4px 0 4px 4px; padding-left:18px; font-size:12.5px; color:var(--muted); }
+.ai-plan-warn{ color:var(--red); font-size:12.5px; margin-top:2px; }
+.ai-plan-actions{ display:flex; gap:10px; margin-top:10px; }
+
 .form-actions{ display:flex; gap:10px; margin-top:16px; }
 .msg{ margin-top:12px; padding:10px 12px; border-radius:8px; font-size:13px; }
 .msg.error{ background:var(--red-s); color:var(--red); }

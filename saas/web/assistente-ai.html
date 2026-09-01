@@ -31,7 +31,7 @@
     </div>
 
     <div class="card ai-wrap">
-      <p class="ai-intro">Le risposte si basano su un riepilogo dei dati aziendali calcolato ad ogni domanda — nessun dato lascia il server del provider IA se non quello. L'assistente non può ancora creare o modificare documenti: per quello resta il resto del gestionale.</p>
+      <p class="ai-intro">Le risposte si basano su un riepilogo dei dati aziendali calcolato ad ogni domanda — nessun dato lascia il server del provider IA se non quello. Per creare o modificare documenti c'è la sezione "Esegui un'azione" più sotto, sempre con un'anteprima da confermare.</p>
       <div class="ai-examples">
         <button type="button" class="ai-chip" data-fill>Quanto devo ancora pagare ai fornitori?</button>
         <button type="button" class="ai-chip" data-fill>Quali clienti hanno fatture da incassare?</button>
@@ -47,6 +47,36 @@
       </div>
       <p class="empty" id="no-context" hidden>Non ci sono ancora dati sufficienti per rispondere a domande sull'azienda: crea qualche cliente, fornitore o documento prima di usare l'assistente.</p>
     </div>
+
+    <!-- Punto 3 del piano di miglioramento IA: azioni autonome con anteprima
+         — porta di aiView()/aiResolve()/aiShowPlan()/aiExecute() dal
+         gestionale originale (index.html), riscritta sullo store asincrono
+         (store.saveDoc/nextNumber sono chiamate di rete, non un push in un
+         array in memoria) e con un elenco di azioni volutamente più
+         piccolo: qui solo quelle già del tutto supportate dal prodotto
+         SaaS oggi — segnare fatture pagate/da pagare, creare un ordine
+         cliente o un preventivo. La cascata "genera DDT/fattura/ordine
+         fornitore da un ordine" (aiGenDDT/aiGenFT/aiGenOF nell'originale)
+         non esiste ancora come funzione di base del prodotto SaaS (manca
+         il tracciamento qtyEv/ddtId/ftId in ordini.html): va costruita lì
+         prima, indipendentemente dall'IA — resta un pezzo futuro a sé. -->
+    <div class="card ai-wrap" id="action-card">
+      <div class="page-head" style="margin-bottom:2px">
+        <h3 style="margin:0">Esegui un'azione</h3>
+      </div>
+      <p class="ai-intro">Descrivi cosa vuoi fare in linguaggio naturale — ti mostro sempre un'anteprima di quello che sto per cambiare, non applico nulla finché non confermi.</p>
+      <div class="ai-examples">
+        <button type="button" class="ai-chip" data-action-fill>Segna pagate le fatture di [fornitore] di [mese]</button>
+        <button type="button" class="ai-chip" data-action-fill>Segna da pagare le fatture di [cliente] di questo mese</button>
+        <button type="button" class="ai-chip" data-action-fill>Crea un ordine per [cliente] con 5× [codice o descrizione prodotto]</button>
+        <button type="button" class="ai-chip" data-action-fill>Crea un preventivo per [cliente] con 10× [codice o descrizione prodotto]</button>
+      </div>
+      <div class="ai-inputrow" style="margin-top:10px">
+        <textarea id="action-q" rows="2" placeholder="Es. segna pagate le fatture di B.Braun di aprile"></textarea>
+        <button class="primary" id="action-go">Genera anteprima</button>
+      </div>
+      <div id="action-out"></div>
+    </div>
   </main>
 </div>
 
@@ -56,6 +86,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/ai-import.js"></script>
 <script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script>
@@ -325,6 +356,227 @@
     $('ai-q').focus();
   }));
 
+  // ---------------------------------------------------------------------------
+  // Punto 3 del piano di miglioramento IA: "Esegui un'azione" — un'istruzione
+  // in linguaggio naturale diventa un PIANO di azioni in JSON (niente testo
+  // libero), ognuna risolta in un'anteprima testuale prima di essere
+  // eseguita — nessuna mutazione avviene prima che l'utente clicchi
+  // "Conferma ed esegui". Porta di aiResolve()/aiShowPlan()/aiExecute() dal
+  // gestionale originale: stessa struttura {desc, apply}, ma apply() qui è
+  // sempre asincrona (store.saveDoc/nextNumber sono chiamate di rete) e le
+  // azioni disponibili sono quelle già del tutto supportate dal prodotto
+  // SaaS oggi (vedi commento sopra #action-card per cosa manca ancora e
+  // perché).
+  // ---------------------------------------------------------------------------
+  let ACTION_PLAN = [];
+
+  // Stessa semantica di aiInPeriod()/aiPeriodLabel() nell'originale: un
+  // "period" può essere un mese "AAAA-MM", un intervallo {from,to}, o null
+  // (nessun filtro).
+  function inPeriod(d, period){
+    if(!period) return true;
+    d = d || '';
+    if(typeof period === 'string') return d.startsWith(period);
+    if(period.from && d < period.from) return false;
+    if(period.to && d > period.to) return false;
+    return true;
+  }
+  function periodLabel(period){
+    if(!period) return '';
+    if(typeof period === 'string'){
+      const x = period.split('-');
+      const nm = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+      return x[1] ? (nm[parseInt(x[1]) - 1] || '') + ' ' + x[0] : x[0];
+    }
+    return (period.from || '') + '–' + (period.to || '');
+  }
+
+  // Un prodotto dal catalogo per codice o descrizione (in linguaggio
+  // naturale) citati nell'istruzione — stessa euristica di aiFindProd()
+  // nell'originale, sul catalogo server-side (store.searchProdotti) invece
+  // che su un array in memoria: prima il codice esatto, poi una
+  // descrizione che contiene tutte le parole cercate, poi il primo
+  // risultato della ricerca come ultima risorsa.
+  async function matchProdotto(query){
+    if(!query) return null;
+    let list;
+    try{ list = await store.searchProdotti(companyId, query, 10); }catch(e){ return null; }
+    const lc = String(query).trim().toLowerCase();
+    let p = list.find(x => (x.cod || '').toLowerCase() === lc);
+    if(p) return p;
+    const toks = lc.split(/\s+/).filter(Boolean);
+    p = list.find(x => { const d = (x.descr || '').toLowerCase(); return toks.every(t => d.includes(t)); });
+    if(p) return p;
+    return list[0] || null;
+  }
+
+  async function resolveMarkPaid(a, paid){
+    const coll = a.target === 'fattureCliente' ? 'fattureCliente' : 'fattureFornitore';
+    const isForn = coll === 'fattureFornitore';
+    let items = (DB[coll] || []).slice();
+    let party = null;
+    if(a.party){
+      party = window.SaasAiImport.findPartyByNome(isForn ? DB.fornitori : DB.clienti, a.party);
+      if(!party) return { desc: `Nessun ${isForn ? 'fornitore' : 'cliente'} corrisponde a "${esc(a.party)}".`, apply: null };
+      items = items.filter(f => (isForn ? f.fornitoreId : f.clienteId) === party.id);
+    }
+    items = items.filter(f => inPeriod(f.data, a.period));
+    const targets = items.filter(f => !!f.paid !== paid);
+    const desc = `${paid ? 'Segna PAGATE' : 'Segna DA PAGARE'} <b>${targets.length}</b> fatture ${isForn ? 'fornitore' : 'cliente'}`
+      + (party ? ' · ' + esc(party.nome) : '') + (a.period ? ' · ' + esc(periodLabel(a.period)) : '');
+    return {
+      desc,
+      apply: targets.length ? async () => {
+        for(const f of targets){
+          f.paid = paid;
+          f.paidDate = paid ? today() : null;
+          f.pagamenti = paid ? [{ data: today(), importo: tot(f.righe) }] : [];
+          await store.saveDoc(coll, f, companyId);
+        }
+        return targets.length + ' fatture aggiornate';
+      } : null,
+    };
+  }
+
+  // create_order e create_quote condividono la stessa risoluzione (righe
+  // prodotto cercate a catalogo, cliente cercato in anagrafica) e differiscono
+  // solo per la collection di destinazione, il prefisso di numerazione e
+  // l'etichetta — stessa idea dell'originale, ma qui una sola funzione con
+  // "kind" invece di due copie quasi identiche.
+  async function resolveCreateDoc(a, kind){
+    const label = kind === 'preventivi' ? 'preventivo' : 'ordine';
+    const prefix = kind === 'preventivi' ? 'PREV' : 'OC';
+    const cliente = window.SaasAiImport.findPartyByNome(DB.clienti, a.client);
+    if(!cliente){
+      return { desc: `Cliente non trovato: "${esc(a.client || '?')}". Crealo prima in Clienti, poi riprova.`, apply: null };
+    }
+    const lines = await Promise.all((a.lines || []).map(async l => ({
+      found: await matchProdotto(l.product),
+      qty: Math.max(1, parseInt(l.qty) || 1),
+      price: l.price, sconto: l.sconto, raw: l.product,
+    })));
+    const foundLines = lines.filter(l => l.found);
+    const missing = lines.filter(l => !l.found);
+    let desc = `Crea ${label} per <b>${esc(cliente.nome)}</b> · ${foundLines.length} riga/e`;
+    if(foundLines.length){
+      desc += '<ul class="ai-plan-sub">' + foundLines.map(l => `<li>${l.qty}× ${esc(l.found.cod)} — ${esc(l.found.descr)}</li>`).join('') + '</ul>';
+    }
+    if(missing.length){
+      desc += `<div class="ai-plan-warn">Prodotti non trovati a catalogo: ${esc(missing.map(m => m.raw).join(', '))}</div>`;
+    }
+    if(a.note) desc += `<div class="ai-plan-sub">Nota: ${esc(a.note)}</div>`;
+    return {
+      desc,
+      apply: foundLines.length ? async () => {
+        const lim = await store.checkDocLimit(companyId);
+        if(!lim.ok) throw new Error(`limite di ${lim.limite} documenti/mese del piano "${lim.piano}" raggiunto — passa a un piano superiore in Impostazioni`);
+        const righe = foundLines.map(l => ({
+          cod: l.found.cod, descr: l.found.descr, qty: l.qty,
+          prezzo: (l.price != null && l.price !== '') ? parseFloat(l.price) || 0 : (l.found.listinoVen || 0),
+          sconto: (l.sconto != null && l.sconto !== '') ? String(l.sconto) : '',
+          iva: l.found.iva || 22,
+        }));
+        const anno = today().slice(0, 4);
+        const num = await store.nextNumber(companyId, prefix, anno);
+        const doc = { num, data: today(), clienteId: cliente.id, righe };
+        if(kind === 'preventivi') doc.note = a.note || '';
+        const saved = await store.saveDoc(kind, doc, companyId);
+        return (kind === 'preventivi' ? 'Preventivo ' : 'Ordine ') + saved.num + ' creato per ' + cliente.nome + ' (' + righe.length + ' righe)';
+      } : null,
+    };
+  }
+
+  async function resolveAction(a){
+    const t = a && a.type;
+    if(t === 'mark_paid') return resolveMarkPaid(a, true);
+    if(t === 'mark_unpaid') return resolveMarkPaid(a, false);
+    if(t === 'create_order') return resolveCreateDoc(a, 'ordiniCliente');
+    if(t === 'create_quote') return resolveCreateDoc(a, 'preventivi');
+    return { desc: 'Azione non riconosciuta' + (t ? ': ' + esc(t) : ''), apply: null };
+  }
+
+  function actionSystemPrompt(){
+    return `Sei l'assistente operativo del gestionale di "${companyName}". Oggi è ${today()}. Converti l'istruzione dell'utente in un piano di azioni in JSON, e SOLO JSON (niente testo prima o dopo, niente backtick).
+Schema: {"explanation":"breve frase in italiano","actions":[...]}
+Tipi di azione supportati (nessun altro esiste, non inventarne):
+- {"type":"mark_paid","target":"fattureCliente"|"fattureFornitore","party":"<nome o null>","period":"AAAA-MM"|{"from":"AAAA-MM-GG","to":"AAAA-MM-GG"}|null}
+- {"type":"mark_unpaid", ...stessi campi di mark_paid}
+- {"type":"create_order","client":"<nome cliente esatto o simile a uno dell'elenco>","lines":[{"product":"<codice o descrizione prodotto>","qty":<numero>,"price":<prezzo unitario, opzionale>,"sconto":<"50" o "50+15", opzionale>}]}
+- {"type":"create_quote", ...stessi campi di create_order, più "note":"<nota opzionale>"}
+Regole:
+- target "fattureCliente" = vendite (verso i clienti), "fattureFornitore" = acquisti (dai fornitori). "pagate/incassate" = mark_paid, "da pagare/da incassare/non pagate" = mark_unpaid.
+- party: il nome così come lo dice l'utente; se non specifica nessuno lascia null (si applica a TUTTE le fatture di quel tipo — segnalo comunque, non è un errore).
+- period: un mese è "AAAA-MM" (es. aprile 2026 = "2026-04"); "questo mese" = il mese corrente; se non specificato lascia null.
+- Per ogni prodotto in "lines" metti in "product" il codice o la descrizione così come li dice l'utente — non inventare un codice che non è stato detto.
+- Se l'istruzione non corrisponde a nessuna di queste azioni (es. è una domanda, o chiede qualcosa che non sai fare — generare DDT/fatture da un ordine, creare fatture fornitore, cancellare documenti...), restituisci "actions":[] e spiega perché in "explanation".
+Data odierna: ${today()}.`;
+  }
+
+  function actionSetOut(html){ $('action-out').innerHTML = html; }
+
+  async function actionRun(){
+    const q = ($('action-q').value || '').trim();
+    if(!q) return;
+    if(!DB){ actionSetOut('<div class="ai-plan"><div class="ai-plan-expl">Sto ancora caricando i dati, riprova tra un istante.</div></div>'); return; }
+    $('action-go').disabled = true;
+    actionSetOut('<p class="ai-intro">Sto interpretando l\'istruzione…</p>');
+    try{
+      const reply = await store.aiComplete([
+        { role: 'system', content: actionSystemPrompt() },
+        { role: 'user', content: q },
+      ], { model: 'gemini-2.5-pro', maxTokens: 1200 });
+      const plan = window.SaasAiImport.parseAiJson(reply);
+      const acts = (plan && plan.actions) || [];
+      if(!acts.length){
+        actionSetOut(`<div class="ai-plan"><div class="ai-plan-expl">${esc((plan && plan.explanation) || 'Non ho individuato azioni eseguibili da questa istruzione.')}</div></div>`);
+        return;
+      }
+      ACTION_PLAN = await Promise.all(acts.map(resolveAction));
+      const mutating = ACTION_PLAN.some(r => r.apply);
+      const items = ACTION_PLAN.map(r => `<li>${r.desc}${r.apply ? '' : ' — <span class="ai-plan-warn">non eseguibile</span>'}</li>`).join('');
+      actionSetOut(`<div class="ai-plan">
+        <div class="ai-plan-expl">${esc((plan && plan.explanation) || 'Ecco cosa sto per fare:')}</div>
+        <ul class="ai-plan-list">${items}</ul>
+        ${mutating ? `<div class="ai-plan-actions">
+          <button type="button" class="ghost" id="action-cancel">Annulla</button>
+          <button type="button" class="primary" id="action-confirm">Conferma ed esegui</button>
+        </div>` : ''}
+      </div>`);
+      if(mutating){
+        $('action-cancel').addEventListener('click', () => actionSetOut(''));
+        $('action-confirm').addEventListener('click', actionExecute);
+      }
+    }catch(err){
+      actionSetOut(`<div class="ai-plan"><div class="ai-plan-expl">Non sono riuscito a interpretare l'istruzione: ${esc(err.message || err)}</div></div>`);
+    }finally{
+      $('action-go').disabled = false;
+    }
+  }
+
+  async function actionExecute(){
+    $('action-confirm').disabled = true;
+    $('action-confirm').textContent = '…';
+    const results = [];
+    for(const r of ACTION_PLAN){
+      if(!r.apply) continue;
+      try{ results.push(await r.apply()); }
+      catch(e){ results.push('Errore: ' + (e.message || e)); }
+    }
+    await loadDB(); // la chat e la ricerca mirata vedono subito i dati aggiornati
+    actionSetOut(`<div class="ai-plan done"><div class="ai-plan-expl">✓ Operazione completata</div>
+      <ul class="ai-plan-list">${results.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);
+    $('action-q').value = '';
+  }
+
+  $('action-go').addEventListener('click', actionRun);
+  $('action-q').addEventListener('keydown', e => {
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); actionRun(); }
+  });
+  document.querySelectorAll('[data-action-fill]').forEach(btn => btn.addEventListener('click', () => {
+    $('action-q').value = btn.textContent;
+    $('action-q').focus();
+  }));
+
   async function doLogout(){
     await store.signOut();
     localStorage.removeItem('saas_company_id');
@@ -332,18 +584,12 @@
     location.href = 'index.html';
   }
 
-  async function init(){
-    const session = await store.getSession();
-    if(!session){ location.href = 'index.html'; return; }
-    companyId = localStorage.getItem('saas_company_id');
-    if(!companyId){ location.href = 'index.html'; return; }
-    const companyName = localStorage.getItem('saas_company_nome') || 'Azienda';
-    window.SaasNav.render('assistente-ai', {
-      companyName,
-      email: session.user.email,
-      onLogout: doLogout,
-    });
-
+  // Ricarica tutte le collezioni e ricostruisce DB/SYSTEM_PROMPT — usata
+  // sia all'apertura (init) sia dopo aver eseguito un'azione mutante
+  // (actionExecute), così la chat e la ricerca mirata vedono subito i
+  // dati aggiornati senza bisogno di ricaricare la pagina.
+  let companyName = 'Azienda';
+  async function loadDB(){
     const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore, preventivi, ddt] = await Promise.all([
       store.loadCollection('clienti', companyId),
       store.loadCollection('fornitori', companyId),
@@ -364,7 +610,22 @@
     };
     const ctx = buildContext(DB);
     $('no-context').hidden = ctx.hasData;
-    SYSTEM_PROMPT = `Sei l'assistente del gestionale di "${companyName}", un'azienda che vende a farmacie e strutture sanitarie. Rispondi SEMPRE in italiano, in modo conciso e diretto. Usa SOLO i dati del riepilogo qui sotto: non inventare cifre e non citare clienti, fornitori o importi che non compaiono nel riepilogo. Se ti manca un dato per rispondere, dillo chiaramente invece di indovinare. Non puoi creare, modificare o eliminare nulla nel gestionale: se ti viene chiesto, spiega gentilmente che questa funzione non è ancora disponibile qui e che va fatta dalle pagine del gestionale.\n\nRiepilogo dei dati aziendali:\n${ctx.text}`;
+    SYSTEM_PROMPT = `Sei l'assistente del gestionale di "${companyName}", un'azienda che vende a farmacie e strutture sanitarie. Rispondi SEMPRE in italiano, in modo conciso e diretto. Usa SOLO i dati del riepilogo qui sotto: non inventare cifre e non citare clienti, fornitori o importi che non compaiono nel riepilogo. Se ti manca un dato per rispondere, dillo chiaramente invece di indovinare. In questa conversazione non puoi creare, modificare o eliminare nulla: per quello c'è la sezione "Esegui un'azione" più sotto nella stessa pagina, spiegalo se te lo chiedono.\n\nRiepilogo dei dati aziendali:\n${ctx.text}`;
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    companyName = localStorage.getItem('saas_company_nome') || 'Azienda';
+    window.SaasNav.render('assistente-ai', {
+      companyName,
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    await loadDB();
   }
   init();
 </script>

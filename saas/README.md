@@ -67,9 +67,11 @@ saas/
 - **Chiamate Stripe reali mai collaudate**: l'account non esiste ancora (Fase 5) —
   la logica di `stripe-checkout`/`stripe-webhook` è corretta per costruzione,
   verificata dove possibile senza Stripe vero, ma non ancora con un pagamento reale.
-- **Invio email reale mai collaudato**: stesso discorso per `send-email` (invio
-  ordini a fornitore, solleciti di pagamento) — l'account Resend non esiste
-  ancora, la funzione è corretta per costruzione ma non verificata con un invio vero.
+- **Invio email limitato alla modalità sandbox**: `send-email` (invio ordini a
+  fornitore, solleciti di pagamento) è distribuita e collaudata con un invio
+  reale, ma senza un dominio verificato su Resend può mandare email SOLO
+  all'indirizzo del titolare dell'account Resend, non a fornitori/clienti veri
+  (vedi sezione dedicata più sotto).
 
 Costruire solo le fondamenta prima, e verificarle bene, evita di dover rifare lo
 schema dati una volta che ci sono già clienti sopra.
@@ -1486,16 +1488,23 @@ un'azienda (stessa verifica di `ai-proxy`). `store.sendEmail(payload)`
   nell'originale) in un'unica email con tabella riepilogativa nel
   corpo — niente PDF allegato, stesso comportamento dell'originale.
 
-**Non ancora collaudata con un account Resend reale** (come
-`stripe-checkout`, Fase 5): non ne esisteva uno al momento di
-scriverla. Finché `RESEND_API_KEY` non è impostata come secret del
-progetto Supabase e la funzione non è distribuita
-(`supabase functions deploy send-email`), i pulsanti email restituiscono
-un errore "invio email non configurato sul server". Finché
-`RESEND_FROM` non è impostato su un dominio verificato su Resend, le
-email partono dal loro indirizzo sandbox (`onboarding@resend.dev`) —
-funziona per il collaudo, ma il destinatario vede quel mittente, non
-quello dell'azienda.
+**Distribuita e collaudata**: account Resend creato, `RESEND_API_KEY`
+impostata come secret del progetto Supabase, funzione distribuita
+(`supabase functions deploy send-email --use-api`), preflight CORS e
+rifiuto delle chiamate senza sessione verificati. Invio reale
+collaudato tramite l'API Resend (stesso payload che produce
+`send-email`): consegna confermata, `id` di ritorno
+`7f6cad30-9e93-42eb-8b75-622e0b914391`.
+
+**Limite temporaneo della modalità sandbox** (nessun dominio ancora
+verificato su Resend): le email partono dall'indirizzo sandbox
+(`onboarding@resend.dev`) e Resend le accetta **solo** se il
+destinatario è l'indirizzo con cui è stato creato l'account Resend
+stesso — verso qualunque altro destinatario (un fornitore o cliente
+vero) la chiamata viene rifiutata con 403. Per usarlo in produzione
+verso indirizzi reali serve verificare un dominio proprio su Resend
+(pannello Resend → Domains, un record DNS) e impostare `RESEND_FROM`
+su un indirizzo di quel dominio — unico passo ancora da fare.
 
 Nuovo `test114_invio_email.py` (come `test95_stampa_pdf.py`, non
 esercita il vero jsPDF/CDN: `window.SaasPrint.pdfBase64` viene
@@ -1506,17 +1515,17 @@ sostituito con una spia). Regressione completa (44 file) passata.
 Due filoni distinti, entrambi rimandati per scelta esplicita
 dell'azienda:
 
-1. **Stripe/SDI/Resend**: creare un account Stripe (gratuito, modalità test,
+1. **Stripe/SDI**: creare un account Stripe (gratuito, modalità test,
    nessuna verifica aziendale richiesta — stesso percorso già fatto con
-   Supabase), impostare `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` come
-   secret e collaudare per davvero checkout e webhook. In parallelo resta
+   Supabase e con Resend), impostare `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
+   come secret e collaudare per davvero checkout e webhook. In parallelo resta
    aperto l'invio reale della fatturazione elettronica (Fase 4): un
    account presso un provider SDI (Aruba o un altro), poi una nuova Edge
-   Function che prende l'XML già generato e lo trasmette. Stesso discorso
-   per **Resend** (invio email): account gratuito, `RESEND_API_KEY` come
-   secret, `supabase functions deploy send-email`, e — per email che non
-   arrivino dal dominio sandbox — un dominio verificato su Resend
-   (`RESEND_FROM`).
+   Function che prende l'XML già generato e lo trasmette. Per **Resend**
+   (invio email) resta solo la verifica di un dominio proprio (pannello
+   Resend → Domains + `RESEND_FROM`): senza quella si può mandare email
+   solo all'indirizzo del titolare dell'account Resend, non a
+   fornitori/clienti veri.
 2. **Un'app vera**, non solo un sito ottimizzato per telefono: la
    versione web (questa) resta comunque utile e usabile nel frattempo —
    ma un'app installabile (iOS/Android) è un progetto a sé, da pianificare

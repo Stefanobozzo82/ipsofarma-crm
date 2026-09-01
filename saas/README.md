@@ -1655,6 +1655,10 @@ subito, errore leggibile su un deposito con movimenti già registrati).
 `test87_prodotti_page.py` esteso con lo scenario B2 (colonna
 Giacenza). Regressione completa (44 file) passata.
 
+**Migrazione distribuita**: applicata su Supabase (progetto reale) via
+Management API — tabelle `depositi`/`movimenti_magazzino` e vista
+`giacenze` verificate presenti. Il modulo è operativo end-to-end.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

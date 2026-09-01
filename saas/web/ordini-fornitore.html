@@ -90,6 +90,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let editingOrder = null; // l'ordine in modifica, per non perdere qtyEv/emailSent al salvataggio (vedi f-save)
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -98,6 +99,17 @@
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+  // Stato di ricezione (qtyEv, aggiornato da fatture-fornitore.html quando
+  // una fattura viene collegata a questo ordine) — stesso schema del
+  // "Consegnato"/"Parziale" di ordini.html, qui per la merce ricevuta dal
+  // fornitore invece che consegnata al cliente.
+  function statoRicezione(o){
+    const righe = o.righe || [];
+    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
+    const ric = righe.reduce((s, r) => s + (r.qtyEv || 0), 0);
+    if(totQ === 0 || ric === 0) return null;
+    return ric >= totQ ? { label: '✓ Ricevuto', cls: 'ok' } : { label: `Parziale ${ric}/${totQ}`, cls: 'info' };
   }
 
   // ---- ordinamento colonne: come nel gestionale originale — un clic
@@ -233,6 +245,7 @@
 
   function openForm(ordine){
     editingId = ordine ? ordine.id : null;
+    editingOrder = ordine;
     $('form-title').textContent = ordine ? `Modifica ${ordine.num}` : 'Nuovo ordine';
     $('f-fornitore').value = ordine ? ordine.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
     $('f-data').value = ordine ? ordine.data : today();
@@ -242,7 +255,7 @@
     $('form-card').hidden = false;
     $('list-card').hidden = true;
   }
-  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingOrder = null; }
 
   // ---- invio ordine per email al fornitore -------------------------------
   // Stesso schema di openOFEmail/ofEmailSend in index.html, ma con la
@@ -376,7 +389,22 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { fornitoreId, data, righe };
+      // Stessa cautela di ordini.html/generaOF(): l'editor delle righe non
+      // conosce qtyEv (quanto già ricevuto, aggiornato da
+      // fatture-fornitore.html) — senza questo passaggio, salvare una
+      // modifica lo resetterebbe silenziosamente a "niente ricevuto".
+      let righeFinal = righe;
+      if(editingOrder){
+        const qtyEvByCod = {};
+        (editingOrder.righe || []).forEach(r => { if(r.qtyEv) (qtyEvByCod[r.cod] = qtyEvByCod[r.cod] || []).push(r.qtyEv); });
+        righeFinal = righe.map(r => {
+          const queue = qtyEvByCod[r.cod];
+          return (queue && queue.length) ? Object.assign({}, r, { qtyEv: Math.min(r.qty, queue.shift()) }) : r;
+        });
+      }
+      // Idem per ocId/emailSent (extra, non nel form): si parte
+      // dall'ordine esistente invece che da un oggetto vuoto.
+      const doc = editingOrder ? Object.assign({}, editingOrder, { fornitoreId, data, righe: righeFinal }) : { fornitoreId, data, righe: righeFinal };
       if(editingId){
         doc.id = editingId;
       } else {
@@ -423,7 +451,7 @@
       </tr></thead><tbody>${ordini.map(o => `
         <tr class="row-click" data-id="${o.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${o.id}" ${PICK.has(o.id) ? 'checked' : ''}></td>
-          <td class="num-col">${esc(o.num)}</td>
+          <td class="num-col">${esc(o.num)}${statoRicezione(o) ? ` <span class="badge ${statoRicezione(o).cls}">${statoRicezione(o).label}</span>` : ''}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((fornitoriById[o.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
           <td class="num-col">${eur(impTot(o.righe || []))}</td>

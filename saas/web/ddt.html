@@ -223,16 +223,26 @@
     $('f-dest').innerHTML = '<option value="">Sede legale</option>' +
       dest.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
   }
+  // Precompila le righe dal RESIDUO dell'ordine (quanto non ancora
+  // consegnato: qty - qtyEv), non dalle righe intere — un ordine può
+  // essere evaso in più DDT (cascata, vedi ordini.html/generaDDT()). Un
+  // ordine mai toccato dalla cascata ha qtyEv assente su ogni riga,
+  // equivalente a 0: il comportamento per un ordine "vergine" resta
+  // identico a prima (tutte le righe, per intero).
+  function precompileFromOrdine(ordine){
+    $('righe-body').innerHTML = '';
+    const righe = (ordine.righe || [])
+      .map(r => ({ cod:r.cod, descr:r.descr, qty: Math.max(0, (r.qty || 0) - (r.qtyEv || 0)) }))
+      .filter(r => r.qty > 0);
+    (righe.length ? righe : [null]).forEach(addRigaRow);
+  }
   $('f-cliente').addEventListener('change', () => { refreshOrdineOptions($('f-cliente').value); refreshDestOptions($('f-cliente').value); });
   $('f-ordine').addEventListener('change', () => {
-    // comodità: se non sono ancora state scritte righe, precompila da quelle
-    // dell'ordine selezionato (l'utente può comunque modificarle o svuotarle)
+    // comodità: se non sono ancora state scritte righe, precompila dal
+    // residuo dell'ordine selezionato (l'utente può comunque modificarle o svuotarle)
     const righeVuote = readRighe().length === 0;
     const ordine = allOrdiniById[$('f-ordine').value];
-    if(ordine && righeVuote){
-      $('righe-body').innerHTML = '';
-      (ordine.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty }));
-    }
+    if(ordine && righeVuote) precompileFromOrdine(ordine);
   });
 
   function openForm(ddt){
@@ -278,13 +288,32 @@
     setMsg('', '');
     try{
       const doc = { clienteId, ocId, destId, data, righe };
+      const isNew = !editingId;
       if(editingId){
         doc.id = editingId;
       } else {
         const anno = Number(data.slice(0, 4));
         doc.num = await store.nextNumber(companyId, 'DDT', anno);
       }
-      await store.saveDoc('ddt', doc, companyId);
+      const saved = await store.saveDoc('ddt', doc, companyId);
+      // Cascata: un DDT NUOVO collegato a un ordine scala il residuo
+      // dell'ordine (qtyEv) e ne registra il numero — solo alla
+      // creazione (vedi la nota in ordini.html sopra residuoRighe()).
+      // Un errore qui non deve far sembrare fallito il salvataggio del
+      // DDT, già andato a buon fine: al più l'ordine resta com'era.
+      if(isNew && ocId){
+        try{
+          const ordine = allOrdiniById[ocId];
+          if(ordine){
+            const nuoveRighe = (ordine.righe || []).map(r => {
+              const consegnata = righe.filter(x => x.cod === r.cod).reduce((s, x) => s + (x.qty || 0), 0);
+              return consegnata ? Object.assign({}, r, { qtyEv: Math.min(r.qty, (r.qtyEv || 0) + consegnata) }) : r;
+            });
+            const ddtIds = [...new Set([...(ordine.ddtIds || []), saved.num])];
+            await store.saveDoc('ordiniCliente', Object.assign({}, ordine, { righe: nuoveRighe, ddtIds, ddtId: saved.num }), companyId);
+          }
+        }catch(e){ /* il DDT è comunque salvato */ }
+      }
       closeForm();
       await renderList();
     }catch(err){
@@ -327,7 +356,9 @@
           <td>${esc((clientiById[d.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(d)}</td>
           <td>${d.ocId ? `<span class="badge">${esc((allOrdiniById[d.ocId] || {}).num || '?')}</span>` : '—'}</td>
           <td class="actions">${PICK.has(d.id) ? `
-            <button data-print="${d.id}" title="Stampa">🖨</button><button data-pdf="${d.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${d.id}">Modifica</button>
+            <button data-print="${d.id}" title="Stampa">🖨</button><button data-pdf="${d.id}" title="Scarica PDF">⬇ PDF</button>
+            ${!d.ftId ? `<button data-gen-ft="${d.id}" title="Genera la fattura da questo DDT">🧾 Fattura</button>` : ''}
+            <button data-edit="${d.id}">Modifica</button>
             <button class="danger" data-del="${d.id}">Elimina</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
@@ -365,6 +396,10 @@
       }finally{
         btn.disabled = false;
       }
+    }));
+    area.querySelectorAll('[data-gen-ft]').forEach(btn => btn.addEventListener('click', () => {
+      localStorage.setItem('saas_gen_ft_from_ddt', btn.dataset.genFt);
+      location.href = 'fatture.html';
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const d = elenco.find(x => x.id === btn.dataset.del);
@@ -413,6 +448,22 @@
     });
 
     await renderList();
+
+    // Cascata: apertura diretta da "📦 DDT" in ordini.html, con l'ordine
+    // già selezionato e le righe precompilate dal residuo.
+    const genFromOc = localStorage.getItem('saas_gen_ddt_from_oc');
+    if(genFromOc){
+      localStorage.removeItem('saas_gen_ddt_from_oc');
+      const ordine = allOrdiniById[genFromOc];
+      if(ordine){
+        openForm(null);
+        $('f-cliente').value = ordine.clienteId;
+        refreshOrdineOptions(ordine.clienteId);
+        refreshDestOptions(ordine.clienteId);
+        $('f-ordine').value = ordine.id;
+        precompileFromOrdine(ordine);
+      }
+    }
   }
   init();
 </script>

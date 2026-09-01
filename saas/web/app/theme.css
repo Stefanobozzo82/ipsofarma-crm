@@ -440,6 +440,12 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
    più il testo, su uno sfondo tenue della stessa tinta, mai un colore
    pieno che gridi più forte del necessario in una lista. */
 .badge{ font-size:11px; padding:2px 9px; border-radius:20px; background:var(--gray-s); border:none; color:var(--gray); font-family:var(--sans); font-weight:600; }
+/* Stato di evasione di un ordine (consegnato/ricevuto), vedi ordini.html e
+ * ordini-fornitore.html — .ok quando è tutto evaso, .info per un residuo
+ * parziale (il badge di default, grigio, resta per i riferimenti neutri
+ * come "quale ordine ha generato questo documento"). */
+.badge.ok{ background:var(--accent-soft); color:var(--accent-d); }
+.badge.info{ background:var(--blue-s); color:var(--blue); }
 .pill{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; border:none; cursor:pointer; font-family:var(--sans); }
 .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .pill.paid{ color:var(--accent-d); background:var(--accent-soft); }

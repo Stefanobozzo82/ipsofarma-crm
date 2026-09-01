@@ -1972,6 +1972,87 @@ completa (62 file) passata.
 Con questo si chiude l'intero piano di miglioramento IA (1→2→5→4→3)
 concordato con l'azienda.
 
+## Cascata ordine → DDT → fattura, e ordine → ordine fornitore
+
+Scoperta lavorando al punto 3 dell'IA: la cascata di generazione
+documento→documento del gestionale originale (`aiGenDDT()`/`aiGenFT()`/
+`genOFFromOC()`) non esisteva ancora come funzione di base del prodotto
+SaaS — `ordini.html` non aveva nemmeno i campi per tracciarla. Portata
+ora come pezzo a sé (pulsanti normali, non IA), su richiesta esplicita
+dell'azienda dopo aver segnalato la scoperta.
+
+**Nessuna migrazione richiesta**: ogni collection ha già una colonna
+"extra" (jsonb) per i campi non mappati esplicitamente (vedi
+`store.js`) — `ddtIds`/`ftIds`/`ofIds`/`ftId`/`ddtId`/`ofId`/`ocId` ci
+finiscono automaticamente, e `qtyEv` ("quantità evasa") vive dentro
+`righe`, già una colonna jsonb. Un ordine mai toccato dalla cascata ha
+questi campi assenti, equivalenti a "niente ancora evaso" — nessun
+impatto sui dati esistenti.
+
+**Come funziona**:
+- **Ordine → DDT** (`ordini.html`, pulsante "📦 DDT" su una riga
+  selezionata): calcola il residuo di ogni riga (`qty - qtyEv`) e apre
+  `ddt.html` con l'ordine già selezionato e le righe precompilate dal
+  residuo — tutto in un colpo solo (niente editor per-riga interattivo
+  come nell'originale: si può comunque modificare quantità/lotto prima
+  di salvare). Se non c'è nulla da consegnare, un avviso invece di
+  aprire un DDT vuoto.
+- **DDT → Fattura** (`ddt.html`, pulsante "🧾 Fattura", visibile solo
+  se il DDT non è già stato fatturato): apre `fatture.html` con
+  cliente/ordine/DDT/destinazione/righe già precompilati.
+- **Ordine → Ordine fornitore** (`ordini.html`, pulsante "🏭
+  Ord.forn."): raggruppa le righe non ancora coperte da un ordine
+  fornitore collegato, per fornitore abituale del prodotto (catalogo);
+  crea o aggiorna l'ordine fornitore necessario, usando il listino di
+  acquisto come prezzo (l'originale guarda l'ultimo prezzo pagato,
+  funzione non ancora portata nel SaaS). Idempotente: richiamarlo
+  quando è già tutto coperto non duplica nulla.
+- **Fattura fornitore → evasione**: salvare una fattura fornitore
+  collegata a un ordine fornitore (il campo "Ordine collegato" già
+  esisteva) segna come ricevute (`qtyEv`) le quantità fatturate —
+  porta semplificata di `markOFReceived()` (qui "fatturato" vale come
+  "ricevuto", nessun tracciamento separato arrivo/fattura).
+
+Badge di stato ("✓ Consegnato"/"Parziale X/Y" in `ordini.html`, "✓
+Ricevuto"/"Parziale X/Y" in `ordini-fornitore.html`, nuove classi
+`.badge.ok`/`.badge.info` in `theme.css`) e un riquadro "Documenti
+collegati" nel form di modifica di un ordine, con i numeri di
+DDT/fatture/ordini fornitore generati.
+
+**Semplificazione dichiarata**: `qtyEv`/`ddtIds`/`ftIds`/`ofIds` si
+aggiornano solo alla CREAZIONE del documento a valle — modificarlo o
+eliminarlo in seguito non li aggiusta retroattivamente (l'originale
+aveva `resyncOFInvoiced()` per questo, non portata). Per un uso
+normale (genera → eventualmente correggi un dettaglio, non cancelli
+un documento a monte) è sufficiente; un disallineamento vero si
+corregge comunque a mano modificando l'ordine.
+
+**Bug reale trovato e corretto durante questo lavoro**: l'editor delle
+righe di `ordini.html`/`ordini-fornitore.html` non conosceva `qtyEv` —
+salvare una modifica qualunque a un ordine già (parzialmente) evaso lo
+azzerava silenziosamente, con il rischio concreto di generare un DDT
+doppio sulla stessa merce già consegnata (o segnare due volte come
+ricevuto lo stesso arrivo). Stesso problema per `ddtIds`/`ftIds`/
+`ofIds`/`emailSent` (tutti nella colonna "extra": un salvataggio che
+non li include esplicitamente la svuota). Corretto in entrambi i
+salvataggi: si riparte dal documento esistente (non da un oggetto
+vuoto) e si abbina `qtyEv` per codice riga, non per indice — resiste a
+righe riordinate o aggiunte durante la modifica.
+
+Nuovo `test119_cascata_documenti.py` (9 scenari, con un mock che
+mantiene lo stato in `localStorage` — non in `window.*`, che si
+azzererebbe ad ogni cambio pagina — per riprodurre davvero la
+navigazione reale tra le pagine coinvolte nella cascata): genera DDT
+dal residuo pieno, "tutto già consegnato" quando non c'è nulla da
+evadere, **modificare l'ordine dopo aver generato un DDT non azzera
+qtyEv/ddtIds** (il bug corretto sopra), DDT→fattura con collegamento
+corretto, il pulsante "Genera fattura" sparisce una volta fatturato,
+ordine→ordine fornitore con raggruppamento per fornitore e prezzo dal
+listino d'acquisto, idempotenza, fattura fornitore collegata aggiorna
+`qtyEv` dell'ordine fornitore, **modificare l'ordine fornitore non
+azzera qtyEv** (stesso bug, sul lato fornitore), badge di stato
+corretti. Regressione completa (63 file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

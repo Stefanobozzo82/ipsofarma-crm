@@ -37,6 +37,7 @@
       </div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
+    <p class="msg info" id="oc-links" hidden></p>
 
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
@@ -89,6 +90,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let editingOrder = null; // l'ordine in modifica, per non perdere qtyEv al salvataggio (vedi f-save)
   let clientiById = {};
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
@@ -102,6 +104,106 @@
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cascata ordine → DDT/fattura/ordine fornitore — porta di aiGenDDT()/
+  // aiGenFT()/genOFFromOC() dal gestionale originale. Ogni riga di un
+  // ordine tiene qtyEv ("quantità evasa", consegnata via un DDT): un
+  // ordine mai toccato da questa funzione ha qtyEv assente, equivalente a
+  // 0 (nessun campo nuovo da aggiungere alla tabella — righe è già una
+  // colonna jsonb, e ddtIds/ftIds/ofIds finiscono nella colonna "extra"
+  // già prevista da ogni collection con hasExtra:true — vedi store.js).
+  // Semplificazione dichiarata: qtyEv/ddtIds/ftIds/ofIds si aggiornano
+  // solo alla CREAZIONE del documento a valle (un DDT nuovo, una fattura
+  // nuova) — modificarlo o eliminarlo in seguito non li aggiusta
+  // retroattivamente. Per un uso normale (genera → eventualmente correggi
+  // qualche dettaglio, non cancelli) è sufficiente; un disallineamento
+  // vero si corregge comunque a mano modificando l'ordine.
+  // ---------------------------------------------------------------------------
+  function residuoRighe(o){
+    return (o.righe || []).map(r => ({ ...r, consegnato: r.qtyEv || 0, residuo: Math.max(0, (r.qty || 0) - (r.qtyEv || 0)) }));
+  }
+  function statoConsegna(o){
+    const righe = residuoRighe(o);
+    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
+    const cons = righe.reduce((s, r) => s + r.consegnato, 0);
+    if(totQ === 0 || cons === 0) return null;
+    return cons >= totQ ? { label: '✓ Consegnato', cls: 'ok' } : { label: `Parziale ${cons}/${totQ}`, cls: 'info' };
+  }
+  function linksInfo(o){
+    if(!o) return '';
+    const parts = [];
+    if(o.ddtIds && o.ddtIds.length) parts.push('DDT: ' + o.ddtIds.join(', '));
+    if(o.ftIds && o.ftIds.length) parts.push('Fatture: ' + o.ftIds.join(', '));
+    if(o.ofIds && o.ofIds.length) parts.push('Ordini fornitore: ' + o.ofIds.join(', '));
+    return parts.join(' · ');
+  }
+
+  // Genera un DDT dal residuo dell'ordine (tutto quanto non ancora
+  // consegnato, in un colpo solo — il caso più comune): apre ddt.html con
+  // l'ordine già selezionato e le righe precompilate, pronte da rivedere
+  // (quantità, lotto, scadenza) prima di salvare — niente editor
+  // interattivo per-riga qui, per restare semplice.
+  async function generaDDT(o){
+    const residuo = residuoRighe(o).filter(r => r.residuo > 0);
+    if(!residuo.length){ alert('Tutto già consegnato per questo ordine.'); return; }
+    if(!confirm(`Genera un DDT con ${residuo.length} riga/e (il residuo non ancora consegnato dell'ordine ${o.num})? Potrai comunque modificare quantità e lotti prima di salvare.`)) return;
+    localStorage.setItem('saas_gen_ddt_from_oc', o.id);
+    location.href = 'ddt.html';
+  }
+
+  // Genera (o aggiorna) uno o più ordini fornitore per procurarsi quanto
+  // serve a soddisfare l'ordine — porta di genOFFromOC() dal gestionale
+  // originale: raggruppa le righe non ancora coperte da un ordine
+  // fornitore già collegato, per fornitore abituale del prodotto
+  // (catalogo). A differenza dell'originale non guarda l'ultimo prezzo di
+  // acquisto pagato (funzione non ancora portata nel SaaS): usa il
+  // listino di acquisto del prodotto.
+  async function generaOF(o){
+    const ofNums = o.ofIds && o.ofIds.length ? o.ofIds : (o.ofId ? [o.ofId] : []);
+    let existingOFs = [];
+    if(ofNums.length){
+      const tutti = await store.loadCollection('ordiniFornitore', companyId);
+      existingOFs = tutti.filter(of => ofNums.includes(of.num));
+    }
+    const covered = new Set();
+    existingOFs.forEach(of => (of.righe || []).forEach(r => covered.add(r.cod)));
+    const missing = (o.righe || []).filter(r => r.cod && !covered.has(r.cod));
+    if(!missing.length){ alert('Tutti gli articoli dell\'ordine sono già su un ordine fornitore collegato.'); return; }
+    const trovati = await Promise.all(missing.map(r => store.searchProdotti(companyId, r.cod, 5).catch(() => [])));
+    const groups = new Map();
+    const senzaFornitore = [];
+    missing.forEach((r, i) => {
+      const prod = (trovati[i] || []).find(p => (p.cod || '').toLowerCase() === r.cod.toLowerCase());
+      const fid = prod && prod.fornitoreId;
+      if(!fid){ senzaFornitore.push(r.cod); return; } // prodotto senza fornitore assegnato nel catalogo: non possiamo indovinare a chi ordinarlo
+      const line = { cod: r.cod, descr: r.descr, qty: r.qty, prezzo: prod.listinoAcq || 0, sconto: '', iva: prod.iva || r.iva || 22 };
+      if(!groups.has(fid)) groups.set(fid, []);
+      groups.get(fid).push(line);
+    });
+    if(!groups.size){ alert('Nessuno dei prodotti mancanti ha un fornitore assegnato nel catalogo: assegnalo in Prodotti, poi riprova.'); return; }
+    const created = [], updated = [];
+    const anno = Number(today().slice(0, 4));
+    for(const [fid, righeNuove] of groups){
+      const target = existingOFs.find(of => of.fornitoreId === fid);
+      if(target){
+        const saved = await store.saveDoc('ordiniFornitore', Object.assign({}, target, { righe: [...(target.righe || []), ...righeNuove] }), companyId);
+        updated.push(saved);
+      } else {
+        const num = await store.nextNumber(companyId, 'OF', anno);
+        const saved = await store.saveDoc('ordiniFornitore', { num, data: today(), fornitoreId: fid, righe: righeNuove, ocId: o.num }, companyId);
+        created.push(saved);
+      }
+    }
+    const newOfIds = [...new Set([...ofNums, ...created.map(x => x.num)])];
+    await store.saveDoc('ordiniCliente', Object.assign({}, o, { ofIds: newOfIds, ofId: newOfIds[newOfIds.length - 1] }), companyId);
+    const parts = [];
+    if(created.length) parts.push(created.length + ' ordine/i fornitore creato/i: ' + created.map(x => x.num).join(', '));
+    if(updated.length) parts.push(updated.length + ' aggiornato/i con i nuovi articoli: ' + updated.map(x => x.num).join(', '));
+    if(senzaFornitore.length) parts.push('senza fornitore a catalogo (non ordinati): ' + senzaFornitore.join(', '));
+    alert(parts.join(' · '));
+    await renderList();
   }
 
   // ---- ordinamento colonne: come nel gestionale originale — un clic
@@ -236,16 +338,20 @@
   // ---- form apri/chiudi ---------------------------------------------------
   function openForm(ordine){
     editingId = ordine ? ordine.id : null;
+    editingOrder = ordine;
     $('form-title').textContent = ordine ? `Modifica ${ordine.num}` : 'Nuovo ordine';
     $('f-cliente').value = ordine ? ordine.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
     $('f-data').value = ordine ? ordine.data : today();
     $('righe-body').innerHTML = '';
     (ordine ? ordine.righe : [null]).forEach(addRigaRow);
+    const links = linksInfo(ordine);
+    $('oc-links').hidden = !links;
+    if(links) $('oc-links').textContent = 'Documenti collegati — ' + links;
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
   }
-  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingOrder = null; }
   $('new-ordine').addEventListener('click', async () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
     const lim = await store.checkDocLimit(companyId);
@@ -326,7 +432,26 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { clienteId, data, righe };
+      // L'editor delle righe non conosce qtyEv (quanto già consegnato via
+      // la cascata, vedi residuoRighe() sopra): senza questo passaggio,
+      // salvare una modifica a un ordine parzialmente evaso lo
+      // resetterebbe silenziosamente a "niente consegnato", con il
+      // rischio concreto di generare un DDT doppio sulla stessa merce.
+      // Abbinamento per codice (in coda, se un codice compare più volte)
+      // invece che per indice: resiste a righe riordinate o aggiunte.
+      let righeFinal = righe;
+      if(editingOrder){
+        const qtyEvByCod = {};
+        (editingOrder.righe || []).forEach(r => { if(r.qtyEv) (qtyEvByCod[r.cod] = qtyEvByCod[r.cod] || []).push(r.qtyEv); });
+        righeFinal = righe.map(r => {
+          const queue = qtyEvByCod[r.cod];
+          return (queue && queue.length) ? Object.assign({}, r, { qtyEv: Math.min(r.qty, queue.shift()) }) : r;
+        });
+      }
+      // Idem per ddtIds/ftIds/ofIds/ddtId/ftId/ofId (extra, non nel form):
+      // si parte dall'ordine esistente invece che da un oggetto vuoto, o
+      // il salvataggio li azzererebbe allo stesso modo.
+      const doc = editingOrder ? Object.assign({}, editingOrder, { clienteId, data, righe: righeFinal }) : { clienteId, data, righe: righeFinal };
       if(editingId){
         doc.id = editingId; // il numero di un ordine esistente non cambia
       } else {
@@ -376,14 +501,17 @@
       </tr></thead><tbody>${ordini.map(o => `
         <tr class="row-click" data-id="${o.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${o.id}" ${PICK.has(o.id) ? 'checked' : ''}></td>
-          <td class="num-col">${esc(o.num)}</td>
+          <td class="num-col">${esc(o.num)}${statoConsegna(o) ? ` <span class="badge ${statoConsegna(o).cls}">${statoConsegna(o).label}</span>` : ''}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
           <td class="num-col">${eur(impTot(o.righe || []))}</td>
           <td class="num-col">${eur(ivaTot(o.righe || []))}</td>
           <td class="num-col">${eur(docTotale(o.righe || []))}</td>
           <td class="actions">${PICK.has(o.id) ? `
-            <button data-print="${o.id}" title="Stampa">🖨</button><button data-pdf="${o.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${o.id}">Modifica</button>
+            <button data-print="${o.id}" title="Stampa">🖨</button><button data-pdf="${o.id}" title="Scarica PDF">⬇ PDF</button>
+            <button data-gen-ddt="${o.id}" title="Genera un DDT dal residuo non ancora consegnato">📦 DDT</button>
+            <button data-gen-of="${o.id}" title="Genera un ordine fornitore per procurarsi la merce">🏭 Ord.forn.</button>
+            <button data-edit="${o.id}">Modifica</button>
             <button class="danger" data-del="${o.id}">Elimina</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
@@ -421,6 +549,15 @@
       }finally{
         btn.disabled = false;
       }
+    }));
+    area.querySelectorAll('[data-gen-ddt]').forEach(btn => btn.addEventListener('click', () => {
+      generaDDT(ordini.find(x => x.id === btn.dataset.genDdt));
+    }));
+    area.querySelectorAll('[data-gen-of]').forEach(btn => btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try{ await generaOF(ordini.find(x => x.id === btn.dataset.genOf)); }
+      catch(err){ alert('Errore durante la generazione dell\'ordine fornitore: ' + (err.message || err)); }
+      finally{ btn.disabled = false; }
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const o = ordini.find(x => x.id === btn.dataset.del);

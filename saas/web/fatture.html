@@ -326,6 +326,7 @@
     setMsg('', '');
     try{
       const doc = { clienteId, ocId, ddtId, destId, data, righe };
+      const isNew = !editingId;
       if(editingId){
         doc.id = editingId; // numero e stato di incasso restano quelli esistenti
       } else {
@@ -333,7 +334,25 @@
         doc.num = await store.nextNumber(companyId, 'FT', anno);
         doc.paid = false; doc.paidDate = null; doc.pagamenti = [];
       }
-      await store.saveDoc('fattureCliente', doc, companyId);
+      const saved = await store.saveDoc('fattureCliente', doc, companyId);
+      // Cascata: una fattura NUOVA collegata a un DDT lo marca fatturato
+      // (ftId), e se il DDT viene a sua volta da un ordine ne aggiorna
+      // anche l'elenco fatture (best-effort — un errore qui non deve far
+      // sembrare fallito il salvataggio della fattura, già andato a buon
+      // fine, vedi la stessa nota in ddt.html).
+      if(isNew && ddtId){
+        try{
+          const ddt = allDdtById[ddtId];
+          if(ddt) await store.saveDoc('ddt', Object.assign({}, ddt, { ftId: saved.num }), companyId);
+          if(ocId){
+            const ordine = allOrdiniById[ocId];
+            if(ordine){
+              const ftIds = [...new Set([...(ordine.ftIds || []), saved.num])];
+              await store.saveDoc('ordiniCliente', Object.assign({}, ordine, { ftIds, ftId: saved.num }), companyId);
+            }
+          }
+        }catch(e){ /* la fattura è comunque salvata */ }
+      }
       closeForm();
       await renderList();
     }catch(err){
@@ -658,6 +677,24 @@
     });
 
     await renderList();
+
+    // Cascata: apertura diretta da "🧾 Fattura" in ddt.html, con cliente/
+    // ordine/DDT/destinazione già selezionati e le righe precompilate.
+    const genFromDdt = localStorage.getItem('saas_gen_ft_from_ddt');
+    if(genFromDdt){
+      localStorage.removeItem('saas_gen_ft_from_ddt');
+      const ddt = allDdtById[genFromDdt];
+      if(ddt){
+        openForm(null);
+        $('f-cliente').value = ddt.clienteId;
+        refreshLinkedOptions(ddt.clienteId);
+        refreshDestOptions(ddt.clienteId);
+        $('f-ordine').value = ddt.ocId || '';
+        $('f-dest').value = ddt.destId || '';
+        $('f-ddt').value = ddt.id;
+        $('f-ddt').dispatchEvent(new Event('change')); // precompila le righe dal DDT
+      }
+    }
   }
   init();
 </script>

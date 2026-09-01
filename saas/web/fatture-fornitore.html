@@ -369,12 +369,32 @@
     setMsg('', '');
     try{
       const doc = { fornitoreId, ofId, num, data, righe };
+      const isNew = !editingId;
       if(editingId){
         doc.id = editingId; // lo stato di pagamento resta quello esistente
       } else {
         doc.paid = false; doc.paidDate = null; doc.pagamenti = [];
       }
       await store.saveDoc('fattureFornitore', doc, companyId);
+      // Cascata: una fattura NUOVA collegata a un ordine fornitore segna
+      // come ricevute (qtyEv) le quantità fatturate — porta di
+      // markOFReceived() dal gestionale originale, semplificata: qui
+      // "fatturato" vale come "ricevuto" (nessun tracciamento separato
+      // arrivo/fattura), e solo alla creazione (stessa nota di ddt.html/
+      // fatture.html: un errore qui non fa sembrare fallito il salvataggio
+      // della fattura, già andato a buon fine).
+      if(isNew && ofId){
+        try{
+          const of = (ordiniPerFornitore[fornitoreId] || []).find(x => x.id === ofId);
+          if(of){
+            const nuoveRighe = (of.righe || []).map(r => {
+              const fatturata = righe.filter(x => x.cod === r.cod).reduce((s, x) => s + (x.qty || 0), 0);
+              return fatturata ? Object.assign({}, r, { qtyEv: Math.min(r.qty, (r.qtyEv || 0) + fatturata) }) : r;
+            });
+            await store.saveDoc('ordiniFornitore', Object.assign({}, of, { righe: nuoveRighe }), companyId);
+          }
+        }catch(e){ /* la fattura è comunque salvata */ }
+      }
       closeForm();
       await renderList();
     }catch(err){

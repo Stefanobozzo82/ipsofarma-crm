@@ -1510,6 +1510,42 @@ Nuovo `test114_invio_email.py` (come `test95_stampa_pdf.py`, non
 esercita il vero jsPDF/CDN: `window.SaasPrint.pdfBase64` viene
 sostituito con una spia). Regressione completa (44 file) passata.
 
+### Mittente per azienda cliente — necessario prima di vendere il SaaS a terzi
+
+Domanda dell'utente: con un solo `RESEND_API_KEY`/`RESEND_FROM` condivisi
+da TUTTO il SaaS, un secondo cliente (non Ipsofarma) manderebbe email
+comunque "a nome" del primo — non accettabile appena c'è più di
+un'azienda cliente.
+
+Soluzione scelta (la stessa che usa la maggior parte dei gestionali in
+cloud, non uno degli altri due possibili approcci — un dominio Resend
+per azienda o l'account email personale del cliente via OAuth — perché
+entrambi richiederebbero a ogni farmacia cliente lavoro tecnico che non
+sa fare): **un mittente unico di piattaforma, con nome mostrato e
+"Rispondi a" personalizzati sull'azienda che scrive**. `send-email`
+accetta ora `fromName` (nome dell'azienda) e `replyTo` (la sua email,
+da `companies.settings.email`): il destinatario vede "Farmacia Rossi
+(tramite `PLATFORM_NAME`) `<mittente-piattaforma>`" come mittente, e se
+risponde la mail arriva davvero alla farmacia, non alla piattaforma.
+`PLATFORM_NAME` è un secret a sé (non "Ipsofarma": quella è solo la
+prima azienda cliente, non il nome del prodotto — vedi la sezione sul
+nome più sotto) così cambia in un punto solo quando si sceglie un nome
+definitivo. Nessuna configurazione richiesta ai clienti: funziona per
+chiunque si iscriva, senza che debbano creare un account Resend o
+verificare un dominio proprio.
+
+`ordini-fornitore.html`/`scadenziario.html` passano già `fromName:
+company.nome, replyTo: company.settings.email` a ogni chiamata di
+`store.sendEmail()`. Un'azienda che ha già un proprio dominio potrà in
+futuro verificarlo separatamente su Resend (un account Resend può avere
+più domini) e passare a un from dedicato per lei sola — non ancora
+costruito, perché nessun cliente reale lo ha ancora chiesto.
+
+`test114_invio_email.py` esteso per verificare `fromName`/`replyTo` nel
+payload (compreso il caso senza `settings.email`: `replyTo` resta
+assente invece di rompere l'invio). Regressione completa (44 file)
+passata. Funzione ridistribuita.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -208,7 +208,8 @@
           <th style="text-align:right;padding:6px 10px;border-bottom:2px solid #333">Importo</th>
         </tr></thead><tbody>${rowsHtml}</tbody></table>
         <p style="text-align:right;font-weight:700">Totale: ${eur(totRaw)}</p>`;
-      await store.sendEmail({ to, subject: su, html });
+      // fromName/replyTo: vedi la stessa nota in ordini-fornitore.html.
+      await store.sendEmail({ to, subject: su, html, fromName: company.nome, replyTo: (company.settings || {}).email });
       setEmailMsg('Sollecito inviato a ' + to + '.', 'ok');
     }catch(err){
       setEmailMsg(err.message || 'Invio non riuscito.', 'error');

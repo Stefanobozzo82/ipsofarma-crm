@@ -280,7 +280,11 @@
     try{
       const pdfB64 = await window.SaasPrint.pdfBase64('ordiniFornitore', emailingItem, fornitoriById[emailingItem.fornitoreId], company);
       const filename = 'Ordine_' + String(emailingItem.num).replace(/\//g, '-') + '.pdf';
-      await store.sendEmail({ to, subject: su, html: '<pre style="font:inherit;white-space:pre-wrap">' + esc(bodyText) + '</pre>', attachmentBase64: pdfB64, attachmentFilename: filename });
+      // fromName/replyTo: il mittente resta unico per tutto il SaaS (un
+      // solo account Resend), ma il destinatario vede il nome di QUESTA
+      // azienda come mittente e, se risponde, la mail arriva a lei — non
+      // alla piattaforma. Vedi la nota in send-email/index.ts.
+      await store.sendEmail({ to, subject: su, html: '<pre style="font:inherit;white-space:pre-wrap">' + esc(bodyText) + '</pre>', attachmentBase64: pdfB64, attachmentFilename: filename, fromName: company.nome, replyTo: (company.settings || {}).email });
       // Traccia l'invio in "extra" (ordiniFornitore ha hasExtra:true, non
       // serve nessuna nuova colonna) — così l'elenco può mostrare "inviato",
       // come emailSent nel gestionale originale.

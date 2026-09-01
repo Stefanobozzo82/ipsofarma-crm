@@ -11,12 +11,25 @@
 // server: il browser non la vede mai, e ogni chiamata richiede una sessione
 // utente autenticata appartenente ad almeno un'azienda.
 //
-// NOTA IMPORTANTE PER CHI RIPRENDE QUESTO LAVORO: come stripe-checkout, non
-// ancora collaudata con un account Resend reale — non ne esisteva uno al
-// momento di scriverla. Finché RESEND_FROM non è impostato su un dominio
-// verificato dall'azienda su Resend, le email partono dal loro indirizzo
-// sandbox (onboarding@resend.dev) — funziona per il collaudo, ma un
-// destinatario vede quel mittente, non quello dell'azienda.
+// Distribuita e collaudata con un invio reale (vedi README). Resta in
+// modalità sandbox finché RESEND_FROM non punta a un dominio verificato:
+// fino ad allora Resend accetta solo invii verso l'indirizzo del titolare
+// dell'account.
+//
+// Un solo RESEND_API_KEY/RESEND_FROM per TUTTO il SaaS, non uno per
+// azienda cliente: sarebbe scomodo chiedere a ogni farmacia cliente di
+// crearsi un account Resend e verificare un proprio dominio solo per
+// mandare un ordine a un fornitore. La soluzione qui è quella che usa la
+// maggior parte dei gestionali in cloud: un mittente unico della
+// piattaforma, ma con nome visualizzato e "Rispondi a" personalizzati
+// sull'azienda che sta scrivendo (fromName/replyTo nel corpo, letti dal
+// chiamante da companies.nome/companies.settings.email) — il destinatario
+// vede "Farmacia Rossi (tramite Ipsofarma) <notifiche@dominio>" come
+// mittente, e se risponde la mail arriva davvero alla farmacia Rossi, non
+// alla piattaforma. Un'azienda che ha già un proprio dominio potrà in
+// futuro verificarlo separatamente su Resend (un account Resend può
+// avere più domini) e passare a un from dedicato — non ancora costruito,
+// perché nessun cliente reale ne ha bisogno oggi.
 // ============================================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -42,6 +55,15 @@ interface SendEmailBody {
   html?: string;
   attachmentBase64?: string;
   attachmentFilename?: string;
+  fromName?: string;   // nome dell'azienda cliente da mostrare come mittente
+  replyTo?: string;    // email dell'azienda cliente: le risposte arrivano a lei, non alla piattaforma
+}
+
+// Un nome mittente finisce dentro l'header "From: NOME <indirizzo>" —
+// niente virgolette o ritorni a capo, altrimenti si potrebbe spezzare
+// l'header o iniettarne altri.
+function sanitizeHeaderName(s: string): string {
+  return s.replace(/[\r\n"<>]/g, '').trim().slice(0, 120);
 }
 
 Deno.serve(async (req: Request) => {
@@ -84,7 +106,7 @@ Deno.serve(async (req: Request) => {
   if (!resendKey) {
     return json({ error: 'invio email non configurato sul server' }, 500);
   }
-  const from = Deno.env.get('RESEND_FROM') || 'onboarding@resend.dev';
+  const fromAddress = Deno.env.get('RESEND_FROM') || 'onboarding@resend.dev';
 
   let body: SendEmailBody;
   try {
@@ -100,7 +122,19 @@ Deno.serve(async (req: Request) => {
   if (!subject) return json({ error: 'oggetto mancante' }, 400);
   if (!html) return json({ error: 'corpo del messaggio mancante' }, 400);
 
+  // "Farmacia Rossi (tramite <PLATFORM_NAME>) <notifiche@dominio>" invece
+  // del solo indirizzo nudo — vedi la nota in testa al file. Il nome della
+  // piattaforma è un secret/env a sé (non "Ipsofarma": quella è solo LA
+  // PRIMA azienda cliente, non il nome del prodotto SaaS) così cambia in
+  // un punto solo il giorno in cui si sceglie un nome definitivo. Senza
+  // fromName il comportamento resta quello di prima (solo l'indirizzo).
+  const platformName = Deno.env.get('PLATFORM_NAME') || 'il gestionale';
+  const fromName = body.fromName ? sanitizeHeaderName(body.fromName) : '';
+  const from = fromName ? `${fromName} (tramite ${platformName}) <${fromAddress}>` : fromAddress;
+
   const payload: Record<string, unknown> = { from, to: [to], subject, html };
+  const replyTo = (body.replyTo || '').trim();
+  if (replyTo && replyTo.indexOf('@') > 0) payload.reply_to = replyTo;
   if (body.attachmentBase64 && body.attachmentFilename) {
     payload.attachments = [{ filename: body.attachmentFilename, content: body.attachmentBase64 }];
   }

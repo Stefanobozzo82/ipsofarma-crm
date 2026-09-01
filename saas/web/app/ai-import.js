@@ -77,7 +77,15 @@
   }
 
   // Punto d'ingresso unico: file -> immagini -> chiamata AI -> JSON.
-  // opts: { systemPrompt, instr, maxTokens }
+  // opts: { systemPrompt, instr, maxTokens, model }
+  //
+  // Punto 4 del piano di miglioramento IA: modello più capace di proposito
+  // ('gemini-2.5-pro', non l'economico 'gemini-2.5-flash' usato per la
+  // chat di assistente-ai.html) — qui un carattere letto male in un codice,
+  // un prezzo o una data finisce dritto in un documento contabile, con
+  // conseguenze economiche reali; nella chat sola-lettura un'imprecisione
+  // nella risposta non scrive nulla. Resta sovrascrivibile da chi chiama
+  // (nessun modulo lo fa oggi, ma non deve essere un vicolo cieco).
   async function extractFromFile(store, file, opts) {
     opts = opts || {};
     const images = await fileToImages(file, 4);
@@ -85,7 +93,7 @@
     const reply = await store.aiComplete([
       { role: 'system', content: opts.systemPrompt || "Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick." },
       { role: 'user', content },
-    ], { maxTokens: opts.maxTokens || 4000 });
+    ], { maxTokens: opts.maxTokens || 4000, model: opts.model || 'gemini-2.5-pro' });
     return parseAiJson(reply);
   }
 

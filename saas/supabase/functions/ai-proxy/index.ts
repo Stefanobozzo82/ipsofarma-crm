@@ -93,11 +93,24 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'chiave IA non configurata sul server' }, 500);
   }
 
-  let body: unknown;
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return json({ error: 'corpo della richiesta non valido (JSON atteso)' }, 400);
+  }
+
+  // Punto 4 del piano di miglioramento IA: il client sceglie il modello
+  // (store.aiComplete({model}) — 'gemini-2.5-flash' per la chat,
+  // 'gemini-2.5-pro' per leggere un allegato, dove un errore di lettura ha
+  // conseguenze economiche reali), ma qui, lato server, un elenco chiuso:
+  // un valore non previsto (bug del client, o richiesta forgiata a mano
+  // con la sessione di un utente vero) non deve poter far girare la chiave
+  // condivisa su un modello arbitrario — ricade sul default economico
+  // invece di essere passato a Gemini così com'è.
+  const ALLOWED_MODELS = new Set(['gemini-2.5-flash', 'gemini-2.5-pro']);
+  if (typeof body.model !== 'string' || !ALLOWED_MODELS.has(body.model)) {
+    body.model = 'gemini-2.5-flash';
   }
 
   let upstream: Response;

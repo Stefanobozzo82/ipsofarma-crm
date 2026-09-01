@@ -1883,6 +1883,36 @@ completato, non trovato — con un piccolo catalogo finto) e in
 conferma che ognuna chiama davvero `crossCheckRighe()`). Regressione
 completa passata.
 
+## IA — piano di miglioramento, punto 4: modello più accurato per l'estrazione
+
+**Punto 4**: `ai-proxy` (l'unica Edge Function che parla con Gemini,
+vedi Fase 3) girava sempre con `gemini-2.5-flash` — economico e
+veloce, adatto alla chat sola-lettura di `assistente-ai.html` (una
+domanda mal interpretata non scrive nulla), ma lo stesso modello
+veniva usato anche per leggere un allegato: lì un carattere letto male
+in un codice, un prezzo o una data finisce dritto in un documento
+contabile, con conseguenze economiche reali.
+
+`extractFromFile()` in `app/ai-import.js` (il punto d'ingresso unico
+usato dai 4 moduli con import da allegato) ora chiede esplicitamente
+`gemini-2.5-pro` — più accurato, a costo di essere più lento e più
+caro, un compromesso che ha senso solo quando conta la precisione più
+della velocità. La chat di `assistente-ai.html` non passa un modello
+esplicito e resta quindi su `gemini-2.5-flash`, invariata.
+
+`ai-proxy` non si fida ciecamente del modello richiesto dal client: un
+elenco chiuso lato server (`gemini-2.5-flash`/`gemini-2.5-pro`) — un
+valore imprevisto (bug del client, o richiesta forgiata a mano con la
+sessione di un utente vero) ricade sul default economico invece di
+girare la chiave condivisa su un modello arbitrario. Ridistribuita
+(versione 11), verificata viva con una chiamata senza autenticazione
+(401 atteso, a conferma che il deploy non ha rotto nulla — collaudo
+end-to-end con una lettura vera già coperto in Fase 3).
+
+Nuova asserzione in `test101_importa_ai.py`/`test117_importa_ai_estesa.py`:
+la chiamata a `store.aiComplete()` durante un import porta sempre
+`opts.model === 'gemini-2.5-pro'`. Regressione completa passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

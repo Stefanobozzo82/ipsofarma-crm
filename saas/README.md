@@ -1546,6 +1546,58 @@ payload (compreso il caso senza `settings.email`: `replyTo` resta
 assente invece di rompere l'invio). Regressione completa (44 file)
 passata. Funzione ridistribuita.
 
+## Solleciti automatici — non serve più aprire Scadenziario ogni volta
+
+Dal confronto con Fatture in Cloud (che li ha nei piani alti): manda da
+solo un promemoria di pagamento ai clienti con fatture scadute da
+almeno N giorni, invece di richiedere il clic manuale su "Invia
+sollecito" ogni volta.
+
+Nuova Edge Function `solleciti-automatici`, strutturalmente diversa
+dalle altre (`ai-proxy`/`send-email`/`stripe-checkout`): non la chiama
+un utente loggato per la propria azienda, la chiama un job schedulato
+una volta al giorno per TUTTE le aziende che hanno attivato l'opzione —
+quindi usa `SUPABASE_SERVICE_ROLE_KEY` (bypassa la RLS) invece della
+sessione del chiamante, ed è protetta da un segreto a sé
+(`CRON_SECRET`, header `X-Cron-Secret`) invece che da un controllo di
+sessione.
+
+- Aritmetica (`payTot`/`ncCreditoFor`/`payState`/`dueDate`) portata 1:1
+  da `scadenziario.html` — verificata a parte con uno script Node
+  prima di scrivere il Deno (10 casi limite, tutti passati), visto che
+  in questo ambiente non è disponibile un runtime Deno per un test
+  diretto.
+- Ogni fattura riceve **al massimo un sollecito automatico**: appena
+  inviato si segna `extra.sollecitoAutoInviato` (colonna `extra` già
+  esistente su `fatture_cliente` — nessuna migrazione) e non viene più
+  riconsiderata. Il sollecito manuale da Scadenziario resta comunque
+  disponibile in ogni momento, i due percorsi non si escludono.
+- Supporta `{"dryRun": true}`: calcola tutto senza mandare email né
+  scrivere `extra` — usato per collaudare contro dati veri senza
+  rischiare di disturbare clienti reali.
+- Nuovi campi in Impostazioni azienda (`impostazioni-azienda.html`):
+  interruttore "Attiva i solleciti automatici" e "Giorni di ritardo
+  prima dell'invio" (default 7), dentro `companies.settings` — **spento
+  di proposito per tutte le aziende, Ipsofarma compresa**, finché non
+  lo si attiva esplicitamente. Attivarlo senza un'email azienda
+  compilata (serve per "Rispondi a") blocca il salvataggio con un
+  messaggio chiaro invece di fallire in silenzio.
+
+**Distribuita e collaudata quanto si può senza toccare dati reali**:
+`CRON_SECRET` impostato come secret, funzione distribuita, verificato
+che rifiuta le chiamate senza il segreto giusto (401) e che un
+`dryRun` contro il progetto reale risponde correttamente
+(`companiesChecked: 0`, coerente: nessuna azienda ha ancora attivato
+l'opzione). **Manca il job schedulato** che la richiama ogni giorno da
+sola (`pg_cron`/`pg_net` sul database) — un'altra scrittura diretta sul
+database di produzione, quindi in attesa della stessa autorizzazione
+esplicita già data per la migrazione degli inviti.
+
+Nuovi test: `verify_solleciti_logic.mjs` (Node, arithmetic) e
+`test91_impostazioni_azienda.py` esteso con gli scenari F/G/H
+(default spento, blocco senza email, salvataggio corretto).
+Regressione completa (43 file Playwright) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

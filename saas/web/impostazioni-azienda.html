@@ -87,6 +87,13 @@
           <div><label for="f-iban">IBAN</label><input id="f-iban" type="text"></div>
         </div>
 
+        <div class="form-sec">Solleciti automatici</div>
+        <p class="ai-intro" style="margin:0 0 12px">Manda da solo un promemoria di pagamento ai clienti con fatture scadute, senza bisogno di aprire lo Scadenziario e cliccare "Invia sollecito" ogni volta. Un controllo gira una volta al giorno; ogni fattura riceve al massimo un sollecito automatico (puoi sempre mandarne uno a mano in più da Scadenziario).</p>
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--txt);margin:0"><input id="f-sol-auto" type="checkbox" style="width:auto"> Attiva i solleciti automatici</label>
+        <div class="grid2" style="margin-top:10px">
+          <div><label for="f-sol-giorni">Giorni di ritardo prima dell'invio</label><input id="f-sol-giorni" type="number" min="1" step="1" value="7"></div>
+        </div>
+
         <div class="form-actions">
           <button class="primary" id="f-save">Salva</button>
         </div>
@@ -228,6 +235,8 @@
     $('f-email').value = set.email || '';
     $('f-web').value = set.web || '';
     $('f-iban').value = set.iban || '';
+    $('f-sol-auto').checked = !!set.solleciti_auto;
+    $('f-sol-giorni').value = set.solleciti_giorni || 7;
   }
 
   $('f-save').addEventListener('click', async () => {
@@ -248,8 +257,14 @@
       settings: {
         tel: $('f-tel').value.trim(), email: $('f-email').value.trim(),
         web: $('f-web').value.trim(), iban: $('f-iban').value.trim(),
+        solleciti_auto: $('f-sol-auto').checked,
+        solleciti_giorni: Math.max(1, parseInt($('f-sol-giorni').value, 10) || 7),
       },
     };
+    if(patch.settings.solleciti_auto && !patch.settings.email){
+      setMsg('Per attivare i solleciti automatici serve un\'email azienda (per "Rispondi a") — compilala qui sopra.', 'error');
+      return;
+    }
     $('f-save').disabled = true;
     setMsg('', '');
     try{

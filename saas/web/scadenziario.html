@@ -14,8 +14,12 @@
 
   Semplificato rispetto all'originale, di proposito: qui è un unico
   elenco piatto, non un raggruppamento per cliente con vista di dettaglio
-  al clic; niente ancora "invia sollecito" via email (serve un provider
-  email configurato, non ancora fatto) né esportazione Excel.
+  al clic; niente ancora esportazione Excel.
+
+  "Invia sollecito" (via send-email, Fase 6 ter) compare solo sulle righe
+  scadute (r.overdue): clic → raccoglie TUTTE le fatture scadute dello
+  stesso cliente (non solo quella riga) in un'unica email, come
+  openSollecito() nel gestionale originale.
 -->
 <script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
@@ -29,9 +33,25 @@
       <p class="sub">Tutte le fatture clienti non incassate, ordinate per data di scadenza.</p>
     </div>
 
+    <div class="card" id="email-card" hidden>
+      <button type="button" class="linklike back-link" id="em-back">← Torna all'elenco</button>
+      <h3 id="email-title">Sollecito pagamento</h3>
+      <div><label for="em-to">Destinatario (email cliente)</label><input id="em-to" placeholder="email@cliente.it"></div>
+      <div><label for="em-su">Oggetto</label><input id="em-su"></div>
+      <div><label for="em-body">Messaggio introduttivo</label><textarea id="em-body" rows="4" style="width:100%;resize:vertical"></textarea></div>
+      <p>L'email include automaticamente questa tabella:</p>
+      <div class="table-scroll"><table id="em-preview"><thead><tr><th>Fattura</th><th>Emessa</th><th>Scadenza</th><th style="text-align:right">Importo</th></tr></thead><tbody></tbody></table></div>
+      <p id="em-tot" style="text-align:right;margin:8px 4px;font-weight:700"></p>
+      <div class="form-actions">
+        <button class="primary" id="em-send">✉ Invia sollecito</button>
+        <button class="ghost" id="em-cancel">Annulla</button>
+      </div>
+      <div class="msg" id="email-msg" hidden></div>
+    </div>
+
     <div class="stats" id="stats-riga" style="grid-template-columns:repeat(3,1fr)"></div>
 
-    <div class="card">
+    <div class="card" id="list-card">
       <div class="toolbar"><h3>Elenco</h3></div>
       <div id="list-area"><p class="empty">Carico…</p></div>
     </div>
@@ -51,6 +71,7 @@
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
   let companyId = null;
+  let company = {}; // dati azienda, per l'oggetto dell'email di sollecito
   let SORT = { key: 'scadenza', dir: 'asc' };
   let righe = [];
   let fattureCache = []; // usata da ncCreditoFor() per la cascata su note di credito multi-fattura
@@ -138,6 +159,64 @@
     renderList();
   }
 
+  // ---- sollecito di pagamento via email, come openSollecito()/gsSendSollecito()
+  // nel gestionale originale, ma tramite l'Edge Function send-email (Fase 6
+  // ter) invece dello script Google Apps Script per-azienda dell'originale:
+  // qui l'email è già una tabella HTML, niente PDF allegato (stesso comportamento
+  // dell'originale per il sollecito).
+  let sollecitoRighe = [];
+  function openSollecito(clienteId){
+    sollecitoRighe = righe.filter(r => r.clienteId === clienteId && r.overdue);
+    if(sollecitoRighe.length === 0) return;
+    const nome = sollecitoRighe[0].cliente;
+    const to = sollecitoRighe[0].clienteEmail || '';
+    const totRaw = sollecitoRighe.reduce((s, r) => s + r.residuo, 0);
+    $('email-title').textContent = 'Sollecito pagamento — ' + nome;
+    $('em-to').value = to;
+    $('em-su').value = `Sollecito pagamento — ${company.nome || ''}`;
+    $('em-body').value = `Gentile ${nome},\n\nRisultano scadute e non ancora saldate le seguenti fatture:`;
+    $('em-preview').querySelector('tbody').innerHTML = sollecitoRighe.map(r => `<tr><td>${esc(r.num)} <span class="pill unpaid" style="font-size:9px">SCADUTA</span></td><td>${new Date(r.data).toLocaleDateString('it-IT')}</td><td>${new Date(r.scadenza).toLocaleDateString('it-IT')}</td><td style="text-align:right"><b>${eur(r.residuo)}</b></td></tr>`).join('');
+    $('em-tot').textContent = 'Totale: ' + eur(totRaw);
+    $('email-msg').hidden = true;
+    $('email-card').hidden = false;
+    $('list-card').hidden = true;
+  }
+  function closeSollecito(){ $('email-card').hidden = true; $('list-card').hidden = false; sollecitoRighe = []; }
+  $('em-back').addEventListener('click', closeSollecito);
+  $('em-cancel').addEventListener('click', closeSollecito);
+  function setEmailMsg(text, kind){
+    const el = $('email-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+  $('em-send').addEventListener('click', async () => {
+    if(sollecitoRighe.length === 0) return;
+    const to = $('em-to').value.trim();
+    const su = $('em-su').value || '';
+    const intro = $('em-body').value || '';
+    if(!to || to.indexOf('@') < 0){ setEmailMsg('Inserisci un\'email valida.', 'error'); return; }
+    $('em-send').disabled = true;
+    setEmailMsg('', '');
+    try{
+      const rowsHtml = sollecitoRighe.map(r => `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">${esc(r.num)}</td><td style="padding:6px 10px;border-bottom:1px solid #eee">${new Date(r.data).toLocaleDateString('it-IT')}</td><td style="padding:6px 10px;border-bottom:1px solid #eee">${new Date(r.scadenza).toLocaleDateString('it-IT')}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right"><b>${eur(r.residuo)}</b></td></tr>`).join('');
+      const totRaw = sollecitoRighe.reduce((s, r) => s + r.residuo, 0);
+      const html = `<p style="white-space:pre-wrap">${esc(intro)}</p>
+        <table style="border-collapse:collapse;width:100%"><thead><tr>
+          <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #333">Fattura</th>
+          <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #333">Emessa</th>
+          <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #333">Scadenza</th>
+          <th style="text-align:right;padding:6px 10px;border-bottom:2px solid #333">Importo</th>
+        </tr></thead><tbody>${rowsHtml}</tbody></table>
+        <p style="text-align:right;font-weight:700">Totale: ${eur(totRaw)}</p>`;
+      await store.sendEmail({ to, subject: su, html });
+      setEmailMsg('Sollecito inviato a ' + to + '.', 'ok');
+    }catch(err){
+      setEmailMsg(err.message || 'Invio non riuscito.', 'error');
+    }finally{
+      $('em-send').disabled = false;
+    }
+  });
+
   function statoBadge(r){
     if(r.overdue) return `<span class="pill unpaid">scaduta da ${Math.abs(r.days)} gg</span>`;
     if(r.days <= 7) return `<span class="pill unpaid">scade tra ${r.days} gg</span>`;
@@ -164,7 +243,7 @@
     }
     const rows = [...righe].sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        ${th('num','Fattura')}${th('cliente','Cliente')}${th('data','Emessa')}${th('scadenza','Scadenza')}${th('residuo','Residuo')}<th>Stato</th>
+        ${th('num','Fattura')}${th('cliente','Cliente')}${th('data','Emessa')}${th('scadenza','Scadenza')}${th('residuo','Residuo')}<th>Stato</th><th></th>
       </tr></thead><tbody>${rows.map(r => `
         <tr>
           <td class="num-col">${esc(r.num)}</td>
@@ -173,9 +252,11 @@
           <td>${r.scadenza ? new Date(r.scadenza).toLocaleDateString('it-IT') : '—'}</td>
           <td class="num-col">${eur(r.residuo)}</td>
           <td>${statoBadge(r)}</td>
+          <td class="actions">${r.overdue && r.clienteId ? `<button data-sollecito="${r.clienteId}" title="Invia sollecito di pagamento">✉ Sollecito</button>` : ''}</td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'scadenziario-elenco');
     area.querySelectorAll('[data-sort]').forEach(t => t.addEventListener('click', () => setSort(t.dataset.sort)));
+    area.querySelectorAll('[data-sollecito]').forEach(btn => btn.addEventListener('click', () => openSollecito(btn.dataset.sollecito)));
   }
 
   async function doLogout(){
@@ -190,6 +271,7 @@
     if(!session){ location.href = 'index.html'; return; }
     companyId = localStorage.getItem('saas_company_id');
     if(!companyId){ location.href = 'index.html'; return; }
+    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; }
     window.SaasNav.render('scadenziario', {
       companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
       email: session.user.email,
@@ -220,7 +302,8 @@
       const days = Math.round((new Date(scadenza) - new Date(oggi)) / 86400000);
       righe.push({
         num: f.num, data: f.data, scadenza, residuo: ps.residuo,
-        cliente: (cliente || {}).nome || '(cliente non trovato)',
+        clienteId: f.clienteId, cliente: (cliente || {}).nome || '(cliente non trovato)',
+        clienteEmail: (cliente || {}).email || '',
         overdue: scadenza < oggi, days: Math.abs(days),
       });
     });

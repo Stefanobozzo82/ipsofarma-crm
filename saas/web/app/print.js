@@ -182,10 +182,11 @@
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   }
 
-  // Genera e scarica il PDF, con lo stesso template HTML della stampa —
-  // così il file scaricato è sempre identico a quanto si vede stampando,
-  // senza mantenere due layout paralleli.
-  async function downloadPDF(coll, it, party, company) {
+  // Genera il documento jsPDF (usato sia per il download sia per l'allegato
+  // email) — fattorizzato fuori da downloadPDF perché entrambi i casi devono
+  // produrre esattamente lo stesso file, solo con destinazione diversa
+  // (salvataggio locale vs allegato a un'email).
+  async function renderToJsPDF(coll, it, party, company) {
     const JsPDF = await loadJsPDF();
     await loadHtml2Canvas();
     const wrap = document.createElement('div');
@@ -206,11 +207,27 @@
           callback: () => resolve(),
         }).catch(reject);
       });
-      doc.save(String(it.num).replace(/\//g, '-') + '.pdf');
+      return doc;
     } finally {
       wrap.remove();
     }
   }
 
-  global.SaasPrint = { buildPrintHTML, openPrintWindow, downloadPDF };
+  // Genera e scarica il PDF, con lo stesso template HTML della stampa —
+  // così il file scaricato è sempre identico a quanto si vede stampando,
+  // senza mantenere due layout paralleli.
+  async function downloadPDF(coll, it, party, company) {
+    const doc = await renderToJsPDF(coll, it, party, company);
+    doc.save(String(it.num).replace(/\//g, '-') + '.pdf');
+  }
+
+  // Stesso PDF di downloadPDF, ma come stringa base64 pronta per un allegato
+  // email (send-email/index.ts, via store.sendEmail) invece che salvata sul
+  // disco dell'utente.
+  async function pdfBase64(coll, it, party, company) {
+    const doc = await renderToJsPDF(coll, it, party, company);
+    return doc.output('datauristring').split(',')[1];
+  }
+
+  global.SaasPrint = { buildPrintHTML, openPrintWindow, downloadPDF, pdfBase64 };
 })(window);

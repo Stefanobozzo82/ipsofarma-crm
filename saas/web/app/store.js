@@ -253,6 +253,26 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Invio email (ordine a fornitore, sollecito pagamento a cliente...).
+  // Stesso principio di startCheckout()/aiComplete(): il client non parla
+  // mai direttamente col provider email (Resend) né vede la sua chiave,
+  // passa sempre dall'Edge Function send-email — dove la chiave vive come
+  // secret del progetto.
+  // ---------------------------------------------------------------------------
+  async function sendEmail(payload) {
+    const session = await getSession();
+    if (!session) throw new Error('devi essere collegato');
+    const res = await fetch(global.SUPABASE_URL + '/functions/v1/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ('errore HTTP ' + res.status));
+    return data;
+  }
+
+  // ---------------------------------------------------------------------------
   // Assistente AI (Fase 6). Stesso principio di startCheckout(): il client
   // non parla mai direttamente col provider IA né vede la sua chiave, passa
   // sempre dall'Edge Function ai-proxy (Fase 3) — dove la chiave Gemini vive
@@ -364,6 +384,6 @@
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit,
-    listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember,
+    listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
   };
 })(window);

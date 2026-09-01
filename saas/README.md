@@ -67,6 +67,9 @@ saas/
 - **Chiamate Stripe reali mai collaudate**: l'account non esiste ancora (Fase 5) —
   la logica di `stripe-checkout`/`stripe-webhook` è corretta per costruzione,
   verificata dove possibile senza Stripe vero, ma non ancora con un pagamento reale.
+- **Invio email reale mai collaudato**: stesso discorso per `send-email` (invio
+  ordini a fornitore, solleciti di pagamento) — l'account Resend non esiste
+  ancora, la funzione è corretta per costruzione ma non verificata con un invio vero.
 
 Costruire solo le fondamenta prima, e verificarle bene, evita di dover rifare lo
 schema dati una volta che ci sono già clienti sopra.
@@ -924,8 +927,8 @@ lista originale ha oggi un equivalente funzionante in questo prodotto.
   di doverlo ricalcolare in ognuna delle altre pagine.
   Semplificato rispetto all'originale, di proposito: un unico elenco
   piatto invece di un raggruppamento per cliente con vista di dettaglio,
-  niente ancora "invia sollecito" via email (serve un provider email
-  configurato) né esportazione Excel.
+  niente ancora esportazione Excel. "Invia sollecito" via email c'è
+  (vedi sezione dedicata più sotto).
 - [x] **Impostazioni azienda** (`impostazioni-azienda.html`) — modifica
   l'anagrafica dell'azienda (ragione sociale, P.IVA/CF, PEC, codice
   destinatario SDI, indirizzo, telefono/email/sito/IBAN) da interfaccia:
@@ -1449,18 +1452,71 @@ Management API — tabella `invites` e le 4 funzioni (`create_invite`,
 `invite_preview`, `accept_invite`, `list_members`) verificate presenti
 e funzionanti. Il flusso è operativo end-to-end.
 
+## Invio email — ordini a fornitore e solleciti di pagamento
+
+Richiesto dall'utente: nel gestionale originale esistevano "invia ordine
+per email" (da `ordini-fornitore.html`) e "invia sollecito" per le
+fatture cliente scadute (dallo Scadenziario), entrambi passando da uno
+script Google Apps Script il cui URL è salvato per-azienda in
+Impostazioni. Un espediente ragionevole per un gestionale a singolo
+tenant, ma scomodo da chiedere a un cliente del SaaS (dovrebbe crearsi e
+collegare un proprio script Google) — non era mai stato portato qui, di
+proposito, per lo stesso motivo già scritto per l'import Google Sheet e
+il monitoraggio Gmail.
+
+Costruito invece con lo stesso principio di `ai-proxy`/`stripe-checkout`
+(Fase 3/5): una nuova Edge Function `send-email` condivisa da tutte le
+aziende del SaaS, dove la chiave del provider (**Resend**) vive SOLO
+come secret del server — il browser non la vede mai — e ogni chiamata
+richiede una sessione utente autenticata appartenente ad almeno
+un'azienda (stessa verifica di `ai-proxy`). `store.sendEmail(payload)`
+è il nuovo punto di passaggio lato client.
+
+- `ordini-fornitore.html` — pulsante "✉ Email" per riga (visibile solo
+  con la spunta, come le altre azioni), apre una card dedicata
+  precompilata (destinatario = email fornitore, oggetto, messaggio
+  modificabile), genera il PDF dell'ordine con `SaasPrint.pdfBase64()`
+  (stesso template di stampa, fattorizzato da `downloadPDF()`) e lo
+  allega. L'invio riuscito è tracciato in `extra.emailSent` (colonna
+  già esistente, `ordiniFornitore` ha `hasExtra:true` — nessuna nuova
+  migrazione necessaria).
+- `scadenziario.html` — pulsante "✉ Sollecito" compare solo sulle righe
+  scadute; un clic raccoglie TUTTE le fatture scadute dello stesso
+  cliente (non solo quella riga, come `openSollecito()`
+  nell'originale) in un'unica email con tabella riepilogativa nel
+  corpo — niente PDF allegato, stesso comportamento dell'originale.
+
+**Non ancora collaudata con un account Resend reale** (come
+`stripe-checkout`, Fase 5): non ne esisteva uno al momento di
+scriverla. Finché `RESEND_API_KEY` non è impostata come secret del
+progetto Supabase e la funzione non è distribuita
+(`supabase functions deploy send-email`), i pulsanti email restituiscono
+un errore "invio email non configurato sul server". Finché
+`RESEND_FROM` non è impostato su un dominio verificato su Resend, le
+email partono dal loro indirizzo sandbox (`onboarding@resend.dev`) —
+funziona per il collaudo, ma il destinatario vede quel mittente, non
+quello dell'azienda.
+
+Nuovo `test114_invio_email.py` (come `test95_stampa_pdf.py`, non
+esercita il vero jsPDF/CDN: `window.SaasPrint.pdfBase64` viene
+sostituito con una spia). Regressione completa (44 file) passata.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita
 dell'azienda:
 
-1. **Stripe/SDI**: creare un account Stripe (gratuito, modalità test,
+1. **Stripe/SDI/Resend**: creare un account Stripe (gratuito, modalità test,
    nessuna verifica aziendale richiesta — stesso percorso già fatto con
    Supabase), impostare `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` come
    secret e collaudare per davvero checkout e webhook. In parallelo resta
    aperto l'invio reale della fatturazione elettronica (Fase 4): un
    account presso un provider SDI (Aruba o un altro), poi una nuova Edge
-   Function che prende l'XML già generato e lo trasmette.
+   Function che prende l'XML già generato e lo trasmette. Stesso discorso
+   per **Resend** (invio email): account gratuito, `RESEND_API_KEY` come
+   secret, `supabase functions deploy send-email`, e — per email che non
+   arrivino dal dominio sandbox — un dominio verificato su Resend
+   (`RESEND_FROM`).
 2. **Un'app vera**, non solo un sito ottimizzato per telefono: la
    versione web (questa) resta comunque utile e usabile nel frattempo —
    ma un'app installabile (iOS/Android) è un progetto a sé, da pianificare

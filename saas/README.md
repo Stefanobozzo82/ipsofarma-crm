@@ -1214,7 +1214,7 @@ la scelta (aggiunge sempre una riga nuova), il campo "Codice" di una riga
 invece resta con il codice scelto (è lui il campo che si salva). Collaudato
 con un nuovo `test106_autocomplete_riga.py`.
 
-## "Importa da PDF (AI)" restituiva sempre un errore — bug reale, non ancora distribuito
+## "Importa da PDF (AI)" restituiva sempre un errore — risolto e distribuito
 
 Segnalato dall'utente: prova a importare una fattura in PDF, l'AI
 restituisce un errore. Causa trovata leggendo il codice delle due Edge
@@ -1240,15 +1240,14 @@ premesse il pulsante contro Supabase reale.
 
 Corretto in `ai-proxy/index.ts` e `stripe-checkout/index.ts`: header CORS
 su ogni risposta, `OPTIONS` gestito esplicitamente prima del controllo
-"solo POST". **Il codice è corretto e committato, ma non ancora
-distribuito**: una Edge Function non si aggiorna con un push su GitHub
-(quello aggiorna solo le pagine statiche via GitHub Pages) — serve un
-deploy separato su Supabase (`supabase functions deploy ai-proxy` /
-`stripe-checkout`), che richiede un Personal Access Token della
-Management API di Supabase (diverso dalla service_role key usata per il
-riallineamento dati: quella dà accesso ai dati del progetto, questo dà
-accesso a deploy/gestione del progetto stesso) — non ancora fornito a
-questa sessione, va concordato con l'utente prima di procedere.
+"solo POST". Distribuito su Supabase con un Personal Access Token della
+Management API fornito dall'utente per questa sola operazione
+(`supabase functions deploy ai-proxy` / `stripe-checkout --use-api`),
+usato solo per il deploy e non salvato in nessun file del repository.
+Verificato con una vera richiesta `OPTIONS` contro l'endpoint in
+produzione: risponde `204` con gli header CORS corretti (prima di questo
+fix non rispondeva affatto — `405`, bloccato dal browser prima ancora di
+arrivare qui).
 
 ## Colonne Imponibile e IVA negli elenchi documento
 

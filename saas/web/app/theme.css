@@ -51,7 +51,12 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
    da gestire — più semplice, sempre utilizzabile.
 --------------------------------------------------------------------------- */
 .app-shell{ display:flex; min-height:100vh; }
-.app-main{ flex:1; min-width:0; padding:32px 28px 60px; max-width:1200px; margin:0 auto; width:100%; }
+/* 1200px andava bene per i form (clienti, ordini...) ma soffocava gli
+ * elenchi con più colonne (fatture fornitore ha filtri, numero, data,
+ * fornitore, totale, pagamento, azioni) su schermi larghi — tanto spazio
+ * vuoto a destra invece di più colonne leggibili senza scorrimento
+ * orizzontale. 1600px lascia comunque un margine su monitor ultra-wide. */
+.app-main{ flex:1; min-width:0; padding:32px 28px 60px; max-width:1600px; margin:0 auto; width:100%; }
 
 .sidebar{
   width:var(--sidebar-w); flex:0 0 auto;
@@ -218,8 +223,8 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 /* Barra dei filtri (fornitore, stato, intervallo date) sopra un elenco
  * documenti — porta diretta della .filterbar del gestionale originale. */
 .filterbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
-.filterbar select, .filterbar input[type=date]{ font-size:12.5px; padding:7px 10px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--txt); font-family:inherit; box-shadow:var(--sh); }
-.filterbar .fdate-group{ display:flex; gap:8px; flex-wrap:nowrap; }
+.filterbar select, .filterbar input[type=date]{ width:auto; font-size:12.5px; padding:7px 10px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--txt); font-family:inherit; box-shadow:var(--sh); }
+.filterbar .fdate-group{ display:flex; gap:8px; flex-wrap:nowrap; align-items:center; }
 .filterbar .fdate{ display:flex; align-items:center; gap:6px; font-size:11px; text-transform:uppercase; letter-spacing:.3px; color:var(--faint); font-weight:700; }
 .filterbar .ffclear{ font-size:12px; padding:7px 12px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--muted); cursor:pointer; font-weight:600; font-family:inherit; }
 .filterbar .ffclear:hover{ background:var(--surface2); color:var(--txt); }

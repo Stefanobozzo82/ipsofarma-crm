@@ -145,6 +145,10 @@
   function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
   function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
   function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
+  // Imponibile e IVA come colonne a sé nell'elenco, come nel gestionale
+  // originale (non solo il Totale già scontato/con IVA inclusa).
+  function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
+  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
@@ -158,6 +162,8 @@
     if(key === 'num') return p.num || '';
     if(key === 'data') return p.data || '';
     if(key === 'cliente') return (clientiById[p.clienteId] || {}).nome || '';
+    if(key === 'imponibile') return impTot(p.righe || []);
+    if(key === 'iva') return ivaTot(p.righe || []);
     if(key === 'totale') return docTotale(p.righe || []);
     if(key === 'stato') return p.ocId ? 1 : 0;
     return '';
@@ -275,12 +281,14 @@
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('totale','Totale')}${th('stato','Stato')}<th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('stato','Stato')}<th></th>
       </tr></thead><tbody>${elenco.map(p => `
         <tr class="row-click" data-id="${p.id}">
           <td class="num-col">${esc(p.num)}</td>
           <td>${p.data ? new Date(p.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[p.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
+          <td class="num-col">${eur(impTot(p.righe || []))}</td>
+          <td class="num-col">${eur(ivaTot(p.righe || []))}</td>
           <td class="num-col">${eur(docTotale(p.righe || []))}</td>
           <td>${p.ocId ? '<span class="pill paid">convertito</span>' : '<span class="pill unpaid">aperto</span>'}</td>
           <td class="actions">

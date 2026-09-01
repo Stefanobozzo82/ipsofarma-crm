@@ -104,6 +104,8 @@
     if(key === 'data') return n.data || '';
     if(key === 'cliente') return (clientiById[n.clienteId] || {}).nome || '';
     if(key === 'fattura') return n.fatturaId ? fatturaNumById(n.clienteId, n.fatturaId) : '';
+    if(key === 'imponibile') return impTot(n.righe || []);
+    if(key === 'iva') return ivaTot(n.righe || []);
     if(key === 'importo') return docTotale(n.righe || []);
     return '';
   }
@@ -183,6 +185,10 @@
   function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
   function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
   function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
+  // Imponibile e IVA come colonne a sé nell'elenco, come nel gestionale
+  // originale (non solo l'Importo già scontato/con IVA inclusa).
+  function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
+  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
@@ -270,13 +276,15 @@
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('fattura','Fattura')}${th('importo','Importo')}<th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('fattura','Fattura')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('importo','Importo')}<th></th>
       </tr></thead><tbody>${elenco.map(n => `
         <tr class="row-click" data-id="${n.id}">
           <td class="num-col">${esc(n.num)}</td>
           <td>${n.data ? new Date(n.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[n.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
           <td>${n.fatturaId ? esc(fatturaNumById(n.clienteId, n.fatturaId)) : '—'}</td>
+          <td class="num-col">${eur(impTot(n.righe))}</td>
+          <td class="num-col">${eur(ivaTot(n.righe))}</td>
           <td class="num-col">${eur(docTotale(n.righe))}</td>
           <td class="actions">
             <button data-print="${n.id}" title="Stampa">🖨</button><button data-pdf="${n.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${n.id}">Modifica</button>

@@ -120,6 +120,8 @@
     if(key === 'num') return f.num || '';
     if(key === 'data') return f.data || '';
     if(key === 'cliente') return (clientiById[f.clienteId] || {}).nome || '';
+    if(key === 'imponibile') return impTot(f.righe || []);
+    if(key === 'iva') return ivaTot(f.righe || []);
     if(key === 'totale') return docTotale(f.righe || []);
     if(key === 'incasso') return f.paid ? 1 : 0;
     return '';
@@ -200,6 +202,10 @@
   function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
   function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
   function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
+  // Imponibile e IVA come colonne a sé nell'elenco, come nel gestionale
+  // originale (non solo il Totale già scontato/con IVA inclusa).
+  function impTot(righe){ return (righe || []).reduce((s, r) => s + lineNet(r), 0); }
+  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + lineNet(r) * (r.iva || 0) / 100, 0); }
   function scEff(s){ return +(((1 - scFactor(s)) * 100).toFixed(2)); }
   function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
@@ -490,13 +496,15 @@
 
     area.innerHTML = bulkHtml + `<div class="table-scroll"><table><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
-        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('totale','Totale')}${th('incasso','Incasso')}<th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('incasso','Incasso')}<th></th>
       </tr></thead><tbody>${elenco.map(f => `
         <tr class="row-click" data-id="${f.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(f.num)}</td>
           <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[f.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(f)}</td>
+          <td class="num-col">${eur(impTot(f.righe))}</td>
+          <td class="num-col">${eur(ivaTot(f.righe))}</td>
           <td class="num-col">${eur(docTotale(f.righe))}</td>
           <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('incassata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da incassare'}</button></td>
           <td class="actions">

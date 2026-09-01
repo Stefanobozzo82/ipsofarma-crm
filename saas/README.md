@@ -1250,6 +1250,21 @@ riallineamento dati: quella dà accesso ai dati del progetto, questo dà
 accesso a deploy/gestione del progetto stesso) — non ancora fornito a
 questa sessione, va concordato con l'utente prima di procedere.
 
+## Colonne Imponibile e IVA negli elenchi documento
+
+Richiesto dall'utente: nel gestionale originale ogni elenco documento
+mostra Imponibile e IVA come colonne a sé (non solo il Totale, che le
+somma già insieme). Aggiunte a tutti gli elenchi con righe prezzate:
+`ordini.html`, `fatture.html`, `preventivi.html`, `note-credito.html`,
+`ordini-fornitore.html`, `fatture-fornitore.html`,
+`note-credito-fornitore.html` — ordinabili come le altre colonne.
+`ddt.html` escluso di proposito: le sue righe non hanno mai avuto
+prezzo/sconto/IVA in questo prodotto (un DDT è solo quantità, non un
+documento prezzato — coerente con come li tratta anche l'originale in
+stampa), quindi non c'è nulla da mostrare finché quei campi non vengono
+aggiunti anche lì: un lavoro a sé, più ampio di una semplice colonna in
+più, non fatto qui.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

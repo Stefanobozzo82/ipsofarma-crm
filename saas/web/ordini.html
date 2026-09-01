@@ -175,7 +175,7 @@
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
     return `<tr>
-      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
+      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
       <td style="width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
@@ -285,19 +285,23 @@
       if(match) $('f-cliente').value = match.id;
       $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
       $('righe-body').innerHTML = '';
-      const righe = Array.isArray(p.righe) ? p.righe : [];
-      (righe.length ? righe : [null]).forEach(r => addRigaRow(r ? {
+      const righeGrezze = (Array.isArray(p.righe) ? p.righe : []).map(r => ({
         cod: String(r.cod || '').trim(), descr: String(r.descr || '').trim(),
         qty: Math.max(1, parseInt(r.qty) || 1),
         prezzo: r.prezzo != null && r.prezzo !== '' ? parseFloat(r.prezzo) || 0 : 0,
         sconto: String(r.sconto || '').replace(/\s/g, ''),
         iva: r.iva != null && r.iva !== '' ? parseFloat(r.iva) : 22,
-      } : null));
+      }));
+      // Punto 5: verifica incrociata col catalogo prima di mostrare le righe.
+      const righe = await window.SaasAiImport.crossCheckRighe(store, companyId, righeGrezze);
+      (righe.length ? righe : [null]).forEach(addRigaRow);
+      const daVerificare = righe.filter(r => r.catalogMatch === 'unmatched').length;
       aiImportStatus(
-        match
-          ? `Letto con l'AI: cliente riconosciuto come "${match.nome}". Controlla i dati prima di salvare.`
-          : `Letto con l'AI, ma nessun cliente corrisponde a "${p.cliente || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Clienti).`,
-        match ? 'ok' : 'error'
+        (match
+          ? `Letto con l'AI: cliente riconosciuto come "${match.nome}".`
+          : `Letto con l'AI, ma nessun cliente corrisponde a "${p.cliente || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Clienti).`)
+        + (daVerificare ? ` ${daVerificare} riga/e non trovate a catalogo, da controllare.` : ' Righe verificate col catalogo.'),
+        match && !daVerificare ? 'ok' : (match ? 'info' : 'error')
       );
     }catch(err){
       aiImportStatus('Lettura non riuscita: ' + (err.message || err), 'error');

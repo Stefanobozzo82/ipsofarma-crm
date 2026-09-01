@@ -1842,6 +1842,47 @@ esatto allega il dettaglio riga per riga di quel documento. Regressione
 completa (61 file — sono stati aggiunti test dall'ultimo conteggio)
 passata.
 
+## IA — piano di miglioramento, punto 5: verifica incrociata col catalogo
+
+**Punto 5**: le righe lette dall'AI da un allegato (fatture-fornitore.html,
+ordini.html, ordini-fornitore.html, note-credito-fornitore.html — gli
+stessi 4 moduli del punto 1) venivano precompilate così com'erano,
+codice e descrizione compresi — ma un OCR/una lettura da foto può
+storpiare una cifra di un codice o una parola della descrizione, e non
+c'era nessun controllo prima di mostrarle. Nuova `crossCheckRighe()`
+in `app/ai-import.js`, agganciata subito dopo `extractFromFile()` in
+tutti e quattro i moduli, prima di renderizzare le righe:
+
+- **Codice trovato per intero a catalogo** (`store.searchProdotti()`,
+  server-side — mai l'intero catalogo scaricato) → la descrizione
+  viene sostituita con quella ufficiale del prodotto (più affidabile
+  di quella letta dalla foto); riga marcata "✓ a catalogo".
+- **Codice non letto (o non trovato), ma la descrizione combacia con
+  UN solo prodotto** (confronto normalizzato: minuscolo, punteggiatura
+  ridotta a spazi) → il codice viene completato da lì; riga marcata
+  "✓ codice completato".
+- **Nessun riscontro** → la riga resta com'è (non è per forza un
+  errore di lettura: può essere un prodotto non ancora a catalogo),
+  ma è marcata "⚠ non in catalogo" perché l'utente la verifichi prima
+  di salvare.
+
+Non tocca mai qty/prezzo/sconto/iva/lotto/scadenza: sono dati della
+transazione specifica, non del catalogo (un prezzo pattuito può
+legittimamente differire dal listino). Un badge per riga (nuove classi
+`.cat-badge`/`.cat-ok`/`.cat-warn` in `theme.css`) compare solo per le
+righe appena importate dall'AI — assente per una riga aggiunta a mano
+o già presente in un documento salvato in precedenza. Il messaggio di
+stato dell'import riassume anche quante righe restano da verificare.
+
+Se la ricerca a catalogo fallisce (rete assente/lenta) la riga resta
+semplicemente "non in catalogo" — non è mai un blocco al salvataggio.
+
+Nuovi scenari in `test101_importa_ai.py` (i tre esiti — trovato,
+completato, non trovato — con un piccolo catalogo finto) e in
+`test117_importa_ai_estesa.py` (un caso per le altre tre pagine, a
+conferma che ognuna chiama davvero `crossCheckRighe()`). Regressione
+completa passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -101,5 +101,63 @@
       || elenco.find(p => (p.nome || '').toLowerCase().includes(n) || n.includes((p.nome || '').toLowerCase()));
   }
 
-  global.SaasAiImport = { readFileAsDataUrl, loadPdfJs, pdfToImageDataUrls, fileToImages, parseAiJson, extractFromFile, findPartyByNome };
+  // ---------------------------------------------------------------------------
+  // Punto 5 del piano di miglioramento IA: verifica incrociata delle righe
+  // lette dall'AI col catalogo prodotti REALE (store.searchProdotti,
+  // server-side — il catalogo può avere ~21.000 righe, non va mai scaricato
+  // per intero). Un OCR/una foto può leggere male una cifra di un codice o
+  // storpiare una parola della descrizione: se il codice letto esiste per
+  // intero a catalogo, la descrizione viene sostituita con quella ufficiale
+  // (più affidabile della lettura); se il codice non torna ma la
+  // descrizione combacia (a normalizzazione) con UN solo prodotto, il
+  // codice viene completato da lì. Se niente combacia la riga resta
+  // com'è: non è per forza un errore di lettura, può essere un prodotto
+  // non ancora a catalogo — ma va segnalato perché l'utente lo verifichi
+  // prima di salvare. Non tocca MAI qty/prezzo/sconto/iva: sono dati della
+  // transazione, non del catalogo (un prezzo pattuito può legittimamente
+  // differire dal listino).
+  function normDescr(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  async function crossCheckRiga(store, companyId, riga) {
+    const r = Object.assign({}, riga);
+    r.catalogMatch = 'unmatched';
+    try {
+      if (r.cod) {
+        const found = await store.searchProdotti(companyId, r.cod, 5);
+        const exact = found.find(p => (p.cod || '').toLowerCase() === String(r.cod).toLowerCase());
+        if (exact) { r.descr = exact.descr; r.catalogMatch = 'matched'; return r; }
+      }
+      if (r.descr) {
+        const found = await store.searchProdotti(companyId, r.descr, 5);
+        const nd = normDescr(r.descr);
+        const candidate = nd && found.find(p => normDescr(p.descr) === nd);
+        if (candidate) { r.cod = candidate.cod; r.descr = candidate.descr; r.catalogMatch = 'corrected'; }
+      }
+    } catch (e) { /* ricerca catalogo non riuscita (rete): riga lasciata come letta dall'AI, mai un blocco */ }
+    return r;
+  }
+
+  // Tutte le righe insieme, in parallelo (poche righe per documento — una
+  // fattura/ordine reale ne ha raramente più di una ventina).
+  function crossCheckRighe(store, companyId, righe) {
+    return Promise.all((righe || []).map(r => crossCheckRiga(store, companyId, r)));
+  }
+
+  // Badge HTML per l'esito di crossCheckRighe, da appendere alla cella
+  // "Codice" di una riga nell'editor — assente (stringa vuota) per una riga
+  // senza r.catalogMatch, cioè aggiunta a mano o già salvata in precedenza:
+  // il confronto vale solo per righe appena importate dall'AI.
+  function catalogBadgeHtml(catalogMatch) {
+    if (catalogMatch === 'matched') return '<span class="cat-badge cat-ok" title="Codice trovato nel catalogo: descrizione allineata a quella ufficiale">✓ a catalogo</span>';
+    if (catalogMatch === 'corrected') return '<span class="cat-badge cat-ok" title="Codice non letto (o errato) nell\'allegato, ritrovato a catalogo dalla descrizione">✓ codice completato</span>';
+    if (catalogMatch === 'unmatched') return '<span class="cat-badge cat-warn" title="Nessun prodotto corrispondente trovato nel catalogo: verifica codice/descrizione, oppure è un prodotto non ancora censito">⚠ non in catalogo</span>';
+    return '';
+  }
+
+  global.SaasAiImport = {
+    readFileAsDataUrl, loadPdfJs, pdfToImageDataUrls, fileToImages, parseAiJson, extractFromFile, findPartyByNome,
+    crossCheckRighe, catalogBadgeHtml,
+  };
 })(window);

@@ -12,6 +12,7 @@
   qui si nasconde solo il pulsante per chi non lo è, coerenza con
   abbonamento.html.
 -->
+<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
 </head>
 <body>
@@ -21,6 +22,15 @@
     <div class="page-head">
       <h2>Impostazioni</h2>
       <p class="sub">Intestazione azienda: dati usati nei documenti e nella fatturazione elettronica.</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 4px">Aspetto</h3>
+      <p class="ai-intro" style="margin:0 0 14px">Il tema si applica a tutto il gestionale (sidebar inclusa), su questo dispositivo — ogni persona dell'azienda può scegliere il proprio.</p>
+      <div class="toolbar-right">
+        <button type="button" class="ghost" id="theme-light">☀ Chiaro</button>
+        <button type="button" class="ghost" id="theme-dark">☾ Scuro</button>
+      </div>
     </div>
 
     <div class="card" id="form-card">
@@ -73,6 +83,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -85,6 +96,19 @@
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
   }
+
+  // ---- Aspetto: tema chiaro/scuro (app/theme-mode.js) --------------------
+  // Preferenza per dispositivo/browser, non un campo dell'azienda: visibile
+  // e modificabile da chiunque (admin o operatore), a differenza del resto
+  // di questa pagina — vive apposta fuori da #form-card.
+  function refreshThemeButtons(){
+    const t = window.SaasTheme.get();
+    $('theme-light').className = t === 'light' ? 'primary' : 'ghost';
+    $('theme-dark').className = t === 'dark' ? 'primary' : 'ghost';
+  }
+  $('theme-light').addEventListener('click', () => { window.SaasTheme.set('light'); refreshThemeButtons(); });
+  $('theme-dark').addEventListener('click', () => { window.SaasTheme.set('dark'); refreshThemeButtons(); });
+  refreshThemeButtons();
 
   function fillForm(company){
     const ind = company.indirizzo || {};

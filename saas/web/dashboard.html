@@ -25,6 +25,7 @@
   (senza qtyEv) il calcolo resta corretto, dà solo "niente ancora evaso"
   perché quel campo manca.
 -->
+<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
 </head>
 <body>
@@ -63,6 +64,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -195,8 +197,17 @@
     return Object.keys(map).sort().map(ym => { const [y, m] = ym.split('-'); return { label: MESI[+m - 1] + ' ' + y.slice(2), vend: map[ym].vend, acq: map[ym].acq }; });
   }
   function niceMax(v){ if(v <= 0) return 100; const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10; return m * p; }
+  // Griglia, assi ed etichette leggono i colori dal tema corrente (chiaro o
+  // scuro — vedi le variabili --chart-* in app/theme.css): un SVG disegnato
+  // a mano non eredita le variabili CSS come farebbe un elemento HTML, va
+  // letto il valore calcolato al momento del disegno. I colori delle serie
+  // (fatturato verde, acquisti viola, margine ambra) restano invece fissi
+  // in entrambi i temi — sono già abbastanza saturi da leggersi su sfondo
+  // sia chiaro che scuro.
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   function barChart(data){
     if(!data.length) return '<div class="chart-empty">Nessuna fattura registrata. Il grafico si popola man mano che emetti fatture cliente e registri fatture fornitore.</div>';
+    const gridColor = cssVar('--chart-grid'), axisColor = cssVar('--chart-axis'), labelColor = cssVar('--chart-label'), dotColor = cssVar('--chart-dot');
     const W = 760, H = 280, padL = 60, padR = 18, padT = 16, padB = 34;
     const plotW = W - padL - padR, plotH = H - padT - padB, base = padT + plotH;
     const max = niceMax(Math.max(...data.flatMap(d => [d.vend, d.acq]), 1));
@@ -204,19 +215,19 @@
     const y = v => base - (v / max) * plotH;
     const fmt = val => val >= 1000 ? (val / 1000).toFixed(val % 1000 ? 1 : 0) + 'k' : Math.round(val);
     let g = '', hits = '';
-    for(let i = 0; i <= 4; i++){ const val = max * i / 4, yy = base - (plotH * i / 4); g += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#e5e9ee"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end" fill="#9aa5b2" font-size="10" font-family="monospace">${fmt(val)}</text>`; }
+    for(let i = 0; i <= 4; i++){ const val = max * i / 4, yy = base - (plotH * i / 4); g += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="${gridColor}"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end" fill="${axisColor}" font-size="10" font-family="monospace">${fmt(val)}</text>`; }
     data.forEach((d, i) => {
       const cx = padL + gw * i + gw / 2, x1 = cx - bw - gap / 2, x2 = cx + gap / 2;
       g += `<rect class="cbar" style="animation-delay:${i * 30}ms" x="${x1}" y="${y(d.vend)}" width="${bw}" height="${base - y(d.vend)}" rx="3" fill="#0ea371"/>`;
       g += `<rect class="cbar" style="animation-delay:${i * 30 + 15}ms" x="${x2}" y="${y(d.acq)}" width="${bw}" height="${base - y(d.acq)}" rx="3" fill="#7c5cd6"/>`;
-      g += `<text x="${cx}" y="${base + 18}" text-anchor="middle" fill="#5f6b7a" font-size="11">${d.label}</text>`;
+      g += `<text x="${cx}" y="${base + 18}" text-anchor="middle" fill="${labelColor}" font-size="11">${d.label}</text>`;
       hits += `<rect class="hit" id="hit${i}" x="${padL + gw * i}" y="${padT}" width="${gw}" height="${plotH}" data-i="${i}" onmousemove="chartTip(event,${i})" onmouseleave="chartHide()" onclick="chartTip(event,${i})"/>`;
     });
     const mY = i => Math.min(base, Math.max(padT, y(data[i].vend - data[i].acq)));
     const mpts = data.map((d, i) => (padL + gw * i + gw / 2) + ',' + mY(i)).join(' ');
     g += `<polyline fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${mpts}"/>`;
-    data.forEach((d, i) => { g += `<circle cx="${padL + gw * i + gw / 2}" cy="${mY(i)}" r="3.6" fill="#fff" stroke="#f59e0b" stroke-width="2"/>`; });
-    g += `<line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="#d6dce3"/>` + hits;
+    data.forEach((d, i) => { g += `<circle cx="${padL + gw * i + gw / 2}" cy="${mY(i)}" r="3.6" fill="${dotColor}" stroke="#f59e0b" stroke-width="2"/>`; });
+    g += `<line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="${gridColor}"/>` + hits;
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" font-family="system-ui">${g}</svg>`;
   }
   function renderChart(){
@@ -277,6 +288,12 @@
     DB = { ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore };
 
     renderDashboard();
+    // Il grafico è un SVG disegnato a mano: i suoi colori (griglia, assi,
+    // etichette) sono letti dalle variabili CSS al momento del disegno,
+    // non ereditati come farebbe un elemento HTML — cambiando tema da
+    // Impostazioni va ridisegnato, altrimenti resterebbe coi colori del
+    // tema precedente finché non si ricarica la pagina.
+    window.addEventListener('saas-theme-change', renderChart);
   }
   init();
 </script>

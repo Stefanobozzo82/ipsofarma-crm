@@ -1,17 +1,31 @@
 /* ============================================================================
    theme.css — sistema di design condiviso da tutte le pagine del prodotto.
 
-   Stessa identità grafica del gestionale Ipsofarma esistente (index.html),
-   non un nuovo stile inventato da zero: stessi colori (sidebar blu scuro,
-   accento verde, badge colorati), stessa tipografia (font di sistema, numeri
-   in monospazio), stesso linguaggio di card/tabelle/pulsanti. Chi conosce già
-   il gestionale originale deve ritrovarsi subito in questo, non imparare un
+   Stessa identità grafica del gestionale Ipsofarma esistente (index.html) di
+   base — accento verde, badge colorati, font di sistema, numeri in
+   monospazio, stesso linguaggio di card/tabelle/pulsanti — con un tema
+   chiaro/scuro scelto dall'utente invece di una sidebar sempre blu scuro
+   fissa (vedi il blocco di variabili subito sotto). Chi conosce già il
+   gestionale originale deve ritrovarsi subito in questo, non imparare un
    prodotto visivamente diverso.
    ============================================================================ */
 
+/* Tema chiaro/scuro, scelto dall'utente in Impostazioni (vedi
+ * impostazioni-azienda.html + app/theme-mode.js) e applicato a TUTTO —
+ * sidebar inclusa, non solo al contenuto: prima la sidebar restava
+ * sempre blu scuro qualunque fosse il resto della pagina, incoerente col
+ * chiaro di default e ancora più incoerente se la pagina passava a
+ * scuro. Ora sidebar e contenuto condividono lo stesso set di variabili,
+ * ridefinito qui sotto una volta sola sotto [data-theme="dark"]: quasi
+ * tutto il resto del foglio di stile usa già solo queste variabili (mai
+ * un colore fisso), quindi eredita il tema automaticamente. Le uniche
+ * eccezioni volute sono i colori scritti su uno sfondo già colorato di
+ * suo (es. testo bianco su un pulsante verde, o il tooltip del grafico,
+ * sempre scuro): quelli restano fissi, cambiare tema non li deve toccare.
+ */
 :root{
-  --side:#192231; --side2:#212d40; --side-active:#293a55;
-  --side-txt:#d2dbe7; --side-muted:#7e8da4; --side-line:#2a3850;
+  --side:#ffffff; --side2:#f4f6f8; --side-active:#eef2f6; --side-active-txt:#0b855d;
+  --side-txt:#1b2531; --side-muted:#5f6b7a; --side-line:#e5e9ee;
   --bg:#f4f6f8; --surface:#ffffff; --surface2:#fafbfc;
   --border:#e5e9ee; --border2:#d6dce3;
   --txt:#1b2531; --muted:#5f6b7a; --faint:#9aa5b2;
@@ -20,16 +34,42 @@
   --amber:#cd8b1f; --amber-s:#cd8b1f1c;
   --violet:#7c5cd6; --violet-s:#7c5cd616;
   --gray:#7a8696; --gray-s:#7a86961a;
-  --red:#d85c54; --red-s:#d85c541a;
+  --red:#d85c54; --red-s:#d85c541a; --red-border:#e9c6c3;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
   --sh: 0 1px 2px #1b25310a, 0 1px 3px #1b25310f;
+  --sh-lg: 0 10px 24px #1b25311f;
   --sidebar-w: 236px;
+  /* Il grafico della dashboard (SVG disegnato a mano in dashboard.html)
+   * legge questi valori via JS a ogni render: le linee guida e le
+   * etichette degli assi devono restare leggibili in entrambi i temi,
+   * i colori delle serie (fatturato/acquisti/margine) restano invece
+   * fissi — sono abbastanza saturi da leggersi bene su sfondo sia
+   * chiaro che scuro, e cambiarli avrebbe rotto la fedeltà col grafico
+   * del gestionale originale senza un vero bisogno. */
+  --chart-grid:#e5e9ee; --chart-axis:#9aa5b2; --chart-label:#5f6b7a; --chart-dot:#ffffff;
+  color-scheme: light;
+}
+:root[data-theme="dark"]{
+  --side:#141a21; --side2:#1b222b; --side-active:#242e3a; --side-active-txt:#ffffff;
+  --side-txt:#d7dee6; --side-muted:#8b96a3; --side-line:#262f3b;
+  --bg:#0e1116; --surface:#171c23; --surface2:#1d232b;
+  --border:#262f3b; --border2:#333e4a;
+  --txt:#e7ecf1; --muted:#98a3b0; --faint:#6c7683;
+  --accent:#17c98c; --accent-d:#12a877; --accent-soft:#17c98c29;
+  --blue:#5b9bf0; --blue-s:#5b9bf029;
+  --amber:#e3a84a; --amber-s:#e3a84a29;
+  --violet:#a68af0; --violet-s:#a68af029;
+  --gray:#96a1ad; --gray-s:#96a1ad29;
+  --red:#f0837a; --red-s:#f0837a29; --red-border:#5a3630;
+  --sh: 0 1px 2px #00000050, 0 2px 10px #00000040;
+  --sh-lg: 0 10px 24px #00000060;
+  --chart-grid:#262f3b; --chart-axis:#6c7683; --chart-label:#98a3b0; --chart-dot:#171c23;
+  color-scheme: dark;
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
-html{ color-scheme:light; }
 body{
   margin:0;
   background:var(--bg);
@@ -45,10 +85,10 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
 [hidden]{ display:none !important; }
 
 /* ---------------------------------------------------------------------------
-   Guscio dell'app: barra laterale scura fissa + contenuto chiaro — lo stesso
-   schema del gestionale originale. Sotto gli 860px la barra diventa una
-   fascia orizzontale scorrevole in alto, invece di un cassetto con stato JS
-   da gestire — più semplice, sempre utilizzabile.
+   Guscio dell'app: barra laterale + contenuto, stesso tema (chiaro o scuro)
+   per entrambi. Sotto gli 860px la barra diventa un cassetto verticale che
+   scorre sopra il contenuto invece di una fascia orizzontale — vedi il
+   media query più sotto.
 --------------------------------------------------------------------------- */
 .app-shell{ display:flex; min-height:100vh; }
 /* 1200px andava bene per i form (clienti, ordini...) ma soffocava gli
@@ -84,7 +124,7 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
   transition:background .12s, color .12s;
 }
 .sidebar a.navlink:hover{ background:var(--side2); }
-.sidebar a.navlink.on{ background:var(--side-active); color:#fff; font-weight:600; }
+.sidebar a.navlink.on{ background:var(--side-active); color:var(--side-active-txt); font-weight:600; }
 .sidebar a.navlink .ic{ width:18px; text-align:center; opacity:.85; font-size:15px; flex:0 0 auto; }
 .overdue-badge{ display:inline-block; background:var(--red); color:#fff; border-radius:10px; font-size:11px; font-weight:700; padding:1px 6px; margin-left:5px; vertical-align:middle; line-height:1.4; }
 
@@ -94,7 +134,7 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
 .sidebar .account-links a, .sidebar .account-links button{
   font-size:11.5px; color:var(--side-muted); background:none; border:none; cursor:pointer; padding:0; font-family:var(--sans);
 }
-.sidebar .account-links a:hover, .sidebar .account-links button:hover{ color:#fff; }
+.sidebar .account-links a:hover, .sidebar .account-links button:hover{ color:var(--side-active-txt); }
 
 /* Il pulsante ☰ che apre/chiude il menu su schermi stretti: nascosto da
    desktop in su, esattamente come nel gestionale originale (.menu-btn). */
@@ -160,7 +200,7 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
 --------------------------------------------------------------------------- */
 .dash-period{ display:flex; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px; gap:0; }
 .dash-period a{ border:none; background:none; padding:5px 11px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--muted); text-decoration:none; }
-.dash-period a.on{ background:#fff; color:var(--txt); box-shadow:var(--sh); }
+.dash-period a.on{ background:var(--surface); color:var(--txt); box-shadow:var(--sh); }
 
 .stats{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; margin-bottom:14px; }
 @media (max-width:680px){ .stats{ grid-template-columns:1fr; } }
@@ -216,7 +256,7 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
  * testuale su Q esisteva ma senza un campo dedicato in ogni pagina. */
 .search-box{ position:relative; }
 .search-box input{ width:210px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:7px 11px 7px 30px; font-size:13px; color:var(--txt); font-family:inherit; }
-.search-box input:focus{ outline:none; border-color:var(--accent); background:#fff; }
+.search-box input:focus{ outline:none; border-color:var(--accent); background:var(--surface); }
 .search-box .si{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--faint); font-size:13px; pointer-events:none; }
 @media(max-width:680px){ .search-box input{ width:140px; } }
 
@@ -240,7 +280,7 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 .check-col input[type=checkbox]{ width:16px; height:16px; cursor:pointer; accent-color:var(--accent); }
 .bulkbar{ display:flex; align-items:center; gap:9px; background:var(--accent-soft); color:var(--accent-d); border:1px solid var(--accent); border-radius:10px; padding:9px 14px; margin-bottom:12px; font-size:13px; font-weight:600; box-shadow:var(--sh); flex-wrap:wrap; }
 .bulkbar .sp{ flex:1; }
-.bulkbar button{ font-size:12.5px; padding:6px 12px; border-radius:7px; border:1px solid var(--accent); background:#fff; color:var(--accent-d); cursor:pointer; font-weight:600; font-family:inherit; }
+.bulkbar button{ font-size:12.5px; padding:6px 12px; border-radius:7px; border:1px solid var(--accent); background:var(--surface); color:var(--accent-d); cursor:pointer; font-weight:600; font-family:inherit; }
 .bulkbar button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
 .bulkbar button:hover{ background:var(--surface2); }
 .bulkbar button.primary:hover{ background:var(--accent-d); }
@@ -248,7 +288,7 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 button.primary{ padding:7px 15px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); transition:background .12s; }
 button.primary:hover{ background:var(--accent-d); }
 button.primary:disabled{ opacity:.5; cursor:default; }
-button.ghost{ background:#fff; color:var(--txt); border:1px solid var(--border2); border-radius:8px; padding:7px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); }
+button.ghost{ background:var(--surface); color:var(--txt); border:1px solid var(--border2); border-radius:8px; padding:7px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); }
 button.ghost:hover{ border-color:var(--faint); }
 button.linklike{ background:none; border:none; color:var(--accent-d); cursor:pointer; font-size:13px; text-decoration:underline; padding:0; font-family:inherit; }
 
@@ -280,19 +320,19 @@ tbody tr.row-click{ cursor:pointer; }
 td.num-col{ font-family:var(--mono); font-weight:600; color:var(--accent-d); font-size:12.5px; }
 td.actions{ text-align:right; white-space:nowrap; }
 td.actions button{
-  background:#fff; border:1px solid var(--border2); border-radius:7px; color:var(--txt);
+  background:var(--surface); border:1px solid var(--border2); border-radius:7px; color:var(--txt);
   cursor:pointer; font-size:12px; font-weight:600; margin-left:8px; padding:5px 10px; font-family:inherit;
 }
 td.actions button:hover{ border-color:var(--faint); }
-td.actions button.danger{ color:var(--red); border-color:#e9c6c3; }
-td.actions button.danger:hover{ background:#fdf1f0; border-color:var(--red); }
+td.actions button.danger{ color:var(--red); border-color:var(--red-border); }
+td.actions button.danger:hover{ background:var(--red-s); border-color:var(--red); }
 .empty{ color:var(--faint); font-size:13px; padding:26px 0; text-align:center; }
 
 label{ display:block; font-size:11.5px; color:var(--muted); margin:12px 0 4px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
 label:first-of-type{ margin-top:0; }
 input, select, textarea{
   width:100%; padding:9px 11px; border:1px solid var(--border2); border-radius:8px;
-  background:#fff; color:var(--txt); font-size:13.5px; font-family:inherit;
+  background:var(--surface); color:var(--txt); font-size:13.5px; font-family:inherit;
 }
 input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
 .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
@@ -305,7 +345,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .form-sec{ font-size:11px; text-transform:uppercase; letter-spacing:.7px; color:var(--accent-d); font-weight:700; margin:20px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
 .form-sec .hint{ font-weight:400; color:var(--faint); font-size:10.5px; text-transform:none; letter-spacing:0; }
 .dest-card{ border:1px solid var(--border2); border-radius:9px; padding:12px; margin-bottom:10px; background:var(--surface2); }
-.dest-card input{ width:100%; background:#fff; border:1px solid var(--border2); color:var(--txt); padding:8px 10px; border-radius:7px; font-size:13px; font-family:inherit; margin-bottom:8px; box-sizing:border-box; }
+.dest-card input{ width:100%; background:var(--surface); border:1px solid var(--border2); color:var(--txt); padding:8px 10px; border-radius:7px; font-size:13px; font-family:inherit; margin-bottom:8px; box-sizing:border-box; }
 .dest-card input:focus{ outline:none; border-color:var(--accent); }
 .dest-card .dest-head{ display:flex; gap:8px; align-items:center; }
 .dest-card .dest-head input{ flex:1; margin-bottom:0; }
@@ -316,7 +356,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 /* Autocompletamento riga da catalogo prodotti (app/prodpicker.js) —
  * porta diretta di .prod-sugg/.sugg-item/.code dell'originale. */
 .prod-pick{ position:relative; margin-bottom:10px; }
-.prod-sugg{ position:absolute; left:0; right:0; top:calc(100% - 1px); background:#fff; border:1px solid var(--border2); border-radius:0 0 8px 8px; box-shadow:0 10px 24px #1b25311f; z-index:10; max-height:260px; overflow-y:auto; }
+.prod-sugg{ position:absolute; left:0; right:0; top:calc(100% - 1px); background:var(--surface); border:1px solid var(--border2); border-radius:0 0 8px 8px; box-shadow:var(--sh-lg); z-index:10; max-height:260px; overflow-y:auto; }
 .prod-sugg:empty{ display:none; }
 .sugg-item{ display:flex; align-items:center; gap:9px; padding:8px 11px; cursor:pointer; font-size:12.5px; border-bottom:1px solid var(--border); }
 .sugg-item:last-child{ border-bottom:none; }
@@ -349,7 +389,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .ai-bubble{ max-width:80%; padding:10px 14px; border-radius:12px; font-size:13.5px; line-height:1.55; white-space:pre-wrap; }
 .ai-bubble.user{ align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:3px; }
 .ai-bubble.assistant{ align-self:flex-start; background:var(--surface2); color:var(--txt); border:1px solid var(--border); border-bottom-left-radius:3px; }
-.ai-bubble.error{ align-self:flex-start; background:#fdf1f0; color:var(--red); border:1px solid #e9c6c3; }
+.ai-bubble.error{ align-self:flex-start; background:var(--red-s); color:var(--red); border:1px solid var(--red-border); }
 .ai-bubble.pending{ align-self:flex-start; color:var(--faint); font-style:italic; }
 @media(max-width:680px){ .ai-bubble{ max-width:92%; } }
 

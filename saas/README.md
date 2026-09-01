@@ -40,6 +40,7 @@ saas/
 │   └── app/
 │       ├── store.js                  adattatore di persistenza (sostituisce ghSave/ghLoad)
 │       ├── theme.css                 sistema grafico condiviso (token colore, tipografia, componenti)
+│       ├── theme-mode.js             tema chiaro/scuro applicato uniformemente (sidebar inclusa)
 │       ├── nav.js                    sidebar di navigazione condivisa (sostituisce il menu orizzontale)
 │       ├── resize.js                 colonne ridimensionabili trascinando il bordo dell'intestazione
 │       ├── print.js                  stampa e PDF di un documento (stesso template dell'originale)
@@ -1103,6 +1104,45 @@ un'integrazione specifica del modo di lavorare di Ipsofarma da ripensare,
 non semplicemente copiare, se e quando servirà a un cliente del SaaS:
 l'import automatico ordini da Google Sheet e il monitoraggio Gmail per
 nuove fatture fornitore.
+
+## Tema chiaro/scuro
+
+Segnalato dall'utente dopo aver usato il prodotto con dati reali: la
+sidebar restava sempre blu scuro fissa, qualunque fosse il resto della
+pagina — incoerente col tema chiaro di sempre. Chiesto esplicitamente:
+poter scegliere tra un tema chiaro e uno scuro da Impostazioni, e che la
+scelta cambi *tutto* in modo uniforme, sidebar inclusa.
+
+`app/theme.css` ridefinisce ora l'intero set di variabili colore sotto
+`:root[data-theme="dark"]` (sidebar, sfondi, bordi, testo, badge, tutto):
+siccome il resto del foglio di stile usa già solo quelle variabili — mai
+un colore fisso, a parte i pochi casi dove ha senso restare fissi (testo
+bianco su un pulsante verde, il tooltip del grafico, il template di
+stampa/PDF che deve restare "carta bianca" comunque) — il tema si applica
+automaticamente ovunque, senza dover toccare ogni componente uno per uno.
+Nuovo `app/theme-mode.js`: `SaasTheme.get()/set()`, preferenza salvata in
+`localStorage` (per dispositivo/browser, non per azienda — due persone
+della stessa azienda possono scegliere temi diversi). Un piccolo script
+inline in testa a ogni pagina (prima del foglio di stile) applica subito
+il tema salvato, per evitare un lampo del tema sbagliato al caricamento.
+
+Il selettore vive in una nuova sezione "Aspetto" di
+`impostazioni-azienda.html`, fuori dal form dell'anagrafica azienda
+apposta: è una preferenza personale, visibile e modificabile da chiunque
+(admin o operatore), non un dato dell'azienda che solo un admin può
+cambiare.
+
+Unica eccezione che ha richiesto codice a sé: il grafico a barre della
+dashboard è un SVG disegnato a mano (`dashboard.html`), i cui colori sono
+scritti nell'HTML al momento del disegno — non ereditano le variabili CSS
+come farebbe un elemento normale. Le linee guida e le etichette degli
+assi ora leggono `--chart-grid`/`--chart-axis`/`--chart-label` con
+`getComputedStyle()` ad ogni disegno, e il grafico si ridisegna quando il
+tema cambia (evento `saas-theme-change`). I colori delle tre serie
+(fatturato/acquisti/margine) restano fissi in entrambi i temi — sono già
+abbastanza saturi da leggersi bene su sfondo sia chiaro che scuro, e
+cambiarli avrebbe rotto la fedeltà col grafico del gestionale originale
+senza un vero bisogno.
 
 ## Prossimo passo
 

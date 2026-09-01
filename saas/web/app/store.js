@@ -156,6 +156,34 @@
     return data;
   }
 
+  // Tutte le tabelle che contano come "documento" ai fini del limite
+  // mensile del piano — le stesse 8 di COLLECTIONS meno le anagrafiche
+  // (clienti/fornitori/prodotti non sono documenti).
+  const DOC_TABLES = ['preventivi', 'ordini_cliente', 'ordini_fornitore', 'ddt',
+    'fatture_cliente', 'fatture_fornitore', 'note_credito', 'note_credito_fornitore'];
+
+  async function countDocsThisMonth(companyId) {
+    const start = new Date(); start.setDate(1); start.setHours(0, 0, 0, 0);
+    const iso = start.toISOString();
+    const results = await Promise.all(DOC_TABLES.map(t =>
+      client().from(t).select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('created_at', iso)
+    ));
+    results.forEach(({ error }) => { if (error) throw error; });
+    return results.reduce((sum, r) => sum + (r.count || 0), 0);
+  }
+
+  // Da chiamare prima di creare un NUOVO documento (mai per una modifica:
+  // il limite è sulla creazione, non sulla modifica di uno già esistente).
+  // { ok:true } se il piano non ha un limite (null = illimitato, come
+  // "Base" e "Pro" oggi) o se non è ancora stato raggiunto.
+  async function checkDocLimit(companyId) {
+    const [company, plans] = await Promise.all([getCompany(companyId), loadPlans()]);
+    const plan = plans.find(p => p.id === company.piano);
+    if (!plan || plan.limite_documenti_mese == null) return { ok: true };
+    const count = await countDocsThisMonth(companyId);
+    return { ok: count < plan.limite_documenti_mese, count, limite: plan.limite_documenti_mese, piano: plan.nome };
+  }
+
   // Modifica l'anagrafica azienda (nome, P.IVA, indirizzo...). La RLS di
   // 0001_aziende_e_utenti.sql permette l'update solo a un admin: un
   // operatore che ci provasse otterrebbe zero righe modificate, e
@@ -292,6 +320,6 @@
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete,
+    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit,
   };
 })(window);

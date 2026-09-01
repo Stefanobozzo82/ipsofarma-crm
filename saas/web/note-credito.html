@@ -257,8 +257,10 @@
     $('list-card').hidden = true;
   }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
-  $('new-nc').addEventListener('click', () => {
+  $('new-nc').addEventListener('click', async () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
+    const lim = await store.checkDocLimit(companyId);
+    if(!lim.ok){ alert(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`); return; }
     openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
@@ -272,6 +274,10 @@
     if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
     if(!data){ setMsg('Inserisci una data.', 'error'); return; }
     if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
+    if(!editingId){
+      const lim = await store.checkDocLimit(companyId);
+      if(!lim.ok){ setMsg(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`, 'error'); return; }
+    }
 
     $('f-save').disabled = true;
     setMsg('', '');

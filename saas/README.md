@@ -1371,6 +1371,37 @@ Filtri e ricerca testuale (`Q`) si combinano (`.filter(matchesQuery)
 .filter(matchesFilter)`). Collaudato con un nuovo
 `test111_filtri_moduli.py`. Regressione completa (41 file) passata.
 
+## Limiti del piano applicati per davvero (blocca + avvisa)
+
+I limiti dei piani (`plans.limite_documenti_mese`) esistevano solo come
+testo nelle card di Impostazioni → Abbonamento: nessun codice li
+controllava mai prima di creare un documento. Richiesto dall'utente:
+"bloccare e avvisare". Aggiunto `store.checkDocLimit(companyId)`
+(`app/store.js`) — legge `companies.piano`, il limite di quel piano su
+`plans`, conta quanti documenti l'azienda ha creato questo mese sulle 8
+tabelle documento (`created_at` nel mese corrente), e dice se il limite è
+già raggiunto. `null` = piano senza limite (oggi "Base" e "Pro"): non
+blocca mai.
+
+Agganciato in tutti gli 8 moduli documento in due punti: sul pulsante "+
+Nuovo ..." (blocca PRIMA di aprire il form, con un avviso che spiega il
+limite e rimanda a Impostazioni → Abbonamento — niente di peggio che
+compilare un intero documento per poi scoprire di non poterlo salvare),
+e di nuovo al salvataggio come rete di sicurezza (nel caso il limite
+venga raggiunto nel frattempo, es. da un'altra scheda). **Solo la
+creazione è limitata**: modificare un documento già esistente non
+controlla mai il limite.
+
+**Resta un limite non applicabile**: `plans.limite_utenti` non ha nessun
+posto dove agganciarsi — questo prodotto non ha ancora nessun flusso per
+invitare un collega in azienda (solo chi si registra da sé diventa
+membro). Va costruito quel flusso prima di poterne limitare il numero.
+
+Nuovo `test112_limite_piano.py`. Estendere `store.checkDocLimit()` ha
+richiesto aggiungere un finto `checkDocLimit` a 38 mock di test esistenti
+(qualunque pagina che apre un "+ Nuovo ..." lo chiama ora davvero).
+Regressione completa (42 file) passata.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

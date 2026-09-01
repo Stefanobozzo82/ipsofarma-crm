@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magazzino — Gestionale</title>
+<!--
+  Depositi e giacenze (0009_magazzino.sql) — la parte di "parità
+  funzionale" con Danea/Fatture in Cloud che mancava del tutto: prima
+  d'ora il Catalogo (prodotti.html) teneva solo anagrafica/prezzi, mai una
+  quantità in giacenza da nessuna parte.
+
+  Come prodotti.html, NON carica mai l'intero catalogo (21.278 righe per
+  Ipsofarma): la card "Giacenze" è guidata dalla ricerca (store.searchProdotti),
+  la giacenza dei soli risultati trovati arriva con una query in più
+  (store.giacenzeForProdotti), mai un pivot con tutto il catalogo.
+
+  Deliberatamente manuale: creare un DDT o una fattura non genera ancora un
+  movimento da solo — vedi il commento in cima a 0009_magazzino.sql.
+-->
+<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Magazzino</h2>
+      <p class="sub">Giacenze per deposito e storico movimenti.</p>
+    </div>
+
+    <div class="card" id="depositi-card">
+      <div class="toolbar"><h3>Depositi</h3></div>
+      <div id="depositi-area"><p class="empty">Carico…</p></div>
+      <div class="grid2" style="margin-top:12px">
+        <div><label for="dep-nome">Nuovo deposito</label><input id="dep-nome" type="text" placeholder="es. Magazzino secondario"></div>
+      </div>
+      <button class="ghost" id="dep-add" style="margin-top:8px">+ Aggiungi deposito</button>
+      <div class="msg" id="dep-msg" hidden></div>
+    </div>
+
+    <div class="card" id="movimento-card" hidden>
+      <button type="button" class="linklike back-link" id="mv-back">← Torna alle giacenze</button>
+      <h3>Nuovo movimento</h3>
+      <div class="prod-pick"><input id="mv-prod-q" autocomplete="off" placeholder="Cerca prodotto per codice o descrizione…"><div class="prod-sugg" id="mv-prod-sugg"></div></div>
+      <p class="ai-intro" id="mv-prod-selected" style="margin:8px 0">Nessun prodotto selezionato.</p>
+      <div class="grid2">
+        <div><label for="mv-deposito">Deposito</label><select id="mv-deposito"></select></div>
+        <div><label for="mv-tipo">Tipo</label>
+          <select id="mv-tipo">
+            <option value="carico">Carico (entrata)</option>
+            <option value="scarico">Scarico (uscita)</option>
+            <option value="rettifica">Rettifica</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div><label for="mv-qty" id="mv-qty-label">Quantità</label><input id="mv-qty" type="number" step="0.001" placeholder="0"></div>
+        <div><label for="mv-causale">Causale (facoltativa)</label><input id="mv-causale" type="text" placeholder="es. reso cliente, inventario…"></div>
+      </div>
+      <div class="form-actions">
+        <button class="primary" id="mv-save">Registra movimento</button>
+        <button class="ghost" id="mv-cancel">Annulla</button>
+      </div>
+      <div class="msg" id="mv-msg" hidden></div>
+    </div>
+
+    <div class="card" id="list-card">
+      <div class="toolbar">
+        <h3>Giacenze</h3>
+        <button class="primary" id="new-movimento">+ Nuovo movimento</button>
+      </div>
+      <label for="q" style="margin-top:0">Cerca prodotto</label>
+      <input id="q" type="text" placeholder="codice o descrizione…">
+      <div id="list-area" style="margin-top:14px"><p class="empty">Cerca un prodotto per vedere la sua giacenza nei depositi.</p></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar"><h3>Movimenti recenti</h3></div>
+      <div id="recent-area"><p class="empty">Carico…</p></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/theme-mode.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/resize.js"></script>
+<script src="app/prodpicker.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let depositi = [];
+  let lastResults = [];
+  let giacenzaMap = {}; // "prodottoId|depositoId" -> quantità
+  let selectedProdotto = null;
+  let searchTimer = null;
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function fmtQty(n){ return (Number(n) || 0).toLocaleString('it-IT', { maximumFractionDigits: 3 }); }
+  function setMsg(id, text, kind){
+    const el = $(id);
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  // ---- Depositi -----------------------------------------------------------
+  function renderDepositi(){
+    $('depositi-area').innerHTML = depositi.map(d => `
+      <div class="dest-card">
+        <div class="dest-head" style="justify-content:space-between">
+          <span>${esc(d.nome)}${d.predefinito ? ' <span class="hint">(predefinito)</span>' : ''}</span>
+          <button type="button" class="linklike" data-rename="${d.id}">Rinomina</button>
+          <button type="button" class="le-del" data-remove="${d.id}" title="Elimina deposito">×</button>
+        </div>
+      </div>`).join('');
+    $('depositi-area').querySelectorAll('[data-rename]').forEach(btn => btn.addEventListener('click', async () => {
+      const dep = depositi.find(x => x.id === btn.dataset.rename);
+      const nuovo = prompt('Nuovo nome del deposito:', dep.nome);
+      if(!nuovo || !nuovo.trim() || nuovo.trim() === dep.nome) return;
+      try{
+        await store.renameDeposito(dep.id, nuovo.trim());
+        await refreshDepositi();
+      }catch(err){ setMsg('dep-msg', 'Errore durante la rinomina: ' + err.message, 'error'); }
+    }));
+    $('depositi-area').querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', async () => {
+      const dep = depositi.find(x => x.id === btn.dataset.remove);
+      if(!confirm(`Eliminare il deposito "${dep.nome}"?`)) return;
+      try{
+        await store.removeDeposito(dep.id);
+        await refreshDepositi();
+      }catch(err){
+        const inUso = err && err.code === '23503';
+        setMsg('dep-msg', inUso ? 'Non puoi eliminare un deposito con movimenti già registrati.' : ('Errore durante l\'eliminazione: ' + err.message), 'error');
+      }
+    }));
+  }
+  async function refreshDepositi(){
+    depositi = await store.listDepositi(companyId);
+    renderDepositi();
+    $('mv-deposito').innerHTML = depositi.map(d => `<option value="${d.id}" ${d.predefinito ? 'selected' : ''}>${esc(d.nome)}</option>`).join('');
+    if(lastResults.length) await refreshGiacenze();
+  }
+  $('dep-add').addEventListener('click', async () => {
+    const nome = $('dep-nome').value.trim();
+    if(!nome){ setMsg('dep-msg', 'Inserisci un nome per il deposito.', 'error'); return; }
+    $('dep-add').disabled = true;
+    setMsg('dep-msg', '', '');
+    try{
+      await store.createDeposito(companyId, nome);
+      $('dep-nome').value = '';
+      await refreshDepositi();
+      setMsg('dep-msg', 'Deposito aggiunto.', 'ok');
+    }catch(err){
+      setMsg('dep-msg', err.message || 'Errore imprevisto.', 'error');
+    }finally{
+      $('dep-add').disabled = false;
+    }
+  });
+
+  // ---- Nuovo movimento ------------------------------------------------------
+  function openMovimento(prodotto){
+    selectedProdotto = prodotto || null;
+    $('mv-prod-q').value = '';
+    $('mv-prod-sugg').innerHTML = '';
+    $('mv-prod-selected').textContent = selectedProdotto ? `Prodotto: ${selectedProdotto.cod} — ${selectedProdotto.descr}` : 'Nessun prodotto selezionato — cercalo qui sopra.';
+    $('mv-qty').value = '';
+    $('mv-causale').value = '';
+    setMsg('mv-msg', '', '');
+    $('movimento-card').hidden = false;
+    $('list-card').hidden = true;
+  }
+  function closeMovimento(){ $('movimento-card').hidden = true; $('list-card').hidden = false; selectedProdotto = null; }
+  $('new-movimento').addEventListener('click', () => openMovimento(null));
+  $('mv-back').addEventListener('click', closeMovimento);
+  $('mv-cancel').addEventListener('click', closeMovimento);
+
+  $('mv-tipo').addEventListener('change', () => {
+    const t = $('mv-tipo').value;
+    $('mv-qty-label').textContent = t === 'rettifica' ? 'Quantità (positiva per aumentare, negativa per diminuire)' : 'Quantità';
+  });
+
+  function computeQuantita(tipo, raw){
+    const n = Number(raw);
+    if(!n) return 0;
+    if(tipo === 'rettifica') return n;
+    return tipo === 'scarico' ? -Math.abs(n) : Math.abs(n);
+  }
+
+  $('mv-save').addEventListener('click', async () => {
+    if(!selectedProdotto){ setMsg('mv-msg', 'Cerca e seleziona un prodotto.', 'error'); return; }
+    const depositoId = $('mv-deposito').value;
+    if(!depositoId){ setMsg('mv-msg', 'Seleziona un deposito.', 'error'); return; }
+    const tipo = $('mv-tipo').value;
+    const quantita = computeQuantita(tipo, $('mv-qty').value);
+    if(!quantita){ setMsg('mv-msg', 'Inserisci una quantità diversa da zero.', 'error'); return; }
+    $('mv-save').disabled = true;
+    setMsg('mv-msg', '', '');
+    try{
+      await store.addMovimento(companyId, { prodottoId: selectedProdotto.id, depositoId, tipo, quantita, causale: $('mv-causale').value.trim() });
+      closeMovimento();
+      await refreshGiacenze();
+      await refreshRecenti();
+    }catch(err){
+      setMsg('mv-msg', err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+    }finally{
+      $('mv-save').disabled = false;
+    }
+  });
+
+  // ---- Giacenze (ricerca prodotto) ------------------------------------------
+  function renderGiacenze(){
+    const area = $('list-area');
+    if(lastResults.length === 0){
+      area.innerHTML = '<p class="empty">Nessun prodotto trovato.</p>';
+      return;
+    }
+    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        <th>Codice</th><th>Descrizione</th>${depositi.map(d => `<th>${esc(d.nome)}</th>`).join('')}<th>Totale</th><th></th>
+      </tr></thead><tbody>${lastResults.map(p => {
+        const perDep = depositi.map(d => giacenzaMap[p.id + '|' + d.id] || 0);
+        const tot = perDep.reduce((a, b) => a + b, 0);
+        return `<tr>
+          <td class="num-col">${esc(p.cod)}</td>
+          <td>${esc(p.descr)}</td>
+          ${perDep.map(v => `<td class="num-col">${fmtQty(v)}</td>`).join('')}
+          <td class="num-col"><b>${fmtQty(tot)}</b></td>
+          <td class="actions"><button data-mv="${p.id}">+ movimento</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+    window.SaasResize.makeColsResizable(area.querySelector('table'), 'magazzino-giacenze');
+    area.querySelectorAll('[data-mv]').forEach(btn => btn.addEventListener('click', () => {
+      openMovimento(lastResults.find(x => x.id === btn.dataset.mv));
+    }));
+  }
+  async function refreshGiacenze(){
+    if(lastResults.length === 0){ giacenzaMap = {}; renderGiacenze(); return; }
+    const righe = await store.giacenzeForProdotti(companyId, lastResults.map(p => p.id));
+    giacenzaMap = {};
+    righe.forEach(r => { giacenzaMap[r.prodotto_id + '|' + r.deposito_id] = Number(r.giacenza); });
+    renderGiacenze();
+  }
+  async function runSearch(){
+    const area = $('list-area');
+    const q = $('q').value.trim();
+    if(!q){ lastResults = []; area.innerHTML = '<p class="empty">Cerca un prodotto per vedere la sua giacenza nei depositi.</p>'; return; }
+    area.innerHTML = '<p class="empty">Cerco…</p>';
+    try{
+      lastResults = await store.searchProdotti(companyId, q, 100);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nella ricerca: ${esc(err.message)}</p>`;
+      return;
+    }
+    await refreshGiacenze();
+  }
+  $('q').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 250);
+  });
+
+  // ---- Movimenti recenti ----------------------------------------------------
+  async function refreshRecenti(){
+    const area = $('recent-area');
+    try{
+      const righe = await store.listMovimentiRecenti(companyId, 20);
+      if(righe.length === 0){ area.innerHTML = '<p class="empty">Nessun movimento ancora registrato.</p>'; return; }
+      area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+          <th>Data</th><th>Prodotto</th><th>Deposito</th><th>Tipo</th><th>Quantità</th><th>Causale</th>
+        </tr></thead><tbody>${righe.map(r => `
+          <tr>
+            <td>${new Date(r.created_at).toLocaleString('it-IT')}</td>
+            <td>${esc((r.prodotti || {}).cod)} — ${esc((r.prodotti || {}).descr)}</td>
+            <td>${esc((r.depositi || {}).nome)}</td>
+            <td>${esc(r.tipo)}</td>
+            <td class="num-col">${r.quantita > 0 ? '+' : ''}${fmtQty(r.quantita)}</td>
+            <td>${esc(r.causale) || '—'}</td>
+          </tr>`).join('')}</tbody></table></div>`;
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+    }
+  }
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('magazzino', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+    try{
+      depositi = await store.ensureDefaultDeposito(companyId);
+      renderDepositi();
+      $('mv-deposito').innerHTML = depositi.map(d => `<option value="${d.id}" ${d.predefinito ? 'selected' : ''}>${esc(d.nome)}</option>`).join('');
+    }catch(err){
+      $('depositi-area').innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+    }
+    window.SaasProdPicker.attach($('mv-prod-q'), $('mv-prod-sugg'), {
+      companyId, priceField: 'listinoVen',
+      onPick: p => {
+        selectedProdotto = p;
+        $('mv-prod-selected').textContent = `Prodotto: ${p.cod} — ${p.descr}`;
+      },
+    });
+    await refreshRecenti();
+  }
+  init();
+</script>
+</body>
+</html>

@@ -1599,6 +1599,62 @@ Nuovi test: `verify_solleciti_logic.mjs` (Node, arithmetic) e
 (default spento, blocco senza email, salvataggio corretto).
 Regressione completa (43 file Playwright) passata.
 
+## Magazzino — depositi e giacenze
+
+Dal confronto con Danea Easyfatt/Fatture in Cloud: mancava del tutto
+una giacenza. Il Catalogo (`prodotti.html`) teneva solo anagrafica e
+prezzi — nessuna colonna, da nessuna parte, diceva "quanti ne hai".
+Prima di poter costruire il "multi-deposito" chiesto dall'utente
+serviva costruire la giacenza vera e propria: un solo deposito è
+comunque un deposito.
+
+Nuova migrazione `0009_magazzino.sql`:
+
+- `depositi` — sedi/depositi di un'azienda, con al più un
+  "predefinito" (vincolo reale via indice unico parziale, non solo
+  una convenzione lato client). Un'azienda nuova non ne ha nessuno:
+  `store.ensureDefaultDeposito()` gliene crea uno "Sede principale" al
+  volo alla prima apertura di `magazzino.html`.
+- `movimenti_magazzino` — **immutabile come una riga di prima nota**:
+  niente policy di update/delete. Un movimento sbagliato si corregge
+  con un altro movimento di segno opposto (una "rettifica"), non
+  modificando o cancellando quello sbagliato. Un vincolo del database
+  impedisce di registrare un "carico" negativo o uno "scarico"
+  positivo per errore.
+- vista `giacenze` — la giacenza corrente (somma dei movimenti) per
+  ogni coppia prodotto/deposito, calcolata al volo: **mai una colonna
+  salvata da tenere sincronizzata a mano**, non può mai andare fuori
+  sincrono con la sua storia. `security_invoker = true` perché una
+  vista gira di default coi privilegi di chi l'ha creata, non di chi
+  la interroga — senza, avrebbe bypassato la RLS di
+  `movimenti_magazzino`.
+
+Nuova pagina `magazzino.html` (voce "Magazzino" in sidebar, sotto
+Catalogo): gestione depositi (aggiungi/rinomina/elimina — eliminarne
+uno con movimenti già registrati dà un errore leggibile, il vincolo
+`on delete restrict` lo impedisce comunque a livello database), ricerca
+prodotto con giacenza per deposito affiancata (**mai un pivot su tutto
+il catalogo**: 21.278 righe per Ipsofarma, stessa cautela già presa in
+`prodotti.html` — la giacenza arriva con una query in più sui soli
+risultati trovati), modulo "+ movimento" (carico/scarico/rettifica,
+riusa `SaasProdPicker` per cercare il prodotto), storico movimenti
+recenti. `prodotti.html` mostra ora anche una colonna "Giacenza"
+(somma di tutti i depositi) per collegare i due moduli.
+
+**Deliberatamente manuale**: creare un DDT o una fattura non genera
+ancora un movimento da solo (lo fanno Danea/Fatture in Cloud) — passo
+rimandato apposta, richiederebbe scegliere un deposito su ogni
+documento esistente e gestire con cura modifiche/cancellazioni per non
+contare due volte lo stesso movimento.
+
+Niente Edge Function nuova stavolta (tutto client-side via `store.js`),
+quindi il collaudo passa direttamente dai test Playwright: nuovo
+`test115_magazzino.py` (depositi, movimento carico/scarico con segno
+corretto a prescindere da cosa digita l'utente, giacenza aggiornata
+subito, errore leggibile su un deposito con movimenti già registrati).
+`test87_prodotti_page.py` esteso con lo scenario B2 (colonna
+Giacenza). Regressione completa (44 file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

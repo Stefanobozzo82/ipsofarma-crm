@@ -39,6 +39,7 @@
     ] },
     { label: 'Catalogo', items: [
       { id: 'prodotti', label: 'Prodotti', href: 'prodotti.html', ic: '⊞' },
+      { id: 'magazzino', label: 'Magazzino', href: 'magazzino.html', ic: '🏬' },
     ] },
     { label: 'Azienda', items: [
       { id: 'impostazioni-azienda', label: 'Impostazioni', href: 'impostazioni-azienda.html', ic: '⚙' },

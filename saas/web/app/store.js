@@ -227,6 +227,81 @@
     return { ok: count < plan.limite_documenti_mese, count, limite: plan.limite_documenti_mese, piano: plan.nome };
   }
 
+  // ---------------------------------------------------------------------------
+  // Magazzino (Fase 6 quater): depositi e movimenti — vedi 0009_magazzino.sql.
+  // La giacenza non è mai salvata: è sempre ricalcolata dalla vista
+  // "giacenze" (somma dei movimenti), mai una colonna da tenere allineata a
+  // mano lato client.
+  // ---------------------------------------------------------------------------
+  async function listDepositi(companyId) {
+    const { data, error } = await client().from('depositi').select('*').eq('company_id', companyId).order('created_at');
+    if (error) throw error;
+    return data;
+  }
+
+  // Da chiamare quando si apre magazzino.html: un'azienda nuova non ha
+  // ancora nessun deposito, quindi ne crea uno "Sede principale" al volo
+  // (niente trigger lato database — coerente con come companies/plans
+  // vengono popolati oggi, tutto lato client alla prima apertura utile).
+  async function ensureDefaultDeposito(companyId) {
+    const esistenti = await listDepositi(companyId);
+    if (esistenti.length > 0) return esistenti;
+    const { data, error } = await client().from('depositi')
+      .insert({ company_id: companyId, nome: 'Sede principale', predefinito: true })
+      .select().single();
+    if (error) throw error;
+    return [data];
+  }
+
+  async function createDeposito(companyId, nome) {
+    const { data, error } = await client().from('depositi').insert({ company_id: companyId, nome }).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function renameDeposito(id, nome) {
+    const { error } = await client().from('depositi').update({ nome }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async function removeDeposito(id) {
+    const { error } = await client().from('depositi').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // Un movimento è immutabile (vedi commento sulla tabella in
+  // 0009_magazzino.sql): niente updateMovimento/removeMovimento apposta, un
+  // errore si corregge con una "rettifica" di segno opposto, non
+  // modificando la riga sbagliata.
+  async function addMovimento(companyId, { prodottoId, depositoId, tipo, quantita, causale }) {
+    const session = await getSession();
+    const { data, error } = await client().from('movimenti_magazzino').insert({
+      company_id: companyId, prodotto_id: prodottoId, deposito_id: depositoId,
+      tipo, quantita, causale: causale || null,
+      created_by: session ? session.user.id : null,
+    }).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Giacenza per un gruppo di prodotti (es. i risultati di una ricerca),
+  // tutti i depositi insieme — un'unica query invece di una per prodotto.
+  async function giacenzeForProdotti(companyId, prodottoIds) {
+    if (!prodottoIds || prodottoIds.length === 0) return [];
+    const { data, error } = await client().from('giacenze').select('*')
+      .eq('company_id', companyId).in('prodotto_id', prodottoIds);
+    if (error) throw error;
+    return data;
+  }
+
+  async function listMovimentiRecenti(companyId, limit) {
+    const { data, error } = await client().from('movimenti_magazzino')
+      .select('*, prodotti(cod, descr), depositi(nome)')
+      .eq('company_id', companyId).order('created_at', { ascending: false }).limit(limit || 20);
+    if (error) throw error;
+    return data;
+  }
+
   // Modifica l'anagrafica azienda (nome, P.IVA, indirizzo...). La RLS di
   // 0001_aziende_e_utenti.sql permette l'update solo a un admin: un
   // operatore che ci provasse otterrebbe zero righe modificate, e
@@ -385,5 +460,7 @@
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
+    listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,
+    addMovimento, giacenzeForProdotti, listMovimentiRecenti,
   };
 })(window);

@@ -163,7 +163,7 @@
     }
     const rows = [...lastResults].sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        ${th('cod','Codice')}${th('descr','Descrizione')}${th('acq','Acquisto')}${th('ven','Vendita')}${th('iva','IVA %')}<th></th>
+        ${th('cod','Codice')}${th('descr','Descrizione')}${th('acq','Acquisto')}${th('ven','Vendita')}${th('iva','IVA %')}<th>Giacenza</th><th></th>
       </tr></thead><tbody>${rows.map(p => `
         <tr>
           <td class="num-col">${esc(p.cod)}</td>
@@ -171,12 +171,14 @@
           <td class="num-col">${eur(p.listinoAcq)}</td>
           <td class="num-col">${eur(p.listinoVen)}</td>
           <td class="num-col">${p.iva != null ? p.iva + '%' : '—'}</td>
+          <td class="num-col" data-giacenza="${p.id}">…</td>
           <td class="actions">
             <button data-edit="${p.id}">Modifica</button>
             <button class="danger" data-del="${p.id}">Elimina</button>
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'prodotti-elenco');
+    loadGiacenze(rows);
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(lastResults.find(x => x.id === btn.dataset.edit));
@@ -191,6 +193,27 @@
         alert('Errore durante l\'eliminazione: ' + err.message);
       }
     }));
+  }
+
+  // Giacenza totale (somma di tutti i depositi — il dettaglio per deposito
+  // sta in magazzino.html) per i soli prodotti già arrivati dalla ricerca:
+  // una query in più dopo il render, mai un pivot su tutto il catalogo.
+  async function loadGiacenze(rows){
+    if(rows.length === 0) return;
+    let righe;
+    try{
+      righe = await store.giacenzeForProdotti(companyId, rows.map(p => p.id));
+    }catch(err){
+      document.querySelectorAll('[data-giacenza]').forEach(td => { td.textContent = '—'; });
+      return;
+    }
+    const tot = {};
+    righe.forEach(r => { tot[r.prodotto_id] = (tot[r.prodotto_id] || 0) + Number(r.giacenza); });
+    document.querySelectorAll('[data-giacenza]').forEach(td => {
+      const id = td.dataset.giacenza;
+      const v = tot[id] || 0;
+      td.textContent = v ? v.toLocaleString('it-IT', { maximumFractionDigits: 3 }) : '0';
+    });
   }
 
   async function runSearch(){

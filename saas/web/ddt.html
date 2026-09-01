@@ -35,7 +35,7 @@
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th></th></tr></thead>
+      <thead><tr><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -137,10 +137,12 @@
   });
 
   function rigaRowHtml(r){
-    r = r || { cod:'', descr:'', qty:1 };
+    r = r || { cod:'', descr:'', qty:1, lotto:'', scad:'' };
     return `<tr>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
+      <td style="width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
+      <td style="width:130px"><input class="r-scad" type="date" value="${esc(r.scad || '')}"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
     </tr>`;
@@ -167,6 +169,8 @@
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
+      lotto: tr.querySelector('.r-lotto').value.trim(),
+      scad: tr.querySelector('.r-scad').value,
       qty: Number(tr.querySelector('.r-qty').value) || 0,
     })).filter(r => r.descr || r.cod);
   }

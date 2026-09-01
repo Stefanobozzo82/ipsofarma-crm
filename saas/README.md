@@ -1285,6 +1285,35 @@ spunta (ora selezionano la riga prima), più un nuovo
 `test107_azioni_con_spunta.py` dedicato. Regressione completa (37 file)
 passata.
 
+## Lotto e scadenza mancanti nell'editor righe — bug reale di perdita dati
+
+Segnalato dall'utente: aprendo una fattura non si vedono lotto e
+scadenza per riga. Verificato contro l'originale: lì questi due campi
+compaiono nell'editor righe SOLO per `ddt`, fatture cliente, fatture
+fornitore, note credito e note credito fornitore (flag `LOTE` —
+`ordiniCliente`/`ordiniFornitore`/`preventivi` non li mostrano mai, ha
+senso: non c'è ancora un lotto fisico da tracciare prima che la merce si
+muova davvero). In questo prodotto quei due campi non sono **mai esistiti**
+in nessun modulo, da quando è stato costruito.
+
+Non è solo un campo mancante da vedere: `readRighe()` ricostruisce ogni
+riga da zero leggendo solo gli input effettivamente presenti nel form —
+quindi qualunque riga con `lotto`/`scad` già valorizzati (es. una fattura
+fornitore creata con l'importazione AI, che li estrae) li **perdeva
+silenziosamente** al primo salvataggio, anche senza toccare nulla.
+
+Aggiunti i campi (testo per il lotto, data per la scadenza) a
+`rigaRowHtml()`/`readRighe()`/intestazione tabella in `ddt.html`,
+`fatture.html`, `fatture-fornitore.html`, `note-credito.html`,
+`note-credito-fornitore.html` — stessa identica selezione di moduli
+dell'originale. Estesa anche l'importazione AI di `fatture-fornitore.html`
+per estrarre lotto/scadenza dal PDF (mancava anche lì: il prompt non lo
+chiedeva). `print.js` già li mostrava correttamente quando presenti — non
+c'era niente da correggere lì. Collaudato con un nuovo
+`test108_lotto_scadenza.py` (apertura con dati già valorizzati, salvataggio
+senza perdita, e verifica che ordini.html non li mostri, come
+nell'originale). Regressione completa (38 file) passata.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

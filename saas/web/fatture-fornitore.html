@@ -41,7 +41,7 @@
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+      <thead><tr><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -185,10 +185,12 @@
   }
 
   function rigaRowHtml(r){
-    r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
+    r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
     return `<tr>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
+      <td style="width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
+      <td style="width:130px"><input class="r-scad" type="date" value="${esc(r.scad || '')}"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
       <td style="width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
       <td style="width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
@@ -225,6 +227,8 @@
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
+      lotto: tr.querySelector('.r-lotto').value.trim(),
+      scad: tr.querySelector('.r-scad').value,
       qty: Number(tr.querySelector('.r-qty').value) || 0,
       prezzo: Number(tr.querySelector('.r-prezzo').value) || 0,
       sconto: tr.querySelector('.r-sconto').value.trim(),
@@ -361,7 +365,7 @@
     aiImportStatus('Sto leggendo ' + file.name + ' con l\'AI…', 'info');
     try{
       const images = isPdf ? await pdfToImageDataUrls(file, 4) : [await readFileAsDataUrl(file)];
-      const instr = "Nel documento allegato c'è una FATTURA di un FORNITORE. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore emittente), numero (numero della fattura), data (formato AAAA-MM-GG), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità fatturata, numero), prezzo (prezzo unitario PIENO prima di eventuali sconti, numero), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", oppure stringa vuota se non c'è sconto), iva (aliquota IVA, numero).";
+      const instr = "Nel documento allegato c'è una FATTURA di un FORNITORE. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore emittente), numero (numero della fattura), data (formato AAAA-MM-GG), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità fatturata, numero), prezzo (prezzo unitario PIENO prima di eventuali sconti, numero), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", oppure stringa vuota se non c'è sconto), iva (aliquota IVA, numero), lotto (il numero di lotto/partita indicato vicino alla riga articolo, es. \"Partita\" o \"Lotto\"; stringa vuota se assente), scad (la data di scadenza del lotto indicata vicino alla riga articolo, formato AAAA-MM-GG; stringa vuota se assente).";
       const content = [{ type:'text', text: instr }].concat(images.map(url => ({ type:'image_url', image_url:{ url } })));
       const reply = await store.aiComplete([
         { role:'system', content:"Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick." },
@@ -383,6 +387,8 @@
         prezzo: r.prezzo != null && r.prezzo !== '' ? parseFloat(r.prezzo) || 0 : 0,
         sconto: String(r.sconto || '').replace(/\s/g, ''),
         iva: r.iva != null && r.iva !== '' ? parseFloat(r.iva) : 22,
+        lotto: String(r.lotto || '').trim(),
+        scad: /^\d{4}-\d{2}-\d{2}$/.test(r.scad || '') ? r.scad : '',
       } : null));
       aiImportStatus(
         match

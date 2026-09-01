@@ -55,6 +55,11 @@
     <p class="hint">Verifico la sessione…</p>
   </div>
 
+  <!-- stato: qualcuno ti ha invitato in un'azienda (?invite=<token> nell'URL) -->
+  <div class="card" id="invite-box" hidden style="border-color:var(--accent)">
+    <p class="hint" style="margin-top:0" id="invite-text"></p>
+  </div>
+
   <!-- stato: non collegato -->
   <div class="card" id="auth-box" hidden>
     <label for="email">Email</label>
@@ -100,6 +105,11 @@
   const show = (...ids) => { ['loading','auth-box','register-box','dashboard-box'].forEach(i => $(i).hidden = !ids.includes(i)); };
 
   let mode = 'signin'; // 'signin' | 'signup'
+  // Se qualcuno ha aperto questo link con ?invite=<token> (condiviso a mano
+  // da un admin — niente invio email automatico, vedi 0008_inviti.sql),
+  // dopo il login/registrazione va accettato invece del percorso normale
+  // "le tue aziende"/"crea la tua azienda".
+  const inviteToken = new URLSearchParams(location.search).get('invite');
 
   function setMsg(id, text, kind){
     const el = $(id);
@@ -173,13 +183,54 @@
     await refresh();
   });
 
+  // Mostra "sei stato invitato da X" PRIMA del login — invite_preview() è
+  // concessa anche ad anon apposta, non serve una sessione per vederla.
+  // Precompila (e blocca) l'email: evita che finisca per registrarsi/
+  // accedere con un indirizzo diverso da quello a cui l'invito è rivolto,
+  // scoprendolo solo dopo (accept_invite lo rifiuterebbe comunque).
+  async function showInvitePreview(){
+    if(!inviteToken) return;
+    try{
+      const { data, error } = await sb.rpc('invite_preview', { p_token: inviteToken });
+      if(error) throw error;
+      const preview = data && data[0];
+      if(!preview){ $('invite-text').textContent = 'Questo link di invito non è più valido.'; $('invite-box').hidden = false; return; }
+      $('invite-text').innerHTML = `Sei stato invitato a entrare in <b>${preview.company_nome.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</b> come ${preview.role}. Accedi o registrati con <b>${preview.email}</b> per accettare.`;
+      $('invite-box').hidden = false;
+      $('email').value = preview.email;
+      $('email').readOnly = true;
+    }catch(err){
+      $('invite-text').textContent = 'Questo link di invito non è più valido: ' + (err.message || err);
+      $('invite-box').hidden = false;
+    }
+  }
+
   async function refresh(){
     show('loading');
     const { data: { session } } = await sb.auth.getSession();
     if(!session){
       $('page-title').textContent = mode === 'signin' ? 'Accesso' : 'Registrazione';
+      await showInvitePreview();
       show('auth-box');
       return;
+    }
+    if(inviteToken){
+      try{
+        const { data, error } = await sb.rpc('accept_invite', { p_token: inviteToken });
+        if(error) throw error;
+        const row = data && data[0];
+        if(row){
+          localStorage.setItem('saas_company_id', row.company_id);
+          localStorage.setItem('saas_company_nome', row.company_nome);
+          location.href = 'clienti.html';
+          return;
+        }
+      }catch(err){
+        // Invito non valido/scaduto/email sbagliata: non bloccare — chi è
+        // già collegato può comunque vedere le proprie aziende sotto.
+        $('invite-text').textContent = 'Non sono riuscito ad accettare l\'invito: ' + (err.message || err);
+        $('invite-box').hidden = false;
+      }
     }
     const { data: memberships, error } = await sb.from('my_memberships').select('*');
     if(error){

@@ -172,6 +172,49 @@
     return results.reduce((sum, r) => sum + (r.count || 0), 0);
   }
 
+  // ---------------------------------------------------------------------------
+  // Team (Fase 6 bis). Un utente entra in un'azienda ALTRUI solo accettando
+  // un invito (accept_invite, chiamato da index.html) — mai con un insert
+  // diretto: le funzioni server-side sono l'unico varco, stesso principio
+  // di register_company (vedi 0008_inviti.sql). Cambio ruolo e rimozione di
+  // un membro restano invece un update/delete diretto su memberships: la
+  // RLS ("admin gestisce le utenze della propria azienda") già li permette
+  // solo a un admin della stessa azienda.
+  // ---------------------------------------------------------------------------
+  async function listMembers(companyId) {
+    const { data, error } = await client().rpc('list_members', { p_company_id: companyId });
+    if (error) throw error;
+    return data;
+  }
+
+  async function listInvites(companyId) {
+    const { data, error } = await client().from('invites').select('*')
+      .eq('company_id', companyId).is('accepted_at', null).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+
+  async function createInvite(companyId, email, role) {
+    const { data, error } = await client().rpc('create_invite', { p_company_id: companyId, p_email: email, p_role: role });
+    if (error) throw error;
+    return data;
+  }
+
+  async function revokeInvite(inviteId) {
+    const { error } = await client().from('invites').delete().eq('id', inviteId);
+    if (error) throw error;
+  }
+
+  async function updateMemberRole(companyId, userId, role) {
+    const { error } = await client().from('memberships').update({ role }).eq('company_id', companyId).eq('user_id', userId);
+    if (error) throw error;
+  }
+
+  async function removeMember(companyId, userId) {
+    const { error } = await client().from('memberships').delete().eq('company_id', companyId).eq('user_id', userId);
+    if (error) throw error;
+  }
+
   // Da chiamare prima di creare un NUOVO documento (mai per una modifica:
   // il limite è sulla creazione, non sulla modifica di uno già esistente).
   // { ok:true } se il piano non ha un limite (null = illimitato, come
@@ -321,5 +364,6 @@
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit,
+    listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember,
   };
 })(window);

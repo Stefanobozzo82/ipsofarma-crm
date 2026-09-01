@@ -1402,6 +1402,52 @@ richiesto aggiungere un finto `checkDocLimit` a 38 mock di test esistenti
 (qualunque pagina che apre un "+ Nuovo ..." lo chiama ora davvero).
 Regressione completa (42 file) passata.
 
+## Inviti in azienda — chiude il limite utenti rimasto aperto
+
+Richiesto dall'utente ("costruiscilo"): mancava qualunque modo per un
+admin di far entrare un collega nella PROPRIA azienda — l'unico ingresso
+possibile era registrarsene una nuova. Senza questo, il limite
+`plans.limite_utenti` non aveva nessun posto dove applicarsi.
+
+Nuova migrazione `0008_inviti.sql`, stesso principio di
+`register_company` (Fase 1): un utente che non è ancora membro non può
+scrivere `memberships` da solo, quindi l'unico varco sono funzioni
+server-side dedicate (`security definer`), mai un insert diretto del
+client.
+
+- `create_invite(company_id, email, role)` — solo un admin, verifica che
+  la persona non sia già in azienda e che non ci sia già un invito in
+  sospeso per quell'indirizzo, **applica qui il limite utenti del
+  piano** (membri attuali + inviti in sospeso confrontati con
+  `plans.limite_utenti`; `null` = nessun limite).
+- `invite_preview(token)` — dati minimi non sensibili (nome azienda,
+  email, ruolo) leggibili anche da chi non è ancora autenticato, per
+  mostrare "sei stato invitato da X" prima del login.
+- `accept_invite(token)` — richiede una sessione attiva (account nuovo o
+  già esistente, stesso percorso per entrambi) e che l'email
+  dell'account corrisponda a quella dell'invito; crea la membership e
+  segna l'invito accettato.
+- `list_members(company_id)` — chi c'è già, con l'email (`memberships`
+  non la contiene: vive in `auth.users`, non leggibile direttamente dal
+  client).
+
+**Niente invio email automatico** (servirebbe un provider email
+configurato, non ancora fatto): l'admin genera il link da Impostazioni →
+Team e lo manda lui stesso (copiato negli appunti in automatico).
+
+Lato pagine: `index.html` mostra il banner "sei stato invitato" quando
+si apre con `?invite=<token>`, precompila e blocca l'email, e accetta
+l'invito in automatico appena c'è una sessione (dopo login o dopo
+registrazione). `impostazioni-azienda.html` ha una nuova card "Team":
+elenco membri con cambio ruolo/rimozione (solo admin), form di invito,
+elenco inviti in sospeso con "copia link"/revoca. Un operatore/viewer
+vede il team ma non tocca ruoli né invita.
+
+Nuovo `test113_inviti.py`. Regressione completa (43 file) passata.
+**La migrazione non è ancora distribuita**: va applicata su Supabase
+(non basta il push su GitHub, come già per le Edge Function) prima che
+il flusso funzioni contro il progetto reale.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

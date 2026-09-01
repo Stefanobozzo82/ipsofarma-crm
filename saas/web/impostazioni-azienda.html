@@ -33,6 +33,25 @@
       </div>
     </div>
 
+    <div class="card" id="team-card" hidden>
+      <h3 style="margin:0 0 4px">Team</h3>
+      <p class="ai-intro" style="margin:0 0 14px">Chi fa parte di questa azienda, e chi hai invitato.</p>
+      <div id="members-area"></div>
+
+      <div id="invite-admin-area" hidden>
+        <div class="form-sec">Invita una persona</div>
+        <div class="grid2">
+          <div><label for="inv-email">Email</label><input id="inv-email" type="email" placeholder="collega@azienda.it"></div>
+          <div><label for="inv-role">Ruolo</label>
+            <select id="inv-role"><option value="operatore">Operatore</option><option value="admin">Amministratore</option><option value="viewer">Sola lettura</option></select>
+          </div>
+        </div>
+        <button class="ghost" id="inv-send" style="margin-top:8px">+ Invita</button>
+        <div class="msg" id="invite-msg" hidden></div>
+        <div id="pending-area" style="margin-top:10px"></div>
+      </div>
+    </div>
+
     <div class="card" id="form-card">
       <p class="empty" id="loading-msg">Carico…</p>
       <div id="form-body" hidden>
@@ -90,6 +109,9 @@
   const store = window.SaasStore;
   let companyId = null;
   let isAdmin = false;
+  let meUserId = null;
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
   function setMsg(text, kind){
     const el = $('form-msg');
@@ -109,6 +131,86 @@
   $('theme-light').addEventListener('click', () => { window.SaasTheme.set('light'); refreshThemeButtons(); });
   $('theme-dark').addEventListener('click', () => { window.SaasTheme.set('dark'); refreshThemeButtons(); });
   refreshThemeButtons();
+
+  // ---- Team: chi c'è già, chi hai invitato -------------------------------
+  function roleLabel(r){ return r === 'admin' ? 'Amministratore' : r === 'viewer' ? 'Sola lettura' : 'Operatore'; }
+  function inviteMsg(text, kind){
+    const el = $('invite-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+  function inviteUrl(token){ return new URL('index.html?invite=' + token, location.href).href; }
+
+  async function renderTeam(){
+    const [members, invites] = await Promise.all([
+      store.listMembers(companyId),
+      isAdmin ? store.listInvites(companyId) : Promise.resolve([]),
+    ]);
+    $('members-area').innerHTML = members.map(m => `
+      <div class="dest-card">
+        <div class="dest-head" style="justify-content:space-between">
+          <span>${esc(m.email)}${m.user_id === meUserId ? ' <span class="hint">(tu)</span>' : ''}</span>
+          ${isAdmin && m.user_id !== meUserId
+            ? `<select data-role="${m.user_id}" style="width:auto">
+                 <option value="operatore" ${m.role === 'operatore' ? 'selected' : ''}>Operatore</option>
+                 <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>Amministratore</option>
+                 <option value="viewer" ${m.role === 'viewer' ? 'selected' : ''}>Sola lettura</option>
+               </select>
+               <button type="button" class="le-del" data-remove="${m.user_id}" title="Rimuovi dall'azienda">×</button>`
+            : `<span class="role" style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--border);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600">${roleLabel(m.role)}</span>`}
+        </div>
+      </div>`).join('');
+    $('members-area').querySelectorAll('[data-role]').forEach(sel => sel.addEventListener('change', async () => {
+      try{ await store.updateMemberRole(companyId, sel.dataset.role, sel.value); }
+      catch(err){ alert('Errore durante il cambio ruolo: ' + err.message); await renderTeam(); }
+    }));
+    $('members-area').querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', async () => {
+      if(!confirm('Rimuovere questa persona dall\'azienda? Perderà l\'accesso immediatamente.')) return;
+      try{ await store.removeMember(companyId, btn.dataset.remove); await renderTeam(); }
+      catch(err){ alert('Errore durante la rimozione: ' + err.message); }
+    }));
+
+    if(!isAdmin) return;
+    $('invite-admin-area').hidden = false;
+    $('pending-area').innerHTML = invites.length ? invites.map(i => `
+      <div class="dest-card">
+        <div class="dest-head" style="justify-content:space-between">
+          <span>${esc(i.email)} <span class="hint">(${roleLabel(i.role)}, in attesa)</span></span>
+          <button type="button" class="linklike" data-copy="${esc(i.token)}">Copia link</button>
+          <button type="button" class="le-del" data-revoke="${i.id}" title="Revoca invito">×</button>
+        </div>
+      </div>`).join('') : '<p class="empty">Nessun invito in sospeso.</p>';
+    $('pending-area').querySelectorAll('[data-copy]').forEach(btn => btn.addEventListener('click', async () => {
+      const url = inviteUrl(btn.dataset.copy);
+      try{ await navigator.clipboard.writeText(url); inviteMsg('Link copiato: ' + url, 'ok'); }
+      catch(e){ inviteMsg('Copia questo link: ' + url, 'ok'); }
+    }));
+    $('pending-area').querySelectorAll('[data-revoke]').forEach(btn => btn.addEventListener('click', async () => {
+      if(!confirm('Revocare questo invito?')) return;
+      try{ await store.revokeInvite(btn.dataset.revoke); await renderTeam(); }
+      catch(err){ alert('Errore durante la revoca: ' + err.message); }
+    }));
+  }
+
+  $('inv-send').addEventListener('click', async () => {
+    const email = $('inv-email').value.trim();
+    const role = $('inv-role').value;
+    if(!email){ inviteMsg('Inserisci un indirizzo email.', 'error'); return; }
+    $('inv-send').disabled = true;
+    inviteMsg('', '');
+    try{
+      const invite = await store.createInvite(companyId, email, role);
+      $('inv-email').value = '';
+      const url = inviteUrl(invite.token);
+      await renderTeam();
+      try{ await navigator.clipboard.writeText(url); inviteMsg(`Invito creato e link copiato negli appunti: ${url}`, 'ok'); }
+      catch(e){ inviteMsg(`Invito creato. Copia questo link e mandalo a ${email}: ${url}`, 'ok'); }
+    }catch(err){
+      inviteMsg(err.message || 'Errore imprevisto.', 'error');
+    }finally{
+      $('inv-send').disabled = false;
+    }
+  });
 
   function fillForm(company){
     const ind = company.indirizzo || {};
@@ -179,6 +281,7 @@
       onLogout: doLogout,
     });
 
+    meUserId = session.user.id;
     try{
       const [company, memberships] = await Promise.all([
         store.getCompany(companyId),
@@ -193,6 +296,8 @@
         $('f-save').hidden = true;
         [...document.querySelectorAll('#form-body input')].forEach(el => el.disabled = true);
       }
+      $('team-card').hidden = false;
+      renderTeam();
     }catch(err){
       $('loading-msg').textContent = 'Errore nel caricamento: ' + err.message;
     }

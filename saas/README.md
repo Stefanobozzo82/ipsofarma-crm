@@ -1725,6 +1725,42 @@ automatico dal nome colonna, due abbinamenti esatti proposti e uno
 scartato, registrazione che aggiorna le fatture giuste). Regressione
 completa (45 file) passata.
 
+## "Non vedo 'Invita una persona'" — bug reale in list_members()
+
+Segnalato dall'utente: un amministratore apriva Impostazioni → Team e
+non vedeva affatto la sezione per invitare qualcuno — pur essendo
+admin di entrambe le sue aziende, confermato via query diretta sul
+database.
+
+Diagnosi fatta sui log reali del progetto (non ipotesi): la chiamata
+`POST /rest/v1/rpc/list_members` falliva sempre con HTTP 400,
+`proxy_status: PostgREST; error=42804` — SQLSTATE 42804,
+"structure of query does not match function result type". La causa:
+`list_members()` (`0008_inviti.sql`) dichiara `email text` nel
+`RETURNS TABLE`, ma legge `auth.users.email`, che nel database è
+`varchar(255)`, non `text`. Un `RETURN QUERY` in PL/pgSQL richiede una
+corrispondenza di tipo ESATTA (non solo compatibile) — la funzione non
+ha mai funzionato, da quando esiste.
+
+L'effetto lato pagina era **silenzioso**: `impostazioni-azienda.html`
+chiamava `renderTeam()` senza `await`/`catch`, quindi il fallimento di
+`store.listMembers()` interrompeva la funzione PRIMA della riga che
+mostra "Invita una persona" — nessun messaggio d'errore, la sezione
+spariva e basta, per qualunque admin.
+
+Corretto in due punti:
+- Nuova migrazione `0010_fix_list_members.sql`: `u.email::text` invece
+  di `u.email` — applicata e verificata sul progetto reale
+  (`select * from list_members(...)` con un contesto utente simulato,
+  riga restituita correttamente).
+- `impostazioni-azienda.html`: `renderTeam()` ora ha un `try/catch`
+  vero — un futuro errore mostra un messaggio leggibile (`#team-msg`)
+  invece di far sparire la sezione in silenzio.
+
+Nuovo scenario in `test91_impostazioni_azienda.py` (un `listMembers()`
+che fallisce mostra l'errore, non un vuoto). Regressione completa (45
+file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

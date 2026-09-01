@@ -36,6 +36,7 @@
     <div class="card" id="team-card" hidden>
       <h3 style="margin:0 0 4px">Team</h3>
       <p class="ai-intro" style="margin:0 0 14px">Chi fa parte di questa azienda, e chi hai invitato.</p>
+      <div class="msg" id="team-msg" hidden></div>
       <div id="members-area"></div>
 
       <div id="invite-admin-area" hidden>
@@ -149,10 +150,23 @@
   function inviteUrl(token){ return new URL('index.html?invite=' + token, location.href).href; }
 
   async function renderTeam(){
-    const [members, invites] = await Promise.all([
-      store.listMembers(companyId),
-      isAdmin ? store.listInvites(companyId) : Promise.resolve([]),
-    ]);
+    let members, invites;
+    try{
+      [members, invites] = await Promise.all([
+        store.listMembers(companyId),
+        isAdmin ? store.listInvites(companyId) : Promise.resolve([]),
+      ]);
+    }catch(err){
+      // Prima di questo fallimento era silenzioso: renderTeam() veniva
+      // chiamata senza await/catch in init(), quindi un errore qui (es. il
+      // bug di tipo in list_members, risolto in 0010_fix_list_members.sql)
+      // interrompeva la funzione PRIMA di mostrare "Invita una persona" —
+      // per qualunque admin, senza nessun messaggio.
+      $('team-msg').textContent = 'Errore nel caricamento del team: ' + err.message;
+      $('team-msg').className = 'msg error';
+      $('team-msg').hidden = false;
+      return;
+    }
     $('members-area').innerHTML = members.map(m => `
       <div class="dest-card">
         <div class="dest-head" style="justify-content:space-between">

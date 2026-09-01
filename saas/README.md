@@ -1331,6 +1331,28 @@ pulsante "Indietro" e dopo un salvataggio riuscito. Collaudato con un
 nuovo `test109_elenco_nascosto_in_apertura.py`. Regressione completa (39
 file) passata.
 
+## Clienti e fornitori: righe cliccabili e anagrafica completa
+
+Richiesto dall'utente: rendere clienti.html/fornitori.html cliccabili
+come gli altri moduli (clic sulla riga apre il form, l'elenco si nasconde
+con il pulsante "← Torna all'elenco"), e aggiungere i campi tipici dei
+gestionali più diffusi. Prima di scrivere codice ho controllato lo schema
+Supabase (`0002_anagrafiche.sql`) e `store.js`: **i campi c'erano già**
+— `cf`, `sdi`, `pec`, `split` (scissione pagamenti), `esig` (esigibilità
+IVA), `via`/`cap`/`prov` (solo la città era esposta), `pag`/`term`
+(modalità e termini di pagamento), `iban`, `ref` (referente) per i
+clienti; gli stessi meno `sdi`/`split`/`esig` per i fornitori (scelta
+già presente nello schema: quei tre concetti riguardano solo la
+fatturazione attiva verso i clienti, non ha senso averli su un
+fornitore). Il form semplicemente non li esponeva mai — nessuna
+migrazione richiesta, tutto risolvibile lato pagina.
+
+Aggiunti in entrambi i form, con la stessa struttura a sezioni
+dell'originale (Anagrafica → Fatturazione elettronica → Sede legale →
+Pagamento → Contatti). Collaudato con un nuovo
+`test110_clienti_fornitori_campi.py`. Regressione completa (40 file)
+passata.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

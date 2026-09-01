@@ -22,17 +22,44 @@
     </div>
 
   <div class="card" id="form-card" hidden>
+    <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo fornitore</h3>
     <label for="f-nome">Nome / ragione sociale</label>
     <input id="f-nome" type="text" placeholder="B.Braun Milano Spa">
     <div class="grid2">
-      <div><label for="f-tipo">Tipo</label>
+      <div><label for="f-tipo">Tipo soggetto</label>
         <select id="f-tipo"><option value="PG">Persona giuridica</option><option value="PF">Persona fisica</option></select>
       </div>
       <div><label for="f-piva">Partita IVA</label><input id="f-piva" type="text"></div>
     </div>
-    <div class="grid2">
+    <label for="f-cf">Codice fiscale</label>
+    <input id="f-cf" type="text">
+
+    <div class="form-sec">Recapiti fiscali</div>
+    <label for="f-pec">PEC</label>
+    <input id="f-pec" type="email">
+
+    <div class="form-sec">Sede</div>
+    <label for="f-via">Indirizzo</label>
+    <input id="f-via" type="text" placeholder="Via e numero civico">
+    <div class="grid3">
+      <div><label for="f-cap">CAP</label><input id="f-cap" type="text" maxlength="5"></div>
       <div><label for="f-citta">Città</label><input id="f-citta" type="text"></div>
+      <div><label for="f-prov">Prov.</label><input id="f-prov" type="text" maxlength="2"></div>
+    </div>
+
+    <div class="form-sec">Pagamento</div>
+    <div class="grid3">
+      <div><label for="f-pag">Modalità</label>
+        <select id="f-pag"><option>Bonifico</option><option>RiBa</option><option>Contanti</option></select>
+      </div>
+      <div><label for="f-iban">IBAN</label><input id="f-iban" type="text"></div>
+      <div><label for="f-term">Termini gg</label><input id="f-term" type="number"></div>
+    </div>
+
+    <div class="form-sec">Contatti</div>
+    <div class="grid2">
+      <div><label for="f-ref">Referente</label><input id="f-ref" type="text"></div>
       <div><label for="f-tel">Telefono</label><input id="f-tel" type="text"></div>
     </div>
     <label for="f-email">Email</label>
@@ -46,7 +73,7 @@
     <div class="msg" id="form-msg" hidden></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="list-card">
     <div class="toolbar">
       <h3>Elenco</h3>
       <div class="toolbar-right">
@@ -126,25 +153,41 @@
     $('f-nome').value = fornitore ? (fornitore.nome || '') : '';
     $('f-tipo').value = fornitore ? (fornitore.tipo || 'PG') : 'PG';
     $('f-piva').value = fornitore ? (fornitore.piva || '') : '';
+    $('f-cf').value = fornitore ? (fornitore.cf || '') : '';
+    $('f-pec').value = fornitore ? (fornitore.pec || '') : '';
+    $('f-via').value = fornitore ? (fornitore.via || '') : '';
+    $('f-cap').value = fornitore ? (fornitore.cap || '') : '';
     $('f-citta').value = fornitore ? (fornitore.citta || '') : '';
+    $('f-prov').value = fornitore ? (fornitore.prov || '') : '';
+    $('f-pag').value = fornitore ? (fornitore.pag || 'Bonifico') : 'Bonifico';
+    $('f-iban').value = fornitore ? (fornitore.iban || '') : '';
+    $('f-term').value = fornitore ? (fornitore.term || '') : '60';
+    $('f-ref').value = fornitore ? (fornitore.ref || '') : '';
     $('f-tel').value = fornitore ? (fornitore.tel || '') : '';
     $('f-email').value = fornitore ? (fornitore.email || '') : '';
     $('f-note').value = fornitore ? (fornitore.note || '') : '';
     setMsg('', '');
     $('form-card').hidden = false;
+    $('list-card').hidden = true;
     $('f-nome').focus();
   }
-  function closeForm(){ $('form-card').hidden = true; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
 
   $('new-fornitore').addEventListener('click', () => openForm(null));
   $('f-cancel').addEventListener('click', closeForm);
+  $('f-back').addEventListener('click', closeForm);
 
   $('f-save').addEventListener('click', async () => {
     const nome = $('f-nome').value.trim();
     if(!nome){ setMsg('Il nome è obbligatorio.', 'error'); return; }
     const doc = {
       nome, tipo: $('f-tipo').value, piva: $('f-piva').value.trim() || null,
-      citta: $('f-citta').value.trim() || null, tel: $('f-tel').value.trim() || null,
+      cf: $('f-cf').value.trim() || null, pec: $('f-pec').value.trim() || null,
+      via: $('f-via').value.trim() || null, cap: $('f-cap').value.trim() || null,
+      citta: $('f-citta').value.trim() || null, prov: $('f-prov').value.trim().toUpperCase() || null,
+      pag: $('f-pag').value, iban: $('f-iban').value.trim() || null,
+      term: $('f-term').value.trim() || null, ref: $('f-ref').value.trim() || null,
+      tel: $('f-tel').value.trim() || null,
       email: $('f-email').value.trim() || null, note: $('f-note').value.trim() || null,
     };
     if(editingId) doc.id = editingId;
@@ -183,7 +226,7 @@
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
         ${th('nome','Nome')}${th('piva','P.IVA')}${th('citta','Città')}${th('tel','Telefono')}<th></th>
       </tr></thead><tbody>${fornitori.map(f => `
-        <tr>
+        <tr class="row-click" data-id="${f.id}">
           <td>${esc(f.nome)}</td>
           <td>${esc(f.piva) || '—'}</td>
           <td>${esc(f.citta) || '—'}</td>
@@ -197,6 +240,10 @@
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(fornitori.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
+      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante della riga
+      openForm(fornitori.find(x => x.id === tr.dataset.id));
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const f = fornitori.find(x => x.id === btn.dataset.del);

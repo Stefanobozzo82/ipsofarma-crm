@@ -1761,6 +1761,46 @@ Nuovo scenario in `test91_impostazioni_azienda.py` (un `listMembers()`
 che fallisce mostra l'errore, non un vuoto). Regressione completa (45
 file) passata.
 
+## IA — piano di miglioramento, punto 1: import da PDF/foto esteso
+
+Richiesto dall'utente: concentrarsi sull'IA in ogni suo aspetto, perché
+è il vero differenziale rispetto alla concorrenza (vedi "Studio: parità
+funzionale" — nessuno dei tre gestionali confrontati offre "carica una
+foto, compilo qualunque documento"). Ordine concordato: (1) estendere
+l'import da allegato oltre le sole fatture fornitore, (2) un
+assistente più ricco di dettaglio, (3) verifica incrociata coi dati
+del catalogo, (4) modello più accurato per l'estrazione, (5) azioni
+autonome con anteprima — quest'ultima rimandata apposta a quando tutto
+il resto è solido.
+
+**Punto 1**: l'import esisteva solo in `fatture-fornitore.html` —
+fattorizzato in un modulo condiviso, `app/ai-import.js` (lettura file,
+rasterizzazione PDF via pdf.js, parsing della risposta JSON, ricerca
+controparte per nome), poi esteso a:
+- `ordini.html` — un ordine ricevuto da un CLIENTE (spesso una foto
+  WhatsApp o un PDF via email, non solo a voce).
+- `ordini-fornitore.html` — digitalizzare un proprio ordine (lista
+  scritta a mano, preventivo del fornitore).
+- `note-credito-fornitore.html` — una nota di credito ricevuta dal
+  fornitore (stesso ragionamento di una fattura fornitore: un
+  documento che arriva da fuori).
+
+**Deliberatamente NON esteso** a `ddt.html`, `fatture.html`,
+`preventivi.html`, `note-credito.html`: sono documenti che l'azienda
+crea da zero per un cliente, non ne esiste una versione esterna da
+fotografare prima di averli fatti — estenderlo lì non avrebbe un
+documento sorgente reale da leggere.
+
+`fatture-fornitore.html` stessa refactorizzata per usare il modulo
+condiviso invece della sua copia locale (stessa funzione, meno codice
+duplicato) — collaudo esistente (`test101_importa_ai.py`) passato
+senza modifiche, a conferma che il comportamento non è cambiato.
+
+Nuovo `test117_importa_ai_estesa.py` (un caso per pagina: campi giusti
+precompilati, controparte giusta cercata — gli scenari di errore
+restano coperti una sola volta, nel modulo condiviso, da
+`test101_importa_ai.py`). Regressione completa (46 file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

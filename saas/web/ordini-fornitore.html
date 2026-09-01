@@ -60,9 +60,12 @@
       <h3>Elenco</h3>
       <div class="toolbar-right">
         <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per numero o fornitore…"></div>
+        <button class="ghost" id="ai-import-btn">📎 Importa da PDF/foto (AI)</button>
+        <input type="file" id="ai-import-file" accept="application/pdf,image/*" hidden>
         <button class="primary" id="new-ordine">+ Nuovo ordine</button>
       </div>
     </div>
+    <p class="msg" id="ai-import-status" hidden></p>
     <div id="filter-area"></div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -80,6 +83,7 @@
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
+<script src="app/ai-import.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -305,6 +309,53 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
+
+  // ---- importa ordine fornitore da PDF/foto con l'AI ------------------------
+  // Utile per digitalizzare una lista di riordino scritta a mano o un
+  // preventivo ricevuto dal fornitore, invece di ricopiare riga per riga —
+  // stesso meccanismo di fatture-fornitore.html (vedi app/ai-import.js).
+  function aiImportStatus(text, kind){
+    const el = $('ai-import-status');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
+  }
+  const AI_IMPORT_INSTR = "Nel documento allegato c'è un ORDINE da inviare (o già inviato) a un FORNITORE — una lista di prodotti da ordinare, oppure un preventivo del fornitore da cui creare l'ordine. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore a cui è indirizzato l'ordine), data (formato AAAA-MM-GG, oggi se non indicata), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità, numero), prezzo (prezzo unitario, numero, 0 se non indicato), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", stringa vuota se non c'è sconto), iva (aliquota IVA, numero, 22 se non indicata).";
+  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
+  $('ai-import-file').addEventListener('change', async () => {
+    const file = $('ai-import-file').files[0];
+    $('ai-import-file').value = '';
+    if(!file) return;
+    aiImportStatus('Sto leggendo ' + file.name + ' con l\'AI…', 'info');
+    try{
+      const p = await window.SaasAiImport.extractFromFile(store, file, {
+        systemPrompt: "Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick.",
+        instr: AI_IMPORT_INSTR,
+      });
+      if(!p.righe){ throw new Error('l\'AI non ha riconosciuto un ordine fornitore in questo file'); }
+
+      openForm(null);
+      const match = window.SaasAiImport.findPartyByNome(Object.values(fornitoriById), p.fornitore);
+      if(match) $('f-fornitore').value = match.id;
+      $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
+      $('righe-body').innerHTML = '';
+      const righe = Array.isArray(p.righe) ? p.righe : [];
+      (righe.length ? righe : [null]).forEach(r => addRigaRow(r ? {
+        cod: String(r.cod || '').trim(), descr: String(r.descr || '').trim(),
+        qty: Math.max(1, parseInt(r.qty) || 1),
+        prezzo: r.prezzo != null && r.prezzo !== '' ? parseFloat(r.prezzo) || 0 : 0,
+        sconto: String(r.sconto || '').replace(/\s/g, ''),
+        iva: r.iva != null && r.iva !== '' ? parseFloat(r.iva) : 22,
+      } : null));
+      aiImportStatus(
+        match
+          ? `Letto con l'AI: fornitore riconosciuto come "${match.nome}". Controlla i dati prima di salvare.`
+          : `Letto con l'AI, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`,
+        match ? 'ok' : 'error'
+      );
+    }catch(err){
+      aiImportStatus('Lettura non riuscita: ' + (err.message || err), 'error');
+    }
+  });
 
   $('f-save').addEventListener('click', async () => {
     const fornitoreId = $('f-fornitore').value;

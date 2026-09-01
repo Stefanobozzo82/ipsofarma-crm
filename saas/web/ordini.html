@@ -59,9 +59,12 @@
       <h3>Elenco</h3>
       <div class="toolbar-right">
         <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per numero o cliente…"></div>
+        <button class="ghost" id="ai-import-btn">📎 Importa da PDF/foto (AI)</button>
+        <input type="file" id="ai-import-file" accept="application/pdf,image/*" hidden>
         <button class="primary" id="new-ordine">+ Nuovo ordine</button>
       </div>
     </div>
+    <p class="msg" id="ai-import-status" hidden></p>
     <div id="filter-area"></div>
     <div id="list-area"><p class="empty">Carico…</p></div>
   </div>
@@ -79,6 +82,7 @@
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
+<script src="app/ai-import.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -250,6 +254,55 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
+
+  // ---- importa ordine cliente da PDF/foto con l'AI --------------------------
+  // Un cliente (farmacia) manda spesso il proprio ordine per email/WhatsApp
+  // come foto o PDF invece che a voce — stesso meccanismo di
+  // fatture-fornitore.html (vedi app/ai-import.js), qui per riconoscere il
+  // CLIENTE che ordina invece del fornitore che fattura. Niente lotto/scad
+  // richiesti: questo modulo non li ha (vedi rigaRowHtml sopra).
+  function aiImportStatus(text, kind){
+    const el = $('ai-import-status');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
+  }
+  const AI_IMPORT_INSTR = "Nel documento allegato c'è un ORDINE ricevuto da un CLIENTE (farmacia o struttura sanitaria che sta ordinando prodotti). Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: cliente (nome del cliente che ordina), data (formato AAAA-MM-GG, oggi se non indicata), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità ordinata, numero), prezzo (prezzo unitario, numero, 0 se non indicato), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", stringa vuota se non c'è sconto), iva (aliquota IVA, numero, 22 se non indicata).";
+  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
+  $('ai-import-file').addEventListener('change', async () => {
+    const file = $('ai-import-file').files[0];
+    $('ai-import-file').value = '';
+    if(!file) return;
+    aiImportStatus('Sto leggendo ' + file.name + ' con l\'AI…', 'info');
+    try{
+      const p = await window.SaasAiImport.extractFromFile(store, file, {
+        systemPrompt: "Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick.",
+        instr: AI_IMPORT_INSTR,
+      });
+      if(!p.righe){ throw new Error('l\'AI non ha riconosciuto un ordine cliente in questo file'); }
+
+      openForm(null);
+      const match = window.SaasAiImport.findPartyByNome(Object.values(clientiById), p.cliente);
+      if(match) $('f-cliente').value = match.id;
+      $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
+      $('righe-body').innerHTML = '';
+      const righe = Array.isArray(p.righe) ? p.righe : [];
+      (righe.length ? righe : [null]).forEach(r => addRigaRow(r ? {
+        cod: String(r.cod || '').trim(), descr: String(r.descr || '').trim(),
+        qty: Math.max(1, parseInt(r.qty) || 1),
+        prezzo: r.prezzo != null && r.prezzo !== '' ? parseFloat(r.prezzo) || 0 : 0,
+        sconto: String(r.sconto || '').replace(/\s/g, ''),
+        iva: r.iva != null && r.iva !== '' ? parseFloat(r.iva) : 22,
+      } : null));
+      aiImportStatus(
+        match
+          ? `Letto con l'AI: cliente riconosciuto come "${match.nome}". Controlla i dati prima di salvare.`
+          : `Letto con l'AI, ma nessun cliente corrisponde a "${p.cliente || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Clienti).`,
+        match ? 'ok' : 'error'
+      );
+    }catch(err){
+      aiImportStatus('Lettura non riuscita: ' + (err.message || err), 'error');
+    }
+  });
 
   $('f-save').addEventListener('click', async () => {
     const clienteId = $('f-cliente').value;

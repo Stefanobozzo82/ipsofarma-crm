@@ -273,6 +273,10 @@ th:hover .col-resize-handle::after{ background:var(--faint); }
 td{ padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
 tbody tr:last-child td{ border-bottom:none; }
 tbody tr:hover{ background:var(--surface2); }
+/* Righe di un elenco documento: l'intera riga apre il documento (come
+ * cliccare "Modifica"), non solo il numero — che era già colorato come
+ * un link ma, prima di questa aggiunta, non faceva nulla al clic. */
+tbody tr.row-click{ cursor:pointer; }
 td.num-col{ font-family:var(--mono); font-weight:600; color:var(--accent-d); font-size:12.5px; }
 td.actions{ text-align:right; white-space:nowrap; }
 td.actions button{

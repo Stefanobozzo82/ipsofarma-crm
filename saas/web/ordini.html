@@ -247,7 +247,7 @@
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
         ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('totale','Totale')}<th></th>
       </tr></thead><tbody>${ordini.map(o => `
-        <tr>
+        <tr class="row-click" data-id="${o.id}">
           <td class="num-col">${esc(o.num)}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
@@ -261,6 +261,10 @@
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(ordini.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
+      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
+      openForm(ordini.find(x => x.id === tr.dataset.id));
     }));
     area.querySelectorAll('[data-print]').forEach(btn => btn.addEventListener('click', () => {
       const it = ordini.find(x => x.id === btn.dataset.print);

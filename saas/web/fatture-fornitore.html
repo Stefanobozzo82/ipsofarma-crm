@@ -469,7 +469,7 @@
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('totale','Totale')}${th('pagamento','Pagamento')}<th></th>
       </tr></thead><tbody>${elenco.map(f => `
-        <tr>
+        <tr class="row-click" data-id="${f.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(f.num)}</td>
           <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
@@ -485,6 +485,10 @@
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(elenco.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
+      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
+      openForm(elenco.find(x => x.id === tr.dataset.id));
     }));
     area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
       togglePaid(elenco.find(x => x.id === btn.dataset.toggle));

@@ -53,6 +53,7 @@
   let companyId = null;
   let SORT = { key: 'scadenza', dir: 'asc' };
   let righe = [];
+  let fattureCache = []; // usata da ncCreditoFor() per la cascata su note di credito multi-fattura
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
@@ -70,10 +71,24 @@
     if(it.pagamenti == null) return it.paid ? tot(it.righe) : 0;
     return it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0);
   }
+  // Quanto di una nota di credito va imputato a UNA specifica fattura —
+  // porta diretta di ncCreditoFor() in index.html: se la nota copre più
+  // fatture (ftIds con più di un elemento), l'importo si distribuisce a
+  // cascata partendo dalla più vecchia, non in parti uguali (correzione:
+  // una prima versione qui divideva erroneamente in parti uguali).
   function ncCreditoFor(nc, ftNum){
     const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
     if(!ids.includes(ftNum)) return 0;
-    return ids.length <= 1 ? tot(nc.righe) : tot(nc.righe) / ids.length;
+    if(ids.length <= 1) return tot(nc.righe);
+    let remaining = tot(nc.righe);
+    const ordered = ids.map(n => fattureCache.find(f => f.num === n)).filter(Boolean).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    for(const f of ordered){
+      if(remaining <= 0) break;
+      const alloc = Math.min(remaining, tot(f.righe));
+      if(f.num === ftNum) return alloc;
+      remaining -= alloc;
+    }
+    return 0;
   }
   function payState(it, noteCredito){
     const totaleRaw = tot(it.righe);
@@ -189,6 +204,7 @@
     }
     const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     const oggi = new Date().toISOString().slice(0, 10);
+    fattureCache = fatture;
     righe = [];
     fatture.forEach(f => {
       const ps = payState(f, noteCredito);

@@ -92,10 +92,29 @@
     return it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0);
   }
   // Quanto di una nota di credito va imputato a una specifica fattura cliente.
+  // Quanto di una nota di credito va imputato a UNA specifica fattura. Nel
+  // caso normale (una sola fattura collegata) è l'intero importo della
+  // nota. Quando invece copre un saldo complessivo su più fatture (ftIds
+  // con più di un elemento, es. accordo transattivo), l'importo si
+  // distribuisce sulle fatture collegate partendo dalla più vecchia — come
+  // un incasso parziale applicato in sequenza — finché non si esaurisce.
+  // Porta diretta di ncCreditoFor() in index.html: una prima versione qui
+  // divideva l'importo in parti uguali tra tutte le fatture collegate,
+  // invece di seguire questa cascata — corretto perché produceva un
+  // residuo sbagliato sulle (rare) note di credito multi-fattura.
   function ncCreditoFor(nc, ftNum){
     const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
     if(!ids.includes(ftNum)) return 0;
-    return ids.length <= 1 ? tot(nc.righe) : tot(nc.righe) / ids.length;
+    if(ids.length <= 1) return tot(nc.righe);
+    let remaining = tot(nc.righe);
+    const ordered = ids.map(n => DB.fattureCliente.find(f => f.num === n)).filter(Boolean).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    for(const f of ordered){
+      if(remaining <= 0) break;
+      const alloc = Math.min(remaining, tot(f.righe));
+      if(f.num === ftNum) return alloc;
+      remaining -= alloc;
+    }
+    return 0;
   }
   function payState(it, noteCredito, noteCreditoFornitore, isFornitore){
     const totaleRaw = tot(it.righe);

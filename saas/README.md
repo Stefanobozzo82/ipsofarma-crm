@@ -1144,6 +1144,46 @@ abbastanza saturi da leggersi bene su sfondo sia chiaro che scuro, e
 cambiarli avrebbe rotto la fedeltà col grafico del gestionale originale
 senza un vero bisogno.
 
+## "Da incassare"/"Da pagare" sbagliati — bug reale + dati non allineati
+
+Segnalato dall'utente confrontando la dashboard con il gestionale
+originale: "Da incassare dai clienti" e "Da pagare ai fornitori" non
+tornavano. Verificato ricalcolando entrambe le cifre direttamente da
+`backup.json` (i dati reali e aggiornati del gestionale originale, che
+l'utente continua a usare in parallelo — i suoi salvataggi automatici si
+vedono nella cronologia Git) con la stessa identica aritmetica di
+`payState()` in `index.html`: **189.421,17 €** da incassare, **91.175,76
+€** da pagare — la prima cifra è esattamente quella segnalata
+dall'utente, confermando che il calcolo "giusto" è quello del gestionale
+originale, non (ancora) quello che questo prodotto mostra.
+
+Trovato e corretto un bug reale nel farlo, indipendente dal problema
+principale: `ncCreditoFor()` (quanto di una nota di credito va imputato a
+una specifica fattura) qui ripartiva l'importo in **parti uguali** tra
+tutte le fatture collegate quando una nota ne copre più di una (`ftIds`
+con più elementi — un accordo transattivo). L'originale invece lo applica
+a **cascata**, partendo dalla fattura più vecchia, come un incasso
+parziale in sequenza, finché il credito non si esaurisce — non lo divide.
+Con pochi documenti coinvolti la differenza è piccola, ma la ripartizione
+in parti uguali può risultare in una fattura che sembra ancora aperta
+quando in realtà è già saldata per intero. Corretto in `dashboard.html`,
+`scadenziario.html` e `assistente-ai.html` (che non applicava affatto le
+note di credito al residuo, un secondo bug distinto scoperto nello stesso
+controllo — corretto anche quello). Collaudato con un nuovo
+`test104_nota_credito_cascata.py`.
+
+**La causa principale resta però la seconda, più grande**: i dati
+importati in Supabase (vedi "Importati i dati reali di Ipsofarma" più
+sopra) sono una **fotografia di un momento preciso**, non un flusso
+tenuto sincronizzato — da allora il gestionale originale ha continuato a
+essere usato per davvero (nuove fatture, incassi, pagamenti registrati),
+e quella fotografia è rimasta ferma. Per riallineare i numeri serve
+ricaricare in Supabase i dati aggiornati da `backup.json` — un'operazione
+sui dati reali dell'azienda, non un cambiamento di codice: richiede
+accesso al progetto Supabase (che questa sessione non ha di sua
+iniziativa) e va concordata con l'utente prima di procedere, non decisa
+qui da sola.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

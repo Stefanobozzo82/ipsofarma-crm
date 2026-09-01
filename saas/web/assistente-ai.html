@@ -76,7 +76,31 @@
   function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
   function tot(righe){ return (righe || []).reduce((s, r) => { const n = lineNet(r); return s + n + n * (r.iva || 0) / 100; }, 0); }
   function payTot(it){ return it.pagamenti == null ? (it.paid ? tot(it.righe) : 0) : it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0); }
-  function residuo(it){ return Math.max(0, tot(it.righe) - payTot(it)); }
+  // Quanto di una nota di credito va imputato a UNA specifica fattura —
+  // porta diretta di ncCreditoFor() in index.html: se copre più fatture
+  // (ftIds con più di un elemento) l'importo si distribuisce a cascata
+  // partendo dalla più vecchia, non in parti uguali.
+  function ncCreditoFor(nc, ftNum, fattureColl){
+    const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
+    if(!ids.includes(ftNum)) return 0;
+    if(ids.length <= 1) return tot(nc.righe);
+    let remaining = tot(nc.righe);
+    const ordered = ids.map(n => fattureColl.find(f => f.num === n)).filter(Boolean).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    for(const f of ordered){
+      if(remaining <= 0) break;
+      const alloc = Math.min(remaining, tot(f.righe));
+      if(f.num === ftNum) return alloc;
+      remaining -= alloc;
+    }
+    return 0;
+  }
+  // Residuo che tiene conto anche delle note di credito collegate, non
+  // solo dei pagamenti registrati — stessa aritmetica di payState()
+  // nell'originale e nel resto del SaaS (dashboard.html/scadenziario.html).
+  function residuo(it, noteCreditoColl, fattureColl){
+    const creditato = it.num ? (noteCreditoColl || []).reduce((s, nc) => s + ncCreditoFor(nc, it.num, fattureColl), 0) : 0;
+    return Math.max(0, tot(it.righe) - payTot(it) - creditato);
+  }
 
   function addBubble(role, text){
     const el = document.createElement('div');
@@ -90,21 +114,26 @@
   // Riepilogo dei dati aziendali calcolato al volo — è tutto ciò che
   // l'assistente "vede": nessuna cronologia documenti, nessun dettaglio
   // riga per riga, solo aggregati già utili per le domande più comuni.
-  function buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore){
+  function buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore){
     const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     const fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
     const mese = today().slice(0, 7);
 
     const daIncassare = {};
     fattureCliente.forEach(f => {
-      const r = residuo(f);
+      const r = residuo(f, noteCredito, fattureCliente);
       if(r <= 0.01) return;
       const nome = (clientiById[f.clienteId] || {}).nome || 'cliente sconosciuto';
       daIncassare[nome] = (daIncassare[nome] || 0) + r;
     });
     const daPagare = {};
     fattureFornitore.forEach(f => {
-      const r = residuo(f);
+      // Le note di credito fornitore si collegano via ftfId (numero della
+      // fattura fornitore), non via ftId/ftIds come quelle cliente — non
+      // hanno bisogno della cascata multi-fattura (caso non osservato nei
+      // dati reali finora), un residuo diretto basta.
+      const creditato = f.num ? (noteCreditoFornitore || []).filter(ncf => ncf.ftfId === f.num).reduce((s, ncf) => s + tot(ncf.righe), 0) : 0;
+      const r = Math.max(0, tot(f.righe) - payTot(f) - creditato);
       if(r <= 0.01) return;
       const nome = (fornitoriById[f.fornitoreId] || {}).nome || 'fornitore sconosciuto';
       daPagare[nome] = (daPagare[nome] || 0) + r;
@@ -190,15 +219,17 @@
       onLogout: doLogout,
     });
 
-    const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore] = await Promise.all([
+    const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore] = await Promise.all([
       store.loadCollection('clienti', companyId),
       store.loadCollection('fornitori', companyId),
       store.loadCollection('fattureCliente', companyId),
       store.loadCollection('fattureFornitore', companyId),
       store.loadCollection('ordiniCliente', companyId),
       store.loadCollection('ordiniFornitore', companyId),
+      store.loadCollection('noteCredito', companyId),
+      store.loadCollection('noteCreditoFornitore', companyId),
     ]);
-    const ctx = buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore);
+    const ctx = buildContext(clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore);
     $('no-context').hidden = ctx.hasData;
     SYSTEM_PROMPT = `Sei l'assistente del gestionale di "${companyName}", un'azienda che vende a farmacie e strutture sanitarie. Rispondi SEMPRE in italiano, in modo conciso e diretto. Usa SOLO i dati del riepilogo qui sotto: non inventare cifre e non citare clienti, fornitori o importi che non compaiono nel riepilogo. Se ti manca un dato per rispondere, dillo chiaramente invece di indovinare. Non puoi creare, modificare o eliminare nulla nel gestionale: se ti viene chiesto, spiega gentilmente che questa funzione non è ancora disponibile qui e che va fatta dalle pagine del gestionale.\n\nRiepilogo dei dati aziendali:\n${ctx.text}`;
   }

@@ -83,6 +83,7 @@
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
+<script src="app/cascade.js"></script>
 <script src="app/ai-import.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -386,13 +387,7 @@
       if(isNew && ofId){
         try{
           const of = (ordiniPerFornitore[fornitoreId] || []).find(x => x.id === ofId);
-          if(of){
-            const nuoveRighe = (of.righe || []).map(r => {
-              const fatturata = righe.filter(x => x.cod === r.cod).reduce((s, x) => s + (x.qty || 0), 0);
-              return fatturata ? Object.assign({}, r, { qtyEv: Math.min(r.qty, (r.qtyEv || 0) + fatturata) }) : r;
-            });
-            await store.saveDoc('ordiniFornitore', Object.assign({}, of, { righe: nuoveRighe }), companyId);
-          }
+          if(of) await store.saveDoc('ordiniFornitore', window.SaasCascade.applicaRicezione(of, righe), companyId);
         }catch(e){ /* la fattura è comunque salvata */ }
       }
       closeForm();

@@ -84,6 +84,7 @@
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/ai-import.js"></script>
+<script src="app/cascade.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -107,29 +108,16 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Cascata ordine → DDT/fattura/ordine fornitore — porta di aiGenDDT()/
-  // aiGenFT()/genOFFromOC() dal gestionale originale. Ogni riga di un
-  // ordine tiene qtyEv ("quantità evasa", consegnata via un DDT): un
-  // ordine mai toccato da questa funzione ha qtyEv assente, equivalente a
-  // 0 (nessun campo nuovo da aggiungere alla tabella — righe è già una
-  // colonna jsonb, e ddtIds/ftIds/ofIds finiscono nella colonna "extra"
-  // già prevista da ogni collection con hasExtra:true — vedi store.js).
-  // Semplificazione dichiarata: qtyEv/ddtIds/ftIds/ofIds si aggiornano
-  // solo alla CREAZIONE del documento a valle (un DDT nuovo, una fattura
-  // nuova) — modificarlo o eliminarlo in seguito non li aggiusta
-  // retroattivamente. Per un uso normale (genera → eventualmente correggi
-  // qualche dettaglio, non cancelli) è sufficiente; un disallineamento
-  // vero si corregge comunque a mano modificando l'ordine.
+  // Cascata ordine → DDT/fattura/ordine fornitore — logica condivisa in
+  // app/cascade.js (SaasCascade), usata sia dai bottoni qui sotto sia
+  // dall'azione IA equivalente in assistente-ai.html: una sola versione di
+  // ogni pezzo, per evitare che i due percorsi divergano silenziosamente
+  // (vedi il bug qtyEv trovato e corretto — la ragione stessa per cui
+  // questa logica non è rimasta duplicata inline in ogni pagina).
   // ---------------------------------------------------------------------------
-  function residuoRighe(o){
-    return (o.righe || []).map(r => ({ ...r, consegnato: r.qtyEv || 0, residuo: Math.max(0, (r.qty || 0) - (r.qtyEv || 0)) }));
-  }
-  function statoConsegna(o){
-    const righe = residuoRighe(o);
-    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
-    const cons = righe.reduce((s, r) => s + r.consegnato, 0);
-    if(totQ === 0 || cons === 0) return null;
-    return cons >= totQ ? { label: '✓ Consegnato', cls: 'ok' } : { label: `Parziale ${cons}/${totQ}`, cls: 'info' };
+  function statoConsegnaBadge(o){
+    const s = window.SaasCascade.statoEvasione(o.righe, 'Consegnato');
+    return s ? ` <span class="badge ${s.cls}">${s.label}</span>` : '';
   }
   function linksInfo(o){
     if(!o) return '';
@@ -144,64 +132,24 @@
   // consegnato, in un colpo solo — il caso più comune): apre ddt.html con
   // l'ordine già selezionato e le righe precompilate, pronte da rivedere
   // (quantità, lotto, scadenza) prima di salvare — niente editor
-  // interattivo per-riga qui, per restare semplice.
+  // interattivo per-riga qui, per restare semplice. (L'azione IA
+  // equivalente, generate_ddt, non naviga da nessuna parte: crea il DDT
+  // direttamente, l'anteprima del piano fa la funzione della revisione.)
   async function generaDDT(o){
-    const residuo = residuoRighe(o).filter(r => r.residuo > 0);
+    const residuo = window.SaasCascade.residuoRighe(o).filter(r => r.residuo > 0);
     if(!residuo.length){ alert('Tutto già consegnato per questo ordine.'); return; }
     if(!confirm(`Genera un DDT con ${residuo.length} riga/e (il residuo non ancora consegnato dell'ordine ${o.num})? Potrai comunque modificare quantità e lotti prima di salvare.`)) return;
     localStorage.setItem('saas_gen_ddt_from_oc', o.id);
     location.href = 'ddt.html';
   }
 
-  // Genera (o aggiorna) uno o più ordini fornitore per procurarsi quanto
-  // serve a soddisfare l'ordine — porta di genOFFromOC() dal gestionale
-  // originale: raggruppa le righe non ancora coperte da un ordine
-  // fornitore già collegato, per fornitore abituale del prodotto
-  // (catalogo). A differenza dell'originale non guarda l'ultimo prezzo di
-  // acquisto pagato (funzione non ancora portata nel SaaS): usa il
-  // listino di acquisto del prodotto.
   async function generaOF(o){
-    const ofNums = o.ofIds && o.ofIds.length ? o.ofIds : (o.ofId ? [o.ofId] : []);
-    let existingOFs = [];
-    if(ofNums.length){
-      const tutti = await store.loadCollection('ordiniFornitore', companyId);
-      existingOFs = tutti.filter(of => ofNums.includes(of.num));
-    }
-    const covered = new Set();
-    existingOFs.forEach(of => (of.righe || []).forEach(r => covered.add(r.cod)));
-    const missing = (o.righe || []).filter(r => r.cod && !covered.has(r.cod));
-    if(!missing.length){ alert('Tutti gli articoli dell\'ordine sono già su un ordine fornitore collegato.'); return; }
-    const trovati = await Promise.all(missing.map(r => store.searchProdotti(companyId, r.cod, 5).catch(() => [])));
-    const groups = new Map();
-    const senzaFornitore = [];
-    missing.forEach((r, i) => {
-      const prod = (trovati[i] || []).find(p => (p.cod || '').toLowerCase() === r.cod.toLowerCase());
-      const fid = prod && prod.fornitoreId;
-      if(!fid){ senzaFornitore.push(r.cod); return; } // prodotto senza fornitore assegnato nel catalogo: non possiamo indovinare a chi ordinarlo
-      const line = { cod: r.cod, descr: r.descr, qty: r.qty, prezzo: prod.listinoAcq || 0, sconto: '', iva: prod.iva || r.iva || 22 };
-      if(!groups.has(fid)) groups.set(fid, []);
-      groups.get(fid).push(line);
-    });
-    if(!groups.size){ alert('Nessuno dei prodotti mancanti ha un fornitore assegnato nel catalogo: assegnalo in Prodotti, poi riprova.'); return; }
-    const created = [], updated = [];
-    const anno = Number(today().slice(0, 4));
-    for(const [fid, righeNuove] of groups){
-      const target = existingOFs.find(of => of.fornitoreId === fid);
-      if(target){
-        const saved = await store.saveDoc('ordiniFornitore', Object.assign({}, target, { righe: [...(target.righe || []), ...righeNuove] }), companyId);
-        updated.push(saved);
-      } else {
-        const num = await store.nextNumber(companyId, 'OF', anno);
-        const saved = await store.saveDoc('ordiniFornitore', { num, data: today(), fornitoreId: fid, righe: righeNuove, ocId: o.num }, companyId);
-        created.push(saved);
-      }
-    }
-    const newOfIds = [...new Set([...ofNums, ...created.map(x => x.num)])];
-    await store.saveDoc('ordiniCliente', Object.assign({}, o, { ofIds: newOfIds, ofId: newOfIds[newOfIds.length - 1] }), companyId);
+    const { created, updated, senzaFornitore } = await window.SaasCascade.generaOrdiniFornitore(store, companyId, o);
+    if(!created.length && !updated.length && !senzaFornitore.length){ alert('Tutti gli articoli dell\'ordine sono già su un ordine fornitore collegato.'); return; }
     const parts = [];
     if(created.length) parts.push(created.length + ' ordine/i fornitore creato/i: ' + created.map(x => x.num).join(', '));
     if(updated.length) parts.push(updated.length + ' aggiornato/i con i nuovi articoli: ' + updated.map(x => x.num).join(', '));
-    if(senzaFornitore.length) parts.push('senza fornitore a catalogo (non ordinati): ' + senzaFornitore.join(', '));
+    if(senzaFornitore.length) parts.push(created.length || updated.length ? 'senza fornitore a catalogo (non ordinati): ' + senzaFornitore.join(', ') : 'Nessuno dei prodotti mancanti ha un fornitore assegnato nel catalogo: assegnalo in Prodotti, poi riprova.');
     alert(parts.join(' · '));
     await renderList();
   }
@@ -501,7 +449,7 @@
       </tr></thead><tbody>${ordini.map(o => `
         <tr class="row-click" data-id="${o.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${o.id}" ${PICK.has(o.id) ? 'checked' : ''}></td>
-          <td class="num-col">${esc(o.num)}${statoConsegna(o) ? ` <span class="badge ${statoConsegna(o).cls}">${statoConsegna(o).label}</span>` : ''}</td>
+          <td class="num-col">${esc(o.num)}${statoConsegnaBadge(o)}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
           <td class="num-col">${eur(impTot(o.righe || []))}</td>

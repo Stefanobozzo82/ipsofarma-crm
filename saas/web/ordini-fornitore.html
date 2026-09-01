@@ -83,6 +83,7 @@
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
+<script src="app/cascade.js"></script>
 <script src="app/ai-import.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -101,16 +102,9 @@
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
   }
   // Stato di ricezione (qtyEv, aggiornato da fatture-fornitore.html quando
-  // una fattura viene collegata a questo ordine) — stesso schema del
-  // "Consegnato"/"Parziale" di ordini.html, qui per la merce ricevuta dal
-  // fornitore invece che consegnata al cliente.
-  function statoRicezione(o){
-    const righe = o.righe || [];
-    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
-    const ric = righe.reduce((s, r) => s + (r.qtyEv || 0), 0);
-    if(totQ === 0 || ric === 0) return null;
-    return ric >= totQ ? { label: '✓ Ricevuto', cls: 'ok' } : { label: `Parziale ${ric}/${totQ}`, cls: 'info' };
-  }
+  // una fattura viene collegata a questo ordine) — calcolo condiviso con
+  // ordini.html/"Consegnato" in app/cascade.js (SaasCascade.statoEvasione).
+  function statoRicezione(o){ return window.SaasCascade.statoEvasione(o.righe, 'Ricevuto'); }
 
   // ---- ordinamento colonne: come nel gestionale originale — un clic
   // sull'intestazione ordina, un secondo clic inverte la direzione.

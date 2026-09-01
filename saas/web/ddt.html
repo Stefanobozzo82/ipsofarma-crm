@@ -73,6 +73,7 @@
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
+<script src="app/cascade.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -231,9 +232,9 @@
   // identico a prima (tutte le righe, per intero).
   function precompileFromOrdine(ordine){
     $('righe-body').innerHTML = '';
-    const righe = (ordine.righe || [])
-      .map(r => ({ cod:r.cod, descr:r.descr, qty: Math.max(0, (r.qty || 0) - (r.qtyEv || 0)) }))
-      .filter(r => r.qty > 0);
+    const righe = window.SaasCascade.residuoRighe(ordine)
+      .filter(r => r.residuo > 0)
+      .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo }));
     (righe.length ? righe : [null]).forEach(addRigaRow);
   }
   $('f-cliente').addEventListener('change', () => { refreshOrdineOptions($('f-cliente').value); refreshDestOptions($('f-cliente').value); });
@@ -305,12 +306,8 @@
         try{
           const ordine = allOrdiniById[ocId];
           if(ordine){
-            const nuoveRighe = (ordine.righe || []).map(r => {
-              const consegnata = righe.filter(x => x.cod === r.cod).reduce((s, x) => s + (x.qty || 0), 0);
-              return consegnata ? Object.assign({}, r, { qtyEv: Math.min(r.qty, (r.qtyEv || 0) + consegnata) }) : r;
-            });
-            const ddtIds = [...new Set([...(ordine.ddtIds || []), saved.num])];
-            await store.saveDoc('ordiniCliente', Object.assign({}, ordine, { righe: nuoveRighe, ddtIds, ddtId: saved.num }), companyId);
+            const ordineAgg = window.SaasCascade.applicaConsegna(ordine, righe, saved.num);
+            await store.saveDoc('ordiniCliente', ordineAgg, companyId);
           }
         }catch(e){ /* il DDT è comunque salvato */ }
       }

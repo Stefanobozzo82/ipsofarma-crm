@@ -2053,6 +2053,50 @@ listino d'acquisto, idempotenza, fattura fornitore collegata aggiorna
 azzera qtyEv** (stesso bug, sul lato fornitore), badge di stato
 corretti. Regressione completa (63 file) passata.
 
+## La cascata collegata all'IA — chiusura del punto 3
+
+Il pezzo che era stato rimandato ("prima costruisco la cascata come
+funzione normale, poi eventualmente la aggancio all'IA") è ora
+agganciato: `assistente-ai.html` → "Esegui un'azione" riconosce anche
+`generate_ddt`/`generate_invoice`/`generate_supplier_order` (es.
+"genera DDT e fattura dell'ordine 7", "ordina al fornitore quanto
+serve per l'ordine 12").
+
+**Prima del collegamento**, la logica della cascata è stata
+**fattorizzata fuori da ordini.html/ddt.html/fatture.html/
+fatture-fornitore.html**, in un nuovo modulo condiviso
+`app/cascade.js` (`SaasCascade`) — non per pulizia fine a sé stessa,
+ma per un motivo concreto: l'azione IA e i bottoni manuali devono fare
+esattamente la stessa cosa, e tenerla in un posto solo è l'unico modo
+per esserne certi (è la stessa classe di bug appena corretta —
+`qtyEv` azzerato silenziosamente — che una seconda copia della logica,
+scritta ora per l'IA, avrebbe potuto reintrodurre in un punto diverso
+senza che i test della prima lo notassero). Le pagine esistenti sono
+state riscritte per chiamare `SaasCascade.*` invece delle loro copie
+locali: stesso comportamento, stessi test di `test119_cascata_documenti.py`
+verificati ancora verdi dopo il refactor, prima di aggiungere l'azione IA.
+
+**Differenza voluta rispetto ai bottoni manuali**: l'azione IA è
+"headless" — genera direttamente (`SaasCascade.creaDDTDaResiduo()`/
+`creaFattureDaOrdine()`), senza aprire ddt.html/fatture.html per una
+revisione manuale delle righe: l'anteprima del piano (righe e quantità
+mostrate prima di "Conferma ed esegui") fa già quel lavoro.
+`generate_invoice` fattura TUTTI i DDT dell'ordine non ancora
+fatturati in un colpo solo (porta di `aiGenFT()`, diversa dal bottone
+"🧾 Fattura" di ddt.html che ne fattura uno alla volta): "genera DDT e
+fattura dell'ordine X" diventa due azioni in sequenza nel piano,
+esattamente come nel gestionale originale.
+
+Nuovi scenari in `test118_azioni_ai.py` (K→O, incatenati apposta: lo
+scenario K genera il DDT, lo scenario M lo fattura, verificando che
+l'azione IA veda davvero lo stato lasciato da un'azione precedente):
+generate_ddt dal residuo con anteprima delle righe, "già tutto
+consegnato" → non eseguibile, generate_invoice fattura il DDT giusto e
+collega ddt/ordine, "nessun DDT da fatturare" → non eseguibile,
+generate_supplier_order raggruppa per fornitore e prezzo dal listino
+d'acquisto, idempotenza, "ordine non trovato" per tutte e tre.
+Regressione completa (63 file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

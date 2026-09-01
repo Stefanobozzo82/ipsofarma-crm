@@ -52,14 +52,13 @@
          — porta di aiView()/aiResolve()/aiShowPlan()/aiExecute() dal
          gestionale originale (index.html), riscritta sullo store asincrono
          (store.saveDoc/nextNumber sono chiamate di rete, non un push in un
-         array in memoria) e con un elenco di azioni volutamente più
-         piccolo: qui solo quelle già del tutto supportate dal prodotto
-         SaaS oggi — segnare fatture pagate/da pagare, creare un ordine
-         cliente o un preventivo. La cascata "genera DDT/fattura/ordine
-         fornitore da un ordine" (aiGenDDT/aiGenFT/aiGenOF nell'originale)
-         non esiste ancora come funzione di base del prodotto SaaS (manca
-         il tracciamento qtyEv/ddtId/ftId in ordini.html): va costruita lì
-         prima, indipendentemente dall'IA — resta un pezzo futuro a sé. -->
+         array in memoria). Azioni: segnare fatture pagate/da pagare, creare
+         un ordine cliente o un preventivo, e la cascata genera-DDT/fattura/
+         ordine-fornitore da un ordine (generate_ddt/generate_invoice/
+         generate_supplier_order — app/cascade.js, SaasCascade: la stessa
+         logica dei bottoni "📦 DDT"/"🧾 Fattura"/"🏭 Ord.forn." in
+         ordini.html/ddt.html, "headless" qui — nessuna pagina intermedia
+         da rivedere, l'anteprima del piano fa quel lavoro). -->
     <div class="card ai-wrap" id="action-card">
       <div class="page-head" style="margin-bottom:2px">
         <h3 style="margin:0">Esegui un'azione</h3>
@@ -70,6 +69,8 @@
         <button type="button" class="ai-chip" data-action-fill>Segna da pagare le fatture di [cliente] di questo mese</button>
         <button type="button" class="ai-chip" data-action-fill>Crea un ordine per [cliente] con 5× [codice o descrizione prodotto]</button>
         <button type="button" class="ai-chip" data-action-fill>Crea un preventivo per [cliente] con 10× [codice o descrizione prodotto]</button>
+        <button type="button" class="ai-chip" data-action-fill>Genera DDT e fattura dell'ordine [numero]</button>
+        <button type="button" class="ai-chip" data-action-fill>Ordina al fornitore quanto serve per l'ordine [numero]</button>
       </div>
       <div class="ai-inputrow" style="margin-top:10px">
         <textarea id="action-q" rows="2" placeholder="Es. segna pagate le fatture di B.Braun di aprile"></textarea>
@@ -87,6 +88,7 @@
 </script>
 <script src="app/store.js"></script>
 <script src="app/ai-import.js"></script>
+<script src="app/cascade.js"></script>
 <script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script>
@@ -486,12 +488,89 @@
     };
   }
 
+  // Trova un ordine cliente dal numero come lo scrive l'utente — stessa
+  // euristica di aiFindOC() nell'originale: prima corrispondenza esatta
+  // (case-insensitive), poi solo le cifre finali del numero (così "ordine
+  // 7" trova "OC/2026/0007" anche senza il formato completo).
+  function findOrdine(ref){
+    ref = String(ref == null ? '' : ref).trim();
+    if(!ref) return null;
+    let o = DB.ordiniCliente.find(x => (x.num || '').toLowerCase() === ref.toLowerCase());
+    if(o) return o;
+    const dg = ref.replace(/\D/g, '');
+    if(dg){
+      const n = parseInt(dg, 10);
+      o = DB.ordiniCliente.find(x => parseInt((x.num || '').split('/').pop() || '0', 10) === n);
+    }
+    return o || null;
+  }
+
+  // generate_ddt/generate_invoice/generate_supplier_order: la cascata
+  // ordine → DDT/fattura/ordine fornitore (app/cascade.js, SaasCascade —
+  // stessa logica usata dai bottoni "📦 DDT"/"🧾 Fattura"/"🏭 Ord.forn."
+  // in ordini.html/ddt.html). Qui "headless": nessuna pagina intermedia
+  // da rivedere a mano, l'anteprima del piano fa quel lavoro.
+  async function resolveGenerateDdt(a){
+    const ordine = findOrdine(a.order);
+    if(!ordine) return { desc: `Ordine non trovato: "${esc(a.order || '?')}".`, apply: null };
+    const residuo = window.SaasCascade.residuoRighe(ordine).filter(r => r.residuo > 0);
+    const desc = `Genera DDT dall'ordine <b>${esc(ordine.num)}</b>` + (residuo.length
+      ? ` · ${residuo.length} riga/e da consegnare<ul class="ai-plan-sub">${residuo.map(r => `<li>${r.residuo}× ${esc(r.cod || r.descr)}</li>`).join('')}</ul>`
+      : ' — <span class="ai-plan-warn">già tutto consegnato</span>');
+    return {
+      desc,
+      apply: residuo.length ? async () => {
+        const risultato = await window.SaasCascade.creaDDTDaResiduo(store, companyId, ordine);
+        return risultato ? 'DDT ' + risultato.ddt.num + ' generato per l\'ordine ' + ordine.num : 'Niente da consegnare per l\'ordine ' + ordine.num;
+      } : null,
+    };
+  }
+  async function resolveGenerateInvoice(a){
+    const ordine = findOrdine(a.order);
+    if(!ordine) return { desc: `Ordine non trovato: "${esc(a.order || '?')}".`, apply: null };
+    const daFatturare = (DB.ddt || []).filter(d => d.ocId === ordine.id && !d.ftId);
+    const desc = `Genera la fattura dei DDT dell'ordine <b>${esc(ordine.num)}</b> non ancora fatturati` + (daFatturare.length
+      ? `<ul class="ai-plan-sub">${daFatturare.map(d => `<li>${esc(d.num)}</li>`).join('')}</ul>`
+      : ' — <span class="ai-plan-warn">nessun DDT da fatturare</span>');
+    return {
+      desc,
+      apply: daFatturare.length ? async () => {
+        const { fatture } = await window.SaasCascade.creaFattureDaOrdine(store, companyId, ordine, DB.ddt);
+        return fatture.length ? 'Fattura/e ' + fatture.map(f => f.num).join(', ') + ' generata/e' : 'Nessun DDT da fatturare per ' + ordine.num;
+      } : null,
+    };
+  }
+  // Nessuna anteprima dettagliata qui (a differenza di create_order/
+  // create_quote): sapere esattamente quali ordini fornitore verranno
+  // creati richiederebbe fare già ORA il lavoro che generaOrdiniFornitore()
+  // fa scrivendo — lo stesso compromesso del bottone "🏭 Ord.forn." in
+  // ordini.html, che genera e poi racconta l'esito invece di anticiparlo.
+  async function resolveGenerateSupplierOrder(a){
+    const ordine = findOrdine(a.order);
+    if(!ordine) return { desc: `Ordine non trovato: "${esc(a.order || '?')}".`, apply: null };
+    return {
+      desc: `Genera (o aggiorna) l'ordine fornitore necessario per procurarsi quanto serve all'ordine <b>${esc(ordine.num)}</b> — l'esito esatto si vede dopo la conferma.`,
+      apply: async () => {
+        const { created, updated, senzaFornitore } = await window.SaasCascade.generaOrdiniFornitore(store, companyId, ordine);
+        if(!created.length && !updated.length) return senzaFornitore.length ? 'Nessuno dei prodotti mancanti ha un fornitore assegnato nel catalogo' : 'Tutti gli articoli sono già su un ordine fornitore collegato';
+        const parts = [];
+        if(created.length) parts.push('creato/i: ' + created.map(x => x.num).join(', '));
+        if(updated.length) parts.push('aggiornato/i: ' + updated.map(x => x.num).join(', '));
+        if(senzaFornitore.length) parts.push('senza fornitore a catalogo: ' + senzaFornitore.join(', '));
+        return 'Ordine/i fornitore ' + parts.join(' · ');
+      },
+    };
+  }
+
   async function resolveAction(a){
     const t = a && a.type;
     if(t === 'mark_paid') return resolveMarkPaid(a, true);
     if(t === 'mark_unpaid') return resolveMarkPaid(a, false);
     if(t === 'create_order') return resolveCreateDoc(a, 'ordiniCliente');
     if(t === 'create_quote') return resolveCreateDoc(a, 'preventivi');
+    if(t === 'generate_ddt') return resolveGenerateDdt(a);
+    if(t === 'generate_invoice') return resolveGenerateInvoice(a);
+    if(t === 'generate_supplier_order') return resolveGenerateSupplierOrder(a);
     return { desc: 'Azione non riconosciuta' + (t ? ': ' + esc(t) : ''), apply: null };
   }
 
@@ -503,12 +582,17 @@ Tipi di azione supportati (nessun altro esiste, non inventarne):
 - {"type":"mark_unpaid", ...stessi campi di mark_paid}
 - {"type":"create_order","client":"<nome cliente esatto o simile a uno dell'elenco>","lines":[{"product":"<codice o descrizione prodotto>","qty":<numero>,"price":<prezzo unitario, opzionale>,"sconto":<"50" o "50+15", opzionale>}]}
 - {"type":"create_quote", ...stessi campi di create_order, più "note":"<nota opzionale>"}
+- {"type":"generate_ddt","order":"<numero ordine cliente>"}
+- {"type":"generate_invoice","order":"<numero ordine cliente>"}
+- {"type":"generate_supplier_order","order":"<numero ordine cliente>"}
 Regole:
 - target "fattureCliente" = vendite (verso i clienti), "fattureFornitore" = acquisti (dai fornitori). "pagate/incassate" = mark_paid, "da pagare/da incassare/non pagate" = mark_unpaid.
 - party: il nome così come lo dice l'utente; se non specifica nessuno lascia null (si applica a TUTTE le fatture di quel tipo — segnalo comunque, non è un errore).
 - period: un mese è "AAAA-MM" (es. aprile 2026 = "2026-04"); "questo mese" = il mese corrente; se non specificato lascia null.
 - Per ogni prodotto in "lines" metti in "product" il codice o la descrizione così come li dice l'utente — non inventare un codice che non è stato detto.
-- Se l'istruzione non corrisponde a nessuna di queste azioni (es. è una domanda, o chiede qualcosa che non sai fare — generare DDT/fatture da un ordine, creare fatture fornitore, cancellare documenti...), restituisci "actions":[] e spiega perché in "explanation".
+- "order" in generate_ddt/generate_invoice/generate_supplier_order: il numero come lo dice l'utente (es. "7", "OC/2026/0007") — mai un numero di fattura o DDT.
+- generate_ddt = "consegna/spedisci l'ordine X" (genera un DDT dal residuo non ancora consegnato). generate_invoice = "fattura l'ordine X" o "fattura i DDT dell'ordine X" (fattura i DDT collegati non ancora fatturati). generate_supplier_order = "ordina al fornitore quanto serve per l'ordine X" (genera l'ordine fornitore necessario). "genera DDT e fattura dell'ordine X" = due azioni, prima generate_ddt poi generate_invoice.
+- Se l'istruzione non corrisponde a nessuna di queste azioni (es. è una domanda, o chiede qualcosa che non sai fare — creare fatture fornitore, cancellare documenti...), restituisci "actions":[] e spiega perché in "explanation".
 Data odierna: ${today()}.`;
   }
 

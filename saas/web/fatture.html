@@ -80,6 +80,7 @@
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
+<script src="app/cascade.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -346,10 +347,7 @@
           if(ddt) await store.saveDoc('ddt', Object.assign({}, ddt, { ftId: saved.num }), companyId);
           if(ocId){
             const ordine = allOrdiniById[ocId];
-            if(ordine){
-              const ftIds = [...new Set([...(ordine.ftIds || []), saved.num])];
-              await store.saveDoc('ordiniCliente', Object.assign({}, ordine, { ftIds, ftId: saved.num }), companyId);
-            }
+            if(ordine) await store.saveDoc('ordiniCliente', window.SaasCascade.applicaFatturazione(ordine, saved.num), companyId);
           }
         }catch(e){ /* la fattura è comunque salvata */ }
       }

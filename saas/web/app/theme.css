@@ -366,6 +366,13 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .sugg-pr{ margin-left:auto; font-family:var(--mono); color:var(--muted); flex-shrink:0; }
 .sugg-empty{ padding:10px 12px; color:var(--faint); font-size:12px; }
 
+/* Stesso autocompletamento, ma dentro il campo "Codice" di una riga già
+ * presente nell'editor invece che nella barra di ricerca separata sopra la
+ * tabella (vedi bindRigaRow() nei moduli documento): il menu deve poter
+ * sporgere oltre la colonna, stretta, senza spingere in basso la riga sotto. */
+.righe-table td .prod-pick{ margin-bottom:0; }
+.righe-table td .prod-pick .prod-sugg{ right:auto; min-width:280px; }
+
 .righe-table th, .righe-table td{ padding:6px 4px; }
 .righe-table input{ padding:6px 8px; font-size:13px; }
 .righe-table td.rm{ text-align:center; }

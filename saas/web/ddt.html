@@ -138,7 +138,7 @@
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1 };
     return `<tr>
-      <td><input class="r-cod" value="${esc(r.cod)}" placeholder="cod."></td>
+      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
@@ -146,7 +146,21 @@
   }
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
-    $('righe-body').lastElementChild.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); });
+    const tr = $('righe-body').lastElementChild;
+    tr.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); });
+    // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
+    // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
+    // riempie questa riga invece di aggiungerne una nuova.
+    window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
+      companyId, clearOnPick: false,
+      onPick: p => {
+        tr.querySelector('.r-cod').value = p.cod;
+        tr.querySelector('.r-descr').value = p.descr;
+        const qtyEl = tr.querySelector('.r-qty');
+        if (!Number(qtyEl.value)) qtyEl.value = 1;
+        qtyEl.focus(); qtyEl.select();
+      },
+    });
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({

@@ -1194,6 +1194,26 @@ per questa sessione (letture + le scritture sopra elencate, tutte
 puntuali e non distruttive) e non è mai stato scritto in nessun file del
 repository.
 
+## Autocompletamento anche dentro il campo "Codice" di ogni riga
+
+Richiesto dall'utente: finora l'autocompletamento da catalogo
+(`prodpicker.js`) viveva solo nella barra di ricerca separata sopra la
+tabella delle righe — scrivere direttamente nel campo "Codice" di una riga
+già presente (o di una riga vuota aggiunta con "+ aggiungi riga") non
+suggeriva nulla, un limite che c'è anche nell'originale (`addProdToOrder()`
+in `index.html` aggiunge sempre una riga nuova, non ne compila mai una
+esistente). Aggiunto in tutti gli 8 moduli documento (`ordini.html`,
+`ddt.html`, `fatture.html`, `preventivi.html`, `note-credito.html`,
+`ordini-fornitore.html`, `fatture-fornitore.html`,
+`note-credito-fornitore.html`): lo stesso menu di suggerimenti della barra
+di ricerca, ma dentro il campo stesso — scegliendo un prodotto riempie
+codice/descrizione/prezzo/IVA di quella riga (non ne aggiunge una nuova,
+non tocca le altre). `prodpicker.js` ha un nuovo `opts.clearOnPick:false`
+per questo caso: la barra di ricerca separata continua a svuotarsi dopo
+la scelta (aggiunge sempre una riga nuova), il campo "Codice" di una riga
+invece resta con il codice scelto (è lui il campo che si salva). Collaudato
+con un nuovo `test106_autocomplete_riga.py`.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

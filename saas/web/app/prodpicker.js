@@ -5,6 +5,13 @@
  * descrizione, prezzo) navigabile da tastiera; scegliendo un prodotto (clic
  * o Invio) aggiunge una riga precompilata.
  *
+ * La stessa attach() serve anche per l'autocompletamento DENTRO il campo
+ * "Codice" di una riga gia' presente nell'editor (non solo nella barra di
+ * ricerca separata sopra la tabella): in quel caso opts.clearOnPick:false
+ * lascia che sia onPick a decidere cosa scrivere nel campo (il codice
+ * scelto, non una casella vuota) invece di svuotarlo come fa la barra di
+ * ricerca dedicata.
+ *
  * Differenza dall'originale: lì la ricerca è su un array in memoria
  * (allProdotti()); qui il catalogo può avere ~21.000 righe (vedi
  * prodotti.html), quindi la ricerca passa da store.searchProdotti() —
@@ -43,7 +50,7 @@
       const p = lastList.find(x => x.cod === cod);
       if (!p) return;
       opts.onPick(p);
-      input.value = '';
+      if (opts.clearOnPick !== false) input.value = '';
       sugg.innerHTML = '';
       idx = -1;
       input.focus();

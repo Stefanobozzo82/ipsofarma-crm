@@ -82,6 +82,7 @@
   let fatturePerCliente = {};
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -275,10 +276,13 @@
       return;
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    const allChecked = elenco.length > 0 && elenco.every(n => PICK.has(n.id));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('fattura','Fattura')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('importo','Importo')}<th></th>
       </tr></thead><tbody>${elenco.map(n => `
         <tr class="row-click" data-id="${n.id}">
+          <td class="check-col"><input type="checkbox" class="row-check" data-id="${n.id}" ${PICK.has(n.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(n.num)}</td>
           <td>${n.data ? new Date(n.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[n.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
@@ -286,13 +290,24 @@
           <td class="num-col">${eur(impTot(n.righe))}</td>
           <td class="num-col">${eur(ivaTot(n.righe))}</td>
           <td class="num-col">${eur(docTotale(n.righe))}</td>
-          <td class="actions">
+          <td class="actions">${PICK.has(n.id) ? `
             <button data-print="${n.id}" title="Stampa">🖨</button><button data-pdf="${n.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${n.id}">Modifica</button>
-            <button class="danger" data-del="${n.id}">Elimina</button>
+            <button class="danger" data-del="${n.id}">Elimina</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'note-credito-elenco');
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
+    $('check-all').addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) elenco.forEach(n => PICK.add(n.id));
+      else elenco.forEach(n => PICK.delete(n.id));
+      renderList();
+    });
+    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
+      renderList();
+    }));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(elenco.find(x => x.id === btn.dataset.edit));
     }));

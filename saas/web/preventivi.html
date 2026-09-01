@@ -82,6 +82,7 @@
   let clientiById = {};
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -280,10 +281,13 @@
       return;
     }
     elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    const allChecked = elenco.length > 0 && elenco.every(p => PICK.has(p.id));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('stato','Stato')}<th></th>
       </tr></thead><tbody>${elenco.map(p => `
         <tr class="row-click" data-id="${p.id}">
+          <td class="check-col"><input type="checkbox" class="row-check" data-id="${p.id}" ${PICK.has(p.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(p.num)}</td>
           <td>${p.data ? new Date(p.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[p.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
@@ -291,14 +295,25 @@
           <td class="num-col">${eur(ivaTot(p.righe || []))}</td>
           <td class="num-col">${eur(docTotale(p.righe || []))}</td>
           <td>${p.ocId ? '<span class="pill paid">convertito</span>' : '<span class="pill unpaid">aperto</span>'}</td>
-          <td class="actions">
+          <td class="actions">${PICK.has(p.id) ? `
             ${p.ocId ? '' : `<button data-trasforma="${p.id}">Trasforma in ordine</button>`}
             <button data-print="${p.id}" title="Stampa">🖨</button><button data-pdf="${p.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${p.id}">Modifica</button>
-            <button class="danger" data-del="${p.id}">Elimina</button>
+            <button class="danger" data-del="${p.id}">Elimina</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'preventivi-elenco');
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
+    $('check-all').addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) elenco.forEach(p => PICK.add(p.id));
+      else elenco.forEach(p => PICK.delete(p.id));
+      renderList();
+    });
+    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
+      renderList();
+    }));
     area.querySelectorAll('[data-trasforma]').forEach(btn => btn.addEventListener('click', () => {
       trasformaInOrdine(elenco.find(x => x.id === btn.dataset.trasforma));
     }));

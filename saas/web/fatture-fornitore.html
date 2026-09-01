@@ -502,9 +502,9 @@
           <td class="num-col">${eur(ivaTot(f.righe))}</td>
           <td class="num-col">${eur(docTotale(f.righe))}</td>
           <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('pagata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da pagare'}</button></td>
-          <td class="actions">
+          <td class="actions">${PICK.has(f.id) ? `
             <button data-print="${f.id}" title="Stampa">🖨</button><button data-pdf="${f.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${f.id}">Modifica</button>
-            <button class="danger" data-del="${f.id}">Elimina</button>
+            <button class="danger" data-del="${f.id}">Elimina</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'fatture-fornitore-elenco');

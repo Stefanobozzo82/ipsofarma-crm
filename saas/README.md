@@ -1264,6 +1264,27 @@ stampa), quindi non c'è nulla da mostrare finché quei campi non vengono
 aggiunti anche lì: un lavoro a sé, più ampio di una semplice colonna in
 più, non fatto qui.
 
+## Azioni per riga visibili solo con la spunta
+
+Richiesto dall'utente: i pulsanti di una riga (stampa, PDF, XML, modifica,
+elimina) prima erano sempre visibili in ogni riga dell'elenco — ora
+compaiono solo quando quella riga è selezionata con la spunta. `fatture.html`
+e `fatture-fornitore.html` avevano già la spunta (per le azioni collettive:
+segna incassate/pagate); qui è bastato nascondere il contenuto della cella
+`azioni` quando la riga non è selezionata. Gli altri 6 moduli
+(`ordini.html`, `ddt.html`, `preventivi.html`, `note-credito.html`,
+`ordini-fornitore.html`, `note-credito-fornitore.html`) non avevano alcuna
+spunta: aggiunta una colonna con spunta singola + "seleziona tutti"
+nell'intestazione, sullo stesso modello già usato in fatture.html (un
+`Set` di id selezionati, ri-renderizzato a ogni clic).
+
+Il clic sulla riga per aprire il documento resta invariato (funziona
+comunque, spuntata o no); solo i pulsanti azione dipendono dalla spunta.
+Aggiornati 9 test esistenti che cliccavano i pulsanti senza passare dalla
+spunta (ora selezionano la riga prima), più un nuovo
+`test107_azioni_con_spunta.py` dedicato. Regressione completa (37 file)
+passata.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

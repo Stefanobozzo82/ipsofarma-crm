@@ -84,6 +84,7 @@
   // sull'intestazione ordina, un secondo clic inverte la direzione.
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
   function sortCmp(va, vb, dir){
     const mul = dir === 'asc' ? 1 : -1;
     if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
@@ -248,22 +249,36 @@
       return;
     }
     ordini.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    const allChecked = ordini.length > 0 && ordini.every(o => PICK.has(o.id));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+        <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}<th></th>
       </tr></thead><tbody>${ordini.map(o => `
         <tr class="row-click" data-id="${o.id}">
+          <td class="check-col"><input type="checkbox" class="row-check" data-id="${o.id}" ${PICK.has(o.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(o.num)}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((fornitoriById[o.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
           <td class="num-col">${eur(impTot(o.righe || []))}</td>
           <td class="num-col">${eur(ivaTot(o.righe || []))}</td>
           <td class="num-col">${eur(docTotale(o.righe || []))}</td>
-          <td class="actions">
+          <td class="actions">${PICK.has(o.id) ? `
             <button data-print="${o.id}" title="Stampa">🖨</button><button data-pdf="${o.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${o.id}">Modifica</button>
-            <button class="danger" data-del="${o.id}">Elimina</button>
+            <button class="danger" data-del="${o.id}">Elimina</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ordini-fornitore-elenco');
+    $('check-all').addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) ordini.forEach(o => PICK.add(o.id));
+      else ordini.forEach(o => PICK.delete(o.id));
+      renderList();
+    });
+    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
+      renderList();
+    }));
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(ordini.find(x => x.id === btn.dataset.edit));

@@ -1214,6 +1214,42 @@ la scelta (aggiunge sempre una riga nuova), il campo "Codice" di una riga
 invece resta con il codice scelto (è lui il campo che si salva). Collaudato
 con un nuovo `test106_autocomplete_riga.py`.
 
+## "Importa da PDF (AI)" restituiva sempre un errore — bug reale, non ancora distribuito
+
+Segnalato dall'utente: prova a importare una fattura in PDF, l'AI
+restituisce un errore. Causa trovata leggendo il codice delle due Edge
+Function chiamate direttamente dal browser (`ai-proxy`,
+`stripe-checkout`): **nessuna delle due gestiva il preflight CORS**. Un
+`fetch()` da `https://stefanobozzo82.github.io` verso
+`https://rixvgmzedwdzgavjewbm.supabase.co/functions/v1/...` con
+`Content-Type: application/json` e un header `Authorization`
+personalizzato non è una "simple request": il browser manda prima una
+richiesta `OPTIONS` di controllo, e solo se la risposta ha gli header
+CORS giusti procede con la vera chiamata POST. Qui l'unico controllo era
+"se non è POST, 405" — l'`OPTIONS` ci finiva dentro, il browser bloccava
+tutto **prima ancora che la richiesta arrivasse al server**, e il codice
+la vedeva come un generico errore di rete.
+
+Perché non l'ha preso nessun test: i test Playwright di questo progetto
+sostituiscono sempre `window.SaasStore` con un mock (per non dipendere da
+una vera sessione/rete durante il collaudo) — `store.aiComplete()` e
+`store.startCheckout()` non vengono mai davvero chiamati nei test, quindi
+un bug che esiste solo "quando il browser chiama per davvero la Edge
+Function" non aveva modo di emergere lì. Serviva un utente vero che
+premesse il pulsante contro Supabase reale.
+
+Corretto in `ai-proxy/index.ts` e `stripe-checkout/index.ts`: header CORS
+su ogni risposta, `OPTIONS` gestito esplicitamente prima del controllo
+"solo POST". **Il codice è corretto e committato, ma non ancora
+distribuito**: una Edge Function non si aggiorna con un push su GitHub
+(quello aggiorna solo le pagine statiche via GitHub Pages) — serve un
+deploy separato su Supabase (`supabase functions deploy ai-proxy` /
+`stripe-checkout`), che richiede un Personal Access Token della
+Management API di Supabase (diverso dalla service_role key usata per il
+riallineamento dati: quella dà accesso ai dati del progetto, questo dà
+accesso a deploy/gestione del progetto stesso) — non ancora fornito a
+questa sessione, va concordato con l'utente prima di procedere.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

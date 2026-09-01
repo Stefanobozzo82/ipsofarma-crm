@@ -16,8 +16,17 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+// Vedi la stessa nota in ai-proxy/index.ts: senza questi header il
+// preflight OPTIONS che il browser manda prima del POST (Content-Type
+// json + Authorization) riceveva 405 e la richiesta vera non partiva mai.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
 }
 
 async function stripeRequest(path: string, params: Record<string, string>, secretKey: string) {
@@ -36,6 +45,7 @@ async function stripeRequest(path: string, params: Record<string, string>, secre
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'metodo non consentito, usa POST' }, 405);
 
   const authHeader = req.headers.get('Authorization');

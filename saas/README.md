@@ -1583,15 +1583,16 @@ sessione.
   compilata (serve per "Rispondi a") blocca il salvataggio con un
   messaggio chiaro invece di fallire in silenzio.
 
-**Distribuita e collaudata quanto si può senza toccare dati reali**:
-`CRON_SECRET` impostato come secret, funzione distribuita, verificato
-che rifiuta le chiamate senza il segreto giusto (401) e che un
-`dryRun` contro il progetto reale risponde correttamente
-(`companiesChecked: 0`, coerente: nessuna azienda ha ancora attivato
-l'opzione). **Manca il job schedulato** che la richiama ogni giorno da
-sola (`pg_cron`/`pg_net` sul database) — un'altra scrittura diretta sul
-database di produzione, quindi in attesa della stessa autorizzazione
-esplicita già data per la migrazione degli inviti.
+**Distribuita, collaudata e programmata**: `CRON_SECRET` impostato come
+secret, funzione distribuita, verificato che rifiuta le chiamate senza
+il segreto giusto (401) e che un `dryRun` contro il progetto reale
+risponde correttamente (`companiesChecked: 0`, coerente: nessuna
+azienda ha ancora attivato l'opzione). Job `pg_cron`
+`solleciti-automatici-giornaliero` registrato sul database reale
+(`0 7 * * *`, le 9:00 in Italia in questo periodo — verificato in
+`cron.job`, attivo): chiama la funzione una volta al giorno passando
+`X-Cron-Secret`, senza toccare nessuna azienda finché non attiva
+l'opzione dalle sue Impostazioni.
 
 Nuovi test: `verify_solleciti_logic.mjs` (Node, arithmetic) e
 `test91_impostazioni_azienda.py` esteso con gli scenari F/G/H

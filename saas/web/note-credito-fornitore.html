@@ -18,6 +18,7 @@
     </div>
 
   <div class="card" id="form-card" hidden>
+    <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuova nota di credito</h3>
     <div class="grid2">
       <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
@@ -46,7 +47,7 @@
     <div class="msg" id="form-msg" hidden></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="list-card">
     <div class="toolbar">
       <h3>Elenco</h3>
       <div class="toolbar-right">
@@ -221,13 +222,15 @@
     (nc ? nc.righe : [null]).forEach(addRigaRow);
     setMsg('', '');
     $('form-card').hidden = false;
+    $('list-card').hidden = true;
   }
-  function closeForm(){ $('form-card').hidden = true; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
   $('new-nc').addEventListener('click', () => {
     if(Object.keys(fornitoriById).length === 0){ alert('Crea prima almeno un fornitore.'); return; }
     openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
+  $('f-back').addEventListener('click', closeForm);
 
   $('f-save').addEventListener('click', async () => {
     const fornitoreId = $('f-fornitore').value;

@@ -24,6 +24,7 @@
     </div>
 
   <div class="card" id="form-card" hidden>
+    <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo preventivo</h3>
     <div class="grid2">
       <div><label for="f-cliente">Cliente</label><select id="f-cliente"></select></div>
@@ -49,7 +50,7 @@
     <div class="msg" id="form-msg" hidden></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="list-card">
     <div class="toolbar">
       <h3>Elenco</h3>
       <div class="toolbar-right">
@@ -202,13 +203,15 @@
     (preventivo ? preventivo.righe : [null]).forEach(addRigaRow);
     setMsg('', '');
     $('form-card').hidden = false;
+    $('list-card').hidden = true;
   }
-  function closeForm(){ $('form-card').hidden = true; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
   $('new-preventivo').addEventListener('click', () => {
     if($('f-cliente').options.length === 0){ alert('Crea prima almeno un cliente.'); return; }
     openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
+  $('f-back').addEventListener('click', closeForm);
 
   $('f-save').addEventListener('click', async () => {
     const clienteId = $('f-cliente').value;

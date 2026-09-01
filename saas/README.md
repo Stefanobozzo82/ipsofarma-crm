@@ -1314,6 +1314,23 @@ c'era niente da correggere lì. Collaudato con un nuovo
 senza perdita, e verifica che ordini.html non li mostri, come
 nell'originale). Regressione completa (38 file) passata.
 
+## L'elenco si nasconde quando un documento è aperto
+
+Richiesto dall'utente: prima, aprendo un documento (nuovo o esistente),
+il form comparivano SOPRA l'elenco di tutti i documenti — che restava
+lì, sempre visibile, sotto. Ora l'elenco si nasconde quando il form è
+aperto, e al suo posto (in cima al form) c'è un pulsante "← Torna
+all'elenco" per farlo ricomparire. Il pulsante "Annulla" già esistente in
+fondo al form fa la stessa cosa (nessuna modifica al suo comportamento,
+solo in più nasconde/mostra l'elenco).
+
+Applicato a tutti gli 8 moduli documento: la card dell'elenco ha ora un
+`id="list-card"`, `openForm()` la nasconde, `closeForm()` la fa
+ricomparire — la stessa funzione già richiamata da "Annulla", dal nuovo
+pulsante "Indietro" e dopo un salvataggio riuscito. Collaudato con un
+nuovo `test109_elenco_nascosto_in_apertura.py`. Regressione completa (39
+file) passata.
+
 ## Prossimo passo
 
 Due filoni distinti, entrambi rimandati per scelta esplicita

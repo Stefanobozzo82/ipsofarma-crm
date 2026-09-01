@@ -5,12 +5,12 @@
 // token utente — e le scritture usano la service role key (bypassa la RLS
 // di proposito: nessun utente potrebbe comunque scrivere questi campi).
 //
-// NOTA IMPORTANTE PER CHI RIPRENDE QUESTO LAVORO: come stripe-checkout, non
-// ancora collaudata con eventi Stripe reali (serve un account per generarli
-// davvero, anche solo in modalità test). La verifica della firma segue
-// esattamente lo schema documentato da Stripe (HMAC-SHA256 su
-// "timestamp.corpo", con Web Crypto invece dell'SDK — stesso motivo di
-// stripe-checkout: niente dipendenze npm da bundlare).
+// Collaudata con un abbonamento reale in sandbox Stripe (checkout completo,
+// webhook ricevuto e verificato, companies.piano/subscription_status
+// aggiornati correttamente). La verifica della firma segue esattamente lo
+// schema documentato da Stripe (HMAC-SHA256 su "timestamp.corpo", con Web
+// Crypto invece dell'SDK — stesso motivo di stripe-checkout: niente
+// dipendenze npm da bundlare).
 // ============================================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -85,10 +85,17 @@ Deno.serve(async (req: Request) => {
         const { data: plan } = await admin.from('plans').select('id').eq('stripe_price_id', priceId).maybeSingle();
         pianoId = plan?.id ?? null;
       }
+      // "current_period_end" non esiste più sull'oggetto subscription (API
+      // Stripe più recenti l'hanno spostato dentro ogni riga di
+      // items.data[]) — scoperto collaudando con un abbonamento reale in
+      // sandbox: il campo arrivava sempre vuoto nel database nonostante il
+      // webhook girasse correttamente. Un abbonamento con un solo prezzo
+      // (l'unico caso che questo SaaS crea, vedi stripe-checkout) ha una
+      // sola riga in items, quindi la prima è sempre quella giusta.
+      const periodEnd = sub.current_period_end ?? sub.items?.data?.[0]?.current_period_end;
       const update: Record<string, unknown> = {
         subscription_status: sub.status,
-        current_period_end: sub.current_period_end
-          ? new Date(sub.current_period_end * 1000).toISOString() : null,
+        current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
       };
       if (pianoId) update.piano = pianoId; // se il prezzo non è mappato a un piano noto, non tocchiamo companies.piano
       await admin.from('companies').update(update).eq('stripe_subscription_id', sub.id);

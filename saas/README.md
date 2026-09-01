@@ -64,9 +64,10 @@ saas/
 
 - **Invio reale allo SDI**: l'XML si genera (Fase 4), ma trasmetterlo richiede un
   account presso un provider esterno che l'azienda dovrà scegliere e attivare da sé.
-- **Chiamate Stripe reali mai collaudate**: l'account non esiste ancora (Fase 5) —
-  la logica di `stripe-checkout`/`stripe-webhook` è corretta per costruzione,
-  verificata dove possibile senza Stripe vero, ma non ancora con un pagamento reale.
+- **Stripe collaudato solo in sandbox, non in modalità live**: checkout e
+  webhook verificati con un abbonamento di prova reale (Fase 5), ma serve
+  ripetere prezzi/chiave/webhook in modalità live prima di far pagare un
+  cliente vero.
 - **Invio email limitato alla modalità sandbox**: `send-email` (invio ordini a
   fornitore, solleciti di pagamento) è distribuita e collaudata con un invio
   reale, ma senza un dominio verificato su Resend può mandare email SOLO
@@ -503,12 +504,33 @@ con il proprio messaggio.
    messaggio chiaro; admin → passa tutti i controlli fino al piano
    richiesto. `abbonamento.html` collaudata con `SaasStore` simulato.
 
-**Cosa NON è stato possibile collaudare, onestamente**: nessuna chiamata
-vera a Stripe (creazione cliente, sessione di pagamento, evento reale di
-sottoscrizione) — serve l'account. La logica segue esattamente la
-documentazione Stripe ed è corretta per costruzione, ma "corretto per
-costruzione" non è lo stesso di "verificato" — da fare non appena
-l'azienda ha le chiavi di test.
+**Aggiornamento — collaudato con Stripe vero (sandbox)**: account Stripe
+collegato (connettore MCP), prezzi Base/Pro creati nella sandbox e
+collegati a `plans.stripe_price_id`, `STRIPE_SECRET_KEY` impostata,
+endpoint webhook registrato su Stripe con `STRIPE_WEBHOOK_SECRET`
+impostata. Checkout reale completato due volte con la carta di test
+Stripe (`4242 4242 4242 4242`): la prima volta prima di collegare il
+webhook (per verificare che il checkout da solo funzionasse), la
+seconda a webhook collegato — `companies.stripe_subscription_id`,
+`subscription_status` e `piano` aggiornati correttamente in automatico.
+
+**Bug reale trovato collaudando** (non nella logica scritta "a
+memoria" della documentazione, ma confrontando il risultato vero coi
+dati attesi): `current_period_end` restava sempre vuoto. Le versioni
+recenti dell'API Stripe hanno spostato quel campo dall'oggetto
+`subscription` principale dentro ogni riga di `items.data[]` — corretto
+in `stripe-webhook/index.ts` leggendo prima il campo legacy e poi,
+come fallback, quello nella prima riga (un abbonamento con un solo
+prezzo, l'unico caso che questo SaaS crea, ha sempre una sola riga).
+Verificato di nuovo aggiornando l'abbonamento di prova: il campo si
+popola correttamente. Dati di test ripuliti dalla riga reale di
+Ipsofarma dopo il collaudo (non un abbonamento vero, solo l'id/stato
+della sandbox).
+
+**Resta da fare solo quando si è pronti a vendere davvero**: ripetere
+la stessa procedura (prezzi, chiave, webhook) in modalità **live**
+invece che in sandbox — la logica è la stessa, cambiano solo le
+credenziali.
 
 ## Veste grafica — sistema di design condiviso
 
@@ -1707,13 +1729,16 @@ completa (45 file) passata.
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
 
-1. **Stripe/SDI**: creare un account Stripe (gratuito, modalità test,
-   nessuna verifica aziendale richiesta — stesso percorso già fatto con
-   Supabase e con Resend), impostare `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
-   come secret e collaudare per davvero checkout e webhook. In parallelo resta
-   aperto l'invio reale della fatturazione elettronica (Fase 4): un
-   account presso un provider SDI (Aruba o un altro), poi una nuova Edge
-   Function che prende l'XML già generato e lo trasmette.
+1. **Stripe in modalità live**: sandbox collaudata (account, prezzi,
+   checkout, webhook — vedi Fase 5). Per far pagare un cliente vero
+   serve ripetere la stessa procedura in modalità live: prezzi Base/Pro
+   veri, `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` live, un nuovo
+   endpoint webhook — nessuna scelta di disegno ancora da prendere, solo
+   da rifare con le credenziali vere quando si è pronti a vendere
+   davvero. In parallelo resta aperto l'invio reale della fatturazione
+   elettronica (Fase 4): un account presso un provider SDI (Aruba o un
+   altro), poi una nuova Edge Function che prende l'XML già generato e
+   lo trasmette.
 2. **Dominio per Resend**: l'azienda non possiede ancora un dominio
    proprio (serve per verificare la proprietà via record DNS — non è un
    limite aggirabile, vale per qualunque provider email serio). Una

@@ -7,11 +7,9 @@
 // loro API REST (niente SDK npm: meno cose che possono non bundlare bene con
 // "supabase functions deploy --use-api", e per due chiamate non serve).
 //
-// NOTA IMPORTANTE PER CHI RIPRENDE QUESTO LAVORO: questa funzione non è
-// ancora stata collaudata con un account Stripe reale — non ne esisteva
-// uno al momento di scriverla. La logica è corretta per costruzione (segue
-// esattamente la documentazione dell'API Stripe Checkout), ma va comunque
-// verificata con un vero account di test prima di fidarsene in produzione.
+// Collaudata con un checkout reale in sandbox Stripe (carta di test,
+// abbonamento creato, companies aggiornata dal webhook — vedi
+// stripe-webhook/index.ts).
 // ============================================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';

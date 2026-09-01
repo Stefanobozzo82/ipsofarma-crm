@@ -1512,8 +1512,7 @@ sostituito con una spia). Regressione completa (44 file) passata.
 
 ## Prossimo passo
 
-Due filoni distinti, entrambi rimandati per scelta esplicita
-dell'azienda:
+Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
 
 1. **Stripe/SDI**: creare un account Stripe (gratuito, modalità test,
    nessuna verifica aziendale richiesta — stesso percorso già fatto con
@@ -1521,12 +1520,17 @@ dell'azienda:
    come secret e collaudare per davvero checkout e webhook. In parallelo resta
    aperto l'invio reale della fatturazione elettronica (Fase 4): un
    account presso un provider SDI (Aruba o un altro), poi una nuova Edge
-   Function che prende l'XML già generato e lo trasmette. Per **Resend**
-   (invio email) resta solo la verifica di un dominio proprio (pannello
-   Resend → Domains + `RESEND_FROM`): senza quella si può mandare email
-   solo all'indirizzo del titolare dell'account Resend, non a
-   fornitori/clienti veri.
-2. **Un'app vera**, non solo un sito ottimizzato per telefono: la
+   Function che prende l'XML già generato e lo trasmette.
+2. **Dominio per Resend**: l'azienda non possiede ancora un dominio
+   proprio (serve per verificare la proprietà via record DNS — non è un
+   limite aggirabile, vale per qualunque provider email serio). Una
+   volta comprato uno (8-15€/anno, un `.it`/`.com` qualsiasi, non serve
+   necessariamente un sito), si verifica su Resend (pannello →
+   Domains) e si imposta `RESEND_FROM` di conseguenza: fino ad allora
+   `send-email` resta in modalità sandbox, utilizzabile solo verso
+   l'indirizzo del titolare dell'account Resend, non fornitori/clienti
+   veri.
+3. **Un'app vera**, non solo un sito ottimizzato per telefono: la
    versione web (questa) resta comunque utile e usabile nel frattempo —
    ma un'app installabile (iOS/Android) è un progetto a sé, da pianificare
    separatamente quando si arriva a quel punto.

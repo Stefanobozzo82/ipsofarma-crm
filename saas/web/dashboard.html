@@ -87,8 +87,17 @@
   function ivaT(righe){ return (righe || []).reduce((s, x) => s + lineNet(x) * (x.iva || 0) / 100, 0); }
   function tot(righe){ return imp(righe) + ivaT(righe); }
 
+  // Bug reale trovato confrontando con backup.json: su Supabase la colonna
+  // "pagamenti" ha un default '[]'::jsonb, quindi per le fatture importate
+  // dal vecchio gestionale (dove il campo "pagamenti" semplicemente non
+  // esiste) arriva sempre un array VUOTO, mai null/undefined come nel
+  // gestionale originale. Il controllo "== null" quindi non scattava mai e
+  // il flag "paid" veniva ignorato per qualunque fattura senza incassi
+  // parziali tracciati — ribaltando "Da incassare"/"Da pagare" su decine di
+  // migliaia di euro. Un array vuoto va trattato come "nessun pagamento
+  // tracciato", esattamente come l'assenza del campo.
   function payTot(it){
-    if(it.pagamenti == null) return it.paid ? tot(it.righe) : 0;
+    if(it.pagamenti == null || it.pagamenti.length === 0) return it.paid ? tot(it.righe) : 0;
     return it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0);
   }
   // Quanto di una nota di credito va imputato a una specifica fattura cliente.

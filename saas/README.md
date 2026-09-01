@@ -1144,7 +1144,7 @@ abbastanza saturi da leggersi bene su sfondo sia chiaro che scuro, e
 cambiarli avrebbe rotto la fedeltà col grafico del gestionale originale
 senza un vero bisogno.
 
-## "Da incassare"/"Da pagare" sbagliati — bug reale + dati non allineati
+## "Da incassare"/"Da pagare" sbagliati — risolto
 
 Segnalato dall'utente confrontando la dashboard con il gestionale
 originale: "Da incassare dai clienti" e "Da pagare ai fornitori" non
@@ -1154,35 +1154,45 @@ l'utente continua a usare in parallelo — i suoi salvataggi automatici si
 vedono nella cronologia Git) con la stessa identica aritmetica di
 `payState()` in `index.html`: **189.421,17 €** da incassare, **91.175,76
 €** da pagare — la prima cifra è esattamente quella segnalata
-dall'utente, confermando che il calcolo "giusto" è quello del gestionale
-originale, non (ancora) quello che questo prodotto mostra.
+dall'utente. Dopo tutte le correzioni sotto, la dashboard mostra
+esattamente questi due importi.
 
-Trovato e corretto un bug reale nel farlo, indipendente dal problema
-principale: `ncCreditoFor()` (quanto di una nota di credito va imputato a
-una specifica fattura) qui ripartiva l'importo in **parti uguali** tra
-tutte le fatture collegate quando una nota ne copre più di una (`ftIds`
-con più elementi — un accordo transattivo). L'originale invece lo applica
-a **cascata**, partendo dalla fattura più vecchia, come un incasso
-parziale in sequenza, finché il credito non si esaurisce — non lo divide.
-Con pochi documenti coinvolti la differenza è piccola, ma la ripartizione
-in parti uguali può risultare in una fattura che sembra ancora aperta
-quando in realtà è già saldata per intero. Corretto in `dashboard.html`,
-`scadenziario.html` e `assistente-ai.html` (che non applicava affatto le
-note di credito al residuo, un secondo bug distinto scoperto nello stesso
-controllo — corretto anche quello). Collaudato con un nuovo
-`test104_nota_credito_cascata.py`.
+Tre cause distinte, trovate confrontando riga per riga il codice e i dati
+con l'originale (con accesso in lettura/scrittura a Supabase fornito
+dall'utente per questa sola operazione):
 
-**La causa principale resta però la seconda, più grande**: i dati
-importati in Supabase (vedi "Importati i dati reali di Ipsofarma" più
-sopra) sono una **fotografia di un momento preciso**, non un flusso
-tenuto sincronizzato — da allora il gestionale originale ha continuato a
-essere usato per davvero (nuove fatture, incassi, pagamenti registrati),
-e quella fotografia è rimasta ferma. Per riallineare i numeri serve
-ricaricare in Supabase i dati aggiornati da `backup.json` — un'operazione
-sui dati reali dell'azienda, non un cambiamento di codice: richiede
-accesso al progetto Supabase (che questa sessione non ha di sua
-iniziativa) e va concordata con l'utente prima di procedere, non decisa
-qui da sola.
+1. **Bug di codice, il più grande di tutti**: le tabelle Supabase hanno
+   `pagamenti jsonb not null default '[]'` — quindi per qualunque fattura
+   importata dal vecchio gestionale (dove il campo "pagamenti" con lo
+   storico degli incassi parziali semplicemente non esiste) arriva sempre
+   un **array vuoto**, mai `null`/assente come nel gestionale originale.
+   `payTot()`, portato pari pari dall'originale, controllava
+   `it.pagamenti == null`: con un array vuoto (mai `null`) quel controllo
+   non scattava **mai**, quindi il flag "paid" veniva ignorato per
+   qualunque fattura senza incassi parziali tracciati — ribaltando "Da
+   incassare"/"Da pagare" su decine di migliaia di euro (155 fatture
+   cliente e 185 fatture fornitore segnate "paid" ma con questo problema).
+   Corretto trattando un array vuoto come l'assenza del campo, in
+   `dashboard.html`, `scadenziario.html` e `assistente-ai.html`.
+   Collaudato con un nuovo `test105_pagamenti_array_vuoto.py`.
+2. **`ncCreditoFor()` a parti uguali invece che a cascata** — bug
+   descritto ed corretto in una sessione precedente (vedi git log),
+   confermato ancora corretto qui.
+3. **Dati non allineati, minori**: 2 fatture fornitore create nel
+   gestionale originale dopo l'import iniziale non erano mai arrivate su
+   Supabase (inserite ora, recuperando i riferimenti a fornitore/ordine
+   per numero); e le 2 note di credito con importo imputato a una fattura
+   specifica (`ftId`/`ftfId`) avevano perso quel riferimento nell'import
+   iniziale — la colonna FK risolta (`fattura_id`) c'era, ma il campo
+   `ftId`/`ftfId` letto dalla logica finanziaria portata dall'originale
+   (che lavora per numero documento, non per id Supabase) mancava
+   nell'`extra` jsonb. Corretto reintegrando i due campi con lo
+   stesso valore di `backup.json`.
+
+Il token Supabase fornito dall'utente per l'operazione è stato usato solo
+per questa sessione (letture + le scritture sopra elencate, tutte
+puntuali e non distruttive) e non è mai stato scritto in nessun file del
+repository.
 
 ## Prossimo passo
 

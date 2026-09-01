@@ -75,7 +75,10 @@
   function scFactor(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0).reduce((f, p) => f * (1 - p / 100), 1); }
   function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
   function tot(righe){ return (righe || []).reduce((s, r) => { const n = lineNet(r); return s + n + n * (r.iva || 0) / 100; }, 0); }
-  function payTot(it){ return it.pagamenti == null ? (it.paid ? tot(it.righe) : 0) : it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0); }
+  // Bug reale (vedi dashboard.html): su Supabase "pagamenti" è sempre un
+  // array, mai null, per le fatture del vecchio gestionale — un array vuoto
+  // va trattato come "nessun pagamento tracciato" (fallback su "paid").
+  function payTot(it){ return (it.pagamenti == null || it.pagamenti.length === 0) ? (it.paid ? tot(it.righe) : 0) : it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0); }
   // Quanto di una nota di credito va imputato a UNA specifica fattura —
   // porta diretta di ncCreditoFor() in index.html: se copre più fatture
   // (ftIds con più di un elemento) l'importo si distribuisce a cascata

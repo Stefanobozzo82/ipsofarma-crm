@@ -116,6 +116,15 @@
   // una fattura viene collegata a questo ordine) — calcolo condiviso con
   // ordini.html/"Consegnato" in app/cascade.js (SaasCascade.statoEvasione).
   function statoRicezione(o){ return window.SaasCascade.statoEvasione(o.righe, 'Ricevuto'); }
+  // Colonna "Stato" separata (stessa richiesta già fatta per Pagata/Non
+  // pagata in fatture.html, poi per Consegnato in ordini.html): prima il
+  // badge Ricevuto/Parziale stava appiccicato al numero ordine nella
+  // stessa cella, ora è una colonna a sé, sempre valorizzata (anche "Da
+  // evadere" quando non è ancora arrivato nulla, invece di restare vuota).
+  function statoRicezioneBadge(o){
+    const s = statoRicezione(o);
+    return s ? `<span class="badge ${s.cls}">${s.label}</span>` : `<span class="badge">Da evadere</span>`;
+  }
 
   // ---- ordinamento colonne: come nel gestionale originale — un clic
   // sull'intestazione ordina, un secondo clic inverte la direzione.
@@ -135,6 +144,11 @@
     if(key === 'imponibile') return impTot(o.righe || []);
     if(key === 'iva') return ivaTot(o.righe || []);
     if(key === 'totale') return docTotale(o.righe || []);
+    if(key === 'stato'){
+      const totQ = (o.righe || []).reduce((s, r) => s + (r.qty || 0), 0);
+      const fatto = (o.righe || []).reduce((s, r) => s + (r.qtyEv || 0), 0);
+      return totQ ? fatto / totQ : 0;
+    }
     return '';
   }
   function th(key, label){
@@ -503,13 +517,14 @@
     const allChecked = ordini.length > 0 && ordini.every(o => PICK.has(o.id));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
-        ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}<th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('stato','Stato')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}<th></th>
       </tr></thead><tbody>${ordini.map(o => `
         <tr class="row-click" data-id="${o.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${o.id}" ${PICK.has(o.id) ? 'checked' : ''}></td>
-          <td class="num-col">${esc(o.num)}${statoRicezione(o) ? ` <span class="badge ${statoRicezione(o).cls}">${statoRicezione(o).label}</span>` : ''}</td>
+          <td class="num-col">${esc(o.num)}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((fornitoriById[o.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
+          <td>${statoRicezioneBadge(o)}</td>
           <td class="num-col">${eur(impTot(o.righe || []))}</td>
           <td class="num-col">${eur(ivaTot(o.righe || []))}</td>
           <td class="num-col">${eur(docTotale(o.righe || []))}</td>

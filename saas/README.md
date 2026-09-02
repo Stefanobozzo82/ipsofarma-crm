@@ -2874,6 +2874,32 @@ con questo filtro — confermato che senza il fix il test fallisce
 Regressione completa (79 file, esclusi i due gated da credenziali
 reali) passata.
 
+## Colonna "Stato" separata anche per l'evasione ordini
+
+Richiesta: *"puoi fare la stessa cosa che hai fatto con il pulsante
+evaso ma la devi fare per gli ordini"* — la stessa colonna "Stato"
+dedicata già aggiunta a fatture.html/fatture-fornitore.html (Pagata/
+Non pagata), ora per lo stato di evasione. Prima il badge Consegnato/
+Parziale/Ricevuto stava appiccicato al numero ordine nella stessa
+cella (`OC/2026/0001 ✓ Consegnato`) — ora è una colonna "Stato" a sé,
+in **ordini.html** (badge "✓ Consegnato") e **ordini-fornitore.html**
+(badge "✓ Ricevuto"), ordinabile come le altre.
+
+Trovato un buco per strada nello stesso punto: `statoEvasione()` (in
+`app/cascade.js`) ritorna `null` quando non è stato ancora consegnato/
+ricevuto nulla — pensato per essere OMESSO nella cella appiccicata al
+numero, ma in una colonna dedicata lasciava la cella vuota invece di
+uno stato esplicito. Aggiunto un badge neutro **"Da evadere"** per
+quel caso, sullo stesso modello di "Non incassata"/"Non pagata".
+
+Nuovo `test136_colonna_stato_evasione.py` (3 scenari): la colonna
+Stato compare in entrambi i moduli con i tre stati corretti
+(Consegnato/Ricevuto, Parziale, Da evadere), il numero ordine non
+porta più il badge appiccicato, e l'ordinamento per Stato funziona.
+Aggiornato anche `test85_sort_columns.py` (indici di colonna fissi
+spostati di uno dalla nuova colonna). Regressione completa (80 file,
+esclusi i due gated da credenziali reali) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

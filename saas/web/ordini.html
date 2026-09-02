@@ -127,9 +127,16 @@
   // (vedi il bug qtyEv trovato e corretto — la ragione stessa per cui
   // questa logica non è rimasta duplicata inline in ogni pagina).
   // ---------------------------------------------------------------------------
+  // Colonna "Stato" separata (stessa richiesta già fatta per Pagata/Non
+  // pagata in fatture.html: "fai la stessa cosa per gli ordini") — prima
+  // il badge Consegnato/Parziale stava appiccicato al numero ordine nella
+  // stessa cella, ora è una colonna a sé, sempre valorizzata (anche "Da
+  // evadere" quando non è stato ancora consegnato nulla, invece di
+  // restare vuota: statoEvasione() ritorna null in quel caso, pensato per
+  // essere omesso — qui invece serve sempre un badge da mostrare).
   function statoConsegnaBadge(o){
     const s = window.SaasCascade.statoEvasione(o.righe, 'Consegnato');
-    return s ? ` <span class="badge ${s.cls}">${s.label}</span>` : '';
+    return s ? `<span class="badge ${s.cls}">${s.label}</span>` : `<span class="badge">Da evadere</span>`;
   }
   // Box "Documenti collegati" (vedi app/lineage.js): un diagramma a nodi
   // cliccabili con l'intera filiera dell'ordine, come nel vecchio
@@ -224,6 +231,11 @@
     if(key === 'imponibile') return impTot(o.righe || []);
     if(key === 'iva') return ivaTot(o.righe || []);
     if(key === 'totale') return docTotale(o.righe || []);
+    if(key === 'stato'){
+      const totQ = (o.righe || []).reduce((s, r) => s + (r.qty || 0), 0);
+      const fatto = (o.righe || []).reduce((s, r) => s + (r.qtyEv || 0), 0);
+      return totQ ? fatto / totQ : 0;
+    }
     return '';
   }
   function th(key, label){
@@ -562,13 +574,14 @@
     const allChecked = ordini.length > 0 && ordini.every(o => PICK.has(o.id));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
-        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}<th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('stato','Stato')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}<th></th>
       </tr></thead><tbody>${ordini.map(o => `
         <tr class="row-click" data-id="${o.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${o.id}" ${PICK.has(o.id) ? 'checked' : ''}></td>
-          <td class="num-col">${esc(o.num)}${statoConsegnaBadge(o)}</td>
+          <td class="num-col">${esc(o.num)}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
+          <td>${statoConsegnaBadge(o)}</td>
           <td class="num-col">${eur(impTot(o.righe || []))}</td>
           <td class="num-col">${eur(ivaTot(o.righe || []))}</td>
           <td class="num-col">${eur(docTotale(o.righe || []))}</td>

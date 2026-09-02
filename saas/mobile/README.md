@@ -80,6 +80,13 @@ pagine restano identiche e funzionanti anche fuori dall'app).
   vedi `saas/web/app/biometric-lock.js`.
 - **Permesso `CAMERA`** nel manifest (nessun pacchetto npm: la fotocamera
   nel selettore file di sistema, vedi `saas/web/app/camera-import.js`).
+- **`@capacitor-community/speech-recognition`** (dettatura vocale nella
+  pagina Assistente AI, registrato lato Android come `"SpeechRecognition"`)
+  — serve perché il WebView di Android, a differenza di Chrome vero e
+  proprio, non implementa affatto la Web Speech API del browser (manca
+  l'integrazione col servizio di riconoscimento di Google che solo Chrome
+  ha): senza questo plugin il pulsante 🎤 non funzionerebbe per niente
+  dentro l'app. Vedi `saas/web/assistente-ai.html`.
 
 **Nota tecnica per chi tocca questi plugin**: le pagine di `saas/web/`
 sono servite da un URL remoto (`server.url`, vedi sopra), non dal bundle

@@ -3184,6 +3184,44 @@ match invece di indovinare quella sbagliata. Estesi gli scenari di
 più aziende, parola generica da sola) — 9 scenari in tutto, di nuovo con
 `test100_assistente_ai.py` e la regressione completa passati.
 
+## Assistente AI: via le descrizioni, dentro il microfono per dettare
+
+Richiesta: *"io toglierei tutte le descrizione dentro la sezione
+assistente ai e metterei un tasto del microfono per dettare"*.
+
+**Via i testi descrittivi**: il sottotitolo sotto il titolo di pagina e i
+due paragrafi introduttivi delle due card ("Le risposte si basano su...",
+"Descrivi cosa vuoi fare...") — restano gli esempi cliccabili (già
+autoesplicativi) e le caselle.
+
+**Pulsante microfono (🎤)**, su entrambe le caselle (domanda e azione),
+due implementazioni diverse a seconda di dove gira la pagina — non una
+sola, per lo stesso motivo già affrontato per fotocamera e blocco
+biometrico (Fase 3): nel browser basta la Web Speech API
+(`SpeechRecognition`/`webkitSpeechRecognition`); dentro l'app nativa il
+WebView di Android NON la implementa affatto (a differenza di Chrome
+vero e proprio, manca l'integrazione col servizio di riconoscimento di
+Google) — da qui il nuovo plugin `@capacitor-community/speech-recognition`
+(`saas/mobile/`, dettagli e stessa nota tecnica sui metodi nativi REALI
+in `saas/mobile/README.md`). Un tocco avvia l'ascolto (il pulsante pulsa
+finché è attivo), il testo riconosciuto si aggiunge a quello già scritto
+(non lo sostituisce, così si può correggere/completare a voce quello che
+si era già scritto a mano); un secondo tocco mentre è già in ascolto non
+fa ripartire una seconda registrazione sovrapposta.
+
+**Testato**: nuovo `test141_assistente_dettatura.py` (8 scenari — le
+descrizioni sono sparite ed esempi/caselle restano, il pulsante compare
+su entrambe le caselle, dettatura nel browser con inserimento del testo,
+una seconda dettatura si aggiunge invece di sovrascrivere, browser senza
+supporto mostra un avviso chiaro, percorso nativo con permesso già
+concesso, permesso negato mostra un avviso senza inserire nulla, un
+secondo tocco durante l'ascolto non parte due volte). Verificato anche
+con una build Android reale (permesso `RECORD_AUDIO` e il plugin uniti
+correttamente al manifest, `BUILD SUCCESSFUL`) — il collaudo del
+riconoscimento vocale vero resta da fare sul telefono, come per gli altri
+plugin nativi della Fase 3. `test100_assistente_ai.py` e la regressione
+completa della suite (80 file) passati.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -31,13 +31,11 @@
   <main class="app-main">
     <div class="page-head">
       <h2>Assistente AI</h2>
-      <p class="sub">Fai una domanda sui dati aziendali: chi deve pagare/incassare cosa, fatturato del mese, ordini aperti…</p>
     </div>
 
     <p class="msg" id="ai-limit-banner" hidden></p>
 
     <div class="card ai-wrap">
-      <p class="ai-intro">Le risposte si basano su un riepilogo dei dati aziendali calcolato ad ogni domanda — nessun dato lascia il server del provider IA se non quello. Per creare o modificare documenti c'è la sezione "Esegui un'azione" più sotto, sempre con un'anteprima da confermare.</p>
       <div class="ai-examples">
         <button type="button" class="ai-chip" data-fill>Quanto devo ancora pagare ai fornitori?</button>
         <button type="button" class="ai-chip" data-fill>Quali clienti hanno fatture da incassare?</button>
@@ -49,6 +47,7 @@
 
       <div class="ai-inputrow" style="margin-top:14px">
         <textarea id="ai-q" rows="2" placeholder="Scrivi qui la tua domanda…"></textarea>
+        <button type="button" class="ai-mic-btn" id="ai-mic" title="Detta con il microfono" aria-label="Detta con il microfono">🎤</button>
         <button class="primary" id="ai-go">Invia</button>
       </div>
       <p class="empty" id="no-context" hidden>Non ci sono ancora dati sufficienti per rispondere a domande sull'azienda: crea qualche cliente, fornitore o documento prima di usare l'assistente.</p>
@@ -69,7 +68,6 @@
       <div class="page-head" style="margin-bottom:2px">
         <h3 style="margin:0">Esegui un'azione</h3>
       </div>
-      <p class="ai-intro">Descrivi cosa vuoi fare in linguaggio naturale — ti mostro sempre un'anteprima di quello che sto per cambiare, non applico nulla finché non confermi.</p>
       <div class="ai-examples">
         <button type="button" class="ai-chip" data-action-fill>Segna pagate le fatture di [fornitore] di [mese]</button>
         <button type="button" class="ai-chip" data-action-fill>Segna da pagare le fatture di [cliente] di questo mese</button>
@@ -80,6 +78,7 @@
       </div>
       <div class="ai-inputrow" style="margin-top:10px">
         <textarea id="action-q" rows="2" placeholder="Es. segna pagate le fatture di B.Braun di aprile"></textarea>
+        <button type="button" class="ai-mic-btn" id="action-mic" title="Detta con il microfono" aria-label="Detta con il microfono">🎤</button>
         <button class="primary" id="action-go">Genera anteprima</button>
       </div>
       <div id="action-out"></div>
@@ -438,6 +437,73 @@
     $('ai-q').value = btn.textContent;
     $('ai-q').focus();
   }));
+
+  // ---------------------------------------------------------------------------
+  // Dettatura vocale (🎤): due implementazioni diverse a seconda di dove
+  // gira la pagina, non una sola.
+  //
+  // Nel browser (desktop o mobile) la Web Speech API (SpeechRecognition/
+  // webkitSpeechRecognition) basta da sola.
+  //
+  // Dentro l'app nativa NON basta: il WebView di Android — a differenza di
+  // Chrome vero e proprio — non implementa la Web Speech API (motivo noto,
+  // non un bug di questa pagina: manca l'integrazione col servizio di
+  // riconoscimento di Google che solo Chrome ha). Da qui il plugin nativo
+  // @capacitor-community/speech-recognition (saas/mobile/), registrato
+  // come "SpeechRecognition" — stesso avvertimento generale già lasciato
+  // in saas/mobile/README.md per gli altri plugin: si chiama il metodo
+  // nativo REALE via Capacitor.Plugins, mai il bundle JS del pacchetto
+  // npm (che qui non viene mai caricato, le pagine sono servite da un URL
+  // remoto — vedi biometric-lock.js per lo stesso ragionamento estesamente
+  // commentato).
+  // ---------------------------------------------------------------------------
+  function isNativeApp(){
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+  async function dictateNative(textarea, btn){
+    const SR = window.Capacitor.Plugins.SpeechRecognition;
+    if(!SR){ alert('Riconoscimento vocale non disponibile su questa build dell\'app.'); return; }
+    try{
+      let perm = await SR.checkPermissions();
+      if(perm.speechRecognition !== 'granted'){
+        perm = await SR.requestPermissions();
+        if(perm.speechRecognition !== 'granted'){ alert('Serve il permesso al microfono per dettare.'); return; }
+      }
+      const avail = await SR.available();
+      if(!avail.available){ alert('Il riconoscimento vocale non è disponibile su questo telefono.'); return; }
+      btn.classList.add('listening');
+      const res = await SR.start({ language:'it-IT', maxResults:1, partialResults:false, popup:false });
+      const testo = res && res.matches && res.matches[0];
+      if(testo) textarea.value = (textarea.value ? textarea.value.trim() + ' ' : '') + testo;
+    }catch(err){
+      // annullato o non riconosciuto: si riprova col pulsante, niente allarme per un'azione facoltativa
+    }finally{
+      btn.classList.remove('listening');
+    }
+  }
+  function dictateWeb(textarea, btn){
+    const SRCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SRCtor){ alert('La dettatura vocale non è supportata da questo browser.'); return; }
+    const rec = new SRCtor();
+    rec.lang = 'it-IT';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = e => {
+      const testo = e.results[0][0].transcript;
+      textarea.value = (textarea.value ? textarea.value.trim() + ' ' : '') + testo;
+    };
+    rec.onerror = () => {}; // annullato/non riconosciuto: niente allarme, si riprova col pulsante
+    rec.onend = () => btn.classList.remove('listening');
+    btn.classList.add('listening');
+    rec.start();
+  }
+  function startDictation(textarea, btn){
+    if(btn.classList.contains('listening')) return; // già in ascolto: un secondo tocco non deve accavallarsi
+    if(isNativeApp()) dictateNative(textarea, btn);
+    else dictateWeb(textarea, btn);
+  }
+  $('ai-mic').addEventListener('click', () => startDictation($('ai-q'), $('ai-mic')));
+  $('action-mic').addEventListener('click', () => startDictation($('action-q'), $('action-mic')));
 
   // ---------------------------------------------------------------------------
   // Punto 3 del piano di miglioramento IA: "Esegui un'azione" — un'istruzione

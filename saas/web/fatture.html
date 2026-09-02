@@ -29,8 +29,10 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuova fattura</h3>
+    <label for="f-cliente">Cliente</label>
+    <select id="f-cliente"></select>
     <div class="grid2">
-      <div><label for="f-cliente">Cliente</label><select id="f-cliente"></select></div>
+      <div><label for="f-num">Numero fattura</label><input id="f-num" type="text" placeholder="es. FT/2026/0001"></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
     <div class="grid2">
@@ -46,7 +48,7 @@
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -93,6 +95,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let editingFattura = null; // la fattura in modifica, per non perdere paid/paidDate/pagamenti al salvataggio — vedi f-save
   let clientiById = {};
   let ordiniPerCliente = {};
   let allOrdiniById = {};
@@ -198,6 +201,7 @@
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
     return `<tr>
+      <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
@@ -214,9 +218,28 @@
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
   }
+  // Riordino righe per trascinamento (vedi la stessa idea in ordini.html):
+  // solo la manetta ⠿ è draggable, non l'intera riga.
+  let dragSrcRow = null;
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    const handle = tr.querySelector('.drag-handle');
+    handle.addEventListener('dragstart', e => {
+      dragSrcRow = tr;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    });
+    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
+    tr.addEventListener('dragover', e => {
+      if(!dragSrcRow || dragSrcRow === tr) return;
+      e.preventDefault();
+      const rect = tr.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
+    });
+    tr.addEventListener('drop', e => e.preventDefault());
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -288,8 +311,9 @@
     }
   });
 
-  function openForm(fattura){
+  async function openForm(fattura){
     editingId = fattura ? fattura.id : null;
+    editingFattura = fattura;
     $('form-title').textContent = fattura ? `Modifica ${fattura.num}` : 'Nuova fattura';
     $('f-cliente').value = fattura ? fattura.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
     refreshLinkedOptions($('f-cliente').value);
@@ -298,18 +322,25 @@
     $('f-ddt').value = fattura ? (fattura.ddtId || '') : '';
     $('f-dest').value = fattura ? (fattura.destId || '') : '';
     $('f-data').value = fattura ? fattura.data : today();
+    if(fattura){
+      $('f-num').value = fattura.num;
+    }else{
+      $('f-num').value = '';
+      try{ $('f-num').value = await store.peekNumber(companyId, 'FT', Number($('f-data').value.slice(0, 4))); }
+      catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
+    }
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
   }
-  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingFattura = null; }
   $('new-fattura').addEventListener('click', async () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
     const lim = await store.checkDocLimit(companyId);
     if(!lim.ok){ alert(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`); return; }
-    openForm(null);
+    await openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
@@ -332,14 +363,29 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { clienteId, ocId, ddtId, destId, data, righe };
+      // Si parte dalla fattura esistente (se in modifica) invece che da un
+      // oggetto vuoto: preserva così stato di incasso (paid/paidDate/
+      // pagamenti) esplicitamente, non solo per omissione dall'update —
+      // stessa idea già applicata in ordini.html/ddt.html.
+      const doc = editingFattura ? Object.assign({}, editingFattura, { clienteId, ocId, ddtId, destId, data, righe }) : { clienteId, ocId, ddtId, destId, data, righe };
       const isNew = !editingId;
+      const numInput = $('f-num').value.trim();
       if(editingId){
-        doc.id = editingId; // numero e stato di incasso restano quelli esistenti
+        doc.id = editingId;
+        if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
+        if(numInput !== editingFattura.num){
+          await store.bumpCounterPast(companyId, 'FT', numInput);
+          doc.num = numInput;
+        }
       } else {
-        const anno = Number(data.slice(0, 4));
-        doc.num = await store.nextNumber(companyId, 'FT', anno);
         doc.paid = false; doc.paidDate = null; doc.pagamenti = [];
+        if(numInput){
+          await store.bumpCounterPast(companyId, 'FT', numInput);
+          doc.num = numInput;
+        } else {
+          const anno = Number(data.slice(0, 4));
+          doc.num = await store.nextNumber(companyId, 'FT', anno);
+        }
       }
       const saved = await store.saveDoc('fattureCliente', doc, companyId);
       // Cascata: una fattura NUOVA collegata a un DDT lo marca fatturato
@@ -360,7 +406,8 @@
       closeForm();
       await renderList();
     }catch(err){
-      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già una fattura con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
     }finally{
       $('f-save').disabled = false;
     }
@@ -689,7 +736,7 @@
       localStorage.removeItem('saas_gen_ft_from_ddt');
       const ddt = allDdtById[genFromDdt];
       if(ddt){
-        openForm(null);
+        await openForm(null);
         $('f-cliente').value = ddt.clienteId;
         refreshLinkedOptions(ddt.clienteId);
         refreshDestOptions(ddt.clienteId);

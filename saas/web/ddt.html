@@ -29,8 +29,10 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo DDT</h3>
+    <label for="f-cliente">Cliente</label>
+    <select id="f-cliente"></select>
     <div class="grid2">
-      <div><label for="f-cliente">Cliente</label><select id="f-cliente"></select></div>
+      <div><label for="f-num">Numero DDT</label><input id="f-num" type="text" placeholder="es. DDT/2026/0001"></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
     <label for="f-ordine">Ordine collegato (facoltativo)</label>
@@ -40,7 +42,7 @@
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th></th></tr></thead>
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -86,6 +88,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let editingDdt = null; // il DDT in modifica, per non perdere ftId (extra) al salvataggio — vedi f-save
   let clientiById = {};
   let ordiniPerCliente = {}; // clienteId -> [ordini]
   let allOrdiniById = {};
@@ -177,6 +180,7 @@
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, lotto:'', scad:'' };
     return `<tr>
+      <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
@@ -185,10 +189,31 @@
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
     </tr>`;
   }
+  // Riordino righe per trascinamento (come nel vecchio gestionale): solo
+  // la manetta ⠿ è draggable, non l'intera riga — vedi la stessa nota in
+  // ordini.html. L'ordine finale è quello del DOM, che readRighe() legge
+  // già in quell'ordine.
+  let dragSrcRow = null;
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
     const tr = $('righe-body').lastElementChild;
     tr.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); });
+    const handle = tr.querySelector('.drag-handle');
+    handle.addEventListener('dragstart', e => {
+      dragSrcRow = tr;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    });
+    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
+    tr.addEventListener('dragover', e => {
+      if(!dragSrcRow || dragSrcRow === tr) return;
+      e.preventDefault();
+      const rect = tr.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
+    });
+    tr.addEventListener('drop', e => e.preventDefault());
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -252,8 +277,9 @@
     if(ordine && righeVuote) precompileFromOrdine(ordine);
   });
 
-  function openForm(ddt){
+  async function openForm(ddt){
     editingId = ddt ? ddt.id : null;
+    editingDdt = ddt;
     $('form-title').textContent = ddt ? `Modifica ${ddt.num}` : 'Nuovo DDT';
     $('f-cliente').value = ddt ? ddt.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
     refreshOrdineOptions($('f-cliente').value);
@@ -261,18 +287,27 @@
     $('f-ordine').value = ddt ? (ddt.ocId || '') : '';
     $('f-dest').value = ddt ? (ddt.destId || '') : '';
     $('f-data').value = ddt ? ddt.data : today();
+    if(ddt){
+      $('f-num').value = ddt.num;
+    }else{
+      // Anteprima del prossimo numero, non un numero già assegnato: resta
+      // modificabile — vedi la stessa idea in ordini.html.
+      $('f-num').value = '';
+      try{ $('f-num').value = await store.peekNumber(companyId, 'DDT', Number($('f-data').value.slice(0, 4))); }
+      catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
+    }
     $('righe-body').innerHTML = '';
     (ddt ? ddt.righe : [null]).forEach(addRigaRow);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
   }
-  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingDdt = null; }
   $('new-ddt').addEventListener('click', async () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
     const lim = await store.checkDocLimit(companyId);
     if(!lim.ok){ alert(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`); return; }
-    openForm(null);
+    await openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
@@ -294,10 +329,28 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { clienteId, ocId, destId, data, righe };
+      // Si parte dal DDT esistente (se in modifica) invece che da un
+      // oggetto vuoto: senza questo, salvare una modifica a un DDT già
+      // fatturato ne cancellerebbe silenziosamente ftId (vive in "extra",
+      // sempre ricalcolato per intero da store.js a ogni salvataggio) —
+      // stesso bug già trovato e corretto in ordini.html/qtyEv.
+      const doc = editingDdt ? Object.assign({}, editingDdt, { clienteId, ocId, destId, data, righe }) : { clienteId, ocId, destId, data, righe };
       const isNew = !editingId;
+      const numInput = $('f-num').value.trim();
       if(editingId){
         doc.id = editingId;
+        if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
+        if(numInput !== editingDdt.num){
+          await store.bumpCounterPast(companyId, 'DDT', numInput);
+          doc.num = numInput;
+        }
+      } else if(numInput){
+        // L'utente ha lasciato o modificato l'anteprima proposta (vedi
+        // store.peekNumber() in openForm()): usata direttamente, non
+        // tramite nextNumber() — stesso compromesso già discusso in
+        // ordini.html (un duplicato è raro e comunque intercettato sotto).
+        await store.bumpCounterPast(companyId, 'DDT', numInput);
+        doc.num = numInput;
       } else {
         const anno = Number(data.slice(0, 4));
         doc.num = await store.nextNumber(companyId, 'DDT', anno);
@@ -320,7 +373,8 @@
       closeForm();
       await renderList();
     }catch(err){
-      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già un DDT con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
     }finally{
       $('f-save').disabled = false;
     }
@@ -459,7 +513,7 @@
       localStorage.removeItem('saas_gen_ddt_from_oc');
       const ordine = allOrdiniById[genFromOc];
       if(ordine){
-        openForm(null);
+        await openForm(null);
         $('f-cliente').value = ordine.clienteId;
         refreshOrdineOptions(ordine.clienteId);
         refreshDestOptions(ordine.clienteId);

@@ -38,7 +38,7 @@
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -174,6 +174,7 @@
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
     return `<tr>
+      <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
@@ -190,9 +191,28 @@
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
   }
+  // Riordino righe per trascinamento (vedi la stessa idea in ordini.html):
+  // solo la manetta ⠿ è draggable, non l'intera riga.
+  let dragSrcRow = null;
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    const handle = tr.querySelector('.drag-handle');
+    handle.addEventListener('dragstart', e => {
+      dragSrcRow = tr;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    });
+    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
+    tr.addEventListener('dragover', e => {
+      if(!dragSrcRow || dragSrcRow === tr) return;
+      e.preventDefault();
+      const rect = tr.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
+    });
+    tr.addEventListener('drop', e => e.preventDefault());
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.

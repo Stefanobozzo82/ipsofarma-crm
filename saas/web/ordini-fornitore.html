@@ -18,21 +18,23 @@
   <main class="app-main">
   <div class="page-head">
       <h2>Ordini fornitore</h2>
-      <p class="sub">Ordini fornitore, con numerazione automatica.</p>
+      <p class="sub">Ordini fornitore, con numerazione automatica (modificabile a mano).</p>
     </div>
 
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo ordine</h3>
+    <label for="f-fornitore">Fornitore</label>
+    <select id="f-fornitore"></select>
     <div class="grid2">
-      <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
+      <div><label for="f-num">Numero ordine</label><input id="f-num" type="text" placeholder="es. OF/2026/0001"></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
 
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -186,6 +188,7 @@
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
     return `<tr>
+      <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
@@ -200,9 +203,28 @@
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
   }
+  // Riordino righe per trascinamento (vedi la stessa idea in ordini.html):
+  // solo la manetta ⠿ è draggable, non l'intera riga.
+  let dragSrcRow = null;
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    const handle = tr.querySelector('.drag-handle');
+    handle.addEventListener('dragstart', e => {
+      dragSrcRow = tr;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    });
+    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
+    tr.addEventListener('dragover', e => {
+      if(!dragSrcRow || dragSrcRow === tr) return;
+      e.preventDefault();
+      const rect = tr.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
+    });
+    tr.addEventListener('drop', e => e.preventDefault());
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -243,12 +265,19 @@
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
-  function openForm(ordine){
+  async function openForm(ordine){
     editingId = ordine ? ordine.id : null;
     editingOrder = ordine;
     $('form-title').textContent = ordine ? `Modifica ${ordine.num}` : 'Nuovo ordine';
     $('f-fornitore').value = ordine ? ordine.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
     $('f-data').value = ordine ? ordine.data : today();
+    if(ordine){
+      $('f-num').value = ordine.num;
+    }else{
+      $('f-num').value = '';
+      try{ $('f-num').value = await store.peekNumber(companyId, 'OF', Number($('f-data').value.slice(0, 4))); }
+      catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
+    }
     $('righe-body').innerHTML = '';
     (ordine ? ordine.righe : [null]).forEach(addRigaRow);
     setMsg('', '');
@@ -318,7 +347,7 @@
     if($('f-fornitore').options.length === 0){ alert('Crea prima almeno un fornitore.'); return; }
     const lim = await store.checkDocLimit(companyId);
     if(!lim.ok){ alert(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`); return; }
-    openForm(null);
+    await openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
@@ -347,7 +376,7 @@
       });
       if(!p.righe){ throw new Error('l\'AI non ha riconosciuto un ordine fornitore in questo file'); }
 
-      openForm(null);
+      await openForm(null);
       const match = window.SaasAiImport.findPartyByNome(Object.values(fornitoriById), p.fornitore);
       if(match) $('f-fornitore').value = match.id;
       $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
@@ -406,8 +435,17 @@
       // Idem per ocId/emailSent (extra, non nel form): si parte
       // dall'ordine esistente invece che da un oggetto vuoto.
       const doc = editingOrder ? Object.assign({}, editingOrder, { fornitoreId, data, righe: righeFinal }) : { fornitoreId, data, righe: righeFinal };
+      const numInput = $('f-num').value.trim();
       if(editingId){
         doc.id = editingId;
+        if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
+        if(numInput !== editingOrder.num){
+          await store.bumpCounterPast(companyId, 'OF', numInput);
+          doc.num = numInput;
+        }
+      } else if(numInput){
+        await store.bumpCounterPast(companyId, 'OF', numInput);
+        doc.num = numInput;
       } else {
         const anno = Number(data.slice(0, 4));
         doc.num = await store.nextNumber(companyId, 'OF', anno);
@@ -416,7 +454,8 @@
       closeForm();
       await renderList();
     }catch(err){
-      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già un ordine con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
     }finally{
       $('f-save').disabled = false;
     }

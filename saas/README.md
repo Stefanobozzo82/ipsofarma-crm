@@ -2480,6 +2480,56 @@ Regressione completa (69 file) passata: solo i due fallimenti
 preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## Numero modificabile e righe trascinabili, in tutti i moduli documento
+
+Richiesta: *"fai lo stesso negli altri moduli"* — la stessa coppia di
+funzionalità appena costruita in `ordini.html` estesa a `ddt.html`,
+`fatture.html`, `note-credito.html`, `ordini-fornitore.html`,
+`preventivi.html` (numero modificabile via `peekNumber()`/
+`bumpCounterPast()`, righe trascinabili), e solo le righe trascinabili
+a `fatture-fornitore.html`/`note-credito-fornitore.html` — lì il
+numero è già modificabile da sempre (è il numero della fattura/nota
+**del fornitore**, mai generato da noi: niente anteprima da
+consumare, il campo esisteva già).
+
+**Un vero bug trovato per strada, stessa classe del qtyEv già corretto
+in `ordini.html` a inizio sessione**: `ddt.html` costruiva `doc` da un
+oggetto vuoto (`{ clienteId, ocId, destId, data, righe }`) invece che
+a partire dal DDT esistente in modifica. Un DDT già fatturato porta
+`ftId` — vive in `extra` (jsonb), che `store.js` ricalcola per intero
+a ogni salvataggio dagli unici campi non mappati presenti sull'oggetto
+passato: salvare una modifica qualsiasi (anche solo la data) su un DDT
+già fatturato ne cancellava silenziosamente `ftId`, riaprendo la
+possibilità di generarne una seconda fattura senza alcun avviso.
+Corretto ripartendo dal DDT esistente (`Object.assign({}, editingDdt,
+...)`), come già fa `ordini.html`.
+
+**Stessa cautela applicata anche dove non c'era un bug attivo oggi**
+(`fatture.html`, `note-credito.html`, `ordini-fornitore.html` — già
+corretto in precedenza —, `preventivi.html`): tutti ora ripartono dal
+documento esistente invece che da un oggetto vuoto quando si modifica,
+non solo per i campi già mappati (comunque al sicuro per omissione:
+`store.js` aggiorna una colonna mappata SOLO se presente nell'oggetto)
+ma esplicitamente, per non lasciare un varco ad ogni futuro campo
+"extra" che si aggiungesse a un tipo di documento oggi senza.
+
+Numero duplicato: stesso messaggio chiaro già visto in `ordini.html`
+("Esiste già un/una ... con questo numero: scegline un altro"),
+specifico per ogni tipo di documento.
+
+Nuovo `test126_numero_drag_altri_moduli.py` (9 scenari, uno per ognuno
+dei 7 moduli documento più i due dedicati al bug ddt.html/ftId):
+numero precompilato e modificabile, un duplicato mostra l'errore,
+modificare un DDT già fatturato NON cancella `ftId`, righe
+trascinabili ovunque, il numero di `fatture-fornitore.html` resta
+sempre vuoto/quello del fornitore (nessuna anteprima nostra). Aggiornato
+`test76_fatture_page.py` (l'assunzione che una modifica non includesse
+affatto `paid`/`paidDate`/`pagamenti` nel payload non vale più — ora
+sono espliciti, ma **preservati**, verificato sui valori invece che
+sulla loro assenza). Regressione completa (70 file) passata: solo i
+due fallimenti preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

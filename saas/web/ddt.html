@@ -38,6 +38,9 @@
     <label for="f-ordine">Ordine collegato (facoltativo)</label>
     <select id="f-ordine"><option value="">— nessuno —</option></select>
     <div id="f-dest-wrap"><label for="f-dest">Destinazione di consegna</label><select id="f-dest"></select></div>
+    <div class="form-actions" id="ddt-cascade-actions" hidden style="margin:0 0 14px">
+      <button type="button" class="primary" id="ddt-btn-ft">→ Genera fattura</button>
+    </div>
 
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
@@ -298,11 +301,31 @@
     }
     $('righe-body').innerHTML = '';
     (ddt ? ddt.righe : [null]).forEach(addRigaRow);
+    // Bottone "Genera fattura" — lo stesso passo successivo del bottone
+    // per-riga nell'elenco (sotto, visibile solo con la spunta), ma qui
+    // sempre a vista quando si apre un DDT esistente: la stessa richiesta
+    // già vista per l'ordine cliente ("non ho trovato il pulsante"), qui
+    // un passo più avanti nella cascata (DDT -> fattura).
+    const ftBox = $('ddt-cascade-actions');
+    if(ddt){
+      ftBox.hidden = false;
+      const ftBtn = $('ddt-btn-ft');
+      ftBtn.textContent = ddt.ftId ? '✓ Fatturato' : '→ Genera fattura';
+      ftBtn.disabled = !!ddt.ftId;
+      ftBtn.className = ddt.ftId ? 'ghost' : 'primary';
+    }else{
+      ftBox.hidden = true;
+    }
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
   }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingDdt = null; }
+  $('ddt-btn-ft').addEventListener('click', () => {
+    if(!editingDdt) return;
+    localStorage.setItem('saas_gen_ft_from_ddt', editingDdt.id);
+    location.href = 'fatture.html';
+  });
   $('new-ddt').addEventListener('click', async () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
     const lim = await store.checkDocLimit(companyId);

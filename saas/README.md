@@ -2530,6 +2530,36 @@ sulla loro assenza). Regressione completa (70 file) passata: solo i
 due fallimenti preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## Bottone "Genera fattura" visibile dentro il DDT
+
+Segnalazione: *"ho fatto un ddt da ordine cliente ma poi non mi ha
+permesso di fare la fattura"* — la stessa classe di segnalazione già
+vista per "Genera ordine fornitore" in `ordini.html`, un passo più
+avanti nella cascata (DDT → fattura). Il bottone "🧾 Fattura" in
+`ddt.html` c'era già, ma solo sulla riga dell'elenco e solo dopo aver
+spuntato la riga — mai dentro il DDT appena aperto, dove ci si
+aspetta di trovarlo appena creato dall'ordine.
+
+Stesso schema già usato per "→ Genera ordine fornitore": il bottone
+("→ Genera fattura" / "✓ Fatturato" disabilitato) compare ora anche
+dentro il form di modifica di un DDT esistente, sempre visibile.
+Cliccandolo porta su `fatture.html` con cliente/ordine/DDT/righe già
+precompilati (stesso percorso già esistente, solo reso raggiungibile
+da un posto più naturale) — non un'azione headless: la fattura è un
+documento fiscale, la revisione prima di salvare resta manuale, come
+per "Genera DDT" in `ordini.html`.
+
+Nuovo `test127_genera_fattura_da_ddt.py` (6 scenari): un DDT nuovo non
+mostra il bottone, un DDT esistente non fatturato lo mostra attivo,
+cliccandolo precompila `fatture.html` correttamente, si salva
+davvero (verificato l'intero percorso, non solo che il bottone
+compaia), un DDT già fatturato mostra "✓ Fatturato" disabilitato, il
+vecchio percorso dall'elenco (spunta + bottone riga) continua a
+funzionare e sparisce quando il DDT risulta già fatturato.
+Regressione completa (71 file) passata: solo i due fallimenti
+preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

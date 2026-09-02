@@ -38,7 +38,7 @@
         <div class="panel-h">Top prodotti per fatturato
           <button class="ghost" id="export-prod" style="margin-left:auto">⬇ Excel</button>
         </div>
-        <div class="table-scroll"><table style="margin:0">
+        <div class="table-scroll"><table class="elenco-table" style="margin:0">
           <thead><tr><th>Codice</th><th>Descrizione</th><th style="text-align:right">Q.tà ordinata</th><th style="text-align:right">Fatturato</th></tr></thead>
           <tbody id="prod-body"><tr><td colspan="4" class="empty">Carico…</td></tr></tbody>
         </table></div>
@@ -47,7 +47,7 @@
         <div class="panel-h">Fatturato per cliente
           <button class="ghost" id="export-cli" style="margin-left:auto">⬇ Excel</button>
         </div>
-        <div class="table-scroll"><table style="margin:0">
+        <div class="table-scroll"><table class="elenco-table" style="margin:0">
           <thead><tr><th>Cliente</th><th style="text-align:right">Imponibile</th><th style="text-align:right">%</th></tr></thead>
           <tbody id="cli-body"><tr><td colspan="3" class="empty">Carico…</td></tr></tbody>
         </table></div>
@@ -67,6 +67,7 @@
 <script src="app/nav.js"></script>
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
+<script src="app/elenco-cards.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;

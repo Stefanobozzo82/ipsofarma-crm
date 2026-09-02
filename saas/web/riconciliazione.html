@@ -96,6 +96,7 @@
 <script src="app/nav.js"></script>
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
+<script src="app/elenco-cards.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -314,7 +315,7 @@
   function renderResults(){
     const nProposti = matches.filter(m => m.scelta).length;
     $('results-summary').textContent = `${matches.length} movimenti trovati nel file, ${nProposti} con un abbinamento esatto proposto. Rivedi ed eventualmente correggi prima di registrare.`;
-    $('results-area').innerHTML = `<div class="table-scroll"><table><thead><tr>
+    $('results-area').innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all-mv"></th>
         <th>Data</th><th>Descrizione</th><th>Importo</th><th>Fattura abbinata</th>
       </tr></thead><tbody>${matches.map((m, i) => {

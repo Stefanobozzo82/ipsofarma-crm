@@ -73,6 +73,7 @@
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
 <script src="app/resize.js"></script>
+<script src="app/elenco-cards.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -249,7 +250,7 @@
       return;
     }
     const rows = [...righe].sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
-    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+    area.innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         ${th('num','Fattura')}${th('cliente','Cliente')}${th('data','Emessa')}${th('scadenza','Scadenza')}${th('residuo','Residuo')}<th>Stato</th><th></th>
       </tr></thead><tbody>${rows.map(r => `
         <tr>

@@ -91,6 +91,7 @@
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
 <script src="app/resize.js"></script>
+<script src="app/elenco-cards.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
@@ -515,7 +516,7 @@
     }
     ordini.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     const allChecked = ordini.length > 0 && ordini.every(o => PICK.has(o.id));
-    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+    area.innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('stato','Stato')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}<th></th>
       </tr></thead><tbody>${ordini.map(o => `

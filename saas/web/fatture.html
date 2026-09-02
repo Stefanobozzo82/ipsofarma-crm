@@ -88,6 +88,7 @@
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
 <script src="app/resize.js"></script>
+<script src="app/elenco-cards.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
@@ -655,7 +656,7 @@
     }
     const allChecked = elenco.length > 0 && elenco.every(f => PICK.has(f.id));
 
-    area.innerHTML = bulkHtml + `<div class="table-scroll"><table><thead><tr>
+    area.innerHTML = bulkHtml + `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('stato','Stato')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('incasso','Incasso')}<th></th>
       </tr></thead><tbody>${elenco.map(f => `

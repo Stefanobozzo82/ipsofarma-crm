@@ -2994,6 +2994,69 @@ elenco e form di modifica compresi, non ha contenuto nascosto dietro la
 nuova barra: i pulsanti Salva/Annulla in fondo al form restano ben
 visibili sopra di essa. Regressione completa della suite passata.
 
+## App vera, Fase 2b: le tabelle degli elenchi diventano schede
+
+Richiesta: *"procedi"* — il pezzo di Fase 2 lasciato apposta indietro
+quando è stata fatta la barra in basso (nota strategica "Da PWA ad app
+vera": *"tabelle degli elenchi che diventano schede sotto una certa
+larghezza"*), tenuto separato per non affrettare un lavoro che tocca la
+gerarchia visiva di 17 pagine nello stesso turno.
+
+**Il problema**: un elenco come Fatture ha 8-10 colonne (numero, data,
+cliente, stato, imponibile, IVA, totale, incasso, azioni) — su un
+telefono, anche scorrendo lateralmente dentro la tabella (soluzione già
+in campo da prima), restano illeggibili: si vede una colonna alla volta,
+senza mai il contesto delle altre.
+
+**La soluzione**: sotto gli 860px (stessa soglia della barra in basso),
+ogni riga della tabella diventa una scheda — un riquadro con dentro,
+un sotto l'altro, "ETICHETTA: valore" per ogni colonna, invece che una
+riga orizzontale. Le etichette sono quelle già scritte nell'intestazione
+di ogni tabella: non è stato aggiunto nulla di nuovo pagina per pagina,
+solo letto ciò che c'era già.
+
+**Come, senza riscrivere 17 pagine**: nuovo file condiviso
+`saas/web/app/elenco-cards.js`, incluso in ogni pagina con un elenco.
+Legge il testo di ogni `<th>` una volta (togliendo la freccia di
+ordinamento se presente, es. "Numero ↓" → "Numero") e lo scrive come
+`data-label` su ogni `<td>` della stessa colonna — poi il CSS mostra
+quell'etichetta con `content:attr(data-label)` prima del valore. Siccome
+ogni pagina ricostruisce il proprio elenco da zero ad ogni filtro o
+ordinamento (`area.innerHTML = ...`; report.html sostituisce invece solo
+il `<tbody>`), il file osserva il DOM con un `MutationObserver` invece di
+dover essere richiamato a mano da ogni singolo `renderList()` — funziona
+per costruzione anche sulle prossime pagine con un elenco, senza doverci
+pensare di nuovo. Le tabelle sono marcate con `class="elenco-table"`
+(19 tabelle su 17 pagine): restano ESCLUSE le tabelle editabili delle
+righe di un documento (`.righe-table` — un vero foglio dati, resta tale
+anche su telefono) e le anteprime fedeli di un file/email (il CSV da
+importare in Riconciliazione, il testo del sollecito email in
+Scadenziario), che non portano questa classe apposta.
+
+**Dettagli che non sono banali quanto sembra**: la colonna di selezione
+(spunta multipla) non ha etichetta — resta in cima alla scheda invece
+di una riga a sé con niente scritto davanti; la colonna azioni, quando
+non ha pulsanti (visibili solo a riga selezionata, vedi la Fase
+precedente sulle azioni per-riga), sparisce del tutto — qui il CSS
+`:empty` non basta (il template lascia uno spazio/a-capo anche quando
+non genera bottoni, quindi la cella non è mai *davvero* vuota per il
+CSS): la cella "vuota" è marcata esplicitamente da elenco-cards.js
+confrontando il contenuto effettivo, non l'HTML letterale; una riga con
+un'unica cella a colspan pieno (stato di caricamento/"nessun dato" in
+report.html) resta un messaggio centrato, non una scheda con etichette.
+
+**Testato**: nuovo `test137_elenco_cards.py` (6 scenari) — desktop
+invariato (vera tabella); mobile: etichette corrette e senza freccia di
+ordinamento, colonna spunta in cima alla scheda, colonna azioni nascosta
+a vuoto e visibile a riga selezionata, il tocco sulla scheda apre ancora
+il documento; il meccanismo funziona sia quando si sostituisce l'intera
+tabella (fatture.html) sia solo il `<tbody>` (report.html); una riga
+colspan resta un messaggio, non una scheda; `.righe-table` non è mai
+toccata. Verificato anche visivamente (Fatture con selezione multipla e
+azioni, Clienti senza spunta né gating) — regressione completa della
+suite (80 file) passata, esclusi i soliti 2 test gated da credenziali
+reali.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
@@ -3017,13 +3080,9 @@ Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
    `send-email` resta in modalità sandbox, utilizzabile solo verso
    l'indirizzo del titolare dell'account Resend, non fornitori/clienti
    veri.
-3. **App vera**: Fasi 1 e 2 fatte — vedi le sezioni dedicate qui sopra e
-   `saas/mobile/README.md`. Pacchetto Android che compila davvero,
-   hosting pubblico collegato (con l'incidente di sicurezza del primo
-   deploy risolto), navigazione mobile ridisegnata per il pollice. Resta
-   sul tavolo, quando l'azienda vorrà: le schede al posto delle tabelle
-   fitte sugli elenchi in versione mobile (stessa nota strategica, non
-   ancora iniziata), poi le funzioni davvero native della Fase 3
-   (fotocamera per l'import IA, notifiche push, login biometrico) e,
-   solo per pubblicare sugli store, gli account sviluppatore Apple/Google
-   che solo il titolare può creare.
+3. **App vera**: Fase 2 completata (barra in basso + tabelle degli
+   elenchi diventate schede) — vedi le sezioni dedicate qui sopra e
+   `saas/mobile/README.md`. Resta sul tavolo, quando l'azienda vorrà: le
+   funzioni davvero native della Fase 3 (fotocamera per l'import IA,
+   notifiche push, login biometrico) e, solo per pubblicare sugli store,
+   gli account sviluppatore Apple/Google che solo il titolare può creare.

@@ -188,6 +188,66 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
   input, select, textarea{ font-size:16px; padding:10px 11px; }
   .righe-table input{ font-size:14px; padding:7px 8px; }
   .report-grid{ grid-template-columns:1fr !important; }
+
+  /* Tabelle degli elenchi (fatture, ordini, clienti, prodotti...) → schede
+   * impilate, una per riga, invece di scorrere di lato: 6-10 colonne non si
+   * leggono scorrendo in orizzontale su un telefono. Solo <table
+   * class="elenco-table"> (le etichette arrivano da data-label, scritto una
+   * volta sola da app/elenco-cards.js leggendo l'intestazione — nessuna
+   * pagina deve riscriverle a mano). Restano vere tabelle: .righe-table
+   * (le righe di un documento, un vero foglio dati da scorrere) e le
+   * anteprime fedeli di un file/email (CSV da importare, sollecito da
+   * inviare), che infatti non portano questa classe.
+   * width:auto!important: sovrascrive sia le larghezze in px assegnate da
+   * resize.js per il layout desktop, sia .table-scroll table{min-width:520px}
+   * (theme.css più sotto) — qui non deve scorrere in orizzontale, deve
+   * semplicemente stare nella larghezza dello schermo. */
+  table.elenco-table, table.elenco-table thead, table.elenco-table tbody,
+  table.elenco-table tr, table.elenco-table th, table.elenco-table td{
+    display:block; width:auto !important;
+  }
+  table.elenco-table{ min-width:0 !important; }
+  table.elenco-table thead{ display:none; }
+  table.elenco-table tbody tr{
+    background:var(--surface); border:1px solid var(--border); border-radius:11px;
+    padding:4px 14px; margin-bottom:10px; box-shadow:var(--sh); position:relative;
+  }
+  table.elenco-table tbody tr:hover{ background:var(--surface); } /* niente evidenziazione a riga intera: qui si tocca, non si passa sopra col mouse */
+  table.elenco-table tbody tr:last-child{ margin-bottom:0; }
+  table.elenco-table td{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:9px 0; border-bottom:1px solid var(--border); text-align:right;
+  }
+  table.elenco-table td:last-child{ border-bottom:none; }
+  /* L'etichetta è il testo dell'intestazione di colonna (data-label, scritto
+   * da elenco-cards.js): le colonne senza intestazione testuale — la
+   * casella di selezione, l'ultima colonna delle azioni, già senza <th> con
+   * testo anche nella tabella desktop — restano senza etichetta davanti. */
+  table.elenco-table td[data-label]::before{
+    content:attr(data-label); text-align:left; flex:0 0 auto;
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; font-weight:700; color:var(--faint);
+  }
+  /* Casella di selezione: essendo la prima cella della riga, resta in cima
+   * alla scheda invece che una riga a sé — solo allineata a destra. */
+  table.elenco-table td.check-col{ justify-content:flex-end; border-bottom:none; padding-bottom:0; }
+  /* Colonna azioni: i pulsanti vanno a capo su più righe se non ci stanno,
+   * invece di restringersi o uscire dalla scheda; quando è vuota (azioni
+   * per-riga visibili solo a spunta attiva, vedi fatture/ordini/...) sparisce
+   * del tutto invece di lasciare una riga vuota nella scheda. */
+  table.elenco-table td.actions{ justify-content:flex-start; flex-wrap:wrap; text-align:left; }
+  /* .elenco-blank: marcata da elenco-cards.js — il CSS :empty non basta,
+   * il template della cella lascia spazi/a-capo anche quando non genera
+   * nessun pulsante (vedi il commento in elenco-cards.js). */
+  table.elenco-table td.actions.elenco-blank{ display:none; padding:0; border:none; }
+  table.elenco-table td.actions button:first-child{ margin-left:0; }
+  /* Riga di stato dentro la tabella stessa (caricamento/"nessun dato", es.
+   * report.html prima che arrivino i dati): un messaggio centrato su tutta
+   * la scheda, non una riga con etichetta davanti a niente. */
+  table.elenco-table td[colspan]{ display:block; text-align:center; border-bottom:none; }
+  /* Un campo dentro una cella (es. il menu di abbinamento in
+   * riconciliazione.html) occupa lo spazio libero accanto all'etichetta
+   * invece di restringersi al minimo. */
+  table.elenco-table td select, table.elenco-table td input:not([type=checkbox]){ flex:1; min-width:0; }
 }
 
 /* ---------------------------------------------------------------------------

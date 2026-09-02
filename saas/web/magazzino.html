@@ -98,6 +98,7 @@
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
 <script src="app/resize.js"></script>
+<script src="app/elenco-cards.js"></script>
 <script src="app/prodpicker.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -228,7 +229,7 @@
       area.innerHTML = '<p class="empty">Nessun prodotto trovato.</p>';
       return;
     }
-    area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+    area.innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th>Codice</th><th>Descrizione</th>${depositi.map(d => `<th>${esc(d.nome)}</th>`).join('')}<th>Totale</th><th></th>
       </tr></thead><tbody>${lastResults.map(p => {
         const perDep = depositi.map(d => giacenzaMap[p.id + '|' + d.id] || 0);
@@ -277,7 +278,7 @@
     try{
       const righe = await store.listMovimentiRecenti(companyId, 20);
       if(righe.length === 0){ area.innerHTML = '<p class="empty">Nessun movimento ancora registrato.</p>'; return; }
-      area.innerHTML = `<div class="table-scroll"><table><thead><tr>
+      area.innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr>
           <th>Data</th><th>Prodotto</th><th>Deposito</th><th>Tipo</th><th>Quantità</th><th>Causale</th>
         </tr></thead><tbody>${righe.map(r => `
           <tr>

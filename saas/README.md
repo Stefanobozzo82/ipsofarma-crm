@@ -2417,6 +2417,69 @@ Regressione completa (68 file) passata: solo i due fallimenti
 preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## Numero ordine modificabile, e righe trascinabili
+
+Richiesta: *"permettimi di modificare ordine cliente anche nella
+numerazione e poi nel vecchio gestionale avevamo inserito che le
+righe si potevano trascinare per farle salire o scendere"*.
+
+**Numero modificabile**: il vecchio gestionale aveva un campo "Numero
+ordine" scrivibile (precompilato con un'anteprima, ma sovrascrivibile)
+sia creando che modificando un ordine; qui in `ordini.html` il numero
+era invece sempre e solo quello assegnato da `store.nextNumber()`
+(atomico, mai mostrato/modificabile nel form). Portata la stessa
+logica:
+
+- **Nuova migrazione `0012_numero_manuale.sql`**: `next_document_number()`
+  (0004) resta l'UNICA strada per *consumare* un numero atomicamente —
+  serve solo un modo per *spostare in avanti* il contatore quando
+  qualcuno scrive a mano un numero più alto del prossimo libero, senza
+  toccare una tabella nuova (`document_counters` esiste già, ed è già
+  leggibile dal client via RLS). Nuova funzione `bump_document_counter()`
+  (security definer, stessi controlli `is_member`/`is_viewer_only` di
+  `next_document_number()`): sposta il contatore in avanti con
+  `greatest(...)` — mai indietro, idempotente se richiamata più volte
+  con lo stesso valore.
+- **`store.js`**: `peekNumber()` (sola lettura di `document_counters`,
+  nessun consumo — un contatore mai usato equivale a "il prossimo è
+  0001") per precompilare il campo; `bumpCounterPast()` (chiama la
+  nuova RPC solo se il testo scritto rispetta il formato
+  `PREFISSO/ANNO/NNNN` — un testo libero, es. importato dal vecchio
+  gestionale, viene accettato così com'è senza toccare il contatore).
+- **`ordini.html`**: nuovo campo "Numero ordine" nel form, sia in
+  creazione (precompilato con `peekNumber()`, ma modificabile) sia in
+  modifica (precompilato col numero esistente). Se il testo scritto è
+  diverso da quello atteso/esistente, viene usato direttamente e il
+  contatore si sposta in avanti; se il campo resta vuoto (es.
+  l'anteprima non è riuscita a caricarsi), si torna alla numerazione
+  atomica pura. Un numero duplicato (vincolo `unique(company_id, num)`
+  già esistente) mostra "Esiste già un ordine con questo numero:
+  scegline un altro" invece di un errore criptico — stesso schema già
+  usato per il codice prodotto duplicato in `prodotti.html`.
+  Compromesso consapevole (stesso del vecchio gestionale): il numero
+  scritto a mano non è "riservato" come `nextNumber()` — un altro
+  dispositivo potrebbe salvarne uno identico nel frattempo, raro, e
+  comunque intercettato dal vincolo invece di un doppio silenzioso.
+
+**Righe trascinabili**: una manetta ⠿ per riga (non l'intera riga —
+trascinare per selezionare del testo in un campo, es. la descrizione,
+non deve confondersi con un riordino) usa il drag & drop nativo del
+browser per riordinare le righe dell'ordine. L'ordine finale è quello
+del DOM: `readRighe()` lo leggeva già in quell'ordine, nessun indice
+esplicito da tenere sincronizzato altrove.
+
+Nuovo `test125_numero_e_drag.py` (8 scenari): l'anteprima precompila
+il campo restando modificabile, accettare l'anteprima proposta fa
+avanzare il contatore per il prossimo ordine, scrivere un numero a
+mano lo usa e sposta il contatore di conseguenza, lo stesso modificando
+un ordine esistente, un numero duplicato mostra l'errore senza
+chiudere il form, il campo vuoto torna alla numerazione atomica, le
+righe si trascinano e l'ordine nuovo viene salvato, un'anteprima
+fallita (rete) lascia il campo vuoto senza bloccare il resto del form.
+Regressione completa (69 file) passata: solo i due fallimenti
+preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

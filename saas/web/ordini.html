@@ -29,16 +29,16 @@
   <main class="app-main">
   <div class="page-head">
       <h2>Ordini cliente</h2>
-      <p class="sub">Ordini cliente, con numerazione automatica.</p>
+      <p class="sub">Ordini cliente, con numerazione automatica (modificabile a mano).</p>
     </div>
 
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo ordine</h3>
+    <label for="f-cliente">Cliente</label>
+    <select id="f-cliente"></select>
     <div class="grid2">
-      <div><label for="f-cliente">Cliente</label>
-        <select id="f-cliente"></select>
-      </div>
+      <div><label for="f-num">Numero ordine</label><input id="f-num" type="text" placeholder="es. OC/2026/0001"></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
     <p class="msg info" id="oc-links" hidden></p>
@@ -50,7 +50,7 @@
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -166,7 +166,7 @@
     // nascosto dietro il form aperto. Chiamata dalla riga dell'elenco
     // (editingOrder è null, il form non è aperto): aggiorna l'elenco come
     // prima.
-    if(editingOrder && editingOrder.id === o.id) openForm(nuovoOrdine);
+    if(editingOrder && editingOrder.id === o.id) await openForm(nuovoOrdine);
     else await renderList();
   }
 
@@ -274,6 +274,7 @@
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
     return `<tr>
+      <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
@@ -288,9 +289,35 @@
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
   }
+  // Riordino righe per trascinamento (come nel vecchio gestionale): solo
+  // la manetta ⠿ è draggable, non l'intera riga — altrimenti trascinare
+  // per selezionare del testo in un campo della riga (es. la descrizione)
+  // verrebbe scambiato per un trascinamento della riga stessa. L'ordine
+  // finale è quello del DOM: readRighe() lo legge già così, nessun indice
+  // esplicito da tenere in sincrono altrove.
+  let dragSrcRow = null;
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    const handle = tr.querySelector('.drag-handle');
+    handle.addEventListener('dragstart', e => {
+      dragSrcRow = tr;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', ''); // alcuni browser esigono un dato qualunque perché il drag parta davvero
+    });
+    handle.addEventListener('dragend', () => {
+      tr.classList.remove('dragging');
+      dragSrcRow = null;
+    });
+    tr.addEventListener('dragover', e => {
+      if(!dragSrcRow || dragSrcRow === tr) return;
+      e.preventDefault(); // di norma un drop non è permesso: va abilitato esplicitamente qui
+      const rect = tr.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
+    });
+    tr.addEventListener('drop', e => e.preventDefault());
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -333,12 +360,23 @@
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
   // ---- form apri/chiudi ---------------------------------------------------
-  function openForm(ordine){
+  async function openForm(ordine){
     editingId = ordine ? ordine.id : null;
     editingOrder = ordine;
     $('form-title').textContent = ordine ? `Modifica ${ordine.num}` : 'Nuovo ordine';
     $('f-cliente').value = ordine ? ordine.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
     $('f-data').value = ordine ? ordine.data : today();
+    if(ordine){
+      $('f-num').value = ordine.num;
+    }else{
+      // Anteprima del prossimo numero, non un numero già assegnato: resta
+      // un campo modificabile, chi vuole un numero diverso (o sta
+      // recuperando la numerazione del vecchio gestionale) lo sovrascrive
+      // prima di salvare — vedi f-save più sotto.
+      $('f-num').value = '';
+      try{ $('f-num').value = await store.peekNumber(companyId, 'OC', Number($('f-data').value.slice(0, 4))); }
+      catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
+    }
     $('righe-body').innerHTML = '';
     (ordine ? ordine.righe : [null]).forEach(addRigaRow);
     const links = linksInfo(ordine);
@@ -354,7 +392,7 @@
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
     const lim = await store.checkDocLimit(companyId);
     if(!lim.ok){ alert(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`); return; }
-    openForm(null);
+    await openForm(null);
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
@@ -385,7 +423,7 @@
       });
       if(!p.righe){ throw new Error('l\'AI non ha riconosciuto un ordine cliente in questo file'); }
 
-      openForm(null);
+      await openForm(null);
       const match = window.SaasAiImport.findPartyByNome(Object.values(clientiById), p.cliente);
       if(match) $('f-cliente').value = match.id;
       $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
@@ -451,13 +489,35 @@
       // si parte dall'ordine esistente invece che da un oggetto vuoto, o
       // il salvataggio li azzererebbe allo stesso modo.
       const doc = editingOrder ? Object.assign({}, editingOrder, { clienteId, data, righe: righeFinal }) : { clienteId, data, righe: righeFinal };
+      const numInput = $('f-num').value.trim();
       if(editingId){
-        doc.id = editingId; // il numero di un ordine esistente non cambia
+        doc.id = editingId;
+        if(!numInput){ setMsg('Il numero ordine non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
+        if(numInput !== editingOrder.num){
+          // Numero cambiato a mano: se rispetta il formato OC/ANNO/NNNN
+          // sposta in avanti (mai indietro) il contatore, così i futuri
+          // numeri automatici non lo ripetano — un testo libero (es.
+          // importato dal vecchio gestionale) viene comunque accettato
+          // così com'è, senza toccare il contatore.
+          await store.bumpCounterPast(companyId, 'OC', numInput);
+          doc.num = numInput;
+        } // altrimenti resta il numero già ereditato da editingOrder più sopra
+      } else if(numInput){
+        // L'utente ha lasciato o modificato il numero proposto nel form
+        // (openForm() lo precompila con un'ANTEPRIMA, non una vera
+        // riserva — vedi store.peekNumber()): usato direttamente, non
+        // tramite nextNumber(). Stesso compromesso del vecchio gestionale
+        // (consumeNum()): un altro dispositivo potrebbe salvare lo stesso
+        // numero nel frattempo, ma è raro, e un doppio viene comunque
+        // intercettato sotto (vincolo unique lato database) con un
+        // messaggio chiaro invece di un duplicato silenzioso.
+        await store.bumpCounterPast(companyId, 'OC', numInput);
+        doc.num = numInput;
       } else {
-        // Numerazione asincrona: a differenza di nextNum() nel gestionale
-        // attuale (immediata), qui è una vera chiamata al database — l'unica
-        // che garantisce che due dispositivi non ricevano mai lo stesso
-        // numero (vedi supabase/migrations/0004_numerazione.sql).
+        // Campo lasciato vuoto (l'anteprima non è riuscita a caricarsi):
+        // numerazione atomica come prima, l'unica che garantisce che due
+        // dispositivi non ricevano mai lo stesso numero (vedi
+        // supabase/migrations/0004_numerazione.sql).
         const anno = Number(data.slice(0, 4));
         doc.num = await store.nextNumber(companyId, 'OC', anno);
       }
@@ -465,7 +525,8 @@
       closeForm();
       await renderList();
     }catch(err){
-      setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già un ordine con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
     }finally{
       $('f-save').disabled = false;
     }

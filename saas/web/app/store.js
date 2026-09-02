@@ -476,9 +476,44 @@
     return data;
   }
 
+  // "Anteprima" del prossimo numero SENZA consumarlo — a differenza di
+  // nextNumber() (atomica, incrementa sempre): serve solo a precompilare
+  // il campo "Numero" nel form (che l'utente può comunque sovrascrivere,
+  // vedi 0012_numero_manuale.sql). Legge direttamente document_counters,
+  // già leggibile da ogni membro via RLS (0004): nessun contatore ancora
+  // creato per quell'anno/tipo equivale a "il prossimo è 0001".
+  async function peekNumber(companyId, prefix, anno) {
+    const { data, error } = await client().from('document_counters').select('next_value')
+      .eq('company_id', companyId).eq('doc_type', prefix).eq('anno', anno).maybeSingle();
+    if (error) throw error;
+    const next = data ? data.next_value : 1;
+    return prefix + '/' + anno + '/' + String(next).padStart(4, '0');
+  }
+
+  // Chiamata quando l'utente scrive A MANO un numero diverso da quello
+  // proposto (nuovo documento, o numero cambiato modificandone uno
+  // esistente): se il testo rispetta il formato PREFISSO/ANNO/NNNN e il
+  // contatore ha già raggiunto o superato NNNN non c'è nulla da fare;
+  // altrimenti sposta in avanti il contatore così i PROSSIMI numeri
+  // automatici continuano dopo quello scritto a mano, invece di
+  // ripeterlo. Un testo libero che non rispetta il formato (es. un
+  // numero del vecchio gestionale) non tocca il contatore: non c'è una
+  // sequenza da dedurne — stessa logica di consumeNum() nell'originale.
+  async function bumpCounterPast(companyId, prefix, value) {
+    const m = String(value || '').match(new RegExp('^' + prefix + '/(\\d{4})/(\\d+)$'));
+    if (!m) return;
+    const anno = parseInt(m[1], 10);
+    const n = parseInt(m[2], 10);
+    const { error } = await client().rpc('bump_document_counter', {
+      p_company_id: companyId, p_doc_type: prefix, p_anno: anno, p_almeno: n + 1,
+    });
+    if (error) throw error;
+  }
+
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
+    peekNumber, bumpCounterPast,
     getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,

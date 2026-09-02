@@ -3159,6 +3159,23 @@ sistema "mirrored" mandato all'IA (non la risposta vera, che dipende dal
 provider). `test100_assistente_ai.py` (già esistente) e la regressione
 completa della suite (80 file) passati.
 
+**Seguito, stesso giorno**: *"ho provato a chiedere il fatturato di
+Tirrenia nel mese di luglio e nn mi ha risposto"*. Causa diversa dalla
+precedente, nello stesso meccanismo: il riconoscimento del nome di una
+controparte (`matchParty`, dentro `findMirroredDetail`) richiedeva che la
+domanda contenesse il nome ANAGRAFICO PER INTERO ("Farmacia Tirrenia
+S.r.l."), ma nel parlato si usa quasi sempre una forma breve ("Tirrenia")
+— la domanda non trovava nessuna corrispondenza, di nuovo nessun dato a
+cui agganciarsi. Corretto con un secondo livello: se il nome intero non
+compare, si cerca una sua parola distintiva citata da sola (scartando
+parole generiche come "farmacia", "srl", "gruppo"...) — ma solo se
+identifica UNA sola azienda: con più aziende che condividono la stessa
+parola (es. "Farmacia Adriatica" e "Adriatica Group Srl") resta senza
+match invece di indovinare quella sbagliata. Estesi gli scenari di
+`test140_assistente_mese_controparte.py` (nome breve, parola condivisa da
+più aziende, parola generica da sola) — 9 scenari in tutto, di nuovo con
+`test100_assistente_ai.py` e la regressione completa passati.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

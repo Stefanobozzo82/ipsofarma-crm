@@ -340,8 +340,27 @@
     // sintetico (non ogni singola fattura: solo quelle ancora aperte, più
     // il totale) invece del dettaglio riga per riga di ogni documento suo.
     const qLower = question.toLowerCase();
-    const matchParty = (elenco) => elenco.filter(p => p.nome && p.nome.length > 3 && qLower.includes(p.nome.toLowerCase()))
-      .sort((a, b) => b.nome.length - a.nome.length)[0];
+    // Un'azienda in anagrafica ha quasi sempre un nome più lungo di come la
+    // si chiama parlando ("Farmacia Tirrenia S.r.l." vs "Tirrenia", citata
+    // così dall'utente: segnalato — la corrispondenza per nome intero non
+    // trovava nulla, la domanda restava senza alcun dato a cui agganciarsi,
+    // di nuovo come "non ha risposto"). Se il nome intero non compare,
+    // si cerca una sua parola distintiva (non "farmacia", "srl"...) citata
+    // da sola — solo se identifica UNA sola azienda, mai indovinare tra più
+    // candidati con la stessa parola.
+    const STOPWORD_NOME = new Set(['farmacia','parafarmacia','ospedale','clinica','studio','ditta','impresa','azienda','group','gruppo','italia','commerciale','commercio','distribuzione','forniture','srl','spa','snc','sas','sapa','soc','cooperativa']);
+    function paroleChiaveNome(nome){
+      return String(nome || '').toLowerCase().replace(/[.,]/g, ' ')
+        .split(/\s+/).filter(w => w.length > 3 && !STOPWORD_NOME.has(w));
+    }
+    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    const matchParty = (elenco) => {
+      const esatto = elenco.filter(p => p.nome && p.nome.length > 3 && qLower.includes(p.nome.toLowerCase()))
+        .sort((a, b) => b.nome.length - a.nome.length)[0];
+      if(esatto) return esatto;
+      const candidati = elenco.filter(p => paroleChiaveNome(p.nome).some(w => new RegExp('\\b' + escapeRegExp(w) + '\\b').test(qLower)));
+      return candidati.length === 1 ? candidati[0] : null; // più di un candidato con la stessa parola: ambiguo, meglio non indovinare
+    };
     // Un mese citato insieme al nome ("il fatturato di [cliente] ad aprile",
     // "quanto ho comprato da [fornitore] il mese scorso") -> in più al
     // residuo ancora aperto (sempre utile), il totale REALE fatturato in

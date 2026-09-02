@@ -1,0 +1,12 @@
+{
+  "appId": "com.ipsofarma.crm",
+  "appName": "Ipsofarma CRM",
+  "webDir": "www",
+  "server": {
+    "url": "https://ipsofarma-crm.pages.dev",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

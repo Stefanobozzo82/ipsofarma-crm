@@ -58,6 +58,7 @@ saas/
         ├── 0005_registrazione_azienda.sql   registrazione self-service di una nuova azienda (Fase 1)
         ├── 0006_fatturapa.sql               generazione XML FatturaPA (Fase 4, invio non incluso)
         └── 0007_abbonamenti.sql             piani e stato Stripe (Fase 5)
+mobile/                                  involucro nativo (Capacitor) — vedi mobile/README.md
 ```
 
 ## Cosa NON c'è ancora (di proposito)
@@ -2900,6 +2901,55 @@ Aggiornato anche `test85_sort_columns.py` (indici di colonna fissi
 spostati di uno dalla nuova colonna). Regressione completa (80 file,
 esclusi i due gated da credenziali reali) passata.
 
+## App vera, Fase 1: l'involucro nativo compila davvero
+
+Richiesta: *"comincia a pensare come fare l'app"* — dopo una ricerca su
+come sono fatte le app dei concorrenti (Fatture in Cloud, Danea Easyfatt,
+le app di raccolta ordini B2B per rappresentanti) e una nota strategica
+condivisa con l'azienda, la scelta è ricaduta su
+[Capacitor](https://capacitorjs.com) invece di una riscrittura nativa
+(React Native/Flutter): incapsula la SaaS così com'è dentro un'app
+nativa vera — stesso codice, stesso Supabase, settimane non mesi — con
+i plugin nativi (fotocamera, notifiche push, biometria) aggiunti sopra
+quando servono, invece di ridisegnare tutto da capo.
+
+**Nuova cartella `saas/mobile/`** (dettagli completi in
+`saas/mobile/README.md`): progetto Capacitor con `capacitor.config.json`
+che punta (`server.url`) all'indirizzo pubblico dove sarà ospitata
+`saas/web/` — l'app nativa è di fatto un contenitore senza barra degli
+indirizzi che carica quella pagina, non una copia del codice. Pacchetto
+scelto: `com.ipsofarma.crm` (non richiede possedere un dominio: è solo
+un identificativo interno, a differenza di quanto serve per Resend).
+
+**Verificato con una build reale**, non solo scaffolding: installato
+l'SDK Android da riga di comando (piattaforma 34, build-tools, licenze
+accettate) e compilato `./gradlew assembleDebug` con successo — un vero
+`.apk` installabile, 3,7 MB, generato in questa stessa sessione. Non
+serve un Mac per la parte Android (a differenza di iOS, che richiede
+Xcode): questo è il motivo per cui la Fase 1 parte da lì.
+
+**Cosa manca prima che l'app mostri dati veri** (l'.apk oggi punta a un
+indirizzo segnaposto, `https://ipsofarma-crm.pages.dev`, che non esiste
+ancora): serve prima l'hosting pubblico di `saas/web/` — scelto
+Cloudflare Pages (gratis, collega il repository GitHub, nessuna
+configurazione per file statici come questi) — un passo che solo
+l'azienda può fare (serve il suo account). Una volta collegato, si
+aggiorna `server.url` con l'indirizzo vero e si ricompila: stesso
+comando, stesso risultato, ora con dentro l'app vera.
+
+**Cosa resta esplicitamente rimandato** (in `saas/mobile/README.md` come
+checklist): icona/splash screen (oggi i segnaposto generici di
+Capacitor), l'account Google Play Console (25$ una tantum, richiesto
+anche solo per generare la chiave di firma delle build di release), e
+l'account Apple Developer + un Mac con Xcode per iOS — nessuno di questi
+tre è qualcosa che si possa preparare dal codice: richiedono l'identità
+e il pagamento del titolare dell'azienda.
+
+Nessun test automatico dedicato: questa fase non tocca `saas/web/` (la
+build punta a un URL esterno, per costruzione non testabile dal mock
+harness usato per il resto della SaaS) — il collaudo è la build stessa,
+riuscita.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
@@ -2923,7 +2973,8 @@ Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
    `send-email` resta in modalità sandbox, utilizzabile solo verso
    l'indirizzo del titolare dell'account Resend, non fornitori/clienti
    veri.
-3. **Un'app vera**, non solo un sito ottimizzato per telefono: la
-   versione web (questa) resta comunque utile e usabile nel frattempo —
-   ma un'app installabile (iOS/Android) è un progetto a sé, da pianificare
-   separatamente quando si arriva a quel punto.
+3. **App vera**: Fase 1 avviata — vedi la sezione dedicata qui sopra e
+   `saas/mobile/README.md`. Il pacchetto Android compila già davvero;
+   resta da collegare l'hosting pubblico (Cloudflare Pages) e, quando
+   l'azienda vorrà pubblicare sugli store, gli account sviluppatore
+   Apple/Google che solo il titolare può creare.

@@ -1,0 +1,16 @@
+{
+  "name": "ipsofarma-crm-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Involucro nativo (Capacitor) della SaaS Ipsofarma CRM — nessun codice duplicato: carica le stesse pagine di saas/web tramite l'indirizzo pubblico configurato in capacitor.config.json.",
+  "scripts": {
+    "sync": "npx cap sync",
+    "open:android": "npx cap open android",
+    "build:android:debug": "cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.2",
+    "@capacitor/cli": "^6.2.2",
+    "@capacitor/core": "^6.2.2"
+  }
+}

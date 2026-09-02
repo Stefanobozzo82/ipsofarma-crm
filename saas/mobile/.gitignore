@@ -1,0 +1,20 @@
+# Dipendenze npm — si rigenerano con "npm install" (vedi package.json)
+node_modules/
+
+# Percorso locale dell'SDK Android — cambia da una macchina all'altra, mai da
+# committare (lo crea "npx cap sync" o si scrive a mano, vedi mobile/README.md)
+android/local.properties
+
+# Output di build Android — si rigenerano con "./gradlew assembleDebug" (o
+# equivalente): includono anche gli .apk/.aab, mai da committare
+android/**/build/
+android/.gradle/
+android/.idea/
+*.apk
+*.aab
+
+# iOS (quando/se aggiunto con "npx cap add ios") — stesso discorso: cache di
+# build e Pods si rigenerano, mai da committare
+ios/App/Pods/
+ios/App/build/
+ios/App/App/public/

@@ -2309,6 +2309,59 @@ nuovo `init()` altrimenti lo avrebbe rotto). Regressione completa (67
 file) passata: solo i due fallimenti preesistenti gated da credenziali
 reali (`test71_store_live.py`/`test71_store_rest.py`).
 
+## App installabile sul desktop (PWA)
+
+Richiesta: *"puoi fare in modo che la pagina sia installabile sul
+desktop per avere il tutto schermo"*. Chrome/Edge offrono "Installa
+app" (finestra a sé, senza barra degli indirizzi/tab — l'effetto
+"quasi a schermo intero" richiesto, restando comunque una finestra
+normale con i suoi controlli, non un vero kiosk) quando una pagina
+soddisfa due requisiti: un web app manifest collegato, e un service
+worker registrato. Nessuno dei due esisteva.
+
+**`manifest.json`** (nuovo, in cima a `saas/web/`): nome "Gestionale"
+(coerente col resto — ogni titolo di pagina è già "X — Gestionale"),
+`display:"standalone"`, `start_url: index.html` (il vero punto
+d'ingresso: gestisce da solo sia chi non ha ancora fatto login sia chi
+deve scegliere l'azienda), e 4 icone (192/512, "any" e "maskable" —
+quest'ultima con lo stesso marchio ma centrato nella "safe zone" per
+non farlo tagliare da un eventuale ritaglio a cerchio del sistema
+operativo). Le icone riprendono **esattamente** il marchio già usato
+in `index.html` (`.brand .mark`: quadrato arrotondato, gradiente
+verde, "G" in grassetto) — non un logo nuovo, generato via screenshot
+Playwright dello stesso identico markup/CSS per garanzia di coerenza
+pixel-perfect, non ridisegnato a occhio.
+
+**`sw.js`** (nuovo, in cima a `saas/web/`, non dentro `app/`): un
+service worker controlla solo la propria cartella per default, quindi
+da qui copre TUTTE le pagine invece che solo `app/`. È un passthrough
+puro — nessun caching offline: il gestionale ha comunque bisogno della
+rete per Supabase (dati, autenticazione, IA), un'app "offline" qui
+sarebbe solo un guscio vuoto e ingannevole. Esiste solo per soddisfare
+il requisito di installabilità.
+
+**`app/pwa.js`** (nuovo): registra `sw.js`, incluso su tutte le 22
+pagine (le 21 con sidebar più `index.html`, che non carica `nav.js` —
+per questo la registrazione è un file a sé e non dentro `nav.js`).
+Fallisce in silenzio se il browser non supporta i service worker: è un
+requisito per il pulsante "Installa", mai una dipendenza del
+gestionale.
+
+Aggiunti anche `<link rel="manifest">`, `<meta name="theme-color"
+content="#0ea371">` (colore della barra del sistema operativo attorno
+alla finestra installata) e le icone come favicon/apple-touch-icon su
+tutte le 22 pagine.
+
+Nuovo `test124_pwa_installabile.py` (5 scenari): il manifest è JSON
+valido con i campi giusti (`display`, `start_url`, icone 192/512 sia
+"any" che "maskable"), tutte le icone dichiarate rispondono 200,
+`sw.js` è servito correttamente, ognuna delle 22 pagine collega il
+manifest/theme-color e registra il service worker con uno scope che
+copre l'intera cartella (non solo `app/`), il service worker resta un
+passthrough. Regressione completa (68 file) passata: solo i due
+fallimenti preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

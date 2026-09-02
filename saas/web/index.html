@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Accesso — Gestionale</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ea371">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
   /* Stessi colori e stessa tipografia del resto del prodotto (app/theme.css):
      questa pagina resta un file a sé (nessuna sidebar, nessuna azienda
@@ -94,6 +98,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="app/pwa.js"></script>
 <script>
   // Valori pubblici (protetti dalla Row Level Security, non da tenere segreti):
   const SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';

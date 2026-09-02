@@ -2820,6 +2820,31 @@ tocca il comportamento esistente per party/periodo (verificato:
 `test118_azioni_ai.py` continua a passare invariato). Regressione
 completa (77 file, esclusi i due gated da credenziali reali) passata.
 
+## Colonna "Stato" separata negli elenchi fatture
+
+Richiesta: *"voglio una colonna separata per evidenziare se le
+fatture sono pagate o non pagate"*. Prima l'unico segnale era la
+colonna Incasso/Pagamento — un pulsante che è insieme lo stato e
+l'azione per cambiarlo, non pensato per un colpo d'occhio veloce
+scorrendo l'elenco.
+
+Aggiunta una colonna **"Stato"** dedicata in `fatture.html` e
+`fatture-fornitore.html`, di sola lettura (un badge verde "✓
+Incassata"/"✓ Pagata" o ambra "Non incassata"/"Non pagata", stesse
+classi colore `.pill.paid`/`.pill.unpaid` già usate altrove) — la
+colonna Incasso/Pagamento con il pulsante resta esattamente dov'era,
+per cambiare lo stato. Nuovo modificatore CSS `.pill.status-badge`
+(solo `cursor:default`, per non far sembrare cliccabile un elemento
+che non lo è). Ordinabile come le altre colonne (stessa chiave di
+ordinamento della colonna Incasso/Pagamento).
+
+Nuovo `test134_colonna_stato_pagamento.py` (3 scenari): la colonna
+Stato compare accanto a quella esistente (non la sostituisce) in
+entrambi i moduli, il badge riflette correttamente pagato/non pagato
+con la classe CSS giusta, non ha un `data-toggle` (non è cliccabile
+per cambiare stato), e l'ordinamento per Stato funziona. Regressione
+completa (78 file, esclusi i due gated da credenziali reali) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -2560,6 +2560,52 @@ Regressione completa (71 file) passata: solo i due fallimenti
 preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## Lotto e scadenza ereditati dalla fattura fornitore, in DDT e fattura
+
+Richiesta: *"nel vecchio gestionale quando facevo una fattura e un ddt
+riportava anche data di scadenza e lotti della fattura fornitori
+corrispondente"* — funzione mai portata nel SaaS
+(`lotScadFromOF()`/`splitRigaByLots()` nel gestionale originale):
+generare un DDT da un ordine cliente lasciava sempre lotto/scadenza
+vuoti, anche quando l'ordine aveva un ordine fornitore collegato con
+la merce già arrivata (una fattura fornitore con lotto/scadenza
+tracciati riga per riga).
+
+**`app/cascade.js`**: nuove `righeConLotti()` e `splitRigaByLotti()`,
+porta diretta di `lotScadFromOF()`/`splitRigaByLots()`. Dato un ordine
+e le sue righe residue, cerca tra le fatture fornitore collegate agli
+ordini fornitore dell'ordine (`ofIds`/`ofId`) i lotti realmente
+arrivati per ogni codice, in ordine cronologico; se un prodotto è
+arrivato in **più lotti separati** (due fatture fornitore diverse, es.
+10 pezzi a marzo e 5 a giugno), la riga si spezza in più righe — una
+per lotto, FIFO (il lotto più vecchio esce per primo) — invece di
+restare su un lotto solo o vuota. Un ordine senza ordini fornitore
+collegati, o senza ancora nessuna fattura fornitore registrata,
+restituisce le righe invariate: comportamento identico a prima.
+
+**`ddt.html`**: `precompileFromOrdine()` (usata sia dal bottone "→
+Genera DDT" in `ordini.html` sia scegliendo un ordine direttamente nel
+form del DDT) ora chiama `righeConLotti()` prima di riempire le righe.
+
+**Un secondo buco trovato per strada, sulla stessa catena**: anche
+quando il DDT ARRIVAVA già con lotto/scadenza (scritti a mano, o ora
+ereditati automaticamente), **precompilare la fattura da quel DDT li
+scartava** — `fatture.html` copiava solo `cod/descr/qty` dalla riga
+del DDT, mai `lotto`/`scad`, anche se il campo esiste da tempo
+nell'editor della fattura (punto 21 di questo changelog). Corretto:
+ora la fattura eredita lotto/scadenza dal DDT, che a sua volta li
+eredita (quando può) dalla fattura fornitore.
+
+Nuovo `test128_lotti_da_fatture_fornitore.py` (4 scenari): un ordine
+con merce arrivata in due lotti separati genera un DDT con la riga
+spezzata in due (quantità, lotto e scadenza corretti per ciascuna),
+il DDT si salva con i lotti giusti, generare la fattura da quel DDT
+non perde lotto/scadenza (verificato fino al salvataggio), un ordine
+senza ordine fornitore collegato non mostra lotti (comportamento
+invariato). Regressione completa (72 file) passata: solo i due
+fallimenti preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

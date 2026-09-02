@@ -264,20 +264,28 @@
   // ordine mai toccato dalla cascata ha qtyEv assente su ogni riga,
   // equivalente a 0: il comportamento per un ordine "vergine" resta
   // identico a prima (tutte le righe, per intero).
-  function precompileFromOrdine(ordine){
+  async function precompileFromOrdine(ordine){
     $('righe-body').innerHTML = '';
-    const righe = window.SaasCascade.residuoRighe(ordine)
+    const residuo = window.SaasCascade.residuoRighe(ordine)
       .filter(r => r.residuo > 0)
       .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo }));
+    // Lotto/scadenza VERI, dalle fatture fornitore che hanno portato la
+    // merce (se l'ordine ha ordini fornitore collegati) — come nel
+    // vecchio gestionale, invece di lasciarli sempre vuoti da scrivere a
+    // mano. Una riga può diventare più righe se il prodotto è arrivato
+    // in più lotti (FIFO) — vedi cascade.js:righeConLotti().
+    let righe = residuo;
+    try{ righe = await window.SaasCascade.righeConLotti(store, companyId, ordine, residuo); }
+    catch(e){ /* niente lotti tracciati, o un problema di rete: le righe restano senza lotto/scadenza, comunque scrivibili a mano */ }
     (righe.length ? righe : [null]).forEach(addRigaRow);
   }
   $('f-cliente').addEventListener('change', () => { refreshOrdineOptions($('f-cliente').value); refreshDestOptions($('f-cliente').value); });
-  $('f-ordine').addEventListener('change', () => {
+  $('f-ordine').addEventListener('change', async () => {
     // comodità: se non sono ancora state scritte righe, precompila dal
     // residuo dell'ordine selezionato (l'utente può comunque modificarle o svuotarle)
     const righeVuote = readRighe().length === 0;
     const ordine = allOrdiniById[$('f-ordine').value];
-    if(ordine && righeVuote) precompileFromOrdine(ordine);
+    if(ordine && righeVuote) await precompileFromOrdine(ordine);
   });
 
   async function openForm(ddt){
@@ -541,7 +549,7 @@
         refreshOrdineOptions(ordine.clienteId);
         refreshDestOptions(ordine.clienteId);
         $('f-ordine').value = ordine.id;
-        precompileFromOrdine(ordine);
+        await precompileFromOrdine(ordine);
       }
     }
   }

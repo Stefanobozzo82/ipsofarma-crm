@@ -307,7 +307,12 @@
     const ddt = allDdtById[$('f-ddt').value];
     if(ddt && righeVuote){
       $('righe-body').innerHTML = '';
-      (ddt.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:0, iva:22 }));
+      // lotto/scad riportati così come sono sul DDT (che a sua volta li
+      // eredita dalla fattura fornitore corrispondente, se tracciata —
+      // vedi ddt.html/precompileFromOrdine()): senza questo, l'unica
+      // traccia del lotto realmente spedito andrebbe persa passando dal
+      // DDT alla fattura.
+      (ddt.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:0, iva:22, lotto:r.lotto || '', scad:r.scad || '' }));
     }
   });
 

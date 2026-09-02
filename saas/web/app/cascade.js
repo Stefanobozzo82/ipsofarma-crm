@@ -77,6 +77,61 @@
     return Object.assign({}, of, { righe: nuoveRighe });
   }
 
+  // Spezza una riga (qty pezzi di un codice) sui lotti REALMENTE
+  // ricevuti dal fornitore, uno per lotto, in ordine FIFO (più vecchio
+  // prima) — porta di splitRigaByLots() dal gestionale originale. Pura:
+  // "lotti" è già la lista {lotto,scad,qty} di quel codice, calcolata da
+  // righeConLotti() qui sotto. Nessun lotto tracciato per quel codice
+  // (mai arrivato da un ordine fornitore fatturato) -> la riga resta
+  // senza lotto/scadenza, come già succedeva prima di questa funzione.
+  function splitRigaByLotti(riga, lotti) {
+    if (!lotti.length) return [Object.assign({}, riga, { lotto: '', scad: '' })];
+    let remaining = riga.qty;
+    const rows = [];
+    for (const lot of lotti) {
+      if (remaining <= 0) break;
+      const q = Math.min(remaining, lot.qty);
+      if (q <= 0) continue;
+      rows.push(Object.assign({}, riga, { qty: q, lotto: lot.lotto, scad: lot.scad }));
+      remaining -= q;
+    }
+    if (remaining > 0) {
+      const ultimo = lotti[lotti.length - 1];
+      rows.push(Object.assign({}, riga, { qty: remaining, lotto: ultimo.lotto, scad: ultimo.scad }));
+    }
+    return rows;
+  }
+
+  // Traccia lotto/scadenza di un ordine cliente fino alle fatture
+  // fornitore che hanno EFFETTIVAMENTE portato la merce — porta di
+  // lotScadFromOF()/splitRigaByLots() dal gestionale originale: quando
+  // si genera un DDT (o si precompila una fattura da un DDT che porta
+  // già questi dati), lotto e scadenza vengono dal documento
+  // d'acquisto corrispondente invece di essere lasciati vuoti da
+  // scrivere a mano. Richiede una lettura di rete (ordiniFornitore +
+  // fattureFornitore), quindi non è gratis come residuoRighe() — va
+  // chiamata solo quando serve costruire le righe di un nuovo DDT.
+  // Un ordine senza ordini fornitore collegati (mai passato dalla
+  // cascata OF, o niente ancora fatturato dal fornitore) restituisce le
+  // righe invariate, senza lotto/scadenza — comportamento identico a
+  // prima che questa funzione esistesse.
+  async function righeConLotti(store, companyId, ordine, righe) {
+    const ofNums = ordine.ofIds && ordine.ofIds.length ? ordine.ofIds : (ordine.ofId ? [ordine.ofId] : []);
+    if (!ofNums.length) return righe.map(r => Object.assign({}, r, { lotto: '', scad: '' }));
+    const [tuttiOF, tutteFtf] = await Promise.all([
+      store.loadCollection('ordiniFornitore', companyId),
+      store.loadCollection('fattureFornitore', companyId),
+    ]);
+    const ofSet = new Set(tuttiOF.filter(of => ofNums.includes(of.num)).map(of => of.num));
+    const ftf = tutteFtf.filter(f => f.ofId && ofSet.has(f.ofId)).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const lottiPerCod = {};
+    ftf.forEach(f => (f.righe || []).forEach(r => {
+      if (!r.lotto && !r.scad) return; // niente da tracciare per questa riga
+      (lottiPerCod[r.cod] = lottiPerCod[r.cod] || []).push({ lotto: r.lotto || '', scad: r.scad || '', qty: r.qty || 0 });
+    }));
+    return righe.flatMap(r => splitRigaByLotti(r, lottiPerCod[r.cod] || []));
+  }
+
   // Crea un DDT dal residuo PIENO di un ordine (tutto quanto non ancora
   // consegnato, in un colpo solo) e aggiorna l'ordine di conseguenza —
   // "headless": nessuna revisione manuale prima di salvare, usata
@@ -86,7 +141,8 @@
   async function creaDDTDaResiduo(store, companyId, ordine) {
     const residuo = residuoRighe(ordine).filter(r => r.residuo > 0);
     if (!residuo.length) return null;
-    const righe = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo, lotto: '', scad: '' }));
+    const righeBase = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo }));
+    const righe = await righeConLotti(store, companyId, ordine, righeBase);
     const anno = Number((ordine.data || today()).slice(0, 4)) || Number(today().slice(0, 4));
     const num = await store.nextNumber(companyId, 'DDT', anno);
     const ddt = await store.saveDoc('ddt', { num, data: today(), clienteId: ordine.clienteId, ocId: ordine.id, righe }, companyId);
@@ -197,5 +253,6 @@
   global.SaasCascade = {
     residuoRighe, statoEvasione, applicaConsegna, applicaFatturazione, applicaRicezione,
     creaDDTDaResiduo, creaFattureDaOrdine, generaOrdiniFornitore, statoOrdineFornitore,
+    righeConLotti, splitRigaByLotti,
   };
 })(window);

@@ -458,6 +458,35 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 
 .righe-table th, .righe-table td{ padding:6px 4px; }
 .righe-table input{ padding:6px 8px; font-size:13px; }
+/* Codice e Descrizione sono le uniche due colonne, tra tutte quelle della
+ * riga, senza una larghezza fissata da ogni pagina (Qtà/Prezzo/Sconto/IVA,
+ * e Lotto/Scadenza dove presenti, hanno tutte uno style="width:...px" nel
+ * template — vedi rigaRowHtml() in ogni modulo documento): senza queste
+ * due regole, il browser divide lo spazio che resta a metà tra le due,
+ * spesso meno di 50px ciascuna — un codice o una descrizione un po' lunghi
+ * restano illeggibili anche a schermo largo (segnalato dall'utente).
+ * Codice a una larghezza fissa modesta (comunque abbastanza per la
+ * maggior parte dei codici reali) libera per Descrizione — l'UNICA
+ * colonna rimasta senza una larghezza propria — tutto lo spazio che
+ * resta, invece di dividerlo a metà con Codice. Sempre per posizione
+ * (2ª/3ª cella), non per pagina: vale per tutti gli 8 moduli documento
+ * che condividono questo stesso template, senza doverli toccare uno per
+ * uno. */
+/* min-width, non width: in layout "auto" di una tabella (quello di
+ * default, mai cambiato qui) una larghezza fissa resta solo una
+ * preferenza — si restringe comunque se lo spazio non basta (è successo
+ * qui: la Fase 2b l'aveva già scoperto per le colonne degli elenchi).
+ * min-width è invece un pavimento vero, che la tabella deve rispettare
+ * anche a costo di sporgere ed essere scorsa di lato (vedi .righe-table
+ * {width:auto} sotto, che le lascia lo spazio per farlo). */
+.righe-table td:nth-child(2){ min-width:150px; }
+.righe-table td:nth-child(3){ min-width:360px; }
+/* table{width:100%} (sopra) forzerebbe comunque la tabella a stare
+ * dentro il contenitore, schiacciando Descrizione a dispetto del suo
+ * min-width — qui invece la tabella deve poter crescere oltre il
+ * contenitore quando le colonne lo richiedono, scorrendo di lato dentro
+ * .table-scroll (esiste già per questo) invece di restare stretta. */
+.righe-table{ width:auto; }
 .righe-table td.rm{ text-align:center; }
 .righe-table td.rm button{ background:none; border:none; color:var(--red); cursor:pointer; font-size:16px; line-height:1; padding:2px 6px; }
 /* Riordino righe per trascinamento (vedi bindRigaRow() in ordini.html):

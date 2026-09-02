@@ -113,10 +113,10 @@
       <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
-      <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
-      <td style="width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
-      <td style="width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
-      <td style="width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
+      <td style="min-width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
+      <td style="min-width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
+      <td style="min-width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
+      <td style="min-width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
     </tr>`;
   }

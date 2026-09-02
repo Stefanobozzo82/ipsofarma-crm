@@ -3222,6 +3222,52 @@ riconoscimento vocale vero resta da fare sul telefono, come per gli altri
 plugin nativi della Fase 3. `test100_assistente_ai.py` e la regressione
 completa della suite (80 file) passati.
 
+## Codici e descrizioni illeggibili nelle righe di un documento (APK)
+
+Segnalato: *"come possiamo risolvere il problema che se vado dentro in
+ordine o fattura i codici e le descrizioni essendo lunghe non si
+riescono a leggere"*.
+
+**Causa reale**: nella tabella delle righe di un documento
+(`.righe-table` — ordini, fatture, DDT, note di credito, preventivi,
+lato cliente e fornitore, 8 moduli), Qtà/Prezzo/Sconto/IVA (e Lotto/
+Scadenza dove presenti) hanno una larghezza dichiarata nel template di
+ogni pagina — ma in una tabella HTML a layout "auto" (quello di default,
+mai cambiato qui), una `width` da sola resta solo una PREFERENZA: si
+restringe comunque se lo spazio non basta. Codice e Descrizione, le
+uniche due colonne senza una larghezza propria, si dividevano quel poco
+che restava a metà — spesso meno di 50px ciascuna, illeggibili anche a
+schermo largo (verificato con uno screenshot a 1300px: un codice da 11
+caratteri appariva già tagliato).
+
+**Corretto** in tre punti, tutti in `saas/web/app/theme.css` (una sola
+modifica condivisa, non 8 pagine separate) più una nelle 8 pagine stesse:
+1. `min-width` invece di `width` sulle celle di Qtà/Prezzo/Sconto/IVA/
+   Lotto/Scadenza — un vero pavimento, non solo una preferenza (cambiato
+   direttamente nel template `style="width:...px"` → `style="min-width:
+   ...px"` di ogni pagina: stesso identico principio già scoperto per le
+   colonne degli elenchi nella Fase 2b).
+2. `min-width` anche su Codice (150px) e Descrizione (360px, l'unica
+   colonna a non averne mai avuta una propria) — ora Descrizione riceve
+   tutto lo spazio che resta, invece di dividerlo a metà con Codice.
+3. `.righe-table{ width:auto }`, che sovrascrive la regola generica
+   `table{ width:100% }`: senza questa, la tabella restava comunque
+   schiacciata dentro il contenitore a dispetto dei min-width sopra —
+   ora può sporgere quando le colonne lo richiedono, scorrendo di lato
+   dentro `.table-scroll` (già presente) invece di restare stretta.
+
+**Testato**: nuovo `test142_righe_colonne_leggibili.py` (5 scenari —
+Codice e Descrizione hanno spazio vero su ordini.html; lo stesso su
+fatture.html, dove Lotto/Scadenza/Qtà/Prezzo/Sconto/IVA restano tutte
+usabili e non schiacciate a zero come durante un tentativo di fix
+intermedio scartato; la tabella sporge davvero dal contenitore invece di
+restare forzata al 100%; Codice/Descrizione restano leggibili anche a
+390px di schermo; lo stesso fix vale su tutti e 8 i moduli documento).
+Verificato anche visivamente con screenshot prima/dopo a 1300px e 390px.
+Regressione mirata (trascinamento righe, autocompletamento, lotto/
+scadenza, numerazione — le aree più vicine a questa tabella) e completa
+della suite (80 file) passate.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

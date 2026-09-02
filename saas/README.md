@@ -2221,6 +2221,57 @@ dalla dashboard. Regressione completa (65 file) passata: solo i due
 fallimenti preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## Bottoni della cascata visibili dentro il form dell'ordine
+
+Segnalazione dell'azienda: *"ho inserito un ordine cliente ma non ho
+trovato il pulsante per trasformarlo in un ordine fornitore come nel
+vecchio gestionale"*. Il pulsante c'era già (🏭 Ord.forn., aggiunto con
+la cascata) ma solo sulla riga dell'elenco, e solo dopo aver spuntato
+la riga — stesso schema di "azioni visibili solo con la spunta" usato
+in tutti gli elenchi documento. Nel vecchio gestionale, invece, il
+pulsante stava sempre in vista nella vista di dettaglio del documento
+appena aperto: facile da perdere nella nuova posizione per chi veniva
+da quell'abitudine.
+
+**Fix**: gli stessi due passi successivi di un ordine cliente ("→
+Genera DDT" e "→ Genera ordine fornitore") compaiono ora anche dentro
+il form di modifica, appena sotto cliente/data, sempre visibili quando
+si apre un ordine già salvato (non per un ordine nuovo, non ancora
+salvato: non c'è ancora nulla da generare). Etichetta a tre stati come
+nel vecchio gestionale (`genOF()`/`ofBtnLabel`): "→ Genera ordine
+fornitore" (nessun OF ancora), "+ Ordina N articoli mancanti" (OF
+presente ma incompleto, es. articoli aggiunti dopo), "✓ Ordine
+fornitore" (tutto coperto, disabilitato) — e lo stesso per il DDT ("→
+Genera DDT" / "✓ Consegnato"). Cliccando dentro il form la pagina non
+naviga via e non torna all'elenco: il form si riapre da solo con
+l'ordine aggiornato (collegamenti e stato dei bottoni), invece di
+lasciare l'utente a chiedersi se il clic abbia funzionato.
+
+Il calcolo dello stato dell'ordine fornitore richiede una lettura di
+rete (bisogna sapere quali articoli sono già coperti dagli OF
+collegati) — la stessa identica query che già faceva
+`generaOrdiniFornitore()` per decidere cosa creare, ora estratta in
+`righeNonOrdinate()` (app/cascade.js) e riusata da entrambe: la nuova
+`statoOrdineFornitore()` per l'etichetta, e `generaOrdiniFornitore()`
+per l'azione — un solo posto che decide "cosa manca", non due che
+potrebbero raccontare stati diversi (lo stesso principio già seguito
+per tutta la cascata).
+
+I bottoni nella riga dell'elenco restano al loro posto (utili per
+un'azione rapida senza aprire il form): questa è un'aggiunta, non una
+sostituzione.
+
+Nuovo `test122_azioni_form_ordine.py` (6 scenari): un ordine nuovo non
+mostra i bottoni, un ordine esistente li mostra con l'etichetta
+corretta, il clic dentro il form crea l'OF e riapre il form aggiornato
+(non torna all'elenco), un ordine già evaso mostra "✓ Consegnato"
+disabilitato, un prodotto senza fornitore a catalogo mostra l'avviso
+giusto senza disabilitare il bottone (nulla è stato creato), il
+percorso precedente dall'elenco (spunta + bottone riga) continua a
+funzionare. Regressione completa (66 file) passata: solo i due
+fallimenti preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -290,6 +290,8 @@ button.primary:hover{ background:var(--accent-d); }
 button.primary:disabled{ opacity:.5; cursor:default; }
 button.ghost{ background:var(--surface); color:var(--txt); border:1px solid var(--border2); border-radius:8px; padding:7px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); }
 button.ghost:hover{ border-color:var(--faint); }
+button.ghost:disabled{ opacity:.5; cursor:default; }
+button.ghost:disabled:hover{ border-color:var(--border2); }
 button.linklike{ background:none; border:none; color:var(--accent-d); cursor:pointer; font-size:13px; text-decoration:underline; padding:0; font-family:inherit; }
 /* Pulsante "← Torna all'elenco" in cima al form di un documento: quando è
  * aperto, l'elenco sotto si nasconde (vedi openForm()/closeForm() nei

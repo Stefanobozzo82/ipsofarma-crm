@@ -38,6 +38,10 @@
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
     <p class="msg info" id="oc-links" hidden></p>
+    <div class="form-actions" id="oc-cascade-actions" hidden style="margin:0 0 14px">
+      <button type="button" class="primary" id="oc-btn-ddt">→ Genera DDT</button>
+      <button type="button" class="primary" id="oc-btn-of">→ Genera ordine fornitore</button>
+    </div>
 
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
@@ -145,15 +149,54 @@
   }
 
   async function generaOF(o){
-    const { created, updated, senzaFornitore } = await window.SaasCascade.generaOrdiniFornitore(store, companyId, o);
+    const { created, updated, senzaFornitore, ordine: nuovoOrdine } = await window.SaasCascade.generaOrdiniFornitore(store, companyId, o);
     if(!created.length && !updated.length && !senzaFornitore.length){ alert('Tutti gli articoli dell\'ordine sono già su un ordine fornitore collegato.'); return; }
     const parts = [];
     if(created.length) parts.push(created.length + ' ordine/i fornitore creato/i: ' + created.map(x => x.num).join(', '));
     if(updated.length) parts.push(updated.length + ' aggiornato/i con i nuovi articoli: ' + updated.map(x => x.num).join(', '));
     if(senzaFornitore.length) parts.push(created.length || updated.length ? 'senza fornitore a catalogo (non ordinati): ' + senzaFornitore.join(', ') : 'Nessuno dei prodotti mancanti ha un fornitore assegnato nel catalogo: assegnalo in Prodotti, poi riprova.');
     alert(parts.join(' · '));
-    await renderList();
+    // Chiamata dal form (vedi oc-btn-of sotto): riapre il form con l'ordine
+    // aggiornato invece di tornare all'elenco, che qui resterebbe comunque
+    // nascosto dietro il form aperto. Chiamata dalla riga dell'elenco
+    // (editingOrder è null, il form non è aperto): aggiorna l'elenco come
+    // prima.
+    if(editingOrder && editingOrder.id === o.id) openForm(nuovoOrdine);
+    else await renderList();
   }
+
+  // Bottoni "→ Genera DDT" / "→ Genera ordine fornitore" dentro il form di
+  // modifica — lo stesso passo successivo dei bottoni per-riga
+  // nell'elenco (sotto, visibili solo con la spunta), ma qui sempre a
+  // vista quando si apre un ordine esistente: la richiesta era proprio
+  // "non ho trovato il pulsante", e in un elenco che richiede prima di
+  // selezionare la riga il pulsante è facile da perdere.
+  async function refreshCascadeActions(o){
+    const box = $('oc-cascade-actions');
+    if(!o){ box.hidden = true; return; }
+    box.hidden = false;
+    const shipped = (o.righe || []).length > 0 && window.SaasCascade.residuoRighe(o).every(r => r.residuo <= 0);
+    const ddtBtn = $('oc-btn-ddt');
+    ddtBtn.textContent = shipped ? '✓ Consegnato' : '→ Genera DDT';
+    ddtBtn.disabled = shipped;
+    ddtBtn.className = shipped ? 'ghost' : 'primary';
+
+    const ofBtn = $('oc-btn-of');
+    ofBtn.disabled = true; ofBtn.className = 'ghost'; ofBtn.textContent = '…';
+    const st = await window.SaasCascade.statoOrdineFornitore(store, companyId, o);
+    if(editingOrder !== o) return; // il form è stato chiuso/riaperto su un altro ordine nel frattempo: non toccare bottoni non più suoi
+    ofBtn.textContent = st.label;
+    ofBtn.disabled = st.done;
+    ofBtn.className = st.done ? 'ghost' : 'primary';
+  }
+  $('oc-btn-ddt').addEventListener('click', () => { if(editingOrder) generaDDT(editingOrder); });
+  $('oc-btn-of').addEventListener('click', async () => {
+    if(!editingOrder) return;
+    const btn = $('oc-btn-of');
+    btn.disabled = true;
+    try{ await generaOF(editingOrder); }
+    catch(err){ alert('Errore durante la generazione dell\'ordine fornitore: ' + (err.message || err)); btn.disabled = false; }
+  });
 
   // ---- ordinamento colonne: come nel gestionale originale — un clic
   // sull'intestazione ordina, un secondo clic inverte la direzione.
@@ -296,6 +339,7 @@
     const links = linksInfo(ordine);
     $('oc-links').hidden = !links;
     if(links) $('oc-links').textContent = 'Documenti collegati — ' + links;
+    refreshCascadeActions(ordine);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;

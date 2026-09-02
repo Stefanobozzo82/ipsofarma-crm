@@ -120,15 +120,12 @@
     return { fatture, ordine: ordineCorrente };
   }
 
-  // Genera (o aggiorna) uno o più ordini fornitore per procurarsi quanto
-  // serve a soddisfare un ordine cliente — porta di genOFFromOC(): usata
-  // sia dal bottone "🏭 Ord.forn." in ordini.html sia dall'azione IA
-  // generate_supplier_order. Raggruppa le righe non ancora coperte da un
-  // ordine fornitore già collegato, per fornitore abituale del prodotto
-  // (catalogo) — usa il listino di acquisto come prezzo (l'originale
-  // guarda l'ultimo prezzo pagato, funzione non ancora portata nel SaaS).
-  // Idempotente: richiamarla quando è già tutto coperto non crea nulla.
-  async function generaOrdiniFornitore(store, companyId, ordine) {
+  // Quali righe dell'ordine cliente non sono ancora coperte da nessun
+  // ordine fornitore già collegato (ofIds) — un solo posto per questa
+  // query, usata sia da generaOrdiniFornitore() per sapere cosa creare
+  // sia da statoOrdineFornitore() per l'etichetta nel form (ordini.html),
+  // così le due non possano mai raccontare stati diversi.
+  async function righeNonOrdinate(store, companyId, ordine) {
     const ofNums = ordine.ofIds && ordine.ofIds.length ? ordine.ofIds : (ordine.ofId ? [ordine.ofId] : []);
     let existingOFs = [];
     if (ofNums.length) {
@@ -138,6 +135,33 @@
     const covered = new Set();
     existingOFs.forEach(of => (of.righe || []).forEach(r => covered.add(r.cod)));
     const missing = (ordine.righe || []).filter(r => r.cod && !covered.has(r.cod));
+    return { ofNums, existingOFs, missing };
+  }
+
+  // Etichetta/stato per il bottone "Genera ordine fornitore" nel form di
+  // ordini.html — stessa logica a tre stati del vecchio gestionale
+  // (genOF()/ofBtnLabel): "→ Genera" (nessun OF ancora), "+ Ordina N
+  // mancanti" (OF presente ma incompleto, es. articoli aggiunti dopo), "✓"
+  // (tutto coperto, disabilitato). Richiede una chiamata di rete
+  // (righeNonOrdinate legge gli ordini fornitore collegati), quindi non è
+  // gratis come statoEvasione() — va chiamata solo quando serve mostrarla.
+  async function statoOrdineFornitore(store, companyId, ordine) {
+    const { ofNums, missing } = await righeNonOrdinate(store, companyId, ordine);
+    if (!ofNums.length) return { label: '→ Genera ordine fornitore', done: false };
+    if (missing.length) return { label: `+ Ordina ${missing.length} articol${missing.length > 1 ? 'i' : 'o'} mancant${missing.length > 1 ? 'i' : 'e'}`, done: false };
+    return { label: '✓ Ordine fornitore', done: true };
+  }
+
+  // Genera (o aggiorna) uno o più ordini fornitore per procurarsi quanto
+  // serve a soddisfare un ordine cliente — porta di genOFFromOC(): usata
+  // sia dal bottone "🏭 Ord.forn." in ordini.html sia dall'azione IA
+  // generate_supplier_order. Raggruppa le righe non ancora coperte da un
+  // ordine fornitore già collegato, per fornitore abituale del prodotto
+  // (catalogo) — usa il listino di acquisto come prezzo (l'originale
+  // guarda l'ultimo prezzo pagato, funzione non ancora portata nel SaaS).
+  // Idempotente: richiamarla quando è già tutto coperto non crea nulla.
+  async function generaOrdiniFornitore(store, companyId, ordine) {
+    const { ofNums, existingOFs, missing } = await righeNonOrdinate(store, companyId, ordine);
     if (!missing.length) return { created: [], updated: [], senzaFornitore: [], ordine };
     const trovati = await Promise.all(missing.map(r => store.searchProdotti(companyId, r.cod, 5).catch(() => [])));
     const groups = new Map();
@@ -172,6 +196,6 @@
 
   global.SaasCascade = {
     residuoRighe, statoEvasione, applicaConsegna, applicaFatturazione, applicaRicezione,
-    creaDDTDaResiduo, creaFattureDaOrdine, generaOrdiniFornitore,
+    creaDDTDaResiduo, creaFattureDaOrdine, generaOrdiniFornitore, statoOrdineFornitore,
   };
 })(window);

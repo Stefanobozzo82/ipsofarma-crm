@@ -37,8 +37,11 @@
         <div><label for="f-acq">Prezzo acquisto</label><input id="f-acq" type="number" min="0" step="0.01"></div>
         <div><label for="f-ven">Prezzo vendita</label><input id="f-ven" type="number" min="0" step="0.01"></div>
       </div>
-      <label for="f-iva">IVA %</label>
-      <input id="f-iva" type="number" min="0" step="1" value="22">
+      <div class="grid2">
+        <div><label for="f-iva">IVA %</label><input id="f-iva" type="number" min="0" step="1" value="22"></div>
+        <div><label for="f-fornitore">Fornitore abituale</label><select id="f-fornitore"><option value="">— nessuno —</option></select></div>
+      </div>
+      <p class="msg info">Il fornitore abituale serve alla cascata "Genera ordine fornitore" (in Ordini) per sapere a chi ordinare questo prodotto quando manca in magazzino.</p>
       <div class="form-actions">
         <button class="primary" id="f-save">Salva</button>
         <button class="ghost" id="f-cancel">Annulla</button>
@@ -76,6 +79,7 @@
   let SORT = { key: 'cod', dir: 'asc' };
   let lastResults = [];
   let searchTimer = null;
+  let fornitoriById = {}; // per il campo "Fornitore abituale" e la colonna nell'elenco
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return n == null ? '—' : (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
@@ -121,6 +125,7 @@
     $('f-acq').value = p && p.listinoAcq != null ? p.listinoAcq : '';
     $('f-ven').value = p && p.listinoVen != null ? p.listinoVen : '';
     $('f-iva').value = p && p.iva != null ? p.iva : 22;
+    $('f-fornitore').value = p && p.fornitoreId ? p.fornitoreId : '';
     setMsg('', '');
     $('form-card').hidden = false;
     $('f-cod').focus();
@@ -140,6 +145,7 @@
       listinoAcq: $('f-acq').value === '' ? null : Number($('f-acq').value),
       listinoVen: $('f-ven').value === '' ? null : Number($('f-ven').value),
       iva: Number($('f-iva').value) || 0,
+      fornitoreId: $('f-fornitore').value || null,
     };
     if(editingId) doc.id = editingId;
     $('f-save').disabled = true;
@@ -164,7 +170,7 @@
     }
     const rows = [...lastResults].sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     area.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        ${th('cod','Codice')}${th('descr','Descrizione')}${th('acq','Acquisto')}${th('ven','Vendita')}${th('iva','IVA %')}<th>Giacenza</th><th></th>
+        ${th('cod','Codice')}${th('descr','Descrizione')}${th('acq','Acquisto')}${th('ven','Vendita')}${th('iva','IVA %')}<th>Fornitore</th><th>Giacenza</th><th></th>
       </tr></thead><tbody>${rows.map(p => `
         <tr>
           <td class="num-col">${esc(p.cod)}</td>
@@ -172,6 +178,7 @@
           <td class="num-col">${eur(p.listinoAcq)}</td>
           <td class="num-col">${eur(p.listinoVen)}</td>
           <td class="num-col">${p.iva != null ? p.iva + '%' : '—'}</td>
+          <td>${p.fornitoreId && fornitoriById[p.fornitoreId] ? esc(fornitoriById[p.fornitoreId].nome) : '<span style="color:var(--muted)">— nessuno —</span>'}</td>
           <td class="num-col" data-giacenza="${p.id}">…</td>
           <td class="actions">
             <button data-edit="${p.id}">Modifica</button>
@@ -250,6 +257,11 @@
       email: session.user.email,
       onLogout: doLogout,
     });
+    const fornitori = await store.loadCollection('fornitori', companyId);
+    fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    $('f-fornitore').insertAdjacentHTML('beforeend', [...fornitori]
+      .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
+      .map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join(''));
     await runSearch();
   }
   init();

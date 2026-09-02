@@ -2272,6 +2272,43 @@ funzionare. Regressione completa (66 file) passata: solo i due
 fallimenti preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## Campo "Fornitore abituale" mancante in Prodotti
+
+Seguito diretto del punto precedente. Provando "Genera ordine
+fornitore" su un ordine reale, l'azienda si è vista rispondere
+*"Nessuno dei prodotti mancanti ha un fornitore assegnato nel
+catalogo: assegnalo in Prodotti, poi riprova."* — ma in Prodotti quel
+campo non esisteva affatto: il form aveva solo Codice, Confezione,
+Descrizione, Prezzo acquisto/vendita, IVA. Un messaggio che rimanda a
+un posto dove l'azione richiesta non si può fare.
+
+La colonna `fornitore_id` esiste già nella tabella `prodotti` (nessuna
+migrazione necessaria) — arriva popolata solo dall'import dal vecchio
+gestionale, ma l'interfaccia SaaS non aveva mai avuto un modo per
+leggerla o modificarla a mano. Il vecchio gestionale invece un campo
+così ce l'aveva (`openProdottoForm()`, select "Fornitore"): stessa
+idea qui, con un'etichetta più esplicita ("Fornitore abituale") e una
+frase che spiega perché serve — nel vecchio gestionale il collegamento
+con la cascata era implicito, qui va reso comprensibile a chi non lo
+sapeva.
+
+Aggiunti: il campo nel form (select con i fornitori dell'azienda, "—
+nessuno —" di default), il salvataggio di `fornitoreId`, e una colonna
+"Fornitore" nell'elenco — utile non solo per il form ma per capire a
+colpo d'occhio quali prodotti nel catalogo sono ancora senza, prima
+ancora di provare a generare un ordine fornitore e scoprirlo
+dall'errore.
+
+Nuovo `test123_prodotto_fornitore.py` (5 scenari): il campo esiste con
+i fornitori dell'azienda, la colonna Fornitore compare nell'elenco,
+assegnare un fornitore a un prodotto lo salva e aggiorna subito
+l'elenco, riaprendo un prodotto che ne aveva già uno il campo è
+precompilato, si può anche rimuoverlo. Aggiunto `loadCollection` al
+mock di `test87_prodotti_page.py` (il caricamento dei fornitori nel
+nuovo `init()` altrimenti lo avrebbe rotto). Regressione completa (67
+file) passata: solo i due fallimenti preesistenti gated da credenziali
+reali (`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

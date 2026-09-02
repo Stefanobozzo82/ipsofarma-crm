@@ -44,6 +44,8 @@
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
     <p class="righe-total">Totale accreditato: <b id="righe-totale">0,00 €</b></p>
 
+    <div class="panel" id="f-lineage-panel" hidden style="margin:16px 0"><div class="panel-h">Documenti collegati</div><div id="f-lineage"></div></div>
+
     <div class="form-actions">
       <button class="primary" id="f-save">Salva</button>
       <button class="ghost" id="f-cancel">Annulla</button>
@@ -81,6 +83,7 @@
 <script src="app/resize.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
+<script src="app/lineage.js"></script>
 <script src="app/ai-import.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -280,9 +283,22 @@
     $('f-data').value = nc ? nc.data : today();
     $('righe-body').innerHTML = '';
     (nc ? nc.righe : [null]).forEach(addRigaRow);
+    renderLineage(nc);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
+  }
+  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
+  // cliccabili con l'intera filiera della nota di credito fornitore, come
+  // nel vecchio gestionale.
+  async function renderLineage(nc){
+    const panel = $('f-lineage-panel');
+    if(!nc){ panel.hidden = true; return; }
+    try{
+      const docs = await window.SaasLineage.loadAll(store, companyId);
+      const shown = window.SaasLineage.renderInto($('f-lineage'), 'noteCreditoFornitore', nc, docs);
+      panel.hidden = !shown;
+    }catch(e){ panel.hidden = true; }
   }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
   $('new-nc').addEventListener('click', async () => {
@@ -509,6 +525,15 @@
     });
 
     await renderList();
+
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
+    // in un altro modulo (vedi app/lineage.js).
+    const pendingNum = window.SaasLineage.consumePendingOpenNum('noteCreditoFornitore');
+    if(pendingNum){
+      const all = await store.loadCollection('noteCreditoFornitore', companyId);
+      const found = all.find(x => x.num === pendingNum);
+      if(found) openForm(found);
+    }
   }
   init();
 </script>

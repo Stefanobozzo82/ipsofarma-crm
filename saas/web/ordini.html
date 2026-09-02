@@ -41,7 +41,6 @@
       <div><label for="f-num">Numero ordine</label><input id="f-num" type="text" placeholder="es. OC/2026/0001"></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
-    <p class="msg info" id="oc-links" hidden></p>
     <div class="form-actions" id="oc-cascade-actions" hidden style="margin:0 0 14px">
       <button type="button" class="primary" id="oc-btn-ddt">→ Genera DDT</button>
       <button type="button" class="primary" id="oc-btn-of">→ Genera ordine fornitore</button>
@@ -55,6 +54,8 @@
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
     <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
+
+    <div class="panel" id="f-lineage-panel" hidden style="margin:16px 0"><div class="panel-h">Documenti collegati</div><div id="f-lineage"></div></div>
 
     <div class="form-actions">
       <button class="primary" id="f-save">Salva</button>
@@ -95,6 +96,7 @@
 <script src="app/prodpicker.js"></script>
 <script src="app/ai-import.js"></script>
 <script src="app/cascade.js"></script>
+<script src="app/lineage.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -129,13 +131,18 @@
     const s = window.SaasCascade.statoEvasione(o.righe, 'Consegnato');
     return s ? ` <span class="badge ${s.cls}">${s.label}</span>` : '';
   }
-  function linksInfo(o){
-    if(!o) return '';
-    const parts = [];
-    if(o.ddtIds && o.ddtIds.length) parts.push('DDT: ' + o.ddtIds.join(', '));
-    if(o.ftIds && o.ftIds.length) parts.push('Fatture: ' + o.ftIds.join(', '));
-    if(o.ofIds && o.ofIds.length) parts.push('Ordini fornitore: ' + o.ofIds.join(', '));
-    return parts.join(' · ');
+  // Box "Documenti collegati" (vedi app/lineage.js): un diagramma a nodi
+  // cliccabili con l'intera filiera dell'ordine, come nel vecchio
+  // gestionale — sostituisce la vecchia riga di testo piatta "DDT: ...
+  // Fatture: ... Ordini fornitore: ...".
+  async function renderLineage(ordine){
+    const panel = $('f-lineage-panel');
+    if(!ordine){ panel.hidden = true; return; }
+    try{
+      const docs = await window.SaasLineage.loadAll(store, companyId);
+      const shown = window.SaasLineage.renderInto($('f-lineage'), 'ordiniCliente', ordine, docs);
+      panel.hidden = !shown;
+    }catch(e){ panel.hidden = true; /* pannello non essenziale: il resto del form resta usabile */ }
   }
 
   // Genera un DDT dal residuo dell'ordine (tutto quanto non ancora
@@ -379,9 +386,7 @@
     }
     $('righe-body').innerHTML = '';
     (ordine ? ordine.righe : [null]).forEach(addRigaRow);
-    const links = linksInfo(ordine);
-    $('oc-links').hidden = !links;
-    if(links) $('oc-links').textContent = 'Documenti collegati — ' + links;
+    renderLineage(ordine);
     refreshCascadeActions(ordine);
     setMsg('', '');
     $('form-card').hidden = false;
@@ -660,6 +665,16 @@
     });
 
     await renderList();
+
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
+    // in un altro modulo (vedi app/lineage.js) — stesso meccanismo già
+    // usato per "Genera DDT"/"Genera fattura" qui sotto.
+    const pendingNum = window.SaasLineage.consumePendingOpenNum('ordiniCliente');
+    if(pendingNum){
+      const all = await store.loadCollection('ordiniCliente', companyId);
+      const found = all.find(x => x.num === pendingNum);
+      if(found) await openForm(found);
+    }
   }
   init();
 </script>

@@ -54,6 +54,8 @@
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
     <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
 
+    <div class="panel" id="f-lineage-panel" hidden style="margin:16px 0"><div class="panel-h">Documenti collegati</div><div id="f-lineage"></div></div>
+
     <div class="form-actions">
       <button class="primary" id="f-save">Salva</button>
       <button class="ghost" id="f-cancel">Annulla</button>
@@ -89,6 +91,7 @@
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
+<script src="app/lineage.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -307,12 +310,16 @@
     const ddt = allDdtById[$('f-ddt').value];
     if(ddt && righeVuote){
       $('righe-body').innerHTML = '';
-      // lotto/scad riportati così come sono sul DDT (che a sua volta li
-      // eredita dalla fattura fornitore corrispondente, se tracciata —
-      // vedi ddt.html/precompileFromOrdine()): senza questo, l'unica
-      // traccia del lotto realmente spedito andrebbe persa passando dal
-      // DDT alla fattura.
-      (ddt.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:0, iva:22, lotto:r.lotto || '', scad:r.scad || '' }));
+      // lotto/scad/prezzo/sconto/iva riportati così come sono sul DDT
+      // (che a sua volta li eredita dall'ordine cliente e, per lotto/scad,
+      // dalla fattura fornitore corrispondente se tracciata — vedi
+      // ddt.html/precompileFromOrdine()): senza questo, prezzo e sconto
+      // andrebbero riscritti a mano ad ogni fattura generata da un DDT.
+      (ddt.righe || []).forEach(r => addRigaRow({
+        cod:r.cod, descr:r.descr, qty:r.qty,
+        prezzo: r.prezzo || 0, sconto: r.sconto || '', iva: r.iva || 22,
+        lotto:r.lotto || '', scad:r.scad || '',
+      }));
     }
   });
 
@@ -336,9 +343,22 @@
     }
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
+    renderLineage(fattura);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
+  }
+  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
+  // cliccabili con l'intera filiera della fattura, come nel vecchio
+  // gestionale.
+  async function renderLineage(fattura){
+    const panel = $('f-lineage-panel');
+    if(!fattura){ panel.hidden = true; return; }
+    try{
+      const docs = await window.SaasLineage.loadAll(store, companyId);
+      const shown = window.SaasLineage.renderInto($('f-lineage'), 'fattureCliente', fattura, docs);
+      panel.hidden = !shown;
+    }catch(e){ panel.hidden = true; }
   }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingFattura = null; }
   $('new-fattura').addEventListener('click', async () => {
@@ -420,14 +440,23 @@
 
   // Stesso identico schema usato oggi dal gestionale per lo stato di incasso
   // (bulkPaid/toggle): paid, paidDate, pagamenti:[{data, importo}].
+  //
+  // Si parte SEMPRE dalla fattura esistente (Object.assign), non da un
+  // oggetto con solo i campi da cambiare: num/data/clienteId/righe sono
+  // colonne "not null" nel database, e store.saveDoc() fa un upsert —
+  // Postgres valuta l'intera riga candidata anche quando poi la
+  // trasforma in un aggiornamento (ON CONFLICT DO UPDATE), quindi un
+  // payload parziale la fa fallire con "null value in column ... violates
+  // not-null constraint" invece di limitarsi ad aggiornare i campi
+  // indicati. Bug reale, verificato in produzione: "segna incassata" non
+  // ha mai funzionato, falliva silenziosamente ogni volta.
   async function togglePaid(fattura){
     const paid = !fattura.paid;
-    const doc = {
-      id: fattura.id,
+    const doc = Object.assign({}, fattura, {
       paid,
       paidDate: paid ? today() : null,
       pagamenti: paid ? [{ data: today(), importo: docTotale(fattura.righe) }] : [],
-    };
+    });
     await store.saveDoc('fattureCliente', doc, companyId);
     await renderList();
   }
@@ -437,13 +466,17 @@
   // gestionale originale, ma qui ogni fattura riceve la stessa data di
   // incasso odierna (una data diversa per ognuna richiederebbe un modulo
   // di dettaglio che l'originale non ha in questo passaggio collettivo).
-  async function bulkMarkPaid(paid, righePerId){
-    const doc = paid
+  async function bulkMarkPaid(paid, docsPerId){
+    const patch = paid
       ? { paid: true, paidDate: today() }
       : { paid: false, paidDate: null, pagamenti: [] };
-    await Promise.all([...PICK].map(id => store.saveDoc('fattureCliente', Object.assign({ id }, doc,
-      paid ? { pagamenti: [{ data: today(), importo: docTotale(righePerId[id] || []) }] } : {}
-    ), companyId)));
+    await Promise.all([...PICK].map(id => {
+      const base = docsPerId[id];
+      if(!base) return Promise.resolve();
+      const doc = Object.assign({}, base, patch,
+        paid ? { pagamenti: [{ data: today(), importo: docTotale(base.righe || []) }] } : {});
+      return store.saveDoc('fattureCliente', doc, companyId);
+    }));
     PICK.clear();
     await renderList();
   }
@@ -690,9 +723,9 @@
       if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
       renderList();
     }));
-    const righePerId = Object.fromEntries(elenco.map(f => [f.id, f.righe]));
-    const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, righePerId));
-    const bu = $('bulk-unpaid'); if(bu) bu.addEventListener('click', () => bulkMarkPaid(false, righePerId));
+    const docsPerId = Object.fromEntries(elenco.map(f => [f.id, f]));
+    const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, docsPerId));
+    const bu = $('bulk-unpaid'); if(bu) bu.addEventListener('click', () => bulkMarkPaid(false, docsPerId));
     const bd = $('bulk-deselect'); if(bd) bd.addEventListener('click', deselectAll);
   }
 
@@ -750,6 +783,15 @@
         $('f-ddt').value = ddt.id;
         $('f-ddt').dispatchEvent(new Event('change')); // precompila le righe dal DDT
       }
+    }
+
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
+    // in un altro modulo (vedi app/lineage.js).
+    const pendingNum = window.SaasLineage.consumePendingOpenNum('fattureCliente');
+    if(pendingNum){
+      const all = await store.loadCollection('fattureCliente', companyId);
+      const found = all.find(x => x.num === pendingNum);
+      if(found) await openForm(found);
     }
   }
   init();

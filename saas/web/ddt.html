@@ -45,10 +45,13 @@
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th></th></tr></thead>
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
+    <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
+
+    <div class="panel" id="f-lineage-panel" hidden style="margin:16px 0"><div class="panel-h">Documenti collegati</div><div id="f-lineage"></div></div>
 
     <div class="form-actions">
       <button class="primary" id="f-save">Salva</button>
@@ -85,6 +88,7 @@
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
+<script src="app/lineage.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -102,6 +106,7 @@
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
   // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco,
   // quando il documento indica una destinazione diversa dalla sede legale.
   function destSub(it){
@@ -180,8 +185,13 @@
     if(active) $('ff-clear').addEventListener('click', clearFFilt);
   }
 
+  // Prezzo/sconto/iva sono nel form (come in fatture.html) anche se il DDT
+  // stampato non li mostra (print.js li esclude apposta, come nel vecchio
+  // gestionale): servono per portarli intatti nella fattura generata dal
+  // DDT — senza di questi campi qui, la fattura doveva essere riscritta a
+  // mano riga per riga (vedi $('f-ddt') in fatture.html).
   function rigaRowHtml(r){
-    r = r || { cod:'', descr:'', qty:1, lotto:'', scad:'' };
+    r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
     return `<tr>
       <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
@@ -189,6 +199,9 @@
       <td style="width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
       <td style="width:130px"><input class="r-scad" type="date" value="${esc(r.scad || '')}"></td>
       <td style="width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
+      <td style="width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
+      <td style="width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
+      <td style="width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
     </tr>`;
   }
@@ -200,7 +213,8 @@
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
     const tr = $('righe-body').lastElementChild;
-    tr.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); });
+    tr.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); updateTotale(); });
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
     const handle = tr.querySelector('.drag-handle');
     handle.addEventListener('dragstart', e => {
       dragSrcRow = tr;
@@ -221,15 +235,19 @@
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
     window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
-      companyId, clearOnPick: false,
+      companyId, priceField: 'listinoVen', clearOnPick: false,
       onPick: p => {
         tr.querySelector('.r-cod').value = p.cod;
         tr.querySelector('.r-descr').value = p.descr;
+        tr.querySelector('.r-prezzo').value = p.listinoVen || 0;
+        tr.querySelector('.r-iva').value = p.iva || 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
+        updateTotale();
         qtyEl.focus(); qtyEl.select();
       },
     });
+    updateTotale();
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
@@ -238,8 +256,18 @@
       lotto: tr.querySelector('.r-lotto').value.trim(),
       scad: tr.querySelector('.r-scad').value,
       qty: Number(tr.querySelector('.r-qty').value) || 0,
+      prezzo: Number(tr.querySelector('.r-prezzo').value) || 0,
+      sconto: tr.querySelector('.r-sconto').value.trim(),
+      iva: Number(tr.querySelector('.r-iva').value) || 0,
     })).filter(r => r.descr || r.cod);
   }
+  // Stessa aritmetica dello sconto del gestionale originale, cascata
+  // "N+M" inclusa — vedi la stessa funzione in fatture.html.
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
+  function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
+  function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   $('add-riga').addEventListener('click', () => addRigaRow(null));
 
   function refreshOrdineOptions(clienteId){
@@ -266,9 +294,12 @@
   // identico a prima (tutte le righe, per intero).
   async function precompileFromOrdine(ordine){
     $('righe-body').innerHTML = '';
+    // prezzo/sconto/iva vengono dalla riga dell'ordine (residuoRighe() li
+    // conserva già, spreadando {...r}): senza riportarli qui, il DDT (e la
+    // fattura generata da esso) partiva sempre da prezzo 0.
     const residuo = window.SaasCascade.residuoRighe(ordine)
       .filter(r => r.residuo > 0)
-      .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo }));
+      .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo, prezzo:r.prezzo, sconto:r.sconto, iva:r.iva }));
     // Lotto/scadenza VERI, dalle fatture fornitore che hanno portato la
     // merce (se l'ordine ha ordini fornitore collegati) — come nel
     // vecchio gestionale, invece di lasciarli sempre vuoti da scrivere a
@@ -324,9 +355,21 @@
     }else{
       ftBox.hidden = true;
     }
+    renderLineage(ddt);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
+  }
+  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
+  // cliccabili con l'intera filiera del DDT, come nel vecchio gestionale.
+  async function renderLineage(ddt){
+    const panel = $('f-lineage-panel');
+    if(!ddt){ panel.hidden = true; return; }
+    try{
+      const docs = await window.SaasLineage.loadAll(store, companyId);
+      const shown = window.SaasLineage.renderInto($('f-lineage'), 'ddt', ddt, docs);
+      panel.hidden = !shown;
+    }catch(e){ panel.hidden = true; }
   }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingDdt = null; }
   $('ddt-btn-ft').addEventListener('click', () => {
@@ -531,8 +574,8 @@
     $('f-cliente').innerHTML = clienti.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
-      companyId,
-      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1 }),
+      companyId, priceField: 'listinoVen',
+      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: p.listinoVen || 0, sconto: '', iva: p.iva || 22 }),
     });
 
     await renderList();
@@ -551,6 +594,15 @@
         $('f-ordine').value = ordine.id;
         await precompileFromOrdine(ordine);
       }
+    }
+
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
+    // in un altro modulo (vedi app/lineage.js).
+    const pendingNum = window.SaasLineage.consumePendingOpenNum('ddt');
+    if(pendingNum){
+      const all = await store.loadCollection('ddt', companyId);
+      const found = all.find(x => x.num === pendingNum);
+      if(found) await openForm(found);
     }
   }
   init();

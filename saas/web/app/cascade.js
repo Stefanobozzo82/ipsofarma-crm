@@ -141,7 +141,7 @@
   async function creaDDTDaResiduo(store, companyId, ordine) {
     const residuo = residuoRighe(ordine).filter(r => r.residuo > 0);
     if (!residuo.length) return null;
-    const righeBase = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo }));
+    const righeBase = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo, prezzo: r.prezzo, sconto: r.sconto, iva: r.iva }));
     const righe = await righeConLotti(store, companyId, ordine, righeBase);
     const anno = Number((ordine.data || today()).slice(0, 4)) || Number(today().slice(0, 4));
     const num = await store.nextNumber(companyId, 'DDT', anno);

@@ -2606,6 +2606,180 @@ invariato). Regressione completa (72 file) passata: solo i due
 fallimenti preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## "Segna incassata"/"segna pagata" non ha mai funzionato — bug critico trovato e corretto
+
+Richiesta: *"ho provato a portare incassate delle fatture ma non
+funziona"*. Causa **confermata con un vero test SQL contro i dati di
+produzione** (transazione poi annullata, nessun dato toccato
+davvero):
+
+```sql
+begin;
+insert into fatture_cliente (id, company_id, paid)
+select id, company_id, not paid from fatture_cliente
+where company_id='...' limit 1
+on conflict (id) do update set paid = excluded.paid;
+-- ERROR: 23502: null value in column "num" of relation
+-- "fatture_cliente" violates not-null constraint
+rollback;
+```
+
+`store.saveDoc()` fa un `upsert()` Supabase, che sotto è un `INSERT
+... ON CONFLICT (id) DO UPDATE`: Postgres valuta l'INTERA riga
+candidata (comprese le colonne "not null" senza default: `num`,
+`data`, `cliente_id`, `righe`) PRIMA di decidere se è un insert o un
+update — un payload che ne omette anche solo una fa fallire l'intera
+operazione con un'eccezione, non un aggiornamento parziale. `
+togglePaid()`/`bulkMarkPaid()` in `fatture.html` e
+`fatture-fornitore.html` costruivano il payload da un oggetto con
+**solo i campi da cambiare** (`{id, paid, paidDate, pagamenti}`) —
+quindi il salvataggio falliva SEMPRE, silenziosamente (l'errore
+veniva mostrato ma probabilmente ignorato/non notato). I 155/285
+`paid=true` visti nei dati reali vengono dalla migrazione iniziale di
+`backup.json`, non da nessun clic sul pulsante nella SaaS.
+
+Corretto in tre punti, stesso schema ovunque — si riparte SEMPRE dal
+documento esistente completo (`Object.assign({}, fattura, {campi da
+cambiare})`), mai da un oggetto parziale:
+
+- **`fatture.html`**: `togglePaid()`/`bulkMarkPaid()`; il chiamante di
+  `bulkMarkPaid` passa ora l'intero documento per id (`docsPerId`),
+  non solo l'array `righe` (`righePerId`) come prima.
+- **`fatture-fornitore.html`**: stesso identico fix.
+- **`riconciliazione.html`**: l'auto-registrazione di un abbinamento
+  costruiva già `provaFattura` (spread completo) per il proprio
+  calcolo locale di `payState()`, ma poi salvava un oggetto parziale a
+  parte — bug della stessa classe, trovato con una scansione mirata
+  (`grep saveDoc` su tutti i moduli) dopo aver corretto i primi due.
+  Ora riusa lo stesso oggetto completo per il salvataggio.
+
+Verificati anche altri tre punti trovati dalla stessa scansione
+(`assistente-ai.html` righe 450/499, `preventivi.html` riga 347): non
+serviva alcun fix — sono o una mutazione dell'intero documento già
+in memoria, o un vero inserimento (tutte le colonne "not null"
+presenti).
+
+Nuovo `test129_incassata_pagata_notnull.py`: un mock di
+`saveDoc()` che impone davvero i vincoli "not null" (lancia lo stesso
+errore Postgres, codice `23502`, se un campo manca dal payload) —
+i test precedenti non lo intercettavano perché il mock usato ovunque
+si limita a un `Object.assign` permissivo, senza applicare vincoli
+reali. Copre singolo documento e azione collettiva, sia
+`fatture.html` che `fatture-fornitore.html`; verifica la FORMA del
+payload (`num`/`data`/`clienteId` o `fornitoreId`/`righe` presenti),
+non solo che `paid` sia diventato `true`. Nuovo
+`test130_riconciliazione_notnull.py` con lo stesso mock per il flusso
+di riconciliazione bancaria.
+
+## Prezzo/sconto/IVA persi generando DDT e fattura da un ordine
+
+Richiesta: *"ho creato il ddt e fattura da un ordine cliente ma non
+ha riportato i prezzi"*. Causa: `ddt.html` non aveva **mai** avuto
+campi prezzo/sconto/IVA nell'editor delle righe (solo
+codice/descrizione/lotto/scadenza/quantità) — un DDT generato da un
+ordine perdeva quindi ogni informazione di prezzo, e la fattura
+generata da quel DDT ripartiva sempre da prezzo 0 (`fatture.html`
+scriveva `prezzo:0, iva:22` fissi copiando le righe dal DDT). Il DDT
+**stampato** continua giustamente a non mostrare i prezzi (come nel
+vecchio gestionale — `print.js` li esclude apposta): il problema era
+solo nell'editor e nel passaggio dei dati, non nella stampa.
+
+Corretto in quattro punti:
+
+- **`ddt.html`**: `rigaRowHtml()`/`readRighe()` hanno ora le stesse
+  colonne prezzo/sconto/IVA di `fatture.html`/`ordini.html`, con lo
+  stesso autocompletamento da catalogo (listino di vendita) sia nella
+  ricerca in cima alla pagina sia nel campo Codice di ogni riga.
+  Aggiunto anche un "Totale" a fondo pagina, come nel vecchio
+  gestionale. `precompileFromOrdine()` ora porta `prezzo`/`sconto`/
+  `iva` dalle righe dell'ordine invece di scartarli.
+- **`app/cascade.js`**: `creaDDTDaResiduo()` (percorso "headless"
+  usato dall'azione IA `generate_ddt`) portava già cod/descr/qty nelle
+  righe base passate a `righeConLotti()`, ora anche prezzo/sconto/iva.
+- **`fatture.html`**: il precompilamento delle righe scegliendo un DDT
+  dal menu a tendina ora usa `prezzo`/`sconto`/`iva` REALI della riga
+  del DDT, non più `0`/`''`/`22` fissi.
+
+Nuovo `test131_prezzo_ddt_fattura.py` (3 scenari): un DDT generato da
+un ordine precompila prezzo/sconto/IVA corretti per ogni riga (e il
+totale del form non è più zero), il DDT si salva con quei valori, e
+la fattura generata scegliendo quel DDT li eredita intatti. Trovato e
+corretto per strada anche un buco gemello nello stesso punto: la
+ricerca prodotti in cima a `ddt.html` (non solo quella dentro ogni
+riga) non passava ancora prezzo/IVA al selezionare un prodotto —
+coperto da `test97_autocompletamento_prodotti.py` (Scenario E,
+aggiornato).
+
+## Box "Documenti collegati" in ogni documento
+
+Richiesta: *"una cosa molto bella del vecchio gestionale era il box
+che mostrava i documenti collegati"*. Il gestionale originale
+mostrava, in ogni scheda documento, un diagramma a nodi cliccabili
+con l'intera filiera — dall'ordine cliente radice fino a fatture e
+note di credito, sia sul lato fornitore (ordine → ordine fornitore →
+fattura fornitore → nota di credito fornitore) sia sul lato cliente
+(ordine → DDT → fattura → nota di credito), con un nodo tratteggiato
+"— non generato" per i passaggi ancora mancanti. Nella SaaS c'era
+solo una riga di testo piatta in `ordini.html` ("Documenti collegati
+— DDT: ... · Fatture: ... · Ordini fornitore: ..."), non cliccabile,
+e assente in tutti gli altri moduli.
+
+**Nuovo `app/lineage.js`**: NON una porta diretta dell'algoritmo
+originale, perché la SaaS collega i documenti in modo meno uniforme
+di come faceva il gestionale originale (dove tutto viveva in un solo
+DB in memoria, con ID stabili tipo "OC/2026/1" usati ovunque come
+riferimento). Verificato nel codice, campo per campo:
+
+- `ddt.ocId`, `fattureCliente.ocId`/`ddtId`, `fattureFornitore.ofId`,
+  `noteCredito.fatturaId`, `noteCreditoFornitore.fatturaId` sono
+  colonne Postgres vere (`store.js`/`COLLECTIONS`), scritte SEMPRE ad
+  ogni salvataggio, e contengono l'**ID riga** del documento
+  collegato.
+- `ordiniFornitore.ocId` e `ordiniCliente.ofIds`/`ofId` invece vivono
+  nella colonna jsonb `extra`, scritti solo da
+  `cascade.js`/`generaOrdiniFornitore()`, e contengono il **NUMERO**
+  del documento (non l'id).
+- `ordiniFornitore.ftfIds` è una colonna vera ma non viene MAI scritta
+  da nessun percorso della SaaS (verificato: nessun `saveDoc` la
+  imposta) — quindi non va usata per niente.
+
+Per questo `buildLineage()` risale la filiera con una scansione
+all'indietro sui riferimenti REALMENTE scritti (es. "quali fatture
+hanno `ddtId` uguale all'id di questo DDT?"), invece di fidarsi di
+array/numeri lato genitore come faceva l'originale — più lento ma
+sempre corretto, anche quando un salvataggio non ha aggiornato un
+elenco collegato.
+
+La SaaS non è una SPA (ogni modulo è una pagina a sé): cliccare un
+nodo salva `{coll, num}` in `localStorage` (chiave `saas_open_doc`) e
+naviga al modulo giusto, che al caricamento lo consuma
+(`consumePendingOpenNum()`) e apre subito quel documento — stesso
+meccanismo già usato per "Genera fattura" da `ddt.html`.
+
+Aggiunto un pannello "Documenti collegati" (stesse classi CSS
+`.flow`/`.fnode`/`.fbranch` del gestionale originale, portate in
+`theme.css`) dentro il form di **tutti** i moduli documento:
+`ordini.html`, `ordini-fornitore.html`, `ddt.html`, `fatture.html`,
+`fatture-fornitore.html`, `note-credito.html`,
+`note-credito-fornitore.html` — non solo `ordini.html` come la vecchia
+riga di testo. In `ordini.html` sostituisce del tutto la vecchia
+`linksInfo()`/`#oc-links`.
+
+Nuovo `test132_documenti_collegati.py`: uno scenario unitario che
+chiama `buildLineage()` direttamente con dati costruiti a mano,
+verificando che segua ID e NUMERI nei punti giusti (un ordine con
+filiera completa, un ordine fornitore isolato con un ramo ancora da
+generare mostrato come ghost, un documento senza alcun collegamento
+che mostra il messaggio dedicato invece di un diagramma vuoto), più
+uno scenario di integrazione reale in `ordini.html` che clicca un
+nodo DDT e verifica la navigazione a `ddt.html` con quel DDT aperto.
+Aggiornati anche due test preesistenti che si aspettavano il vecchio
+`#oc-links` (`test119_cascata_documenti.py`,
+`test122_azioni_form_ordine.py`).
+
+Regressione completa (76 file, esclusi i due gated da credenziali
+reali) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

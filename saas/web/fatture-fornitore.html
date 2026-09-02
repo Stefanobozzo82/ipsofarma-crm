@@ -52,6 +52,8 @@
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
     <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
 
+    <div class="panel" id="f-lineage-panel" hidden style="margin:16px 0"><div class="panel-h">Documenti collegati</div><div id="f-lineage"></div></div>
+
     <div class="form-actions">
       <button class="primary" id="f-save">Salva</button>
       <button class="ghost" id="f-cancel">Annulla</button>
@@ -90,6 +92,7 @@
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
+<script src="app/lineage.js"></script>
 <script src="app/ai-import.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -302,9 +305,22 @@
     $('f-data').value = fattura ? fattura.data : today();
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
+    renderLineage(fattura);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
+  }
+  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
+  // cliccabili con l'intera filiera della fattura fornitore, come nel
+  // vecchio gestionale.
+  async function renderLineage(fattura){
+    const panel = $('f-lineage-panel');
+    if(!fattura){ panel.hidden = true; return; }
+    try{
+      const docs = await window.SaasLineage.loadAll(store, companyId);
+      const shown = window.SaasLineage.renderInto($('f-lineage'), 'fattureFornitore', fattura, docs);
+      panel.hidden = !shown;
+    }catch(e){ panel.hidden = true; }
   }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
   $('new-fattura').addEventListener('click', async () => {
@@ -429,14 +445,21 @@
 
   // Stesso schema di fatture.html, ma qui "pagata" invece di "incassata":
   // il denaro esce dall'azienda, non entra.
+  //
+  // Si parte SEMPRE dalla fattura esistente (Object.assign), non da un
+  // oggetto con solo i campi da cambiare: num/data/fornitoreId/righe sono
+  // colonne "not null" — un payload parziale fa fallire l'upsert con
+  // "null value in column ... violates not-null constraint" invece di
+  // limitarsi ad aggiornare i campi indicati. Bug reale, verificato in
+  // produzione: "segna pagata" non ha mai funzionato, stesso identico
+  // problema di fatture.html/togglePaid().
   async function togglePaid(fattura){
     const paid = !fattura.paid;
-    const doc = {
-      id: fattura.id,
+    const doc = Object.assign({}, fattura, {
       paid,
       paidDate: paid ? today() : null,
       pagamenti: paid ? [{ data: today(), importo: docTotale(fattura.righe) }] : [],
-    };
+    });
     await store.saveDoc('fattureFornitore', doc, companyId);
     await renderList();
   }
@@ -444,13 +467,17 @@
   // Azione collettiva: segna pagate/da pagare tutte le fatture selezionate
   // in un colpo solo — stesso schema di bulkPaid() nel gestionale
   // originale, con la data odierna per ognuna.
-  async function bulkMarkPaid(paid, righePerId){
-    const doc = paid
+  async function bulkMarkPaid(paid, docsPerId){
+    const patch = paid
       ? { paid: true, paidDate: today() }
       : { paid: false, paidDate: null, pagamenti: [] };
-    await Promise.all([...PICK].map(id => store.saveDoc('fattureFornitore', Object.assign({ id }, doc,
-      paid ? { pagamenti: [{ data: today(), importo: docTotale(righePerId[id] || []) }] } : {}
-    ), companyId)));
+    await Promise.all([...PICK].map(id => {
+      const base = docsPerId[id];
+      if(!base) return Promise.resolve();
+      const doc = Object.assign({}, base, patch,
+        paid ? { pagamenti: [{ data: today(), importo: docTotale(base.righe || []) }] } : {});
+      return store.saveDoc('fattureFornitore', doc, companyId);
+    }));
     PICK.clear();
     await renderList();
   }
@@ -556,9 +583,9 @@
       if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
       renderList();
     }));
-    const righePerId = Object.fromEntries(elenco.map(f => [f.id, f.righe]));
-    const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, righePerId));
-    const bu = $('bulk-unpaid'); if(bu) bu.addEventListener('click', () => bulkMarkPaid(false, righePerId));
+    const docsPerId = Object.fromEntries(elenco.map(f => [f.id, f]));
+    const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, docsPerId));
+    const bu = $('bulk-unpaid'); if(bu) bu.addEventListener('click', () => bulkMarkPaid(false, docsPerId));
     const bd = $('bulk-deselect'); if(bd) bd.addEventListener('click', deselectAll);
   }
 
@@ -597,6 +624,15 @@
     });
 
     await renderList();
+
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
+    // in un altro modulo (vedi app/lineage.js).
+    const pendingNum = window.SaasLineage.consumePendingOpenNum('fattureFornitore');
+    if(pendingNum){
+      const all = await store.loadCollection('fattureFornitore', companyId);
+      const found = all.find(x => x.num === pendingNum);
+      if(found) openForm(found);
+    }
   }
   init();
 </script>

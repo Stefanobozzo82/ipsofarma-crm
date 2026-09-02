@@ -345,9 +345,14 @@
     }));
   }
 
-  // ---- Registrazione: stesso schema di togglePaid/bulkMarkPaid già usato
-  // in fatture.html/fatture-fornitore.html — un patch parziale {id,
-  // pagamenti, paid, paidDate}, non l'intero documento.
+  // ---- Registrazione: si parte SEMPRE dal documento esistente completo
+  // (Object.assign), non da un patch parziale {id, pagamenti, paid,
+  // paidDate} — num/data/clienteId(o fornitoreId)/righe sono colonne "not
+  // null" e store.saveDoc() fa un upsert: Postgres valuta l'intera riga
+  // candidata anche per un aggiornamento (ON CONFLICT DO UPDATE), quindi un
+  // payload parziale fa fallire il salvataggio con "null value in column
+  // ... violates not-null constraint". Stesso bug reale già trovato e
+  // corretto in fatture.html/fatture-fornitore.html (togglePaid/bulkMarkPaid).
   $('registra-sel').addEventListener('click', async () => {
     const daRegistrare = matches.filter(m => m.selezionata && m.scelta);
     if(daRegistrare.length === 0){ setMsg('results-msg', 'Seleziona almeno un abbinamento da registrare.', 'error'); return; }
@@ -364,8 +369,9 @@
       const provaFattura = Object.assign({}, fattura, { pagamenti });
       const ps = payState(provaFattura, isFornitore);
       const paid = ps.state === 'completo';
+      const doc = Object.assign({}, fattura, { pagamenti, paid, paidDate: paid ? m.transazione.data : (fattura.paidDate || null) });
       try{
-        await store.saveDoc(coll, { id: fattura.id, pagamenti, paid, paidDate: paid ? m.transazione.data : (fattura.paidDate || null) }, companyId);
+        await store.saveDoc(coll, doc, companyId);
         fattura.pagamenti = pagamenti; fattura.paid = paid; // aggiorna la copia locale, per abbinamenti successivi sulla stessa fattura
         ok++;
       }catch(err){

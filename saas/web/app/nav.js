@@ -48,6 +48,20 @@
     ] },
   ];
 
+  // Barra in basso, solo sotto gli 860px (telefono): le 4 destinazioni più
+  // frequenti per chi controlla l'azienda "in movimento" (vedi la nota
+  // strategica sull'app — Fase 2), raggiungibili con un tocco del
+  // pollice senza dover aprire il cassetto laterale. "Altro" apre lo
+  // stesso cassetto di sempre per tutto il resto (Clienti, Fornitori,
+  // Magazzino, Assistente AI...) — sostituisce il vecchio pulsante ☰ in
+  // cima alla pagina, che serviva solo a quello.
+  const BOTTOM_ITEMS = [
+    { id: 'dashboard', label: 'Home', href: 'dashboard.html', ic: '◫' },
+    { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: '🛒' },
+    { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: '🧾' },
+    { id: 'scadenziario', label: 'Scadenze', href: 'scadenziario.html', ic: '📅' },
+  ];
+
   function esc(s) {
     return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   }
@@ -91,7 +105,7 @@
       tourBtn.addEventListener('click', () => { if (global.SaasTour) global.SaasTour.start(); });
     }
 
-    ensureMobileTopbar();
+    ensureMobileBottombar(currentId);
     renderOverdueBadge();
     // Tour guidato al primo accesso (app/tour.js) — un solo punto di
     // innesco per tutte le pagine, invece di doverlo aggiungere all'init()
@@ -138,26 +152,31 @@
 
   // Sotto gli 860px il menu laterale esce dal flusso della pagina e resta
   // nascosto a sinistra (vedi theme.css: .sidebar diventa position:fixed,
-  // translateX(-100%)) — stesso identico comportamento del gestionale
-  // originale (☰ apre/chiude un cassetto, non trasforma il menu in una
-  // barra orizzontale). Il pulsante ☰ non esiste già nell'HTML di ogni
-  // pagina (sarebbe da aggiungere a mano in undici file): lo crea questa
-  // funzione, una volta sola, appena prima del contenuto di .app-main.
-  function ensureMobileTopbar() {
-    let bar = document.getElementById('mobile-topbar');
+  // translateX(-100%)) — un cassetto che scorre sopra il contenuto, non lo
+  // sposta. Per aprirlo c'era un pulsante ☰ in cima alla pagina: sostituito
+  // da una barra fissa in fondo allo schermo (Fase 2 del piano app — vedi
+  // la nota strategica) con le 4 destinazioni più raggiunte al tocco del
+  // pollice, più "Altro" che apre lo stesso cassetto di sempre per il
+  // resto — stessa area del pollice dove il settore (banche, app di
+  // fatturazione) mette da anni la navigazione principale su telefono,
+  // invece che in cima dove serve allungare la mano. Creata una volta
+  // sola, appesa a document.body (position:fixed non dipende da dove sta
+  // nel DOM, e così evita qualunque contenitore che possa "intrappolarla").
+  function ensureMobileBottombar(currentId) {
+    let bar = document.getElementById('mobile-bottombar');
     if (!bar) {
-      const main = document.querySelector('.app-main');
-      if (!main) return;
       bar = document.createElement('div');
-      bar.id = 'mobile-topbar';
-      bar.className = 'mobile-topbar';
-      bar.innerHTML = '<button type="button" class="menu-btn" id="nav-menu-btn" aria-label="Apri il menu">☰</button>';
-      main.insertBefore(bar, main.firstChild);
+      bar.id = 'mobile-bottombar';
+      bar.className = 'mobile-bottombar';
+      document.body.appendChild(bar);
     }
-    const btn = document.getElementById('nav-menu-btn');
+    const isDirect = BOTTOM_ITEMS.some(it => it.id === currentId);
+    bar.innerHTML = BOTTOM_ITEMS.map(it => `<a class="${it.id === currentId ? 'on' : ''}" href="${it.href}"><span class="ic">${it.ic}</span>${esc(it.label)}</a>`).join('')
+      + `<button type="button" class="${isDirect ? '' : 'on'}" id="nav-more-btn"><span class="ic">☰</span>Altro</button>`;
+    const moreBtn = document.getElementById('nav-more-btn');
     const sidebar = document.getElementById('sidebar');
-    if (btn && sidebar) {
-      btn.onclick = () => { sidebar.classList.toggle('open'); };
+    if (moreBtn && sidebar) {
+      moreBtn.onclick = () => { sidebar.classList.toggle('open'); };
     }
   }
 

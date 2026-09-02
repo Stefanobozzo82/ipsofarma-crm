@@ -2956,6 +2956,44 @@ build punta a un URL esterno, per costruzione non testabile dal mock
 harness usato per il resto della SaaS) — il collaudo è la build stessa,
 riuscita.
 
+## App vera, Fase 2: navigazione a misura di pollice
+
+Richiesta: *"si funziona. proseguire"* (dopo aver confermato che l'apk
+compilato in Fase 1 funziona davvero, con login vero contro l'hosting
+vero) — seconda tappa della nota strategica "Da PWA ad app vera":
+sostituire la navigazione pensata per un mouse (menu laterale sempre
+presente, aperto da un pulsante ☰ in cima alla pagina) con qualcosa
+pensato per un pollice su un telefono, com'è ormai lo standard nel
+settore (app di fatturazione, banche): una barra fissa in fondo allo
+schermo con le destinazioni più frequenti a un tocco, sempre raggiungibili
+senza allungare la mano verso l'alto.
+
+**Cosa cambia** (solo sotto gli 860px — da desktop il menu laterale resta
+esattamente com'era): il vecchio pulsante ☰ in cima è sparito; al suo
+posto una barra fissa in basso con 4 destinazioni dirette — Home, Ordini,
+Fatture, Scadenze, scelte come le pagine controllate più spesso "in
+movimento" — più un quinto pulsante "Altro" che apre lo stesso cassetto
+laterale di sempre per tutto il resto (Clienti, Fornitori, Magazzino,
+Assistente AI...). La voce attiva si evidenzia: una delle 4 dirette
+quando ci si trova su quella pagina, "Altro" quando ci si trova altrove.
+`env(safe-area-inset-bottom)` tiene conto della barra dei gesti di iOS,
+in vista di una futura app iOS (oggi non ancora buildabile, serve un Mac).
+
+**File toccati**: `saas/web/app/nav.js` (nuova `ensureMobileBottombar()`
+al posto della vecchia `ensureMobileTopbar()`, un solo punto perché tutte
+le pagine condividono questo file) e `saas/web/app/theme.css` (stile della
+barra, e il contenuto della pagina (`.app-main`) con più spazio in fondo
+per non restare nascosto dietro la barra fissa).
+
+**Testato**: `test84_mobile_drawer.py` riscritto per i nuovi selettori,
+con due scenari aggiunti (le 5 voci della barra sono quelle attese e con
+le etichette giuste; su una pagina diretta è quella voce ad evidenziarsi,
+non "Altro") — 6 scenari, tutti passati. Verificato anche visivamente con
+screenshot a 390×844 (viewport di un telefono) che il modulo Fatture,
+elenco e form di modifica compresi, non ha contenuto nascosto dietro la
+nuova barra: i pulsanti Salva/Annulla in fondo al form restano ben
+visibili sopra di essa. Regressione completa della suite passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
@@ -2979,8 +3017,13 @@ Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
    `send-email` resta in modalità sandbox, utilizzabile solo verso
    l'indirizzo del titolare dell'account Resend, non fornitori/clienti
    veri.
-3. **App vera**: Fase 1 avviata — vedi la sezione dedicata qui sopra e
-   `saas/mobile/README.md`. Il pacchetto Android compila già davvero;
-   resta da collegare l'hosting pubblico (Cloudflare Pages) e, quando
-   l'azienda vorrà pubblicare sugli store, gli account sviluppatore
-   Apple/Google che solo il titolare può creare.
+3. **App vera**: Fasi 1 e 2 fatte — vedi le sezioni dedicate qui sopra e
+   `saas/mobile/README.md`. Pacchetto Android che compila davvero,
+   hosting pubblico collegato (con l'incidente di sicurezza del primo
+   deploy risolto), navigazione mobile ridisegnata per il pollice. Resta
+   sul tavolo, quando l'azienda vorrà: le schede al posto delle tabelle
+   fitte sugli elenchi in versione mobile (stessa nota strategica, non
+   ancora iniziata), poi le funzioni davvero native della Fase 3
+   (fotocamera per l'import IA, notifiche push, login biometrico) e,
+   solo per pubblicare sugli store, gli account sviluppatore Apple/Google
+   che solo il titolare può creare.

@@ -18,13 +18,25 @@ notifiche push, biometria) aggiunti via Capacitor mano a mano che servono
 Capacitor anche in modalità `server.url` — non è mai quello che si vede
 davvero.
 
-## Prima di compilare: l'hosting
+## L'hosting
 
-Le pagine in `saas/web/` oggi esistono solo nel repository — **non sono
-ancora pubblicate su un indirizzo pubblico**. `capacitor.config.json` ha
-per ora un indirizzo segnaposto (`https://ipsofarma-crm.pages.dev`, il
-formato tipico di Cloudflare Pages): va aggiornato con l'indirizzo vero non
-appena l'hosting è collegato (vedi la checklist più sotto).
+Le pagine in `saas/web/` sono pubblicate su Cloudflare Workers (static
+assets), collegato al repository GitHub — `capacitor.config.json` punta a
+`https://ipsofarma-crm.stefanobozzo82.workers.dev`.
+
+**Nota per chi tocca la configurazione di deploy**: il file `wrangler.jsonc`
+alla radice del repository è quello che decide COSA viene pubblicato
+(`assets.directory: "saas/web"`). La primissima volta che il progetto è
+stato collegato, quel file non esisteva ancora: Cloudflare ne ha generato
+uno da sé puntando all'intera cartella del repository invece che a
+`saas/web` — pubblicando per sbaglio anche `.git/` e un progetto non
+correlato che vive nello stesso spazio di lavoro. Corretto committando
+`wrangler.jsonc` esplicitamente (anche `"preview_urls": false`, perché
+ogni deploy genera un URL di anteprima permanente a sé: disattivarlo
+chiude l'accesso anche alle versioni già pubblicate, non solo alle
+prossime). **Se in futuro il deploy ricomincia a pubblicare più di
+`saas/web`, il primo posto da controllare è che `wrangler.jsonc` esista
+ancora alla radice del repository e non sia stato spostato o rinominato.**
 
 ## Come compilare (Android)
 
@@ -57,10 +69,9 @@ npx cap open ios      # apre Xcode, da lì si compila/firma/pubblica
 
 ## Checklist per pubblicare davvero (fuori dal codice, solo l'azienda può farlo)
 
-- [ ] **Hosting** per `saas/web/` — Cloudflare Pages consigliato (gratis,
-      collega il repository GitHub, cartella di output `saas/web`, nessun
-      comando di build). Una volta attivo, aggiornare `server.url` in
-      `capacitor.config.json` con l'indirizzo vero.
+- [x] **Hosting** per `saas/web/` — Cloudflare Workers, collegato al
+      repository GitHub (vedi sopra). `server.url` in
+      `capacitor.config.json` aggiornato con l'indirizzo vero.
 - [ ] **Icona e splash screen** dell'app — oggi sono i segnaposto generici
       di Capacitor (vedi `android/app/src/main/res/mipmap-*`), vanno
       sostituiti con la grafica vera di Ipsofarma prima della pubblicazione.

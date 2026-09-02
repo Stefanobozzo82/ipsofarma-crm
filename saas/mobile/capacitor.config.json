@@ -3,7 +3,7 @@
   "appName": "Ipsofarma CRM",
   "webDir": "www",
   "server": {
-    "url": "https://ipsofarma-crm.pages.dev",
+    "url": "https://ipsofarma-crm.stefanobozzo82.workers.dev",
     "cleartext": false
   },
   "android": {

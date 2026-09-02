@@ -1,0 +1,24 @@
+{
+  // Configurazione esplicita per il deploy Cloudflare Workers (static assets)
+  // di saas/web/ — SENZA questo file Cloudflare genera un wrangler.jsonc da
+  // sé al primo deploy, indovinando la cartella da pubblicare: ha indovinato
+  // male, pubblicando l'INTERO repository (compresa la cartella .git e un
+  // progetto non correlato che vive nello stesso spazio di lavoro) invece di
+  // solo saas/web. Corretto puntando esplicitamente "assets.directory".
+  //
+  // "preview_urls": false — ogni deploy genera anche un URL di anteprima
+  // separato e permanente per quella singola versione (vedi la
+  // documentazione Cloudflare su "Preview URLs"): disattivarlo chiude
+  // anche l'accesso alle versioni già pubblicate in precedenza (compresa
+  // quella che ha esposto .git), non solo alle prossime.
+  "name": "ipsofarma-crm",
+  "compatibility_date": "2026-09-02",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "saas/web"
+  }
+}

@@ -2928,14 +2928,20 @@ accettate) e compilato `./gradlew assembleDebug` con successo — un vero
 serve un Mac per la parte Android (a differenza di iOS, che richiede
 Xcode): questo è il motivo per cui la Fase 1 parte da lì.
 
-**Cosa manca prima che l'app mostri dati veri** (l'.apk oggi punta a un
-indirizzo segnaposto, `https://ipsofarma-crm.pages.dev`, che non esiste
-ancora): serve prima l'hosting pubblico di `saas/web/` — scelto
-Cloudflare Pages (gratis, collega il repository GitHub, nessuna
-configurazione per file statici come questi) — un passo che solo
-l'azienda può fare (serve il suo account). Una volta collegato, si
-aggiorna `server.url` con l'indirizzo vero e si ricompila: stesso
-comando, stesso risultato, ora con dentro l'app vera.
+**Hosting collegato** (Cloudflare, account dell'azienda) — ma il primo
+deploy ha rivelato un problema reale, non solo un dettaglio da sistemare:
+senza un `wrangler.jsonc` nel repository, Cloudflare ne ha generato uno da
+sé puntando all'INTERO repository invece che a `saas/web/` — pubblicando
+per sbaglio anche la cartella `.git/` (log del commit, riferimenti dei
+branch) e un progetto non correlato che vive nello stesso spazio di
+lavoro. Corretto committando un `wrangler.jsonc` esplicito alla radice del
+repository (`assets.directory: "saas/web"`, `preview_urls: false` — ogni
+deploy genera anche un URL di anteprima permanente a sé, che senza
+disattivarlo resterebbe raggiungibile anche dopo un deploy corretto: la
+documentazione Cloudflare conferma che disattivarlo chiude l'accesso
+anche alle versioni già pubblicate, non solo alle prossime). `server.url`
+in `capacitor.config.json` aggiornato con l'indirizzo vero
+(`ipsofarma-crm.stefanobozzo82.workers.dev`).
 
 **Cosa resta esplicitamente rimandato** (in `saas/mobile/README.md` come
 checklist): icona/splash screen (oggi i segnaposto generici di

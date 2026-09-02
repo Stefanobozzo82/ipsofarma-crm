@@ -2151,6 +2151,76 @@ controllo del limite fallisce. Nuove asserzioni `companyId` in
 `test117_importa_ai_estesa.py`/`test118_azioni_ai.py`. Regressione
 completa (65 file) passata.
 
+## Tour guidato al primo accesso
+
+Richiesta dell'azienda: *"sarebbe carino al primo accesso un tutorial
+tour guidato che spiega il programma"*. Chi apre il gestionale per la
+prima volta su un dispositivo si trova davanti undici voci di menu
+senza nessuna guida — un tour di 9 passi (~2 minuti) le presenta una
+per una, in linguaggio semplice, prima di lasciarlo esplorare da solo.
+
+**Resta sempre sulla pagina in cui ci si trova**, non naviga mai
+davvero: ogni passo evidenzia una voce della sidebar (identica su ogni
+pagina, vedi `app/nav.js`), quindi funziona a prescindere da dove
+l'utente sia atterrato dopo il login — oggi `clienti.html`, non
+`dashboard.html` come si potrebbe pensare, e il tour non deve
+dipendere da quel dettaglio.
+
+**Il problema tecnico vero era il velo scuro**: l'idea ovvia — dimming
+a tutto schermo più uno `z-index` alto sull'elemento evidenziato per
+farlo "bucare" sopra — non funziona qui, perché `.sidebar` ha
+`position:sticky`, che per specifica crea SEMPRE un proprio contesto
+di impilamento. Uno z-index su un suo elemento interno resta
+intrappolato dentro quel contesto e non può mai numericamente superare
+un velo esterno (fratello di `.sidebar`, non discendente) con z-index
+più alto. Risolto scartando l'idea di "bucare" il velo: **quattro
+rettangoli** (sopra/sotto/sinistra/destra del riquadro dell'elemento,
+mai sopra di lui) lasciano l'elemento nel suo punto normale del DOM,
+mai davvero coperto — nessuno z-index da far vincere. Verificato non
+solo a ragionamento ma con uno screenshot reale (tema chiaro e scuro):
+il link "Dashboard" resta perfettamente cliccabile e visibile, col
+solo contorno decorativo `.tour-spotlight`.
+
+**Stato**: `localStorage` (`saas_tour_done`), come `saas_theme` — per
+dispositivo/browser, non per azienda: chi si unisce dopo a
+un'azienda già avviata vede comunque il tour la prima volta che apre
+il gestionale su quel dispositivo. Un pulsante "🎓 Rifai il tour" in
+fondo al menu (`app/nav.js`) lo fa ripartire in ogni momento,
+ignorando il flag. Un solo punto di innesco (`SaasNav.render()` chiama
+`SaasTour.maybeStart()` alla fine) invece di doverlo aggiungere
+all'`init()` di ogni pagina — basta includere `app/tour.js` accanto ad
+`app/nav.js`, fatto su tutte le pagine con sidebar (21, non su
+`index.html` che non ne ha una).
+
+Frecce ← →, Esc per saltare, clic fuori dal riquadro per saltare —
+oltre ai pulsanti "Indietro"/"Avanti"/"Salta il tour" nella card.
+
+**Un vero effetto collaterale trovato in regressione**: appena
+`app/tour.js` è finito su ogni pagina, 34 test preesistenti (dal
+vecchio `test73` al recente `test120`) hanno iniziato a fallire — non
+per un bug nel tour, ma perché ogni test apre una pagina con un
+browser/localStorage vuoto, quindi il tour parte davvero, e il suo
+velo (`.tour-curtain`) intercetta i clic sui pulsanti che i test
+volevano premere (`Page.click: ... <div class="tour-curtain">
+intercepts pointer events`). Corretto impostando
+`localStorage.setItem('saas_tour_done','1')` nel setup di ogni test
+esistente, accanto a dove già impostano `saas_company_id` — lo stesso
+accorgimento già usato da `test103_tema_chiaro_scuro.py`, scritto
+prima che il tour esistesse ma già per un motivo simile (evitare
+interferenze da stato non pertinente al test).
+
+Nuovo `test121_tour.py` (9 scenari): parte da solo al primo accesso,
+passo 1 di 9 senza bersaglio (velo unico, nessuno spotlight), Avanti
+mostra il passo 2 con bersaglio (4 rettangoli-velo + spotlight, niente
+z-index/position forzati sull'elemento), Indietro torna al passo
+precedente, Esc salta e salva il flag, dopo un reload il tour NON
+riparte da solo, "Rifai il tour" lo fa ripartire ignorando il flag,
+"Salta il tour" chiude come Esc, si arriva fino al passo 9 di 9
+("Fine" invece di "Avanti →"), funziona anche su una pagina diversa
+dalla dashboard. Regressione completa (65 file) passata: solo i due
+fallimenti preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

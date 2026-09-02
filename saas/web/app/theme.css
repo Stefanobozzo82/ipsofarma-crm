@@ -452,3 +452,17 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .pill.unpaid{ color:var(--amber); background:var(--amber-s); }
 
 ::selection{ background:var(--accent-soft); }
+
+/* Tour guidato al primo accesso (app/tour.js) — un'anteprima rapida della
+ * sidebar, mostrata una sola volta per dispositivo. Il "buco" nel velo
+ * scuro è ottenuto con quattro rettangoli intorno all'elemento evidenziato
+ * (mai un z-index sull'elemento stesso — vedi la nota in testa a tour.js
+ * sul perché: .sidebar ha il proprio contesto d'impilamento). */
+.tour-curtain{ position:fixed; background:rgba(10,14,20,.6); z-index:9998; }
+.tour-spotlight{ outline:3px solid var(--accent); outline-offset:2px; border-radius:8px; }
+.tour-card{ position:fixed; z-index:10000; width:320px; max-width:calc(100vw - 24px); background:var(--surface); border:1px solid var(--border2); border-radius:14px; padding:18px 20px; box-shadow:var(--sh-lg); }
+.tour-step{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--accent-d); font-weight:700; margin-bottom:6px; }
+.tour-card h3{ margin:0 0 8px; font-size:16px; }
+.tour-card p{ margin:0 0 16px; font-size:13.5px; line-height:1.55; color:var(--muted); }
+.tour-actions{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.tour-nav{ display:flex; gap:8px; }

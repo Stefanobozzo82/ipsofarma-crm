@@ -77,6 +77,7 @@
         <div class="account-links">
           <a href="index.html">Cambia azienda</a>
           <button id="nav-logout" type="button">Esci</button>
+          <button id="nav-tour" type="button">🎓 Rifai il tour</button>
         </div>
       </div>
     `;
@@ -85,9 +86,19 @@
     if (logoutBtn && opts.onLogout) {
       logoutBtn.addEventListener('click', () => { opts.onLogout(); });
     }
+    const tourBtn = document.getElementById('nav-tour');
+    if (tourBtn) {
+      tourBtn.addEventListener('click', () => { if (global.SaasTour) global.SaasTour.start(); });
+    }
 
     ensureMobileTopbar();
     renderOverdueBadge();
+    // Tour guidato al primo accesso (app/tour.js) — un solo punto di
+    // innesco per tutte le pagine, invece di doverlo aggiungere all'init()
+    // di ognuna. Se lo script non è incluso in questa pagina (non
+    // dovrebbe succedere: va aggiunto ovunque c'è nav.js) semplicemente
+    // non parte, senza errori.
+    if (global.SaasTour) global.SaasTour.maybeStart();
   }
 
   // Il badge rosso sulla voce "Scadenziario" (quante fatture cliente sono

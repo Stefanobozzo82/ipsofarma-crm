@@ -3125,6 +3125,40 @@ nativo vero (impronta reale, selettore fotocamera reale) resta da fare
 sul telefono, come per la Fase 1. Regressione completa della suite (80
 file) passata.
 
+## Assistente AI: non sapeva rispondere sul fatturato/acquisti di un mese per una singola controparte
+
+Segnalato: *"ho chiesto all'ai se mi diceva il fatturato di un singolo
+mese di un cliente o il totale delle fatture acquisti di un singolo mese
+di un singolo fornitore ma non ha funzionato"*.
+
+**Causa reale, non un errore del provider IA**: il riepilogo mandato
+all'assistente (`buildContext()`) include il fatturato/gli acquisti
+aggregati SOLO del mese corrente, mai per singola controparte; la
+"ricerca mirata" per nome citato (`findMirroredDetail()`) allegava solo
+il residuo ancora APERTO di quella controparte, mai un totale
+fatturato/acquistato per un mese. Alla domanda dell'utente non
+corrispondeva alcun dato nel contesto: l'assistente, correttamente
+istruito a non inventare cifre, rispondeva che non aveva quel dato — cosa
+che, da fuori, si vede come "non ha funzionato".
+
+**Corretto** aggiungendo `parseMeseFromText()` (riconosce un mese citato
+nella domanda: nome italiano con o senza anno, "AAAA-MM", "il mese
+scorso", "questo mese" — stesso spirito "semplice, corrispondenza di
+stringa" già scelto per `findMirroredDetail`, non un parser NLP) e
+usandolo, quando la domanda cita anche un cliente o un fornitore, per
+allegare il totale REALE fatturato/acquistato in quel mese (pagate e
+non — è quello che si intende di solito per "fatturato", non solo
+l'insoluto) da quella controparte, con l'elenco delle fatture del mese.
+
+**Testato**: nuovo `test140_assistente_mese_controparte.py` (6 scenari —
+mese con anno esplicito, una fattura non pagata conta comunque nel
+fatturato, lato fornitore, mese senza anno assume quello corrente, una
+domanda senza mese resta invariata sul solo residuo aperto, nessuna
+controparte citata non aggiunge nulla) verificando il messaggio di
+sistema "mirrored" mandato all'IA (non la risposta vera, che dipende dal
+provider). `test100_assistente_ai.py` (già esistente) e la regressione
+completa della suite (80 file) passati.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

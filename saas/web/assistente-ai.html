@@ -291,6 +291,32 @@
     ['noteCredito', 'Nota di credito cliente'], ['noteCreditoFornitore', 'Nota di credito fornitore'],
     ['preventivi', 'Preventivo'], ['ddt', 'DDT'],
   ];
+
+  // Un mese citato nella domanda ("il fatturato di aprile", "quanto mi ha
+  // comprato la Bianchi a marzo 2025?", "il mese scorso") -> "AAAA-MM",
+  // stesso formato di "period" usato dalle azioni (vedi periodLabel/
+  // inPeriod più sopra). Deliberatamente semplice, stessa filosofia di
+  // findMirroredDetail: un nome di mese in italiano più un anno opzionale
+  // (quello corrente se assente) copre la stragrande maggioranza delle
+  // domande reali, senza serve un parser NLP.
+  const MESI_IT = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  function parseMeseFromText(text){
+    const q = (text || '').toLowerCase();
+    const iso = q.match(/\b(20\d{2})-(0[1-9]|1[0-2])\b/);
+    if(iso) return iso[1] + '-' + iso[2];
+    for(let i = 0; i < MESI_IT.length; i++){
+      if(!q.includes(MESI_IT[i])) continue;
+      const conAnno = q.match(new RegExp(MESI_IT[i] + '\\s+(20\\d{2})'));
+      const anno = conAnno ? conAnno[1] : String(new Date().getFullYear());
+      return anno + '-' + String(i + 1).padStart(2, '0');
+    }
+    if(/mese scors/.test(q)){
+      const d = new Date(); d.setMonth(d.getMonth() - 1);
+      return d.toISOString().slice(0, 7);
+    }
+    if(/questo mese|mese corrente/.test(q)) return today().slice(0, 7);
+    return null;
+  }
   function docDetailText(label, it, party){
     const righeTxt = (it.righe || []).map(r => `  - ${r.descr || r.cod || '(riga senza descrizione)'}: qty ${r.qty}, prezzo ${eur(r.prezzo)}${r.sconto ? ', sconto ' + r.sconto + '%' : ''}, IVA ${r.iva}%`).join('\n');
     const lines = [`${label} ${it.num}, del ${it.data || '?'}, controparte: ${(party || {}).nome || '?'}.`];
@@ -316,12 +342,27 @@
     const qLower = question.toLowerCase();
     const matchParty = (elenco) => elenco.filter(p => p.nome && p.nome.length > 3 && qLower.includes(p.nome.toLowerCase()))
       .sort((a, b) => b.nome.length - a.nome.length)[0];
+    // Un mese citato insieme al nome ("il fatturato di [cliente] ad aprile",
+    // "quanto ho comprato da [fornitore] il mese scorso") -> in più al
+    // residuo ancora aperto (sempre utile), il totale REALE fatturato in
+    // quel mese (pagate e non, è quello che si intende di solito per
+    // "fatturato"/"acquisti", non solo l'insoluto) — mancava del tutto
+    // prima di questa aggiunta, la domanda non aveva alcun dato a cui
+    // agganciarsi nel riepilogo generale (solo il mese corrente, mai per
+    // singola controparte, vedi buildContext).
+    const mese = parseMeseFromText(question);
     const cliente = matchParty(db.clienti);
     if(cliente){
       const aperte = db.fattureCliente.filter(f => f.clienteId === cliente.id).map(f => ({ f, r: residuo(f, db.noteCredito, db.fattureCliente) })).filter(x => x.r > 0.01);
       const tot_ = aperte.reduce((s, x) => s + x.r, 0);
       blocks.push(`Cliente "${cliente.nome}": ${aperte.length} fatture ancora aperte, totale da incassare ${eur(tot_)}.\n` +
         (aperte.length ? aperte.map(x => `  - ${x.f.num} del ${x.f.data}: ${eur(x.r)}`).join('\n') : '  (nessuna fattura aperta)'));
+      if(mese){
+        const delMese = db.fattureCliente.filter(f => f.clienteId === cliente.id && inPeriod(f.data, mese));
+        const totMese = delMese.reduce((s, f) => s + tot(f.righe), 0);
+        blocks.push(`Fatturato di "${cliente.nome}" a ${periodLabel(mese)}: ${eur(totMese)} (${delMese.length} fatture, pagate e non).\n` +
+          (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(tot(f.righe))}`).join('\n') : '  (nessuna fattura in quel mese)'));
+      }
     }
     const fornitore = matchParty(db.fornitori);
     if(fornitore){
@@ -329,6 +370,12 @@
       const tot_ = aperte.reduce((s, x) => s + x.r, 0);
       blocks.push(`Fornitore "${fornitore.nome}": ${aperte.length} fatture ancora aperte, totale da pagare ${eur(tot_)}.\n` +
         (aperte.length ? aperte.map(x => `  - ${x.f.num} del ${x.f.data}: ${eur(x.r)}`).join('\n') : '  (nessuna fattura aperta)'));
+      if(mese){
+        const delMese = db.fattureFornitore.filter(f => f.fornitoreId === fornitore.id && inPeriod(f.data, mese));
+        const totMese = delMese.reduce((s, f) => s + tot(f.righe), 0);
+        blocks.push(`Acquisti da "${fornitore.nome}" a ${periodLabel(mese)}: ${eur(totMese)} (${delMese.length} fatture, pagate e non).\n` +
+          (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(tot(f.righe))}`).join('\n') : '  (nessuna fattura in quel mese)'));
+      }
     }
     return blocks.length ? blocks.join('\n\n') : null;
   }

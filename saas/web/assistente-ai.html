@@ -30,6 +30,8 @@
       <p class="sub">Fai una domanda sui dati aziendali: chi deve pagare/incassare cosa, fatturato del mese, ordini aperti…</p>
     </div>
 
+    <p class="msg" id="ai-limit-banner" hidden></p>
+
     <div class="card ai-wrap">
       <p class="ai-intro">Le risposte si basano su un riepilogo dei dati aziendali calcolato ad ogni domanda — nessun dato lascia il server del provider IA se non quello. Per creare o modificare documenti c'è la sezione "Esegui un'azione" più sotto, sempre con un'anteprima da confermare.</p>
       <div class="ai-examples">
@@ -104,6 +106,11 @@
   // sistema): una conversazione vera, non un singolo giro come nel
   // gestionale originale.
   let HISTORY = [];
+  // Limite mensile di chiamate IA per azienda (0011_limite_ai.sql) —
+  // l'applicazione VERA è lato server in ai-proxy (non aggirabile), questo
+  // è solo l'avviso proattivo: niente sorpresa dopo aver scritto una
+  // domanda lunga, si vede subito se il mese è già esaurito.
+  let AI_LIMIT = { ok: true };
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
@@ -322,6 +329,7 @@
   async function send(question){
     question = (question || '').trim();
     if(!question) return;
+    if(!AI_LIMIT.ok){ renderAiLimitBanner(); return; } // difesa in profondità: il bottone è già disabilitato, ma il tasto Invio lo aggirerebbe
     addBubble('user', question);
     HISTORY.push({ role:'user', content: question });
     $('ai-q').value = '';
@@ -332,7 +340,7 @@
       const messages = [{ role:'system', content: SYSTEM_PROMPT }];
       if(mirrored) messages.push({ role:'system', content: 'Dettaglio pertinente alla domanda corrente (più preciso del riepilogo generale, usalo se la domanda riguarda uno di questi documenti o controparti):\n\n' + mirrored });
       messages.push(...HISTORY);
-      const reply = await store.aiComplete(messages);
+      const reply = await store.aiComplete(messages, { companyId });
       pending.remove();
       addBubble('assistant', reply);
       HISTORY.push({ role:'assistant', content: reply });
@@ -602,13 +610,14 @@ Data odierna: ${today()}.`;
     const q = ($('action-q').value || '').trim();
     if(!q) return;
     if(!DB){ actionSetOut('<div class="ai-plan"><div class="ai-plan-expl">Sto ancora caricando i dati, riprova tra un istante.</div></div>'); return; }
+    if(!AI_LIMIT.ok){ renderAiLimitBanner(); return; } // difesa in profondità: il bottone è già disabilitato, ma il tasto Invio lo aggirerebbe
     $('action-go').disabled = true;
     actionSetOut('<p class="ai-intro">Sto interpretando l\'istruzione…</p>');
     try{
       const reply = await store.aiComplete([
         { role: 'system', content: actionSystemPrompt() },
         { role: 'user', content: q },
-      ], { model: 'gemini-2.5-pro', maxTokens: 1200 });
+      ], { model: 'gemini-2.5-pro', maxTokens: 1200, companyId });
       const plan = window.SaasAiImport.parseAiJson(reply);
       const acts = (plan && plan.actions) || [];
       if(!acts.length){
@@ -695,6 +704,22 @@ Data odierna: ${today()}.`;
     const ctx = buildContext(DB);
     $('no-context').hidden = ctx.hasData;
     SYSTEM_PROMPT = `Sei l'assistente del gestionale di "${companyName}", un'azienda che vende a farmacie e strutture sanitarie. Rispondi SEMPRE in italiano, in modo conciso e diretto. Usa SOLO i dati del riepilogo qui sotto: non inventare cifre e non citare clienti, fornitori o importi che non compaiono nel riepilogo. Se ti manca un dato per rispondere, dillo chiaramente invece di indovinare. In questa conversazione non puoi creare, modificare o eliminare nulla: per quello c'è la sezione "Esegui un'azione" più sotto nella stessa pagina, spiegalo se te lo chiedono.\n\nRiepilogo dei dati aziendali:\n${ctx.text}`;
+
+    try{ AI_LIMIT = await store.checkAiLimit(companyId); }
+    catch(e){ AI_LIMIT = { ok: true }; } // un errore nel controllo non deve bloccare l'assistente: al più lo scopre ai-proxy alla prima richiesta
+    renderAiLimitBanner();
+  }
+
+  function renderAiLimitBanner(){
+    const banner = $('ai-limit-banner');
+    if(AI_LIMIT.ok){ banner.hidden = true; }
+    else{
+      banner.hidden = false;
+      banner.className = 'msg error';
+      banner.textContent = `Hai raggiunto il limite mensile di ${AI_LIMIT.limite} richieste IA del piano "${AI_LIMIT.piano}". Riprova dal mese prossimo, oppure passa a un piano superiore in Impostazioni → Abbonamento.`;
+    }
+    $('ai-go').disabled = !AI_LIMIT.ok;
+    $('action-go').disabled = !AI_LIMIT.ok;
   }
 
   async function init(){

@@ -14,13 +14,12 @@
 // il server non esegue mai una richiesta per conto di qualcuno che non sia
 // un utente autenticato e appartenente ad almeno un'azienda.
 //
-// Il corpo della richiesta accettato è VOLUTAMENTE identico a quello che
-// aiComplete() in index.html già costruisce per il provider 'openai'
-// (l'endpoint compatibile OpenAI di Gemini): {model, temperature,
-// max_tokens, messages}. Così, quando arriverà il momento di collegare
-// l'assistente IA anche al prodotto multi-azienda, il codice che COSTRUISCE
-// la richiesta non cambierà — cambierà solo a chi viene mandata (qui,
-// invece che direttamente a Gemini).
+// Il corpo della richiesta è quasi identico a quello che aiComplete() in
+// index.html già costruisce per il provider 'openai' (l'endpoint compatibile
+// OpenAI di Gemini): {model, temperature, max_tokens, messages}, con
+// l'aggiunta di companyId (0011_limite_ai.sql) — necessario per sapere per
+// quale azienda contare la chiamata contro il limite mensile, tolto dal
+// corpo prima di inoltrarlo a Gemini (che non lo conosce).
 // ============================================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -77,27 +76,59 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'sessione non valida o scaduta' }, 401);
   }
 
-  // Un account senza nessuna azienda associata (creato ma non ancora
-  // registrato/collegato a una company) non deve poter consumare la quota
-  // IA condivisa: verifichiamo che appartenga ad almeno un'azienda.
-  const { data: memberships, error: memErr } = await supabase
-    .from('my_memberships')
-    .select('company_id')
-    .limit(1);
-  if (memErr || !memberships || memberships.length === 0) {
-    return json({ error: 'nessuna azienda associata a questo utente' }, 403);
-  }
-
-  const geminiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!geminiKey) {
-    return json({ error: 'chiave IA non configurata sul server' }, 500);
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return json({ error: 'corpo della richiesta non valido (JSON atteso)' }, 400);
+  }
+
+  // companyId identifica PER QUALE azienda contare questa chiamata contro
+  // il limite mensile (0011_limite_ai.sql) — store.aiComplete() lo manda
+  // sempre ora. Verifichiamo che l'utente appartenga davvero a quella
+  // azienda specifica (non "ad almeno una qualunque", come prima di avere
+  // un limite per-azienda: senza questo controllo, chi appartiene a più
+  // aziende potrebbe far consumare la quota di un'azienda a cui non
+  // appartiene passandone semplicemente l'id).
+  const companyId = typeof body.companyId === 'string' ? body.companyId : '';
+  if (!companyId) {
+    return json({ error: 'companyId mancante' }, 400);
+  }
+  const { data: memberships, error: memErr } = await supabase
+    .from('my_memberships')
+    .select('company_id');
+  if (memErr || !memberships || !memberships.some((m) => m.company_id === companyId)) {
+    return json({ error: 'non fai parte di questa azienda' }, 403);
+  }
+
+  // Limite mensile di chiamate IA per azienda (0011_limite_ai.sql): un
+  // freno sul costo, non sui documenti — la chiave Gemini è UNA sola,
+  // condivisa da tutte le aziende del SaaS, quindi un uso molto intenso da
+  // parte di una sola azienda costerebbe uguale a nessun uso, a parità di
+  // abbonamento, se non ci fosse questo controllo.
+  const { data: company, error: companyErr } = await supabase
+    .from('companies').select('piano').eq('id', companyId).single();
+  if (companyErr || !company) {
+    return json({ error: 'azienda non trovata' }, 404);
+  }
+  const { data: plan } = await supabase
+    .from('plans').select('nome, limite_ai_mese').eq('id', company.piano).maybeSingle();
+  if (plan && plan.limite_ai_mese != null) {
+    const { data: count, error: countErr } = await supabase
+      .rpc('count_ai_usage_this_month', { p_company_id: companyId });
+    if (countErr) {
+      return json({ error: 'errore nel controllo del limite IA: ' + countErr.message }, 500);
+    }
+    if ((count ?? 0) >= plan.limite_ai_mese) {
+      return json({
+        error: `Hai raggiunto il limite mensile di ${plan.limite_ai_mese} richieste IA del piano "${plan.nome}". Riprova dal mese prossimo, oppure passa a un piano superiore in Impostazioni → Abbonamento.`,
+      }, 429);
+    }
+  }
+
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!geminiKey) {
+    return json({ error: 'chiave IA non configurata sul server' }, 500);
   }
 
   // Punto 4 del piano di miglioramento IA: il client sceglie il modello
@@ -112,6 +143,9 @@ Deno.serve(async (req: Request) => {
   if (typeof body.model !== 'string' || !ALLOWED_MODELS.has(body.model)) {
     body.model = 'gemini-2.5-flash';
   }
+  // companyId non fa parte dello schema che Gemini si aspetta (era solo
+  // per il controllo qui sopra): non lo inoltriamo.
+  delete body.companyId;
 
   let upstream: Response;
   try {
@@ -126,6 +160,17 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     return json({ error: 'errore di rete verso il provider IA: ' + String(e) }, 502);
   }
+
+  // Registrata DOPO la chiamata (non prima di provare a fare la richiesta,
+  // né solo sui successi): rispecchia meglio "quante volte abbiamo
+  // effettivamente occupato la chiave condivisa", indipendentemente da come
+  // Gemini ha risposto. Un fallimento qui non deve far sembrare fallita una
+  // risposta IA che invece è arrivata bene — vedi la stessa scelta altrove
+  // in questo progetto (un errore di bookkeeping non blocca l'operazione
+  // principale già riuscita).
+  try {
+    await supabase.from('ai_usage').insert({ company_id: companyId });
+  } catch (_e) { /* non blocca la risposta */ }
 
   // La risposta (compreso un eventuale errore di Gemini: modello sbagliato,
   // richiesta malformata...) viene restituita così com'è: il client la

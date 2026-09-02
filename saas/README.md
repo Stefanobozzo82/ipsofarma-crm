@@ -2097,6 +2097,60 @@ generate_supplier_order raggruppa per fornitore e prezzo dal listino
 d'acquisto, idempotenza, "ordine non trovato" per tutte e tre.
 Regressione completa (63 file) passata.
 
+## Limite mensile di uso dell'IA per azienda
+
+Chiude una domanda concreta: *l'IA funziona ancora bene se la usano
+tante aziende insieme?* Per l'isolamento dei dati sì (RLS già lo
+garantiva, verificato nel codice) e l'infrastruttura scala da sola
+(ai-proxy è una funzione serverless, non un server con un numero fisso
+di "posti"). Il punto debole vero era il costo: **una sola chiave
+Gemini condivisa da tutte le aziende del SaaS**, pagata da chi gestisce
+il prodotto — e fino ad ora nessun limite frenava quante domande alla
+chat, quante azioni o quante letture di PDF/foto (il modello più caro,
+gemini-2.5-pro) un'azienda potesse fare in un mese. Un uso molto
+intenso da parte di una sola azienda sarebbe costato uguale a nessun
+uso, a parità di abbonamento.
+
+**Migrazione `0011_limite_ai.sql`**: nuova tabella `ai_usage` (una riga
+per ogni chiamata inoltrata a Gemini, RLS "solo la propria azienda,
+niente update/delete dal client"), colonna `plans.limite_ai_mese`
+(trial 50, base 300, pro 1000 al mese — a differenza di
+`limite_documenti_mese`, qui anche i piani a pagamento hanno un
+limite: non è una leva di vendita ma un freno sul costo), e la funzione
+`count_ai_usage_this_month()` (security definer, stesso schema di
+sicurezza di `next_document_number()`/`list_members()`).
+
+**Applicazione VERA, lato server, in `ai-proxy`** — non aggirabile dal
+client: la richiesta ora porta anche `companyId` (verificato che
+l'utente appartenga davvero a quell'azienda, non a "una qualunque"
+come prima), il conteggio del mese viene controllato PRIMA di
+chiamare Gemini (429 con un messaggio chiaro se già raggiunto), e ogni
+chiamata che arriva a Gemini viene registrata in `ai_usage` DOPO
+(indipendentemente dall'esito: rispecchia meglio "quante volte
+abbiamo occupato la chiave", e un fallimento nella registrazione non
+fa sembrare fallita una risposta arrivata bene). Ridistribuita
+(versione 12), verificata viva con una chiamata senza autenticazione.
+
+**Lato client**: `store.aiComplete()` ora richiede `companyId` (lancia
+un errore se manca — un bug interno da scoprire subito, non in
+produzione) e lo inoltra sempre; tutti i chiamanti (`ai-import.js`,
+`assistente-ai.html` chat e azioni) aggiornati per passarlo. Nuovo
+`store.checkAiLimit()` (stesso schema di `checkDocLimit()`) usato in
+`assistente-ai.html` per un avviso proattivo — un banner chiaro con
+bottoni disabilitati (anche il tasto Invio, non solo il clic) invece
+di scoprire il limite dopo aver scritto la domanda; se il controllo
+stesso fallisce (rete), l'assistente resta comunque usabile — non si
+blocca da solo per un problema che non è colpa del limite.
+
+Nuovo `test120_limite_ai.py` (4 scenari): nessun avviso entro il
+limite, `companyId` passato sempre a `store.aiComplete()` da chat e
+azioni, banner + bottoni disabilitati + invio bloccato da tastiera
+quando il limite è raggiunto, l'assistente resta usabile se il
+controllo del limite fallisce. Nuove asserzioni `companyId` in
+`test100_assistente_ai.py`/`test101_importa_ai.py`/
+`test117_importa_ai_estesa.py`/`test118_azioni_ai.py`. Regressione
+completa (65 file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -315,6 +315,7 @@
       const p = await window.SaasAiImport.extractFromFile(store, file, {
         systemPrompt: "Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick.",
         instr: AI_IMPORT_INSTR,
+        companyId,
       });
       if(!p.numero && !p.righe){ throw new Error('l\'AI non ha riconosciuto una fattura fornitore in questo file'); }
 

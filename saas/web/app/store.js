@@ -227,6 +227,22 @@
     return { ok: count < plan.limite_documenti_mese, count, limite: plan.limite_documenti_mese, piano: plan.nome };
   }
 
+  // Uso mensile dell'IA per azienda (0011_limite_ai.sql) — stesso schema di
+  // checkDocLimit(), ma qui il freno è sul COSTO (la chiave Gemini è UNA
+  // sola, condivisa da tutte le aziende del SaaS — vedi ai-proxy), non sui
+  // documenti creati: anche i piani a pagamento hanno un limite, largo ma
+  // non infinito. L'applicazione VERA è lato server, in ai-proxy — questa
+  // è solo la verifica preventiva per un avviso chiaro nell'interfaccia
+  // invece di scoprirlo dopo aver scritto la domanda.
+  async function checkAiLimit(companyId) {
+    const [company, plans] = await Promise.all([getCompany(companyId), loadPlans()]);
+    const plan = plans.find(p => p.id === company.piano);
+    if (!plan || plan.limite_ai_mese == null) return { ok: true };
+    const { data: count, error } = await client().rpc('count_ai_usage_this_month', { p_company_id: companyId });
+    if (error) throw error;
+    return { ok: count < plan.limite_ai_mese, count, limite: plan.limite_ai_mese, piano: plan.nome };
+  }
+
   // ---------------------------------------------------------------------------
   // Magazzino (Fase 6 quater): depositi e movimenti — vedi 0009_magazzino.sql.
   // La giacenza non è mai salvata: è sempre ricalcolata dalla vista
@@ -351,13 +367,17 @@
   // Assistente AI (Fase 6). Stesso principio di startCheckout(): il client
   // non parla mai direttamente col provider IA né vede la sua chiave, passa
   // sempre dall'Edge Function ai-proxy (Fase 3) — dove la chiave Gemini vive
-  // come secret del progetto. Il corpo è volutamente identico a quello che
+  // come secret del progetto. Il corpo è quasi identico a quello che
   // aiComplete() in index.html costruisce per il provider 'openai'
   // (l'endpoint compatibile OpenAI di Gemini): {model, temperature,
-  // max_tokens, messages}.
+  // max_tokens, messages}, con l'aggiunta di companyId — obbligatorio da
+  // quando esiste un limite mensile per azienda (0011_limite_ai.sql):
+  // ai-proxy lo usa per sapere contro quale azienda contare la chiamata, e
+  // rifiuta la richiesta se manca.
   // ---------------------------------------------------------------------------
   async function aiComplete(messages, opts) {
     opts = opts || {};
+    if (!opts.companyId) throw new Error('companyId mancante (bug interno: chi chiama aiComplete deve sempre passarlo)');
     const session = await getSession();
     if (!session) throw new Error('devi essere collegato');
     const res = await fetch(global.SUPABASE_URL + '/functions/v1/ai-proxy', {
@@ -367,6 +387,7 @@
         model: opts.model || 'gemini-2.5-flash',
         temperature: opts.temperature != null ? opts.temperature : 0.3,
         max_tokens: opts.maxTokens || 900,
+        companyId: opts.companyId,
         messages,
       }),
     });
@@ -458,7 +479,7 @@
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit,
+    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,
     addMovimento, giacenzeForProdotti, listMovimentiRecenti,

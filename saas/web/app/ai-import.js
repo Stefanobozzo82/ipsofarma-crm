@@ -77,7 +77,9 @@
   }
 
   // Punto d'ingresso unico: file -> immagini -> chiamata AI -> JSON.
-  // opts: { systemPrompt, instr, maxTokens, model }
+  // opts: { systemPrompt, instr, maxTokens, model, companyId }
+  // companyId è obbligatorio (0011_limite_ai.sql — vedi la nota in
+  // store.aiComplete()): chi chiama extractFromFile deve sempre passarlo.
   //
   // Punto 4 del piano di miglioramento IA: modello più capace di proposito
   // ('gemini-2.5-pro', non l'economico 'gemini-2.5-flash' usato per la
@@ -93,7 +95,7 @@
     const reply = await store.aiComplete([
       { role: 'system', content: opts.systemPrompt || "Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick." },
       { role: 'user', content },
-    ], { maxTokens: opts.maxTokens || 4000, model: opts.model || 'gemini-2.5-pro' });
+    ], { maxTokens: opts.maxTokens || 4000, model: opts.model || 'gemini-2.5-pro', companyId: opts.companyId });
     return parseAiJson(reply);
   }
 

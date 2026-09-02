@@ -2780,6 +2780,46 @@ Aggiornati anche due test preesistenti che si aspettavano il vecchio
 Regressione completa (76 file, esclusi i due gated da credenziali
 reali) passata.
 
+## Assistente AI: "segna incassata/pagata" non riusciva a puntare a UNA fattura per numero
+
+Richiesta: *"ho provato a portare incassata la fattura 195 con ai ma
+nn l'ha fatto mentre a mano si"*. Causa: lo schema dell'azione
+`mark_paid`/`mark_unpaid` (`actionSystemPrompt()` in
+`assistente-ai.html`) aveva solo `target`/`party`/`period` — **nessun
+campo per indicare una fattura specifica per numero**. "Segna
+incassata la fattura 195" non aveva modo di essere espresso in
+quello schema (party e period non c'entrano nulla con un numero di
+fattura), quindi l'azione risolta dall'AI non trovava la fattura
+giusta (o non trovava nulla) — mentre il pulsante manuale in
+`fatture.html` funziona per id, non per numero, e quindi non aveva
+questo limite.
+
+Corretto aggiungendo un campo `"num"` allo schema (documentato nel
+prompt, con la regola: se l'utente indica una fattura precisa per
+numero usa `num` e lascia `party`/`period` a `null`; se parla di più
+fatture usa `party`/`period` e lascia `num` a `null`).
+`resolveMarkPaid()` in `assistente-ai.html` ora, quando `num` è
+presente, cerca quella singola fattura con lo stesso matching
+"morbido" già usato per gli ordini in `generate_ddt`/
+`generate_invoice`/`generate_supplier_order` (`findOrdine()`):
+corrispondenza esatta sul numero, poi solo le cifre finali — così
+"195" trova "FT/2026/0195" anche senza scrivere il formato completo.
+Un numero non trovato restituisce un messaggio chiaro ("Fattura non
+trovata: ...") invece di un elenco vuoto o sbagliato. Il salvataggio
+resta quello già corretto in precedenza (si riparte dal documento
+completo `f` già in memoria, mai da un payload parziale — nessun
+problema di colonne "not null" qui, era proprio un buco nello schema
+delle azioni).
+
+Nuovo `test133_ai_mark_paid_num.py` (4 scenari): "segna incassata la
+fattura 195" trova e segna solo quella fattura (non tocca le altre),
+lo stesso funziona scrivendo il numero per esteso, un numero
+inesistente mostra un messaggio chiaro senza scrivere nulla, e lo
+stesso vale sul lato fornitore ("segna pagata la fattura ..."). Non
+tocca il comportamento esistente per party/periodo (verificato:
+`test118_azioni_ai.py` continua a passare invariato). Regressione
+completa (77 file, esclusi i due gated da credenziali reali) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

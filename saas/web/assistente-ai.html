@@ -426,6 +426,23 @@
     return list[0] || null;
   }
 
+  // Trova UN documento dal suo numero come lo scrive l'utente ("195",
+  // "FT/2026/0195", "fattura 195") — stessa euristica di findOrdine() qui
+  // sotto: prima corrispondenza esatta (case-insensitive), poi solo le
+  // cifre finali del numero.
+  function findByNumLoose(items, ref){
+    ref = String(ref == null ? '' : ref).trim();
+    if(!ref) return null;
+    let it = items.find(x => (x.num || '').toLowerCase() === ref.toLowerCase());
+    if(it) return it;
+    const dg = ref.replace(/\D/g, '');
+    if(dg){
+      const n = parseInt(dg, 10);
+      it = items.find(x => parseInt((x.num || '').split('/').pop() || '0', 10) === n);
+    }
+    return it || null;
+  }
+
   async function resolveMarkPaid(a, paid){
     const coll = a.target === 'fattureCliente' ? 'fattureCliente' : 'fattureFornitore';
     const isForn = coll === 'fattureFornitore';
@@ -436,10 +453,28 @@
       if(!party) return { desc: `Nessun ${isForn ? 'fornitore' : 'cliente'} corrisponde a "${esc(a.party)}".`, apply: null };
       items = items.filter(f => (isForn ? f.fornitoreId : f.clienteId) === party.id);
     }
-    items = items.filter(f => inPeriod(f.data, a.period));
+    // Una fattura specifica per numero ("segna incassata la fattura 195")
+    // — prima mancava del tutto: mark_paid/mark_unpaid si applicava solo
+    // per cliente/periodo, senza modo di puntare a UN documento preciso,
+    // quindi "195" non veniva riconosciuto da nessun campo dello schema e
+    // l'azione risultava un elenco vuoto (o sbagliato) invece di quella
+    // fattura — segnalato dall'utente ("con l'AI non l'ha fatto, a mano
+    // sì").
+    if(a.num){
+      const target = findByNumLoose(items, a.num);
+      if(!target) return { desc: `${isForn ? 'Fattura fornitore' : 'Fattura'} non trovata: "${esc(a.num)}".`, apply: null };
+      items = [target];
+    } else {
+      items = items.filter(f => inPeriod(f.data, a.period));
+    }
     const targets = items.filter(f => !!f.paid !== paid);
-    const desc = `${paid ? 'Segna PAGATE' : 'Segna DA PAGARE'} <b>${targets.length}</b> fatture ${isForn ? 'fornitore' : 'cliente'}`
-      + (party ? ' · ' + esc(party.nome) : '') + (a.period ? ' · ' + esc(periodLabel(a.period)) : '');
+    const verbo = paid ? (isForn ? 'PAGATA' : 'INCASSATA') : 'DA PAGARE';
+    const desc = a.num
+      ? (targets.length
+        ? `Segna ${verbo} la fattura <b>${esc(items[0].num)}</b>`
+        : `La fattura <b>${esc(items[0].num)}</b> è già ${paid ? (isForn ? 'pagata' : 'incassata') : 'segnata da pagare'}.`)
+      : `${paid ? 'Segna PAGATE' : 'Segna DA PAGARE'} <b>${targets.length}</b> fatture ${isForn ? 'fornitore' : 'cliente'}`
+        + (party ? ' · ' + esc(party.nome) : '') + (a.period ? ' · ' + esc(periodLabel(a.period)) : '');
     return {
       desc,
       apply: targets.length ? async () => {
@@ -592,7 +627,7 @@
     return `Sei l'assistente operativo del gestionale di "${companyName}". Oggi è ${today()}. Converti l'istruzione dell'utente in un piano di azioni in JSON, e SOLO JSON (niente testo prima o dopo, niente backtick).
 Schema: {"explanation":"breve frase in italiano","actions":[...]}
 Tipi di azione supportati (nessun altro esiste, non inventarne):
-- {"type":"mark_paid","target":"fattureCliente"|"fattureFornitore","party":"<nome o null>","period":"AAAA-MM"|{"from":"AAAA-MM-GG","to":"AAAA-MM-GG"}|null}
+- {"type":"mark_paid","target":"fattureCliente"|"fattureFornitore","num":"<numero fattura o null>","party":"<nome o null>","period":"AAAA-MM"|{"from":"AAAA-MM-GG","to":"AAAA-MM-GG"}|null}
 - {"type":"mark_unpaid", ...stessi campi di mark_paid}
 - {"type":"create_order","client":"<nome cliente esatto o simile a uno dell'elenco>","lines":[{"product":"<codice o descrizione prodotto>","qty":<numero>,"price":<prezzo unitario, opzionale>,"sconto":<"50" o "50+15", opzionale>}]}
 - {"type":"create_quote", ...stessi campi di create_order, più "note":"<nota opzionale>"}
@@ -601,6 +636,7 @@ Tipi di azione supportati (nessun altro esiste, non inventarne):
 - {"type":"generate_supplier_order","order":"<numero ordine cliente>"}
 Regole:
 - target "fattureCliente" = vendite (verso i clienti), "fattureFornitore" = acquisti (dai fornitori). "pagate/incassate" = mark_paid, "da pagare/da incassare/non pagate" = mark_unpaid.
+- num: se l'utente indica UNA fattura precisa per numero ("segna incassata la fattura 195", "la 195 è pagata") mettilo in "num" (es. "195") e lascia "party"/"period" a null — non serve indovinare il formato completo. Se invece parla di più fatture (di un cliente/fornitore, di un periodo, o di tutte) lascia "num" a null e usa "party"/"period".
 - party: il nome così come lo dice l'utente; se non specifica nessuno lascia null (si applica a TUTTE le fatture di quel tipo — segnalo comunque, non è un errore).
 - period: un mese è "AAAA-MM" (es. aprile 2026 = "2026-04"); "questo mese" = il mese corrente; se non specificato lascia null.
 - Per ogni prodotto in "lines" metti in "product" il codice o la descrizione così come li dice l'utente — non inventare un codice che non è stato detto.

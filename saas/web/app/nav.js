@@ -53,13 +53,15 @@
   // strategica sull'app — Fase 2), raggiungibili con un tocco del
   // pollice senza dover aprire il cassetto laterale. "Altro" apre lo
   // stesso cassetto di sempre per tutto il resto (Clienti, Fornitori,
-  // Magazzino, Assistente AI...) — sostituisce il vecchio pulsante ☰ in
-  // cima alla pagina, che serviva solo a quello.
+  // Magazzino, Scadenziario...) — sostituisce il vecchio pulsante ☰ in
+  // cima alla pagina, che serviva solo a quello. Assistente AI al posto
+  // di Scadenziario su richiesta esplicita, per averlo a un tocco anche
+  // dall'app installata sul telefono.
   const BOTTOM_ITEMS = [
     { id: 'dashboard', label: 'Home', href: 'dashboard.html', ic: '◫' },
     { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: '🛒' },
     { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: '🧾' },
-    { id: 'scadenziario', label: 'Scadenze', href: 'scadenziario.html', ic: '📅' },
+    { id: 'assistente-ai', label: 'Assistente', href: 'assistente-ai.html', ic: '🤖' },
   ];
 
   function esc(s) {

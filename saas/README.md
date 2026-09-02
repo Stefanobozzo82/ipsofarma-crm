@@ -2994,6 +2994,14 @@ elenco e form di modifica compresi, non ha contenuto nascosto dietro la
 nuova barra: i pulsanti Salva/Annulla in fondo al form restano ben
 visibili sopra di essa. Regressione completa della suite passata.
 
+**Seguito**: *"nell'apk al posto del pulsante scadenze sulla barra in
+basso puoi mettere il tasto per l'assistente ai"* — la quarta voce diretta
+è ora Assistente AI (🤖) al posto di Scadenze (📅), per averlo a un tocco
+anche dall'app installata sul telefono; Scadenziario resta comunque
+raggiungibile da "Altro" come tutte le altre voci non dirette. Stesso
+file (`nav.js`, `BOTTOM_ITEMS`), `test84_mobile_drawer.py` aggiornato di
+conseguenza, regressione completa passata.
+
 ## App vera, Fase 2b: le tabelle degli elenchi diventano schede
 
 Richiesta: *"procedi"* — il pezzo di Fase 2 lasciato apposta indietro

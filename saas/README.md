@@ -3057,6 +3057,74 @@ azioni, Clienti senza spunta né gating) — regressione completa della
 suite (80 file) passata, esclusi i soliti 2 test gated da credenziali
 reali.
 
+## App vera, Fase 3: fotocamera per l'import IA e blocco con impronta
+
+Richiesta: *"procedi con la fase 3"* — la fase del piano dedicata alle
+capacità che una pagina web da sola non ha, e che servono solo dentro
+l'app nativa (Android): fotocamera diretta e blocco di sicurezza. Le
+notifiche push, terzo punto della Fase 3 originale, restano fuori: vedi
+la nota subito sotto in "Prossimo passo", bloccate su un account Firebase
+che solo l'azienda può creare.
+
+**Fotocamera per l'import IA**: il pulsante "📎 Importa da PDF/foto (AI)"
+(ordini, ordini fornitore, fatture fornitore, note di credito fornitore)
+è sempre stato un normale `<input type="file">` — in un browser mobile
+funzionava già, offrendo la fotocamera tra le opzioni. Dentro l'app
+nativa no: serve sia il permesso `CAMERA` nel manifest Android (aggiunto),
+sia — per farla comparire come opzione DIRETTA e non lasciata al caso del
+selettore di sistema — un secondo pulsante "📷 Fotocamera", aggiunto SOLO
+dentro l'app (mai nel browser, dove sarebbe ridondante) da
+`saas/web/app/camera-import.js`: tocca l'attributo `capture="environment"`
+sull'input esistente un attimo prima di aprirlo, poi lo toglie di nuovo
+(anche prima di un clic sul pulsante normale, come rete di sicurezza se la
+fotocamera viene annullata senza scattare) — nessuna pagina duplicata,
+stesso input, stesso gestore di sempre.
+
+**Blocco con impronta o volto**: la sessione resta quella di sempre (non
+si ridigita la password ogni volta, persistita da Supabase come sempre) —
+quello che mancava è un secondo livello: se qualcuno prende in mano un
+telefono già sbloccato, con l'app aperta, vede subito fatturato e clienti.
+Ora, quando l'app torna in primo piano dopo essere rimasta in background
+per più di 30 secondi (`saas/web/app/biometric-lock.js`), chiede di
+sbloccarla di nuovo con l'impronta — sotto i 30 secondi (aprire la
+fotocamera, un selettore file, tornare subito indietro) non succede
+nulla, altrimenti verrebbe chiesta in continuazione durante l'uso normale.
+Interruttore nella barra laterale (account), sotto "Rifai il tour": SOLO
+dispositivo, mai sincronizzato su Supabase (ha senso per-telefono, non
+per-azienda), di default disattivo, e visibile solo se il telefono ha
+davvero un'impronta/volto configurato o almeno un PIN/pattern — mai
+un interruttore che lascerebbe fuori chi lo attiva. Nessun vicolo cieco:
+lo sblocco automatico consente anche il PIN/pattern del telefono (non
+solo l'impronta), e la schermata di blocco ha sempre un "Esci e accedi di
+nuovo" per chi restasse comunque bloccato.
+
+**Un dettaglio tecnico non ovvio**, documentato anche in
+`saas/mobile/README.md`: le pagine sono servite da un URL remoto, non dal
+bundle dei pacchetti npm dei plugin — quindi il codice JS "di comodo" che
+quei pacchetti distribuiscono (es. `BiometricAuth.authenticate()` nella
+loro documentazione) non è mai caricato qui e chiamarlo non farebbe
+nulla. Il bridge nativo di Capacitor espone comunque ogni plugin
+registrato lato Android direttamente, con il suo nome e i suoi metodi
+nativi REALI (qui: `Capacitor.Plugins.BiometricAuthNative.
+internalAuthenticate(...)`) — trovati leggendo il sorgente Java del
+plugin, non la sola documentazione.
+
+**Testato**: `test138_camera_import.py` (5 scenari: pulsante assente nel
+browser, presente e nella posizione giusta nell'app, l'attributo
+capture si attiva/disattiva correttamente, presente su tutte e 4 le
+pagine) e `test139_biometric_lock.py` (9 scenari: interruttore assente
+senza biometria/PIN disponibili, di default disattivo, si attiva solo
+dopo conferma riuscita, resta disattivo se la conferma fallisce, un
+rimbalzo breve in background non blocca nulla, un abbandono lungo blocca
+e lo sblocco automatico riuscito lo richiude da solo, uno sblocco fallito
+resta bloccato con la via di fuga "Esci", disattivarlo toglie il blocco,
+niente di tutto questo esiste fuori dall'app nativa). Verificato anche
+con una build Android reale (permesso `CAMERA` e plugin biometrico uniti
+correttamente al manifest, `BUILD SUCCESSFUL`) — il collaudo del prompt
+nativo vero (impronta reale, selettore fotocamera reale) resta da fare
+sul telefono, come per la Fase 1. Regressione completa della suite (80
+file) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
@@ -3080,9 +3148,18 @@ Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:
    `send-email` resta in modalità sandbox, utilizzabile solo verso
    l'indirizzo del titolare dell'account Resend, non fornitori/clienti
    veri.
-3. **App vera**: Fase 2 completata (barra in basso + tabelle degli
-   elenchi diventate schede) — vedi le sezioni dedicate qui sopra e
-   `saas/mobile/README.md`. Resta sul tavolo, quando l'azienda vorrà: le
-   funzioni davvero native della Fase 3 (fotocamera per l'import IA,
-   notifiche push, login biometrico) e, solo per pubblicare sugli store,
-   gli account sviluppatore Apple/Google che solo il titolare può creare.
+3. **App vera**: Fase 3 completata per la parte che si poteva fare dal
+   codice (fotocamera per l'import IA, blocco con impronta) — vedi le
+   sezioni dedicate qui sopra e `saas/mobile/README.md`. Resta sul
+   tavolo, solo per pubblicare sugli store, gli account sviluppatore
+   Apple/Google che solo il titolare può creare.
+4. **Notifiche push**: unico pezzo della Fase 3 originale rimasto fuori,
+   non per scelta di disegno ma perché richiede un account Firebase
+   (Google Cloud Messaging) che solo l'azienda può creare — nessun
+   connettore disponibile qui per farlo al posto suo. Una volta creato un
+   progetto Firebase (gratuito) e collegato `google-services.json`
+   all'app Android, il resto è un lavoro concreto e già chiaro: il plugin
+   `@capacitor/push-notifications`, un nuovo campo per il token del
+   dispositivo sul profilo utente, ed estendere l'Edge Function dei
+   solleciti di pagamento già esistente (Fase 8 — oggi manda solo email)
+   a inviare anche una notifica push per le stesse scadenze.

@@ -573,3 +573,18 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .tour-card p{ margin:0 0 16px; font-size:13.5px; line-height:1.55; color:var(--muted); }
 .tour-actions{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
 .tour-nav{ display:flex; gap:8px; }
+
+/* Blocco con impronta (app/biometric-lock.js, Fase 3 del piano app) — solo
+ * dentro l'app nativa, mai nel browser. z-index più alto di tutto il resto
+ * (cassetto, barra in basso, tour): quando è visibile deve coprire
+ * letteralmente ogni altra cosa, senza eccezioni. */
+#bio-lock-overlay{
+  position:fixed; inset:0; z-index:10001; background:var(--bg);
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.bio-lock-box{ text-align:center; max-width:320px; }
+.bio-lock-ic{ font-size:44px; margin-bottom:14px; }
+.bio-lock-box p{ color:var(--muted); font-size:14px; margin:0 0 18px; line-height:1.5; }
+.bio-lock-box button.primary{ display:block; width:100%; margin-bottom:10px; padding:11px; }
+.bio-lock-box button.linklike{ font-size:12.5px; }
+.bio-lock-box .msg{ margin-top:14px; }

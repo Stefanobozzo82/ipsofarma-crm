@@ -38,4 +38,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Senza questo permesso, il selettore che compare toccando
+         "📎 Importa da PDF/foto (AI)" (un normale <input type="file"> nella
+         pagina web — vedi ordini.html e gli altri moduli documento) offre
+         solo "Galleria/File", non "Fotocamera": la pagina web è la stessa
+         di sempre, non serve nessun codice nuovo lato JS, basta che l'app
+         nativa abbia il permesso per far comparire l'opzione fotocamera nel
+         selettore di sistema. -->
+    <uses-permission android:name="android.permission.CAMERA" />
 </manifest>

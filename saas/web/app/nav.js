@@ -104,6 +104,11 @@
     if (tourBtn) {
       tourBtn.addEventListener('click', () => { if (global.SaasTour) global.SaasTour.start(); });
     }
+    // Interruttore del blocco con impronta (app/biometric-lock.js, Fase 3
+    // del piano app) — stesso aggancio del tour: se il file non è incluso
+    // in questa pagina, o si è nel browser invece che nell'app nativa,
+    // semplicemente non compare nulla.
+    if (global.SaasBiometric) global.SaasBiometric.attachToggle();
 
     ensureMobileBottombar(currentId);
     renderOverdueBadge();

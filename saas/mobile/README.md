@@ -1,4 +1,4 @@
-# Ipsofarma CRM — involucro nativo (Fase 1 del piano app)
+# Ipsofarma CRM — involucro nativo (Fasi 1-3 del piano app)
 
 Questa cartella **non contiene una riscrittura della SaaS**: è un involucro
 [Capacitor](https://capacitorjs.com) che apre le stesse pagine di `saas/web/`
@@ -66,6 +66,35 @@ npx cap add ios       # genera la cartella ios/, non ancora fatto qui (serve Xco
 npx cap sync ios
 npx cap open ios      # apre Xcode, da lì si compila/firma/pubblica
 ```
+
+## Plugin nativi aggiunti (Fase 3 del piano app)
+
+Il resto dell'app resta un browser che carica `saas/web/` (vedi sopra): i
+plugin nativi aggiungono capacità che una pagina web da sola non ha,
+richiamate dalle pagine tramite `window.Capacitor.Plugins.*` — presente in
+automatico dentro l'app nativa, `undefined` in un browser normale (le
+pagine restano identiche e funzionanti anche fuori dall'app).
+
+- **`@aparajita/capacitor-biometric-auth`** (blocco con impronta/volto) e
+  **`@capacitor/app`** (per sapere quando l'app torna in primo piano) —
+  vedi `saas/web/app/biometric-lock.js`.
+- **Permesso `CAMERA`** nel manifest (nessun pacchetto npm: la fotocamera
+  nel selettore file di sistema, vedi `saas/web/app/camera-import.js`).
+
+**Nota tecnica per chi tocca questi plugin**: le pagine di `saas/web/`
+sono servite da un URL remoto (`server.url`, vedi sopra), non dal bundle
+JS di questa cartella — quindi il codice JS "di comodo" che i pacchetti
+npm dei plugin distribuiscono (es. `BiometricAuth.authenticate()` nella
+documentazione di `@aparajita/capacitor-biometric-auth`) non è mai
+caricato dalle pagine vere, e chiamarlo lì non farebbe nulla. Quello che
+FUNZIONA sempre è il bridge nativo di Capacitor stesso, che espone
+direttamente ogni plugin registrato lato Android con il suo nome e i suoi
+metodi nativi REALI (es. `Capacitor.Plugins.BiometricAuthNative.
+internalAuthenticate(...)`, non `.authenticate(...)` — il nome esatto si
+trova nell'annotazione `@CapacitorPlugin(name = "...")` del sorgente
+Java/Kotlin del plugin, in `node_modules/<pacchetto>/android/src/.../*.java`,
+mai dato per scontato dalla sola documentazione JS). Aggiungere un nuovo
+plugin nativo in futuro richiede lo stesso controllo.
 
 ## Checklist per pubblicare davvero (fuori dal codice, solo l'azienda può farlo)
 

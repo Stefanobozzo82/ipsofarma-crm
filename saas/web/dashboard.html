@@ -311,15 +311,24 @@
       onLogout: doLogout,
     });
 
-    const [ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore] = await Promise.all([
-      store.loadCollection('ordiniCliente', companyId),
-      store.loadCollection('ordiniFornitore', companyId),
-      store.loadCollection('fattureCliente', companyId),
-      store.loadCollection('fattureFornitore', companyId),
-      store.loadCollection('noteCredito', companyId),
-      store.loadCollection('noteCreditoFornitore', companyId),
-    ]);
-    DB = { ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore };
+    // Ora è la prima pagina che si apre dopo il login: un errore qui (rete,
+    // RLS...) non deve lasciare la dashboard a metà senza spiegazione, come
+    // ogni altra pagina del gestionale mostra un messaggio invece di un
+    // errore silenzioso in console.
+    try{
+      const [ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore] = await Promise.all([
+        store.loadCollection('ordiniCliente', companyId),
+        store.loadCollection('ordiniFornitore', companyId),
+        store.loadCollection('fattureCliente', companyId),
+        store.loadCollection('fattureFornitore', companyId),
+        store.loadCollection('noteCredito', companyId),
+        store.loadCollection('noteCreditoFornitore', companyId),
+      ]);
+      DB = { ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore };
+    }catch(err){
+      $('chart-wrap').innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
 
     renderDashboard();
     // Il grafico è un SVG disegnato a mano: i suoi colori (griglia, assi,

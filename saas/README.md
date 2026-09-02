@@ -2362,6 +2362,61 @@ passthrough. Regressione completa (68 file) passata: solo i due
 fallimenti preesistenti gated da credenziali reali
 (`test71_store_live.py`/`test71_store_rest.py`).
 
+## Dashboard come prima pagina, e il tour visto una sola volta davvero
+
+Richiesta: *"voglio che la prima pagina che si apre sia la dashboard e
+poi il tour deve comparire solo la prima volta che apro l'app e non
+ogni volta che la apro"*.
+
+**Prima pagina**: dopo il login/l'accettazione di un invito e dopo
+aver scelto un'azienda da "Le tue aziende", `index.html` mandava a
+`clienti.html` (retaggio del primo modulo collegato a Supabase in
+questo prodotto, mai più aggiornato). Cambiati i due redirect a
+`dashboard.html` — il quadro d'insieme è un punto di partenza più
+naturale di un'anagrafica.
+
+**Il tour "ogni volta"**: qui c'era un vero bug, non solo una
+richiesta. Il flag `saas_tour_done` veniva salvato in `finish()` — ma
+`finish()` scatta solo uscendo dal tour nei modi previsti (Avanti fino
+in fondo, Salta, Esc). Un passo con un bersaglio, però, punta a un
+link VERO della sidebar, mai coperto dal velo apposta (è il punto
+della spotlight) — quindi resta cliccabile. Chi ci clicca sopra
+invece di premere "Avanti" naviga via per davvero, `finish()` non
+scatta mai, il flag non si salva, e alla pagina successiva
+`maybeStart()` lo trova ancora assente: il tour riparte da capo. Con
+la dashboard ora prima pagina (piena di link cliccabili "veri" fin dal
+primo passo) questo percorso diventa molto più probabile di prima.
+
+Corretto spostando il salvataggio del flag da `finish()` a `start()`
+— segnato "visto" nel momento stesso in cui il tour PARTE, non solo
+quando finisce: da quel punto in poi, in qualunque modo se ne esca
+(tasti, pulsanti, o cliccando via un link vero), la prossima apertura
+non lo mostra più. `test121_tour.py` esteso con lo Scenario J: parte
+il tour, si clicca il link VERO evidenziato (non "Avanti") — la pagina
+cambia, il tour non torna, e un'apertura successiva ancora non lo
+mostra.
+
+**Effetto collaterale reale trovato in regressione**: `test113_inviti.py`
+ha iniziato a fallire con un errore JS mai visto prima — non per il
+tour, ma perché il redirect ora atterra su `dashboard.html` invece di
+`clienti.html`, e la dashboard non aveva MAI avuto una gestione
+d'errore sul caricamento dati: `Promise.all([...store.loadCollection...])`
+senza un `try/catch`, a differenza di ogni altra pagina del prodotto
+(che mostra "Errore nel caricamento: ..." invece di un errore silenzioso
+in console). Con `clienti.html` (che l'errore lo cattura) come prima
+pagina, il buco non si vedeva; ora che la prima pagina è la dashboard,
+lo stesso identico buco diventa la prima cosa che chiunque incontrerebbe
+davanti a un problema di rete o di permessi. Corretto allineando
+`dashboard.html` allo stesso schema try/catch di tutte le altre pagine.
+Nuovo Scenario G in `test82_dashboard_page.py` che simula un errore di
+`loadCollection` e verifica il messaggio (non un errore non gestito).
+
+Aggiornati anche `test70_fase1_page.py`/`test113_inviti.py` (le due
+asserzioni sul redirect da `index.html`, ora verso `dashboard.html`).
+Regressione completa (68 file) passata: solo i due fallimenti
+preesistenti gated da credenziali reali
+(`test71_store_live.py`/`test71_store_rest.py`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

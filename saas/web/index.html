@@ -227,7 +227,7 @@
         if(row){
           localStorage.setItem('saas_company_id', row.company_id);
           localStorage.setItem('saas_company_nome', row.company_nome);
-          location.href = 'clienti.html';
+          location.href = 'dashboard.html';
           return;
         }
       }catch(err){
@@ -265,7 +265,7 @@
     if(!btn) return;
     localStorage.setItem('saas_company_id', btn.dataset.companyId);
     localStorage.setItem('saas_company_nome', btn.dataset.companyNome);
-    location.href = 'clienti.html';
+    location.href = 'dashboard.html';
   });
 
   refresh();

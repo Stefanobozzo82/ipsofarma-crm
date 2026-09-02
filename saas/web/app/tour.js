@@ -166,12 +166,19 @@
     if (resizeHandler) { window.removeEventListener('resize', resizeHandler); resizeHandler = null; }
     const sidebar = document.getElementById('sidebar');
     if (sidebar && !wasSidebarOpen) sidebar.classList.remove('open');
-    try { localStorage.setItem(DONE_KEY, '1'); } catch (e) { /* niente storage disponibile: il tour ripartirà al prossimo accesso, non è grave */ }
   }
 
   // Chiamabile in ogni momento (start()), a differenza di maybeStart() —
   // usata dal link "Rifai il tour" in fondo al menu (nav.js).
   function start() {
+    // Segna "visto" già ALL'AVVIO, non solo a fine tour (in finish()): un
+    // bersaglio evidenziato è un vero link della sidebar, cliccabile
+    // (mai coperto dal velo, è il punto della spotlight) — se chi lo
+    // guarda ci clicca sopra invece di usare "Avanti", la pagina cambia
+    // prima che il tour arrivi in fondo, finish() non scatta mai, e senza
+    // questo il tour ripartirebbe da capo ad ogni apertura successiva
+    // invece che una volta sola.
+    try { localStorage.setItem(DONE_KEY, '1'); } catch (e) { /* niente storage disponibile: il tour ripartirà al prossimo accesso, non è grave */ }
     ensureDom();
     const sidebar = document.getElementById('sidebar');
     // Su schermi stretti la sidebar è un cassetto chiuso di norma (vedi

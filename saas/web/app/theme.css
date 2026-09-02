@@ -265,7 +265,16 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 .filterbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
 .filterbar select, .filterbar input[type=date]{ width:auto; font-size:12.5px; padding:7px 10px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--txt); font-family:inherit; box-shadow:var(--sh); }
 .filterbar .fdate-group{ display:flex; gap:8px; flex-wrap:nowrap; align-items:center; }
-.filterbar .fdate{ display:flex; align-items:center; gap:6px; font-size:11px; text-transform:uppercase; letter-spacing:.3px; color:var(--faint); font-weight:700; }
+/* margin:0 esplicito: la regola generica "label:first-of-type{margin-top:0}"
+ * (pensata per un form con le etichette impilate verticalmente) azzera il
+ * margine solo del PRIMO <label> tra fratelli con lo stesso genitore — qui
+ * "Dal" e "Al" sono due <label class="fdate"> fratelli dentro la stessa
+ * .fdate-group, quindi solo "Dal" veniva azzerato e "Al" restava con i
+ * 12px di margin-top pensati per separare campi impilati, abbassandolo
+ * visibilmente rispetto a "Dal" (segnalato dall'utente: "la casella AL è
+ * più bassa di quella DAL"). Qui il margine non serve mai: sono etichette
+ * inline in una riga flex, non campi impilati. */
+.filterbar .fdate{ display:flex; align-items:center; gap:6px; font-size:11px; text-transform:uppercase; letter-spacing:.3px; color:var(--faint); font-weight:700; margin:0; }
 .filterbar .ffclear{ font-size:12px; padding:7px 12px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--muted); cursor:pointer; font-weight:600; font-family:inherit; }
 .filterbar .ffclear:hover{ background:var(--surface2); color:var(--txt); }
 

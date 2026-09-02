@@ -2845,6 +2845,35 @@ con la classe CSS giusta, non ha un `data-toggle` (non è cliccabile
 per cambiare stato), e l'ordinamento per Stato funziona. Regressione
 completa (78 file, esclusi i due gated da credenziali reali) passata.
 
+## Filtro "Dal"/"Al" disallineato in tutti i moduli documento
+
+Richiesta: *"il filtro di ricerca che imposta le date non è allineato
+infatti la casella AL è più bassa di quella DAL"*. Causa, trovata
+misurando il rendering effettivo (screenshot + bounding box, non solo
+leggendo il CSS): `app/theme.css` ha una regola generica per i form
+con etichette impilate verticalmente — `label{margin:12px 0 4px}` /
+`label:first-of-type{margin-top:0}` — ma `:first-of-type` si applica
+per genitore, non per l'intera pagina. "Dal" e "Al" sono due
+`<label class="fdate">` **fratelli** dentro la stessa `.fdate-group`:
+solo "Dal" (il primo) veniva azzerato, "Al" (il secondo) restava con
+i 12px di `margin-top` pensati per separare campi impilati —
+abbassandolo di 6px rispetto a "Dal" (metà dei 12px di differenza,
+per via di `align-items:center` sul contenitore). Interessava **tutti
+e 8 i moduli** con filtro per intervallo date (stessa regola
+condivisa in `theme.css`), non solo uno.
+
+Corretto con `margin:0` esplicito su `.filterbar .fdate`: queste
+etichette sono inline in una riga flex, non hanno mai bisogno del
+margine verticale pensato per campi impilati.
+
+Nuovo `test135_filterbar_date_allineate.py`: verifica che le caselle
+"Dal"/"Al" (e le etichette stesse) siano esattamente alla stessa
+altezza (bounding box, non solo struttura HTML) in tutti gli 8 moduli
+con questo filtro — confermato che senza il fix il test fallisce
+(verificato togliendo temporaneamente `margin:0` e rieseguendo).
+Regressione completa (79 file, esclusi i due gated da credenziali
+reali) passata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

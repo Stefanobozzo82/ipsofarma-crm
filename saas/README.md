@@ -3298,6 +3298,41 @@ prima) e che Incasso/Pagamento resti pienamente funzionante — 4 scenari.
 cambio, verificato comunque) e la regressione completa della suite (80
 file) passati.
 
+## Bug reale: "column reference company_id is ambiguous" accettando un invito
+
+Segnalato: *"Non sono riuscito ad accettare l'invito: column reference
+'company_id' is ambiguous"*.
+
+**Causa**: `accept_invite()` (`saas/supabase/migrations/0008_inviti.sql`)
+dichiara `returns table (company_id uuid, company_nome text, role
+text)` — una particolarità di PL/pgSQL: quei nomi di colonna d'uscita
+diventano ANCHE variabili visibili in tutto il corpo della funzione. Il
+corpo, per registrare l'appartenenza all'azienda, fa `insert into
+memberships (...) on conflict (company_id, user_id) do update ...` —
+"on conflict (company_id, user_id)" nomina le COLONNE del vincolo, e
+PL/pgSQL non riusciva più a stabilire se "company_id" lì dentro fosse la
+colonna della tabella o la variabile d'uscita della funzione con lo
+stesso nome. Non un caso limite: falliva ad ogni singola chiamata.
+
+**Corretto** con una nuova migrazione,
+`0013_fix_accept_invite_ambiguous.sql` (stessa convenzione già usata per
+`0010_fix_list_members.sql`: una nuova migrazione con la definizione
+corretta per intero, non una modifica in-place di `0008` — le migrazioni
+già applicate non vengono rieseguite). "on conflict ON CONSTRAINT
+memberships_company_id_user_id_key" nomina il VINCOLO invece delle sue
+colonne — elimina l'ambiguità alla radice, senza rinominare l'uscita
+pubblica della funzione (da cui dipende `index.html`, che legge
+`data.company_id`/`company_nome`/`role` dal risultato della RPC).
+
+Applicata subito anche al database live (l'utente era bloccato a metà
+di un invito reale). **Verificato con un giro end-to-end vero, non solo
+a occhio**: azienda e invito usa-e-getta creati ad hoc, un utente
+Supabase Auth vero registrato con quell'email, `accept_invite()` chiamata
+via REST esattamente come fa il client — risposta 200 con
+`company_id`/`company_nome`/`role` corretti, poi tutto ripulito (nessuna
+traccia rimasta nel database reale). L'invito reale dell'utente, rimasto
+in sospeso durante l'indagine, verificato intatto e ancora valido.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

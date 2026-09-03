@@ -349,7 +349,35 @@
     if(!text){ el.hidden = true; return; }
     el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
   }
-  const AI_IMPORT_INSTR = "Nel documento allegato c'è una FATTURA di un FORNITORE. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore emittente), numero (numero della fattura), data (formato AAAA-MM-GG), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità fatturata, numero), prezzo (prezzo unitario PIENO prima di eventuali sconti, numero), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", oppure stringa vuota se non c'è sconto), iva (aliquota IVA, numero), lotto (il numero di lotto/partita indicato vicino alla riga articolo, es. \"Partita\" o \"Lotto\"; stringa vuota se assente), scad (la data di scadenza del lotto indicata vicino alla riga articolo, formato AAAA-MM-GG; stringa vuota se assente).";
+  // riferimentoOrdine: il NOSTRO numero d'ordine così come lo riporta il
+  // fornitore in fattura (tipicamente etichettato "Vs. ordine"/"Vs.ord."/
+  // "Rif. cliente"/"Ordine cliente"/"PO") — MAI il numero d'ordine INTERNO
+  // del fornitore stesso (spesso vicino a "Numero d'ordine" senza
+  // riferimento al cliente) né il numero di un DDT. Usato subito sotto per
+  // proporre il collegamento automatico all'ordine fornitore giusto —
+  // scoperto con un caso reale: un utente aveva dovuto collegare a mano
+  // l'ordine dopo un import AI, pur essendo il riferimento scritto chiaro
+  // in fattura ("Rif.cliente Vs.ord. 201 del 31.08.2026" → il nostro
+  // OF/2026/0201, stesse identiche righe).
+  const AI_IMPORT_INSTR = "Nel documento allegato c'è una FATTURA di un FORNITORE. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore emittente), numero (numero della fattura), data (formato AAAA-MM-GG), riferimentoOrdine (il NOSTRO numero d'ordine come lo riporta il fornitore, es. dopo un'etichetta \"Vs. ordine\"/\"Vs.ord.\"/\"Rif. cliente\"/\"Ordine cliente\"/\"PO\" — SOLO il numero, niente date o altro testo attorno; MAI il numero d'ordine interno del fornitore né un numero di DDT; stringa vuota se non chiaramente presente), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità fatturata, numero), prezzo (prezzo unitario PIENO prima di eventuali sconti, numero), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", oppure stringa vuota se non c'è sconto), iva (aliquota IVA, numero), lotto (il numero di lotto/partita indicato vicino alla riga articolo, es. \"Partita\" o \"Lotto\"; stringa vuota se assente), scad (la data di scadenza del lotto indicata vicino alla riga articolo, formato AAAA-MM-GG; stringa vuota se assente).";
+  // Confronta il riferimento letto in fattura col numero di un NOSTRO
+  // ordine: prende il primo gruppo di cifre del riferimento (l'AI dovrebbe
+  // già restituire solo il numero, ma un residuo di testo attorno — es.
+  // una data agganciata — non deve far leggere quello per errore) e
+  // l'ULTIMO gruppo di cifre del numero ordine (nel formato PREFISSO/ANNO/
+  // NNNN, vedi next_document_number() in 0004_numerazione.sql, è la parte
+  // sequenziale — l'anno non deve mai essere scambiato per il riferimento).
+  // Funziona anche se l'utente ha rinominato il numero a mano (Numero
+  // ordine modificabile, vedi README): resta comunque l'ultimo gruppo di
+  // cifre presente.
+  function firstDigits(s){ const m = String(s || '').match(/\d+/); return m ? parseInt(m[0], 10) : null; }
+  function lastDigits(s){ const m = String(s || '').match(/\d+/g); return m ? parseInt(m[m.length - 1], 10) : null; }
+  function findOrdineByRiferimento(ordini, riferimento){
+    const rifNum = firstDigits(riferimento);
+    if(rifNum == null) return null;
+    const match = (ordini || []).filter(o => lastDigits(o.num) === rifNum);
+    return match.length === 1 ? match[0] : null; // ambiguo (0 o >1 candidati): meglio non collegare da soli
+  }
   $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
   $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
@@ -385,10 +413,24 @@
       const righe = await window.SaasAiImport.crossCheckRighe(store, companyId, righeGrezze);
       (righe.length ? righe : [null]).forEach(addRigaRow);
       const daVerificare = righe.filter(r => r.catalogMatch === 'unmatched').length;
+
+      // Collegamento automatico all'ordine fornitore, dal riferimento letto
+      // in fattura (p.riferimentoOrdine) — solo se il fornitore è stato
+      // riconosciuto (altrimenti $('f-ordine') non ha ancora le opzioni
+      // giuste) e c'è UN SOLO ordine di quel fornitore col numero
+      // corrispondente. Impostare .value non fa scattare 'change' (quello
+      // scatta solo su un'interazione dell'utente), quindi le righe già
+      // riempite dall'AI qui sopra non vengono toccate.
+      let ordineLink = null;
+      if(match) ordineLink = findOrdineByRiferimento(ordiniPerFornitore[match.id], p.riferimentoOrdine);
+      if(ordineLink) $('f-ordine').value = ordineLink.id;
+
       aiImportStatus(
         (match
           ? `Letto con l'AI: fornitore riconosciuto come "${match.nome}".`
           : `Letto con l'AI, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`)
+        + (ordineLink ? ` Collegato automaticamente all'ordine ${esc(ordineLink.num)} (rif. "${esc(p.riferimentoOrdine)}" in fattura).`
+          : (match && p.riferimentoOrdine ? ` Riferimento "${esc(p.riferimentoOrdine)}" in fattura, ma nessun ordine di questo fornitore corrisponde con certezza: collegalo a mano se serve.` : ''))
         + (daVerificare ? ` ${daVerificare} riga/e non trovate a catalogo, da controllare.` : ' Righe verificate col catalogo.'),
         match && !daVerificare ? 'ok' : (match ? 'info' : 'error')
       );

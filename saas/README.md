@@ -3429,6 +3429,57 @@ limite, solo senza l'elenco chiuso) per scoprire quali fossero davvero
 raggiungibili — sostituita subito dopo con la versione finale corretta,
 mai lasciata in produzione.
 
+## Import AI di una fattura fornitore: non collegava l'ordine fornitore da solo
+
+**Segnalazione, subito dopo il fix del 404 qui sopra:** "l'ho caricata ma
+non ha inserito l'ordine a cui è collegata, l'ho dovuto inserire a mano".
+
+**Non era un bug di quel fix**: l'import AI non ha mai provato a
+riconoscere l'ordine fornitore collegato — `AI_IMPORT_INSTR` chiedeva solo
+fornitore/numero/data/righe, mai un riferimento a un NOSTRO ordine, e
+nulla usava il campo "Ordine collegato" (`f-ordine`) se non la scelta
+manuale dal menu a tendina.
+
+**Eppure il riferimento è scritto in chiaro sulla fattura reale della
+segnalazione**: "Rif.cliente Vs.ord. 201 del 31.08.2026" — il fornitore
+riporta SEMPRE il nostro numero d'ordine quando lo conosce (prassi
+comune per la distribuzione B2B, non specifica di B.Braun). In questo
+caso preciso corrisponde esattamente a `OF/2026/0201` del 31/08/2026,
+con le stesse identiche 4 righe (stessi codici, quantità, prezzi) —
+verificato sul database reale prima di scrivere il fix.
+
+**Fix**, in `fatture-fornitore.html`:
+1. `AI_IMPORT_INSTR` chiede ora anche `riferimentoOrdine`: il NOSTRO
+   numero d'ordine così come lo riporta il fornitore (dopo etichette
+   tipiche "Vs. ordine"/"Vs.ord."/"Rif. cliente"/"Ordine cliente"/"PO")
+   — esplicitamente MAI il numero d'ordine interno del fornitore stesso
+   né un numero di DDT (sulla fattura reale comparivano entrambi,
+   vicinissimi al riferimento giusto: bisognava distinguerli con
+   precisione nel prompt).
+2. `findOrdineByRiferimento()`: confronta il riferimento letto (primo
+   gruppo di cifre — protezione extra se residua altro testo attorno,
+   anche se l'AI dovrebbe restituire solo il numero) con l'ULTIMO gruppo
+   di cifre del numero di ciascun ordine del fornitore riconosciuto (nel
+   formato PREFISSO/ANNO/NNNN di `next_document_number()`,
+   0004_numerazione.sql, è la parte sequenziale — funziona comunque anche
+   se l'utente ha rinominato l'ordine a mano, "Numero ordine
+   modificabile" qui sopra). Collega automaticamente `f-ordine` SOLO se
+   c'è esattamente un ordine di quel fornitore col numero corrispondente
+   — ambiguo (nessuno o più di uno) vuol dire non indovinare da soli,
+   come prima: è un documento contabile/di magazzino reale, un
+   collegamento sbagliato segnerebbe come evaso l'ordine sbagliato.
+3. Impostare `.value` via JS non fa scattare l'evento `change` (quello
+   scatta solo su un'interazione dell'utente): le righe già riempite
+   dall'AI restano quelle, il gestore di `change` (che le sovrascrive
+   solo se l'elenco righe è vuoto) non entra in gioco.
+
+**Verificato con un giro end-to-end vero sulla stessa fattura reale**:
+chiamata reale ad ai-proxy col prompt aggiornato →
+`riferimentoOrdine: "201"` estratto correttamente; `findOrdineByRiferimento()`
+eseguito sui 20 ordini fornitore reali di B.Braun di questa azienda →
+individua `OF/2026/0201` come unico corrispondente, nessun falso
+positivo sugli altri 19.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

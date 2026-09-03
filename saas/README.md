@@ -3626,6 +3626,21 @@ MEDICALI S.R.L., 3 fatture con uno sconto assente su una riga e zero
 sulle altre) il totale calcolato corrisponde esattamente alla somma
 attesa (€ 1.909,44).
 
+## Stessa card "Totale fatturato" anche in fatture.html (fatture cliente)
+
+**Richiesta:** "fai lo stesso anche per fatture clienti" — stessa card
+statistica appena aggiunta a fatture-fornitore.html, ora anche in
+fatture.html: "Totale fatturato" sopra l'elenco, ricalcolato da
+`renderStats()` sull'elenco già filtrato da ricerca + cliente/stato/
+intervallo date, con lo stesso sottotitolo che riporta cosa sta
+contando. Stessa identica implementazione, solo cliente al posto di
+fornitore (`fattureCliente`/`clientiById` invece di
+`fattureFornitore`/`fornitoriById`).
+
+Verificato con dati reali: filtrando su un cliente reale con un'unica
+fattura (righe: 1×290€, IVA 22%) il totale corrisponde esattamente a
+quanto atteso (€ 353,80).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -63,6 +63,8 @@
     <div class="msg" id="form-msg" hidden></div>
   </div>
 
+  <div class="stats" id="stats-riga" style="grid-template-columns:1fr"></div>
+
   <div class="card" id="list-card">
     <div class="toolbar">
       <h3>Elenco</h3>
@@ -178,6 +180,22 @@
   }
   function setFFilt(k, v){ FFILT[k] = v; renderList(); }
   function clearFFilt(){ FFILT = { cliente:'', paid:'', from:'', to:'' }; renderList(); }
+
+  // "Totale fatturato", ricalcolato sull'elenco GIÀ filtrato (ricerca +
+  // cliente/stato/intervallo date) — stessa richiesta già fatta per
+  // fatture-fornitore.html ("fai lo stesso anche per fatture clienti"):
+  // sempre "il totale di quello che vedi sotto", si aggiorna da solo con
+  // ogni filtro applicato, combinabili tra loro.
+  function renderStats(elencoFiltrato){
+    const tot = elencoFiltrato.reduce((s, f) => s + docTotale(f.righe), 0);
+    const cliente = FFILT.cliente ? (clientiById[FFILT.cliente] || {}).nome : '';
+    const periodo = FFILT.from || FFILT.to
+      ? ` dal ${FFILT.from ? new Date(FFILT.from).toLocaleDateString('it-IT') : '…'} al ${FFILT.to ? new Date(FFILT.to).toLocaleDateString('it-IT') : '…'}`
+      : '';
+    const sub = elencoFiltrato.length + ' fattur' + (elencoFiltrato.length === 1 ? 'a' : 'e')
+      + (cliente ? ' di ' + cliente : '') + periodo + ' · IVA incl.';
+    $('stats-riga').innerHTML = `<div class="stat"><div class="sl">Totale fatturato</div><div class="sv" style="color:var(--accent-d)">${eur(tot)}</div><div class="sx">${esc(sub)}</div></div>`;
+  }
   function renderFilterbar(){
     const active = FFILT.cliente || FFILT.paid || FFILT.from || FFILT.to;
     const clientiArr = Object.values(clientiById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
@@ -632,10 +650,12 @@
       return;
     }
     if(elenco.length === 0){
+      renderStats([]);
       area.innerHTML = '<p class="empty">Nessuna fattura ancora. Crea prima un cliente, poi aggiungi una fattura con "+ Nuova fattura".</p>';
       return;
     }
     elenco = elenco.filter(matchesQuery).filter(matchesFilter);
+    renderStats(elenco);
     if(elenco.length === 0){
       area.innerHTML = '<p class="empty">Nessuna fattura trovata con questi criteri.</p>';
       return;

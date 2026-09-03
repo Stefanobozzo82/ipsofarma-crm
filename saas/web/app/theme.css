@@ -590,11 +590,6 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .pill.paid{ color:var(--accent-d); background:var(--accent-soft); }
 .pill.unpaid{ color:var(--amber); background:var(--amber-s); }
-/* Colonna "Stato" separata in fatture.html/fatture-fornitore.html: stesso
- * colpo d'occhio verde/ambra del pillolo azione (.pill.paid/.unpaid), ma
- * di sola lettura — la colonna Incasso/Pagamento resta il pulsante per
- * cambiare stato, .status-badge è solo per "vedere subito" lo stato. */
-.pill.status-badge{ cursor:default; }
 
 ::selection{ background:var(--accent-soft); }
 

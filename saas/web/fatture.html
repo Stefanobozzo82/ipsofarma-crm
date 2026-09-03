@@ -142,7 +142,6 @@
     if(key === 'iva') return ivaTot(f.righe || []);
     if(key === 'totale') return docTotale(f.righe || []);
     if(key === 'incasso') return f.paid ? 1 : 0;
-    if(key === 'stato') return f.paid ? 1 : 0;
     return '';
   }
   function th(key, label){
@@ -659,14 +658,13 @@
 
     area.innerHTML = bulkHtml + `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
-        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('stato','Stato')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('incasso','Incasso')}<th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('incasso','Incasso')}<th></th>
       </tr></thead><tbody>${elenco.map(f => `
         <tr class="row-click" data-id="${f.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(f.num)}</td>
           <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[f.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(f)}</td>
-          <td><span class="pill status-badge ${f.paid ? 'paid' : 'unpaid'}">${f.paid ? '✓ Incassata' : 'Non incassata'}</span></td>
           <td class="num-col">${eur(impTot(f.righe))}</td>
           <td class="num-col">${eur(ivaTot(f.righe))}</td>
           <td class="num-col">${eur(docTotale(f.righe))}</td>

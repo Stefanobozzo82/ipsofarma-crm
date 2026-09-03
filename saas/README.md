@@ -3268,6 +3268,36 @@ Regressione mirata (trascinamento righe, autocompletamento, lotto/
 scadenza, numerazione — le aree più vicine a questa tabella) e completa
 della suite (80 file) passate.
 
+## Colonna "Stato" ritirata: ridondante con Incasso/Pagamento
+
+Richiesta: *"la colonna stato e pagamento hanno la stessa funzione
+lasciane solo una quella pagamento"* — la colonna "Stato" (badge di sola
+lettura, aggiunta in una sessione precedente) e la colonna Incasso/
+Pagamento (il pulsante, sia indicatore sia azione per cambiarlo)
+mostravano davvero la stessa informazione fianco a fianco in
+`fatture.html`/`fatture-fornitore.html`: ridondante, non un doppio
+livello di dettaglio.
+
+Rimossa la colonna "Stato" (intestazione, badge, `sortVal` per
+ordinarla) da entrambe le pagine — resta solo Incasso/Pagamento, unico
+indicatore e unica azione, come prima che "Stato" venisse aggiunta. Tolta
+anche la regola CSS `.pill.status-badge` (era solo per quel badge, non
+più referenziata da nessuna pagina).
+
+Non toccata la colonna "Stato" di `ordini.html`/`ordini-fornitore.html`
+(evasione/ricezione, aggiunta per lo stesso motivo in una sessione
+successiva): lì NON è ridondante — la richiesta riguardava esplicitamente
+"stato e **pagamento**", un concetto specifico delle fatture, non degli
+ordini.
+
+**Testato**: `test134_colonna_stato_pagamento.py` riscritto per
+verificare l'assenza della colonna (invece della sua presenza, come
+prima) e che Incasso/Pagamento resti pienamente funzionante — 4 scenari.
+`test76_fatture_page.py`, `test78_ordini_fatture_fornitore.py`,
+`test85_sort_columns.py` (quest'ultimo su ordini.html, non toccato dal
+cambio, verificato comunque) e la regressione completa della suite (80
+file) passati.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

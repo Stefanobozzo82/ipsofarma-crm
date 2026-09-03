@@ -3333,6 +3333,43 @@ via REST esattamente come fa il client — risposta 200 con
 traccia rimasta nel database reale). L'invito reale dell'utente, rimasto
 in sospeso durante l'indagine, verificato intatto e ancora valido.
 
+## Link di invito: apre subito su "Registrazione" invece che su "Accesso"
+
+Chi apre `index.html?invite=<token>` è quasi sempre una persona nuova
+senza account (l'admin ha appena generato l'invito apposta per lei — vedi
+`0008_inviti.sql`). Prima la pagina apriva sempre sullo stato "Accesso"
+di default, obbligando a cliccare "Registrati" per arrivare al form
+giusto. Ora, quando c'è un token di invito nell'URL, la pagina apre
+subito su "Registrazione" (titolo, testo del bottone e link di switch
+coerenti fin dal primo render) — chi ha già un account può comunque
+passare ad "Accedi" con lo switch, come prima.
+
+## "Prodotti da evadere"/"Da ricevere dai fornitori": la dashboard apriva l'elenco intero, non solo quelli
+
+**Richiesta:** "nella dashboard quando premo sul bottone prodotti da
+evadere o prodotti da ricevere voglio vedere i prodotti che
+effettivamente sono da evadere o ricevere e non tutti".
+
+I due riquadri di `dashboard.html` contano solo gli ordini **aperti o
+parziali** (`daEvaderePer()`, righe non ancora completamente
+consegnate/ricevute), ma il link sotto puntava semplicemente a
+`ordini.html`/`ordini-fornitore.html` senza nessun filtro: cliccando si
+finiva sull'elenco completo di ogni ordine, evasi compresi, non solo
+quelli che il numero appena mostrato stava contando.
+
+**Fix:** i link della dashboard ora passano `?stato=aperti`
+(`ordini.html?stato=aperti`, `ordini-fornitore.html?stato=aperti`).
+Entrambe le pagine leggono questo parametro in `init()` e precompilano il
+filtro "Stato" già esistente nella filterbar (nuova select, stesso
+pattern di `FFILT.paid` in `fatture.html`) — "Tutti gli stati" / "Aperti
+o parziali" / "Evasi"/"Ricevuti" — restando comunque modificabile o
+azzerabile a mano come ogni altro filtro. Il criterio di "completo" usato
+nel filtro (`ordineCompleto()`: ogni riga con `qtyEv >= qty`) è
+deliberatamente lo stesso identico calcolo di `evasione()` in
+`dashboard.html`, così l'elenco filtrato mostra esattamente gli ordini
+che il numero nel riquadro sta contando — non un'approssimazione diversa
+calcolata altrove.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

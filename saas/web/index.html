@@ -109,12 +109,21 @@
   const $ = id => document.getElementById(id);
   const show = (...ids) => { ['loading','auth-box','register-box','dashboard-box'].forEach(i => $(i).hidden = !ids.includes(i)); };
 
-  let mode = 'signin'; // 'signin' | 'signup'
   // Se qualcuno ha aperto questo link con ?invite=<token> (condiviso a mano
   // da un admin — niente invio email automatico, vedi 0008_inviti.sql),
   // dopo il login/registrazione va accettato invece del percorso normale
-  // "le tue aziende"/"crea la tua azienda".
+  // "le tue aziende"/"crea la tua azienda". Chi arriva da un invito è quasi
+  // sempre una persona nuova senza account: apri direttamente su
+  // "Registrazione" invece che su "Accesso" (può comunque passare ad
+  // Accedi con lo switch, se ha già un account).
   const inviteToken = new URLSearchParams(location.search).get('invite');
+  let mode = inviteToken ? 'signup' : 'signin'; // 'signin' | 'signup'
+  if(inviteToken){
+    $('page-title').textContent = 'Registrazione';
+    $('auth-submit').textContent = 'Crea account';
+    $('switch-text').textContent = 'Hai già un account?';
+    $('switch-link').textContent = 'Accedi';
+  }
 
   function setMsg(id, text, kind){
     const el = $(id);

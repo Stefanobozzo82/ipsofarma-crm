@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prodotti da evadere — Gestionale</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ea371">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<!--
+  Porta diretta di evadereView() nel gestionale originale (index.html):
+  cliccando "Prodotti da evadere" in dashboard.html si finiva prima su
+  ordini.html filtrato — un elenco di ORDINI, non dei PRODOTTI residui riga
+  per riga come nell'originale. Richiesta esplicita dell'utente: "voglio
+  che la sezione prodotti da evadere e quella da ricevere dai fornitori
+  fosse uguale al vecchio gestionale". Speculare a ricevere.html, con
+  un'aggiunta: "📦 Prodotti in arrivo" — quanto del residuo di un ordine
+  cliente è già stato ORDINATO (e fatturato dal fornitore, qtyFatt) tramite
+  un ordine fornitore collegato, quindi già in viaggio, non semplicemente
+  "da procurarsi ancora".
+
+  "Lista ordini →" resta il percorso verso l'elenco ordini semplice
+  (ordini.html?stato=aperti, vedi README) per chi vuole comunque quella
+  vista.
+-->
+<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Prodotti da evadere</h2>
+      <p class="sub">Elenco dettagliato di tutti i prodotti ordinati dai clienti e non ancora consegnati, per cliente.</p>
+      <button type="button" class="ghost" id="lista-ordini-btn" style="margin-top:10px">Lista ordini →</button>
+    </div>
+
+    <div class="stats" id="stats-riga" style="grid-template-columns:repeat(2,1fr)"></div>
+
+    <div id="sections-area"><p class="empty">Carico…</p></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/theme-mode.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/biometric-lock.js"></script>
+<script src="app/tour.js"></script>
+<script src="app/pwa.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function eur0(n){ return '€ ' + Math.round(Number(n) || 0).toLocaleString('it-IT', { maximumFractionDigits:0 }); }
+
+  // Stessa aritmetica di dashboard.html/ordini.html: sconto a cascata,
+  // imponibile+IVA sul residuo (non sull'intera riga).
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function lineNet(x){ return (x.qty || 0) * (x.prezzo || 0) * scFactor(x.sconto); }
+  function tot(righeArr){ return (righeArr || []).reduce((s, x) => s + lineNet(x) + lineNet(x) * (x.iva || 0) / 100, 0); }
+
+  // Completo = ogni riga interamente consegnata — stessa definizione usata
+  // da dashboard.html/ordini.html per contare gli ordini aperti.
+  function ordineCompleto(o){
+    const righe = o.righe || [];
+    return righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
+  }
+
+  // "In arrivo": quanto di un codice, sugli ordini fornitore collegati a
+  // QUESTO ordine cliente (ofIds/ofId, numeri d'ordine — vedi cascade.js
+  // generaOrdiniFornitore), il fornitore ha già fatturato (qtyFatt) — cioè
+  // già in viaggio, non solo "ordinato ma non ancora confermato". Porta
+  // diretta di ofInvoicedQty() nel gestionale originale.
+  function ofInvoicedQty(ofNums, cod, ordiniFornitoreByNum){
+    if(!ofNums || !ofNums.length || !cod) return 0;
+    let q = 0;
+    ofNums.forEach(num => {
+      const of = ordiniFornitoreByNum[num];
+      if(!of) return;
+      (of.righe || []).forEach(r => { if(r.cod === cod) q += r.qtyFatt || 0; });
+    });
+    return q;
+  }
+
+  let EVSORT = { col: 'cliente', dir: 1 };
+  let EV_ARRIVO_ONLY = false;
+  let rows = [];
+
+  function sortRows(list){
+    const d = EVSORT.dir;
+    return list.slice().sort((a, b) => {
+      if(EVSORT.col === 'ordine') return a.ocNum.localeCompare(b.ocNum, 'it', { numeric:true }) * d;
+      if(EVSORT.col === 'data') return (a.data || '').localeCompare(b.data || '') * d;
+      if(EVSORT.col === 'cod') return (a.cod || '').localeCompare(b.cod || '', 'it', { numeric:true }) * d;
+      if(EVSORT.col === 'descr') return (a.descr || '').localeCompare(b.descr || '', 'it') * d;
+      if(EVSORT.col === 'res') return (a.qtyRes - b.qtyRes) * d;
+      if(EVSORT.col === 'val') return (a.val - b.val) * d;
+      return 0;
+    });
+  }
+  function th(key, label){
+    const on = EVSORT.col === key, ar = on ? (EVSORT.dir === 1 ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(EVSORT.col === key) EVSORT.dir *= -1;
+    else { EVSORT.col = key; EVSORT.dir = 1; }
+    renderSections();
+  }
+  function toggleArrivo(){ EV_ARRIVO_ONLY = !EV_ARRIVO_ONLY; renderSections(); }
+
+  function renderSections(){
+    const area = $('sections-area');
+    const arrivoTot = rows.reduce((s, r) => s + r.valArr, 0);
+    const displayRows = EV_ARRIVO_ONLY ? rows.filter(r => r.qtyArr > 0) : rows;
+
+    $('stats-riga').innerHTML = `
+      <div class="stat"><div class="sl">Valore da consegnare</div><div class="sv" style="color:var(--blue)">${eur0(rows.reduce((s, r) => s + r.val, 0))}</div><div class="sx">IVA inclusa</div></div>
+      <div class="stat stat-go${EV_ARRIVO_ONLY ? ' stat-active' : ''}" id="arrivo-toggle"><div class="sl">📦 Prodotti in arrivo</div><div class="sv" style="color:var(--accent-d)">${eur0(arrivoTot)}</div><div class="sx">${EV_ARRIVO_ONLY ? 'clic per vedere tutti' : 'clic per vedere solo questi'}</div></div>
+    `;
+    $('arrivo-toggle').addEventListener('click', toggleArrivo);
+
+    if(displayRows.length === 0){
+      area.innerHTML = `<p class="empty">${EV_ARRIVO_ONLY ? 'Nessun prodotto in arrivo al momento.' : '✅ Nessun prodotto da evadere: tutti gli ordini cliente risultano evasi.'}</p>`;
+      return;
+    }
+    const byCliente = {};
+    displayRows.forEach(r => {
+      (byCliente[r.clienteId] = byCliente[r.clienteId] || { nome: r.cliente, rows: [], tot: 0 }).rows.push(r);
+      byCliente[r.clienteId].tot += r.val;
+    });
+    let sectionList = Object.values(byCliente);
+    const byPanelKey = new Set(['cliente', 'ordine', 'data', 'cod', 'descr']);
+    sectionList.sort((a, b) => byPanelKey.has(EVSORT.col) ? a.nome.localeCompare(b.nome, 'it', { sensitivity:'base' }) : (b.tot - a.tot));
+    area.innerHTML = sectionList.map(cli => {
+      const sorted = sortRows(cli.rows);
+      const trs = sorted.map(r => {
+        const arrBadge = r.qtyArr > 0
+          ? ` <span class="badge ${r.qtyArr >= r.qtyRes ? 'info' : ''}" style="font-size:9.5px">📦 in arrivo${r.qtyArr < r.qtyRes ? ' ' + r.qtyArr + '/' + r.qtyRes : ''}</span>`
+          : '';
+        return `<tr>
+          <td class="num-col" style="cursor:pointer;color:var(--blue)" data-open-num="${esc(r.ocNum)}">${esc(r.ocNum)}</td>
+          <td>${r.data ? new Date(r.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td class="num-col">${esc(r.cod)}</td>
+          <td>${esc(r.descr)}${arrBadge}</td>
+          <td class="num-col">${r.qtyOrd}</td>
+          <td class="num-col">${r.qtyEv}</td>
+          <td class="num-col" style="font-weight:700;color:var(--accent-d)">${r.qtyRes}</td>
+          <td class="num-col">${eur(r.val)}</td>
+        </tr>`;
+      }).join('');
+      return `<div class="panel" style="margin-bottom:14px">
+        <div class="panel-h">${esc(cli.nome)}
+          <span style="font-weight:400;color:var(--muted);margin-left:8px">${cli.rows.length} rig${cli.rows.length === 1 ? 'a' : 'he'}</span>
+          <span style="margin-left:auto;font-weight:700">${eur(cli.tot)}</span>
+        </div>
+        <div class="table-scroll"><table class="elenco-table" style="margin:0"><thead><tr>
+          ${th('ordine','Ordine')}${th('data','Data')}${th('cod','Codice')}${th('descr','Descrizione')}<th>Ord.</th><th>Cons.</th>${th('res','Residuo')}${th('val','Totale IVA')}
+        </tr></thead><tbody>${trs}</tbody></table></div>
+      </div>`;
+    }).join('');
+    area.querySelectorAll('[data-sort]').forEach(t => t.addEventListener('click', () => setSort(t.dataset.sort)));
+    // Clic su "Ordine": stesso meccanismo del box "Documenti collegati"
+    // (app/lineage.js) — salva {coll, num} e apre ordini.html già sul
+    // form di quell'ordine, invece di un elenco da ricercare a mano.
+    area.querySelectorAll('[data-open-num]').forEach(td => td.addEventListener('click', () => {
+      localStorage.setItem('saas_open_doc', JSON.stringify({ coll: 'ordiniCliente', num: td.dataset.openNum }));
+      location.href = 'ordini.html';
+    }));
+  }
+
+  $('lista-ordini-btn').addEventListener('click', () => { location.href = 'ordini.html?stato=aperti'; });
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('ordini', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const area = $('sections-area');
+    let clienti, ordiniCliente, ordiniFornitore;
+    try{
+      [clienti, ordiniCliente, ordiniFornitore] = await Promise.all([
+        store.loadCollection('clienti', companyId),
+        store.loadCollection('ordiniCliente', companyId),
+        store.loadCollection('ordiniFornitore', companyId),
+      ]);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
+    const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
+    const ordiniFornitoreByNum = Object.fromEntries(ordiniFornitore.map(o => [o.num, o]));
+    rows = [];
+    ordiniCliente.forEach(o => {
+      if(ordineCompleto(o)) return;
+      const ofNums = (o.ofIds && o.ofIds.length) ? o.ofIds : (o.ofId ? [o.ofId] : []);
+      (o.righe || []).forEach(r => {
+        const res = Math.max(0, (r.qty || 0) - (r.qtyEv != null ? r.qtyEv : 0));
+        if(res <= 0) return;
+        const qtyArr = Math.min(res, ofInvoicedQty(ofNums, r.cod, ordiniFornitoreByNum));
+        rows.push({
+          ocNum: o.num, ocId: o.id, data: o.data, clienteId: o.clienteId,
+          cliente: (clientiById[o.clienteId] || {}).nome || '(cliente non trovato)',
+          cod: r.cod, descr: r.descr, qtyOrd: r.qty, qtyEv: r.qtyEv || 0, qtyRes: res, qtyArr,
+          val: tot([Object.assign({}, r, { qty: res })]),
+          valArr: qtyArr > 0 ? tot([Object.assign({}, r, { qty: qtyArr })]) : 0,
+        });
+      });
+    });
+    renderSections();
+  }
+  init();
+</script>
+</body>
+</html>

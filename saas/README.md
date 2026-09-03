@@ -3503,6 +3503,51 @@ appena si scrive qualcosa, come prima.
 Verificato con una query reale sui dati di un'azienda vera: i primi 12
 prodotti per codice tornano correttamente, non un elenco vuoto.
 
+## "Prodotti da evadere"/"da ricevere": non uguali al vecchio gestionale
+
+**Richiesta:** "volevo che la sezione prodotti da evadere e quella da
+ricevere dai fornitori fosse uguale al vecchio gestionale" — il fix
+precedente (filtro `?stato=aperti` sull'elenco ordini) risolveva un
+problema reale ma non era la destinazione giusta: nel gestionale
+originale (`index.html`), cliccando quei due riquadri della dashboard non
+si apriva affatto l'elenco ordini, ma `evadereView()`/`ricevereView()` —
+una vista PER PRODOTTO (un rigo per ogni riga-prodotto ancora residua,
+raggruppata per cliente/fornitore), non per ordine. Confermato leggendo
+`dashGo()` nell'originale: `'oc'` → `nav('evadere')`, `'of'` →
+`nav('ricevere')` — l'elenco ordini semplice è lì un percorso
+SECONDARIO ("Lista ordini →" dentro quelle viste), non quello primario.
+
+**Fix:** due pagine nuove, porte dirette di `evadereView()`/
+`ricevereView()`, adattate allo store asincrono della SaaS (stesso
+principio di ogni altro modulo già portato):
+
+- `evadere.html` — un pannello per cliente, righe con Ordine (cliccabile,
+  apre l'ordine — stesso meccanismo di "Documenti collegati" in
+  app/lineage.js), Data, Codice, Descrizione, Ordinato, Consegnato,
+  Residuo, Totale IVA; ordinabile per colonna. Include "📦 Prodotti in
+  arrivo": quanto del residuo è già stato fatturato dal fornitore
+  sull'ordine fornitore collegato (`ofIds`/`ofId`, campo `qtyFatt`) —
+  porta diretta di `ofInvoicedQty()` dell'originale, un incrocio che il
+  semplice elenco ordini non poteva mostrare per definizione (è
+  un'informazione a livello di riga-prodotto, non di ordine).
+- `ricevere.html` — speculare, un pannello per fornitore, colonne Ordine/
+  Data/Codice/Descrizione/Ordinato/Ricevuto/Residuo/Totale IVA, con le
+  statistiche di riepilogo dell'originale (Valore da ricevere, Righe
+  prodotto, Fornitori con residui).
+
+I link della dashboard ora puntano a queste due pagine (non più
+`ordini.html`/`ordini-fornitore.html?stato=aperti`, che restano
+comunque raggiungibili dal bottone "Lista ordini →" dentro le nuove
+pagine, per chi preferisce quella vista).
+
+**Verificato con dati reali**, non solo a occhio: le funzioni di calcolo
+(sconto a cascata, residuo, raggruppamento, incrocio "in arrivo") fatte
+girare su un campione di ordini cliente/fornitore reali di questa
+azienda (compreso un caso con sconto "55+15" a cascata, righe con
+`qtyEv`/`qtyFatt` assenti invece che 0, un cliente interno "MAGAZZINO"
+a prezzo zero) — risultati numerici corretti, nessuna eccezione, righe
+già evase correttamente escluse.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

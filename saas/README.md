@@ -3603,6 +3603,29 @@ segnalazione, e richiederebbe decidere se reintrodurre un tracciamento
 a due fasi o togliere il badge per i documenti nuovi) — segnalato qui
 perché chi ci lavora dopo lo sappia.
 
+## "Totale acquisti" in fatture-fornitore.html, sensibile ai filtri
+
+**Richiesta:** "nella scheda fatture fornitori voglio il totale acquisti
+e se seleziono un fornitore voglio che mi mostri il totale acquisti di
+quel fornitore e se selezioni un arco temporale mi deve mostrare il
+totale fornitori di quell'arco temporale".
+
+Aggiunta una card statistica ("Totale acquisti") sopra l'elenco,
+ricalcolata da `renderStats()` sullo stesso elenco GIÀ filtrato da
+ricerca testuale + fornitore/stato/intervallo date (`matchesQuery`/
+`matchesFilter`, gli stessi filtri esistenti della filterbar) — non un
+pannello separato da capire a parte: è sempre "il totale di quello che
+vedi sotto", si aggiorna da solo con ogni filtro applicato, combinabili
+tra loro (fornitore + intervallo insieme funziona già, sono lo stesso
+elenco filtrato). Il sottotitolo della card riporta anche cosa sta
+contando (fornitore selezionato ed eventuale intervallo), per non dover
+indovinare a cosa si riferisce il numero.
+
+Verificato con dati reali: filtrando su un fornitore reale (ARGA
+MEDICALI S.R.L., 3 fatture con uno sconto assente su una riga e zero
+sulle altre) il totale calcolato corrisponde esattamente alla somma
+attesa (€ 1.909,44).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

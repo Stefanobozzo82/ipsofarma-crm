@@ -472,14 +472,26 @@
       // arrivo/fattura), e solo alla creazione (stessa nota di ddt.html/
       // fatture.html: un errore qui non fa sembrare fallito il salvataggio
       // della fattura, già andato a buon fine).
+      //
+      // Bug reale trovato (un ordine fornitore collegato a una fattura
+      // reale, ma mai segnato ricevuto — updated_at dell'ordine identico
+      // a created_at, nessun aggiornamento è mai partito): il catch qui
+      // sotto inghiottiva SEMPRE l'errore in silenzio, "andato storto ma
+      // nessuno lo sa mai" — corretto perché la fattura è comunque salvata
+      // (non blocca il salvataggio, resta lo stesso comportamento) ma
+      // l'esito della cascata si vede ora nel messaggio finale, invece di
+      // sparire senza traccia.
+      let cascadeWarning = '';
       if(isNew && ofId){
         try{
           const of = (ordiniPerFornitore[fornitoreId] || []).find(x => x.id === ofId);
           if(of) await store.saveDoc('ordiniFornitore', window.SaasCascade.applicaRicezione(of, righe), companyId);
-        }catch(e){ /* la fattura è comunque salvata */ }
+          else cascadeWarning = ' (l\'ordine collegato non è stato trovato: le quantità ricevute non sono state aggiornate su di esso — verifica a mano.)';
+        }catch(e){ cascadeWarning = ' (la fattura è salvata, ma l\'aggiornamento delle quantità ricevute sull\'ordine collegato non è riuscito: ' + (e.message || e) + ' — verifica a mano.)'; }
       }
       closeForm();
       await renderList();
+      if(cascadeWarning) alert('Fattura salvata.' + cascadeWarning);
     }catch(err){
       const dup = err && err.code === '23505';
       setMsg(dup ? 'Esiste già una fattura fornitore con questo numero.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');

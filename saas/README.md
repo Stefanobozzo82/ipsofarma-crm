@@ -3548,6 +3548,61 @@ azienda (compreso un caso con sconto "55+15" a cascata, righe con
 a prezzo zero) — risultati numerici corretti, nessuna eccezione, righe
 già evase correttamente escluse.
 
+## Bug reale: un ordine fornitore fatturato mai segnato come ricevuto
+
+**Segnalazione:** "l'ordine 200 fornitori non è stato messo come evaso
+controlla come mai" — un ordine fornitore reale (OF/2026/0200) con una
+fattura fornitore reale collegata (num 5718110676, 31/08/2026) restava
+mostrato come completamente aperto.
+
+**Causa reale:** in `fatture-fornitore.html`, la cascata che segna le
+quantità come ricevute (`applicaRicezione()`, chiamata quando si salva
+una fattura fornitore NUOVA collegata a un ordine) era avvolta in un
+`try/catch` che inghiottiva QUALUNQUE errore in silenzio — per scelta
+esplicita (un problema qui non deve far sembrare fallito il salvataggio
+della fattura, già andato a buon fine), ma senza lasciarne traccia da
+nessuna parte. Confermato sul database reale: `updated_at` dell'ordine
+fornitore era identico a `created_at` — nessun aggiornamento è mai
+partito, nonostante la fattura fosse salvata correttamente con
+l'ordine collegato (`of_id` valorizzato). Impossibile risalire con
+certezza al motivo esatto di quel singolo mancato aggiornamento (non
+riproducibile ora, i log del progetto non conservano l'evento di due
+giorni fa) — ma il problema di fondo, riproducibile e reale, è che
+QUALUNQUE causa futura dello stesso tipo sarebbe rimasta silenziosa
+allo stesso modo.
+
+**Fix**: l'esito della cascata è ora visibile — se l'ordine collegato
+non viene trovato, o l'aggiornamento fallisce, un avviso lo dice
+esplicitamente dopo il salvataggio ("Fattura salvata, ma..."), invece
+di sparire senza traccia. Il comportamento per il caso normale (tutto
+va a buon fine) resta identico.
+
+**Dato corretto a mano** sul database reale, con lo stesso identico
+calcolo di `applicaRicezione()`: 9 delle 10 righe di OF/2026/0200 ora
+segnate ricevute (corrispondono per codice alle righe della fattura
+reale). La decima riga (`C0069220`, "NOVOSYN DS 19 CAL 4/0 CM 45")
+resta residua di proposito: la fattura riporta un codice diverso
+(`C0069220N1`, descrizione diversa) per quella riga — o è un prodotto
+distinto mai arrivato con questa fattura, o una discrepanza di codice
+tra catalogo e fattura da verificare a mano; non un'assunzione da fare
+in automatico su un documento contabile/di magazzino reale. L'ordine
+risulta quindi "Parziale 9/10", non evaso al 100% — corretto secondo i
+dati reali disponibili.
+
+**Nota collaterale emersa indagando**: il campo `qtyFatt` che
+"📦 Prodotti in arrivo" (vedi la sezione precedente) legge non viene MAI
+scritto da nessun codice della SaaS — solo letto qui. Esiste
+valorizzato unicamente sui documenti storici importati dal vecchio
+gestionale (dove "fatturato" e "ricevuto" erano due passi distinti);
+per qualunque fattura fornitore creata da questa SaaS in avanti
+(`applicaRicezione()` aggiorna solo `qtyEv`, mai `qtyFatt`, per scelta
+esplicita già documentata: "qui 'fatturato' vale come 'ricevuto',
+nessun tracciamento separato") il badge "in arrivo" resterà sempre
+vuoto. Non toccato in questo passaggio (fuori dallo scope della
+segnalazione, e richiederebbe decidere se reintrodurre un tracciamento
+a due fasi o togliere il badge per i documenti nuovi) — segnalato qui
+perché chi ci lavora dopo lo sappia.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

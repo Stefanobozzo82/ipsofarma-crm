@@ -133,13 +133,31 @@ Deno.serve(async (req: Request) => {
 
   // Punto 4 del piano di miglioramento IA: il client sceglie il modello
   // (store.aiComplete({model}) — 'gemini-2.5-flash' per la chat,
-  // 'gemini-2.5-pro' per leggere un allegato, dove un errore di lettura ha
-  // conseguenze economiche reali), ma qui, lato server, un elenco chiuso:
-  // un valore non previsto (bug del client, o richiesta forgiata a mano
-  // con la sessione di un utente vero) non deve poter far girare la chiave
-  // condivisa su un modello arbitrario — ricade sul default economico
-  // invece di essere passato a Gemini così com'è.
-  const ALLOWED_MODELS = new Set(['gemini-2.5-flash', 'gemini-2.5-pro']);
+  // 'gemini-3.5-flash' per leggere un allegato o interpretare
+  // un'istruzione, dove un errore ha conseguenze economiche reali), ma
+  // qui, lato server, un elenco chiuso: un valore non previsto (bug del
+  // client, o richiesta forgiata a mano con la sessione di un utente
+  // vero) non deve poter far girare la chiave condivisa su un modello
+  // arbitrario — ricade sul default economico invece di essere passato
+  // a Gemini così com'è.
+  //
+  // 'gemini-2.5-pro' ritirato da qui (era l'unico modello "pro"
+  // consentito): Google lo ha spento per questa chiave — "This model
+  // models/gemini-2.5-pro is no longer available to new users" (404,
+  // scoperto indagando "Lettura non riuscita: errore HTTP 404" su un
+  // import PDF reale). Il rimpiazzo che Google stessa indica in
+  // quell'errore ('gemini-3.1-pro-preview') si è rivelato IRRAGGIUNGIBILE
+  // su questa chiave — verificato con una chiamata reale: 429
+  // "RESOURCE_EXHAUSTED", limit 0, per ogni modello della famiglia "pro"
+  // (gemini-3.1-pro-preview, gemini-pro-latest...). Non è un limite
+  // temporaneo: sul livello gratuito di Gemini i modelli "pro" hanno
+  // quota ZERO, serve fatturazione abilitata sul progetto Google — mai
+  // fatto qui. Sostituito quindi con 'gemini-3.5-flash': non "pro", ma il
+  // modello "flash" (quindi gratuito) più recente e capace verificato
+  // davvero raggiungibile con questa chiave — con una chiamata reale
+  // sulla fattura del cliente che aveva segnalato il bug, risposta
+  // corretta (fornitore/numero/righe/lotti tutti riconosciuti).
+  const ALLOWED_MODELS = new Set(['gemini-2.5-flash', 'gemini-3.5-flash']);
   if (typeof body.model !== 'string' || !ALLOWED_MODELS.has(body.model)) {
     body.model = 'gemini-2.5-flash';
   }

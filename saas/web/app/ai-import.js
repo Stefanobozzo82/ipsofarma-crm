@@ -82,12 +82,22 @@
   // store.aiComplete()): chi chiama extractFromFile deve sempre passarlo.
   //
   // Punto 4 del piano di miglioramento IA: modello più capace di proposito
-  // ('gemini-2.5-pro', non l'economico 'gemini-2.5-flash' usato per la
-  // chat di assistente-ai.html) — qui un carattere letto male in un codice,
-  // un prezzo o una data finisce dritto in un documento contabile, con
+  // ('gemini-3.5-flash', non 'gemini-2.5-flash' usato per la chat di
+  // assistente-ai.html) — qui un carattere letto male in un codice, un
+  // prezzo o una data finisce dritto in un documento contabile, con
   // conseguenze economiche reali; nella chat sola-lettura un'imprecisione
   // nella risposta non scrive nulla. Resta sovrascrivibile da chi chiama
-  // (nessun modulo lo fa oggi, ma non deve essere un vicolo cieco).
+  // (nessun modulo lo fa oggi, ma non deve essere un vicolo cieco). Era
+  // 'gemini-2.5-pro' — Google lo ha spento per questa chiave ("no longer
+  // available to new users", 404). Il rimpiazzo indicato da Google
+  // ('gemini-3.1-pro-preview', modello "pro") si è rivelato IRRAGGIUNGIBILE
+  // su questa chiave: è sul livello gratuito di Gemini, che per i modelli
+  // "pro" assegna quota ZERO (429 "limit: 0", non un limite temporaneo)
+  // — serve fatturazione abilitata sul progetto Google per usarne uno,
+  // mai attivata qui. 'gemini-3.5-flash' è il modello "flash" (quindi
+  // gratuito) più recente e capace verificato raggiungibile con questa
+  // chiave — non "pro", ma la sola scelta realmente disponibile finché
+  // non si abilita la fatturazione. Vedi la nota in ai-proxy.
   async function extractFromFile(store, file, opts) {
     opts = opts || {};
     const images = await fileToImages(file, 4);
@@ -95,7 +105,7 @@
     const reply = await store.aiComplete([
       { role: 'system', content: opts.systemPrompt || "Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick." },
       { role: 'user', content },
-    ], { maxTokens: opts.maxTokens || 4000, model: opts.model || 'gemini-2.5-pro', companyId: opts.companyId });
+    ], { maxTokens: opts.maxTokens || 4000, model: opts.model || 'gemini-3.5-flash', companyId: opts.companyId });
     return parseAiJson(reply);
   }
 

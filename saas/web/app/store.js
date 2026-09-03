@@ -392,7 +392,15 @@
       }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || ('errore HTTP ' + res.status));
+    // Un errore di Gemini passato da ai-proxy così com'è può arrivare
+    // incapsulato in un array di un elemento ([{error:{...}}], non
+    // {error:{...}}) — scoperto indagando "errore HTTP 404" mostrato al
+    // posto del vero messaggio di Gemini quando gemini-2.5-pro è stato
+    // ritirato (data.error era undefined su un ARRAY, non sull'oggetto
+    // dentro): senza questo, qualunque errore del provider IA resta
+    // sempre generico invece di spiegare cosa è successo davvero.
+    const errBody = Array.isArray(data) ? (data[0] || {}) : data;
+    if (!res.ok) throw new Error((errBody.error && (errBody.error.message || errBody.error)) || ('errore HTTP ' + res.status));
     const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     if (!reply) throw new Error('risposta vuota o inattesa dal provider IA');
     return reply;

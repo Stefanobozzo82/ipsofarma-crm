@@ -789,10 +789,20 @@ Data odierna: ${today()}.`;
     $('action-go').disabled = true;
     actionSetOut('<p class="ai-intro">Sto interpretando l\'istruzione…</p>');
     try{
+      // Modello più capace apposta (come extractFromFile in ai-import.js):
+      // qui un'istruzione fraintesa può generare/modificare documenti
+      // veri, non solo rispondere a una domanda. Era 'gemini-2.5-pro' —
+      // Google lo ha spento per questa chiave ("no longer available to
+      // new users", 404); il rimpiazzo "pro" indicato da Google
+      // (gemini-3.1-pro-preview) è irraggiungibile qui (livello gratuito,
+      // quota 0 per i modelli "pro" — serve fatturazione mai abilitata),
+      // quindi 'gemini-3.5-flash': non "pro", ma il modello "flash" più
+      // recente e capace davvero raggiungibile con questa chiave. Vedi la
+      // nota in ai-proxy.
       const reply = await store.aiComplete([
         { role: 'system', content: actionSystemPrompt() },
         { role: 'user', content: q },
-      ], { model: 'gemini-2.5-pro', maxTokens: 1200, companyId });
+      ], { model: 'gemini-3.5-flash', maxTokens: 1200, companyId });
       const plan = window.SaasAiImport.parseAiJson(reply);
       const acts = (plan && plan.actions) || [];
       if(!acts.length){

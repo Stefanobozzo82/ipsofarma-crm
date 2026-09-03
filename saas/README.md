@@ -3370,6 +3370,65 @@ deliberatamente lo stesso identico calcolo di `evasione()` in
 che il numero nel riquadro sta contando — non un'approssimazione diversa
 calcolata altrove.
 
+## Bug reale: "Lettura non riuscita: errore HTTP 404" importando un PDF con l'AI
+
+**Segnalazione:** un utente ha provato a importare una fattura fornitore
+reale (PDF, B. Braun Milano S.p.A.) con "📎 Importa da PDF/foto (AI)" e ha
+ricevuto "Lettura non riuscita: errore HTTP 404".
+
+**Causa reale:** Google ha ritirato `gemini-2.5-pro` — il modello che
+`extractFromFile()` (`ai-import.js`, usato da tutti i moduli con import
+IA) e l'interprete delle "azioni autonome" (`assistente-ai.html`)
+chiedevano di proposito per leggere un allegato o un'istruzione (più
+accurato del `gemini-2.5-flash` economico usato per la chat). Gemini
+risponde ora con 404 `NOT_FOUND` ("This model models/gemini-2.5-pro is
+no longer available to new users") per QUALUNQUE chiamata con quel nome
+— non un caso limite di questo PDF, ogni singolo import era già rotto
+allo stesso modo, così come le "azioni autonome". Il messaggio generico
+"errore HTTP 404" (invece del testo preciso di Gemini) viene da
+`store.aiComplete()` in `store.js`: la risposta di ai-proxy in caso di
+errore è `[{ "error": {...} }]` — un ARRAY con un oggetto dentro, non un
+oggetto con `.error` in cima — quindi `data.error` risultava `undefined`
+e il client ricadeva sul messaggio generico invece di mostrare quello di
+Gemini (comunque da correggere in un passo successivo, non la causa del
+404 in sé).
+
+**Non bastava rinominare il modello.** Il rimpiazzo che Google stessa
+indica in quell'errore (`gemini-3.1-pro-preview`) è risultato
+IRRAGGIUNGIBILE con la chiave di questo progetto — verificato con una
+chiamata reale: 429 `RESOURCE_EXHAUSTED`, `limit: 0`, per ogni modello
+della famiglia "pro" provato (`gemini-3.1-pro-preview`,
+`gemini-pro-latest`). Non è un limite temporaneo da aspettare: sul
+livello **gratuito** di Gemini i modelli "pro" hanno quota ZERO
+assegnata — serve fatturazione abilitata sul progetto Google, mai fatto
+qui. Prima di arrendersi al solo `gemini-2.5-flash` già in uso per la
+chat, sondati altri nomi "flash" più recenti con lo stesso account:
+`gemini-3.5-flash` risultato raggiungibile e funzionante — non "pro", ma
+il modello "flash" (quindi gratuito) più recente e capace disponibile
+davvero con questa chiave.
+
+**Fix**, in tre punti:
+1. `ai-import.js` (`extractFromFile`) e `assistente-ai.html` (azioni
+   autonome): richiedono `gemini-3.5-flash` invece di `gemini-2.5-pro`.
+2. `ai-proxy` (`supabase/functions/ai-proxy/index.ts`): l'elenco chiuso
+   lato server dei modelli ammessi aggiornato di conseguenza
+   (`gemini-2.5-flash`/`gemini-3.5-flash`) — un client che chiedesse
+   ancora il vecchio nome ricadrebbe comunque sul flash economico invece
+   di ripetere il 404.
+3. Applicato subito anche al database live (funzione ridistribuita).
+
+**Verificato con un giro end-to-end vero sul PDF reale che aveva causato
+la segnalazione**, non con un file generico: pagine del PDF convertite in
+immagini esattamente come fa il client (`pdf.js`, stessa scala),
+richiesta reale a `ai-proxy` con l'account dell'utente e la sua azienda —
+risposta 200 con fornitore, numero, data e le 4 righe (con lotto e
+scadenza) tutti riconosciuti correttamente. Prima del fix definitivo,
+sondati anche gli altri nomi modello con una versione temporanea e
+provvisoria della funzione (stessi controlli di autenticazione/azienda/
+limite, solo senza l'elenco chiuso) per scoprire quali fossero davvero
+raggiungibili — sostituita subito dopo con la versione finale corretta,
+mai lasciata in produzione.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

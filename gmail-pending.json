@@ -1,3 +1,65 @@
 {
-  "items": []
+  "items": [
+    {
+      "addedAt": "2026-09-03T06:06:38.947Z",
+      "msgId": "1a065bc956bf2d50",
+      "file": "5718111084.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111084",
+        "date": "2026-09-02",
+        "order_ref": "Rif.cliente Vs.ord. 201",
+        "lines": [
+          {
+            "cod": "C0935344",
+            "descr": "DAFILON BLU 4/0 (1.5) 75CM DS2",
+            "qty": 1,
+            "prezzo": 36.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626172",
+            "scad": "2031-04-21"
+          },
+          {
+            "cod": "C0932124",
+            "descr": "DAFILON BLU 5/0 (1) 45CM DS16",
+            "qty": 1,
+            "prezzo": 36.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626267",
+            "scad": "2031-06-28"
+          },
+          {
+            "cod": "C3046271",
+            "descr": "NOVOSYN QUICK INC 4/0 (1,5)70CM",
+            "qty": 1,
+            "prezzo": 60.12,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "125072",
+            "scad": "2030-02-11"
+          },
+          {
+            "cod": "C3046213",
+            "descr": "NOVOSYN QUICK INC 4/0 (1,5)70CM",
+            "qty": 1,
+            "prezzo": 94.68,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126175",
+            "scad": "2031-04-24"
+          }
+        ],
+        "totale": 278.4528
+      },
+      "src": "Gmail"
+    }
+  ]
 }

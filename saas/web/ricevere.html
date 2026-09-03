@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prodotti da ricevere — Gestionale</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ea371">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<!--
+  Porta diretta di ricevereView() nel gestionale originale (index.html):
+  cliccando "Da ricevere dai fornitori" in dashboard.html si finiva prima
+  su ordini-fornitore.html filtrato — un elenco di ORDINI, non dei
+  PRODOTTI residui riga per riga come nell'originale. Richiesta esplicita
+  dell'utente: "voglio che la sezione prodotti da evadere e quella da
+  ricevere dai fornitori fosse uguale al vecchio gestionale".
+
+  Un rigo per ogni riga-prodotto ancora da ricevere di ogni ordine
+  fornitore aperto/parziale, raggruppati per fornitore — non un rigo per
+  ordine. "Lista ordini →" resta il percorso verso l'elenco ordini
+  semplice (ordini-fornitore.html?stato=aperti, vedi README) per chi
+  vuole comunque quella vista.
+-->
+<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Prodotti da ricevere dai fornitori</h2>
+      <p class="sub">Elenco dettagliato di tutti i prodotti ordinati ai fornitori e non ancora ricevuti, per fornitore.</p>
+      <button type="button" class="ghost" id="lista-ordini-btn" style="margin-top:10px">Lista ordini →</button>
+    </div>
+
+    <div class="stats" id="stats-riga" style="grid-template-columns:repeat(3,1fr)"></div>
+
+    <div id="sections-area"><p class="empty">Carico…</p></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/theme-mode.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/biometric-lock.js"></script>
+<script src="app/tour.js"></script>
+<script src="app/pwa.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function eur0(n){ return '€ ' + Math.round(Number(n) || 0).toLocaleString('it-IT', { maximumFractionDigits:0 }); }
+
+  // Stessa aritmetica di dashboard.html/ordini-fornitore.html: sconto a
+  // cascata, imponibile+IVA sul residuo (non sull'intera riga).
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function lineNet(x){ return (x.qty || 0) * (x.prezzo || 0) * scFactor(x.sconto); }
+  function tot(righeArr){ return (righeArr || []).reduce((s, x) => s + lineNet(x) + lineNet(x) * (x.iva || 0) / 100, 0); }
+
+  // Completo = ogni riga interamente ricevuta — stessa definizione usata
+  // da dashboard.html/ordini-fornitore.html per contare gli ordini aperti.
+  function ordineCompleto(o){
+    const righe = o.righe || [];
+    return righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
+  }
+
+  let RCSORT = { col: 'fornitore', dir: 1 };
+  let rows = [];
+
+  function sortRows(list, forRowsInsidePanel){
+    const d = RCSORT.dir;
+    return list.slice().sort((a, b) => {
+      if(RCSORT.col === 'ordine') return a.ofNum.localeCompare(b.ofNum, 'it', { numeric:true }) * d;
+      if(RCSORT.col === 'data') return (a.data || '').localeCompare(b.data || '') * d;
+      if(RCSORT.col === 'cod') return (a.cod || '').localeCompare(b.cod || '', 'it', { numeric:true }) * d;
+      if(RCSORT.col === 'descr') return (a.descr || '').localeCompare(b.descr || '', 'it') * d;
+      if(RCSORT.col === 'res') return (a.qtyRes - b.qtyRes) * d;
+      if(RCSORT.col === 'val') return (a.val - b.val) * d;
+      return 0;
+    });
+  }
+  function th(key, label){
+    const on = RCSORT.col === key, ar = on ? (RCSORT.dir === 1 ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(RCSORT.col === key) RCSORT.dir *= -1;
+    else { RCSORT.col = key; RCSORT.dir = 1; }
+    renderSections();
+  }
+
+  function renderSections(){
+    const area = $('sections-area');
+    if(rows.length === 0){
+      area.innerHTML = '<p class="empty">✅ Nessun prodotto da ricevere: tutti gli ordini fornitore risultano evasi.</p>';
+      return;
+    }
+    const byForn = {};
+    rows.forEach(r => {
+      (byForn[r.fornitoreId] = byForn[r.fornitoreId] || { nome: r.fornitore, rows: [], tot: 0 }).rows.push(r);
+      byForn[r.fornitoreId].tot += r.val;
+    });
+    let sectionList = Object.values(byForn);
+    // Righe/data/codice/descrizione ordinano DENTRO ogni pannello (stesso
+    // fornitore restano vicini): tra i pannelli, in quel caso, l'ordine
+    // resta alfabetico per nome fornitore — solo residuo/totale hanno senso
+    // come ordinamento tra fornitori diversi (dal più urgente/costoso).
+    const byPanelKey = new Set(['fornitore', 'ordine', 'data', 'cod', 'descr']);
+    sectionList.sort((a, b) => byPanelKey.has(RCSORT.col) ? a.nome.localeCompare(b.nome, 'it', { sensitivity:'base' }) : (b.tot - a.tot));
+    area.innerHTML = sectionList.map(forn => {
+      const sorted = sortRows(forn.rows);
+      const trs = sorted.map(r => `<tr>
+          <td class="num-col" style="cursor:pointer;color:var(--blue)" data-open-of="${esc(r.ofId)}" data-open-num="${esc(r.ofNum)}">${esc(r.ofNum)}</td>
+          <td>${r.data ? new Date(r.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td class="num-col">${esc(r.cod)}</td>
+          <td>${esc(r.descr)}</td>
+          <td class="num-col">${r.qtyOrd}</td>
+          <td class="num-col">${r.qtyEv}</td>
+          <td class="num-col" style="font-weight:700;color:var(--violet)">${r.qtyRes}</td>
+          <td class="num-col">${eur(r.val)}</td>
+        </tr>`).join('');
+      return `<div class="panel" style="margin-bottom:14px">
+        <div class="panel-h">${esc(forn.nome)}
+          <span style="font-weight:400;color:var(--muted);margin-left:8px">${forn.rows.length} rig${forn.rows.length === 1 ? 'a' : 'he'}</span>
+          <span style="margin-left:auto;font-weight:700">${eur(forn.tot)}</span>
+        </div>
+        <div class="table-scroll"><table class="elenco-table" style="margin:0"><thead><tr>
+          ${th('ordine','Ordine')}${th('data','Data')}${th('cod','Codice')}${th('descr','Descrizione')}<th>Ord.</th><th>Ric.</th>${th('res','Residuo')}${th('val','Totale IVA')}
+        </tr></thead><tbody>${trs}</tbody></table></div>
+      </div>`;
+    }).join('');
+    area.querySelectorAll('[data-sort]').forEach(t => t.addEventListener('click', () => setSort(t.dataset.sort)));
+    // Clic su "Ordine": stesso meccanismo del box "Documenti collegati"
+    // (app/lineage.js) — salva {coll, num} e apre ordini-fornitore.html
+    // già sul form di quell'ordine, invece di un elenco da ricercare a mano.
+    area.querySelectorAll('[data-open-of]').forEach(td => td.addEventListener('click', () => {
+      localStorage.setItem('saas_open_doc', JSON.stringify({ coll: 'ordiniFornitore', num: td.dataset.openNum }));
+      location.href = 'ordini-fornitore.html';
+    }));
+  }
+
+  function renderStats(){
+    const totaleTot = rows.reduce((s, r) => s + r.val, 0);
+    const totOrd = new Set(rows.map(r => r.ofNum)).size;
+    const nForn = new Set(rows.map(r => r.fornitoreId)).size;
+    $('stats-riga').innerHTML = `
+      <div class="stat"><div class="sl">Valore da ricevere</div><div class="sv" style="color:var(--violet)">${eur0(totaleTot)}</div><div class="sx">IVA inclusa</div></div>
+      <div class="stat"><div class="sl">Righe prodotto</div><div class="sv" style="color:var(--accent-d)">${rows.length}</div><div class="sx">in ${totOrd} ordini fornitore</div></div>
+      <div class="stat"><div class="sl">Fornitori con residui</div><div class="sv" style="color:var(--amber)">${nForn}</div><div class="sx">con ordini aperti</div></div>
+    `;
+  }
+
+  $('lista-ordini-btn').addEventListener('click', () => { location.href = 'ordini-fornitore.html?stato=aperti'; });
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('ordini-fornitore', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const area = $('sections-area');
+    let fornitori, ordiniFornitore;
+    try{
+      [fornitori, ordiniFornitore] = await Promise.all([
+        store.loadCollection('fornitori', companyId),
+        store.loadCollection('ordiniFornitore', companyId),
+      ]);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
+    const fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    rows = [];
+    ordiniFornitore.forEach(o => {
+      if(ordineCompleto(o)) return;
+      (o.righe || []).forEach(r => {
+        const res = Math.max(0, (r.qty || 0) - (r.qtyEv != null ? r.qtyEv : 0));
+        if(res <= 0) return;
+        rows.push({
+          ofNum: o.num, ofId: o.id, data: o.data, fornitoreId: o.fornitoreId,
+          fornitore: (fornitoriById[o.fornitoreId] || {}).nome || '(fornitore non trovato)',
+          cod: r.cod, descr: r.descr, qtyOrd: r.qty, qtyEv: r.qtyEv || 0, qtyRes: res,
+          val: tot([Object.assign({}, r, { qty: res })]),
+        });
+      });
+    });
+    renderStats();
+    renderSections();
+  }
+  init();
+</script>
+</body>
+</html>

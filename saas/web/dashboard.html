@@ -214,8 +214,8 @@
       stat('Da incassare dai clienti', eur0(daInc), ftOpen.length + ' fatture cliente aperte', 'var(--amber)', 'fatture.html') +
       stat('Da pagare ai fornitori', eur0(daPag), ftfOpen.length + ' fatture fornitore aperte', 'var(--red)', 'fatture-fornitore.html');
     $('stats-riga3').innerHTML =
-      stat('Prodotti da evadere', eur0(oc.importo), oc.n + ' ordin' + (oc.n === 1 ? 'e' : 'i') + ' aperti o parziali · IVA incl.', 'var(--blue)', 'ordini.html?stato=aperti') +
-      stat('Da ricevere dai fornitori', eur0(of.importo), of.n + ' ordin' + (of.n === 1 ? 'e' : 'i') + ' fornitore aperti o parziali · IVA incl.', 'var(--violet)', 'ordini-fornitore.html?stato=aperti');
+      stat('Prodotti da evadere', eur0(oc.importo), oc.n + ' ordin' + (oc.n === 1 ? 'e' : 'i') + ' aperti o parziali · IVA incl.', 'var(--blue)', 'evadere.html') +
+      stat('Da ricevere dai fornitori', eur0(of.importo), of.n + ' ordin' + (of.n === 1 ? 'e' : 'i') + ' fornitore aperti o parziali · IVA incl.', 'var(--violet)', 'ricevere.html');
 
     $('panel-title').textContent = 'Andamento mensile (IVA inclusa)' + (DASHY ? ' — ' + DASHY : '');
     renderChart();

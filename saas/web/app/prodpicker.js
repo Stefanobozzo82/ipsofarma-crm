@@ -56,11 +56,34 @@
       input.focus();
     }
 
+    // Campo vuoto (prima ancora di scrivere qualcosa, o tornati vuoti a
+    // forza di backspace): mostra subito i primi prodotti del catalogo
+    // invece di un menu vuoto — searchProdotti(query:'') salta il filtro
+    // e ritorna semplicemente i primi N per codice (store.js), lo stesso
+    // giro già usato per una ricerca vera. Richiesta reale: prima bisognava
+    // sempre scrivere qualcosa prima di vedere un solo prodotto.
+    async function showDefault() {
+      try {
+        const list = await global.SaasStore.searchProdotti(opts.companyId, '', 12);
+        // come sotto: se nel frattempo è stato scritto qualcosa, questa
+        // risposta arrivata in ritardo non deve sovrascriverlo.
+        if (input.value.trim() !== '') return;
+        render(list);
+      } catch (e) { /* silenzioso: niente elenco iniziale, non blocca la digitazione */ }
+    }
+    // 'focus' copre l'apertura normale del campo; 'click' serve a
+    // riaprirlo quando è già a fuoco ma vuoto e il menu è stato appena
+    // chiuso (Esc, o una scelta già fatta) — 'focus' da solo non
+    // rifirerebbe in quel caso.
+    const maybeShowDefault = () => { if (!input.value.trim() && !sugg.innerHTML) showDefault(); };
+    input.addEventListener('focus', maybeShowDefault);
+    input.addEventListener('click', maybeShowDefault);
+
     input.addEventListener('input', () => {
       const q = input.value.trim();
       idx = -1;
       clearTimeout(timer);
-      if (!q) { sugg.innerHTML = ''; lastList = []; return; }
+      if (!q) { showDefault(); return; }
       timer = setTimeout(async () => {
         try {
           const list = await global.SaasStore.searchProdotti(opts.companyId, q, 12);

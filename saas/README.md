@@ -3480,6 +3480,29 @@ eseguito sui 20 ordini fornitore reali di B.Braun di questa azienda →
 individua `OF/2026/0201` come unico corrispondente, nessun falso
 positivo sugli altri 19.
 
+## Il campo prodotti nei documenti mostra qualcosa solo dopo aver scritto
+
+**Richiesta:** "nella sezione prodotti da fatturare voglio che siano
+visibili subito i prodotti" — aprendo il campo di ricerca prodotto in un
+documento (fattura, ordine, DDT...) il menu restava vuoto finché non si
+scriveva qualcosa: bisognava sempre sapere già cosa cercare.
+
+`app/prodpicker.js` è il componente condiviso da OGNI modulo documento
+(sia la barra di ricerca sopra l'editor righe, sia l'autocompletamento
+dentro il campo "Codice" di una riga già presente) — un solo posto da
+correggere vale per tutti. Aprendo il campo vuoto ora mostra subito i
+primi 12 prodotti del catalogo (per codice) invece di niente:
+`store.searchProdotti(companyId, '', 12)` già supportava una query vuota
+saltando il filtro `.or()` e restituendo semplicemente i primi N per
+codice — usato altrove ma mai per questo caso, bastava chiamarlo. Il menu
+si apre al focus e anche a un clic su un campo già a fuoco ma vuoto
+(serve a riaprirlo dopo un Esc, o dopo aver scelto un prodotto — 'focus'
+da solo non rifira in quei casi); si aggiorna con la ricerca vera non
+appena si scrive qualcosa, come prima.
+
+Verificato con una query reale sui dati di un'azienda vera: i primi 12
+prodotti per codice tornano correttamente, non un elenco vuoto.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -111,7 +111,10 @@
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
-  let FFILT = { cliente: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
+  // FFILT.stato viene precompilato da ?stato=aperti nell'URL (link "Prodotti
+  // da evadere" della dashboard, vedi dashboard.html): senza, l'elenco apriva
+  // sempre su TUTTI gli ordini invece che solo quelli ancora da evadere.
+  let FFILT = { cliente: '', stato: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -264,22 +267,37 @@
     searchTimer = setTimeout(renderList, 200);
   });
 
-  // ---- filtri: cliente, intervallo date ----------------------------------
+  // Completo = ogni riga interamente consegnata (qtyEv >= qty) — stessa
+  // definizione di evasione() in dashboard.html, così "aperti o parziali"
+  // qui seleziona esattamente gli stessi ordini che la dashboard conta.
+  function ordineCompleto(o){
+    const righe = o.righe || [];
+    return righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
+  }
+
+  // ---- filtri: cliente, stato evasione, intervallo date ------------------
   function matchesFilter(o){
     if(FFILT.cliente && o.clienteId !== FFILT.cliente) return false;
+    if(FFILT.stato === 'aperti' && ordineCompleto(o)) return false;
+    if(FFILT.stato === 'evasi' && !ordineCompleto(o)) return false;
     if(FFILT.from && (o.data || '') < FFILT.from) return false;
     if(FFILT.to && (o.data || '') > FFILT.to) return false;
     return true;
   }
   function setFFilt(k, v){ FFILT[k] = v; renderList(); }
-  function clearFFilt(){ FFILT = { cliente:'', from:'', to:'' }; renderList(); }
+  function clearFFilt(){ FFILT = { cliente:'', stato:'', from:'', to:'' }; renderList(); }
   function renderFilterbar(){
-    const active = FFILT.cliente || FFILT.from || FFILT.to;
+    const active = FFILT.cliente || FFILT.stato || FFILT.from || FFILT.to;
     const clientiArr = Object.values(clientiById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
     const copts = '<option value="">Tutti i clienti</option>' +
       clientiArr.map(c => `<option value="${c.id}" ${FFILT.cliente === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('');
     $('filter-area').innerHTML = `<div class="filterbar">
       <select id="ff-cliente">${copts}</select>
+      <select id="ff-stato">
+        <option value="">Tutti gli stati</option>
+        <option value="aperti" ${FFILT.stato === 'aperti' ? 'selected' : ''}>Aperti o parziali</option>
+        <option value="evasi" ${FFILT.stato === 'evasi' ? 'selected' : ''}>Evasi</option>
+      </select>
       <div class="fdate-group">
         <label class="fdate">Dal <input type="date" id="ff-from" value="${FFILT.from}"></label>
         <label class="fdate">Al <input type="date" id="ff-to" value="${FFILT.to}"></label>
@@ -287,6 +305,7 @@
       ${active ? '<button type="button" class="ffclear" id="ff-clear">✕ Azzera filtri</button>' : ''}
     </div>`;
     $('ff-cliente').addEventListener('change', () => setFFilt('cliente', $('ff-cliente').value));
+    $('ff-stato').addEventListener('change', () => setFFilt('stato', $('ff-stato').value));
     $('ff-from').addEventListener('change', () => setFFilt('from', $('ff-from').value));
     $('ff-to').addEventListener('change', () => setFFilt('to', $('ff-to').value));
     if(active) $('ff-clear').addEventListener('click', clearFFilt);
@@ -664,6 +683,10 @@
     if(!session){ location.href = 'index.html'; return; }
     companyId = localStorage.getItem('saas_company_id');
     if(!companyId){ location.href = 'index.html'; return; }
+    // Link "Prodotti da evadere" dalla dashboard (ordini.html?stato=aperti):
+    // apre già filtrato sui soli ordini aperti/parziali, non su tutti.
+    const urlStato = new URLSearchParams(location.search).get('stato');
+    if(urlStato === 'aperti' || urlStato === 'evasi') FFILT.stato = urlStato;
     try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
     window.SaasNav.render('ordini', {
       companyName: localStorage.getItem('saas_company_nome') || 'Azienda',

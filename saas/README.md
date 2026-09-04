@@ -3795,6 +3795,49 @@ id: un payload sbagliato basta a corrompere il documento).
 Nuovo stile `.pill.nc` in `app/theme.css` (grigio neutro, senza cursore
 a manina: non è un pulsante cliccabile).
 
+## Fix: le note di credito c'erano ma sepolte in fondo all'elenco
+
+**Segnalazione di seguito diretto:** "non la vedo tra le righe delle
+fatture fornitori. controlla" — la nota di credito appena aggiunta
+all'elenco (vedi sezione precedente) non si vedeva.
+
+**Verificato sul database reale** (279 fatture fornitore + 2 note di
+credito dell'azienda vera, simulando `renderList()` con gli stessi dati
+e la stessa logica del file): le note di credito ERANO nell'elenco —
+281 righe totali, nessuna persa — ma sepolte in penultima/ultima
+posizione. Causa: `fatture-fornitore.html`/`fatture.html` ordinano
+l'elenco per default per "Numero" discendente (`SORT={key:'num',
+dir:'desc'}`), mentre una nota di credito porta la numerazione DEL
+FORNITORE per le sue note di credito (es. "5301021389"), slegata da
+quella delle sue fatture (es. "5718067132") — ordinando per numero le
+due sequenze non si intrecciano affatto, la nota di credito finisce
+matematicamente all'estremo opposto rispetto alle fatture a cui si
+riferisce, invece che vicino a loro.
+
+Controllato `index.html`: il vecchio gestionale non ha MAI usato "num"
+come ordinamento predefinito per queste liste — l'unico default in
+tutto il file è `SORT={key:'data',dir:'desc'}`. Il SaaS se ne era
+discostato (probabilmente senza una ragione deliberata, solo
+un'impostazione presa modulo per modulo) — e con l'introduzione delle
+note di credito nell'elenco questo scarto è diventato un bug
+concreto e visibile: ordinando per data, le stesse due note di credito
+risultano invece in **posizione 4 e 15 su 281** (accanto alle fatture
+recenti a cui si riferiscono), verificato con gli stessi dati reali.
+
+**Fix**, in `fatture-fornitore.html` e `fatture.html`: ordinamento
+iniziale riportato a `data`/`desc`, come nell'originale. Resta comunque
+possibile ordinare per "Numero" cliccando l'intestazione di colonna
+(comportamento invariato) — cambia solo cosa si vede aprendo la
+pagina.
+
+Non toccati gli altri moduli documento (`ordini.html`, `ddt.html`,
+`ordini-fornitore.html`, `preventivi.html`, `note-credito.html`,
+`note-credito-fornitore.html`) che hanno lo stesso default "num" —
+stesso scarto dall'originale, ma fuori dallo scope di questa
+segnalazione (nessuno di loro mescola due numerazioni indipendenti
+nello stesso elenco, quindi non nasconde righe allo stesso modo).
+Segnalato qui perché chi ci lavora dopo lo sappia.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

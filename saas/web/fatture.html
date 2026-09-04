@@ -104,6 +104,7 @@
   let editingId = null;
   let editingFattura = null; // la fattura in modifica, per non perdere paid/paidDate/pagamenti al salvataggio — vedi f-save
   let clientiById = {};
+  let noteCreditoArr = []; // per sottrarle dal "Totale fatturato", vedi renderStats()
   let ordiniPerCliente = {};
   let allOrdiniById = {};
   let ddtPerCliente = {};
@@ -181,20 +182,48 @@
   function setFFilt(k, v){ FFILT[k] = v; renderList(); }
   function clearFFilt(){ FFILT = { cliente:'', paid:'', from:'', to:'' }; renderList(); }
 
+  // Una nota di credito riduce quanto fatturato al cliente (uno storno,
+  // non una nuova vendita): va sottratta dal "Totale fatturato", non
+  // ignorata — come nel gestionale originale ("vendTot = fc.reduce(...) -
+  // ncTot"). Stessi filtri cliente/ricerca/intervallo date della fattura,
+  // ma NON lo stato di pagamento (una nota di credito non ha uno stato
+  // "incassata/da incassare": esclusa quando quel filtro è attivo, come
+  // faceva il gestionale originale togliendo le righe nota di credito
+  // dall'elenco filtrato per stato).
+  function matchesQueryNC(n){
+    if(!Q) return true;
+    const party = (clientiById[n.clienteId] || {}).nome || '';
+    return (n.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
+  }
+  function matchesFilterNC(n){
+    if(FFILT.cliente && n.clienteId !== FFILT.cliente) return false;
+    if(FFILT.paid) return false;
+    if(FFILT.from && (n.data || '') < FFILT.from) return false;
+    if(FFILT.to && (n.data || '') > FFILT.to) return false;
+    return true;
+  }
   // "Totale fatturato", ricalcolato sull'elenco GIÀ filtrato (ricerca +
   // cliente/stato/intervallo date) — stessa richiesta già fatta per
   // fatture-fornitore.html ("fai lo stesso anche per fatture clienti"):
   // sempre "il totale di quello che vedi sotto", si aggiorna da solo con
   // ogni filtro applicato, combinabili tra loro.
+  //
+  // Bug reale segnalato (lo stesso su fatture-fornitore.html): qui sommava
+  // solo le fatture, senza sottrarre le note di credito collegate — mentre
+  // nel gestionale originale il "Totale fatturato" le sottrae sempre.
+  // Corretto riportando la stessa logica.
   function renderStats(elencoFiltrato){
-    const tot = elencoFiltrato.reduce((s, f) => s + docTotale(f.righe), 0);
+    const totFatture = elencoFiltrato.reduce((s, f) => s + docTotale(f.righe), 0);
+    const ncFiltrate = noteCreditoArr.filter(matchesQueryNC).filter(matchesFilterNC);
+    const totNC = ncFiltrate.reduce((s, n) => s + docTotale(n.righe), 0);
     const cliente = FFILT.cliente ? (clientiById[FFILT.cliente] || {}).nome : '';
     const periodo = FFILT.from || FFILT.to
       ? ` dal ${FFILT.from ? new Date(FFILT.from).toLocaleDateString('it-IT') : '…'} al ${FFILT.to ? new Date(FFILT.to).toLocaleDateString('it-IT') : '…'}`
       : '';
     const sub = elencoFiltrato.length + ' fattur' + (elencoFiltrato.length === 1 ? 'a' : 'e')
+      + (ncFiltrate.length ? ' − ' + ncFiltrate.length + ' nota' + (ncFiltrate.length === 1 ? '' : 'e') + ' di credito' : '')
       + (cliente ? ' di ' + cliente : '') + periodo + ' · IVA incl.';
-    $('stats-riga').innerHTML = `<div class="stat"><div class="sl">Totale fatturato</div><div class="sv" style="color:var(--accent-d)">${eur(tot)}</div><div class="sx">${esc(sub)}</div></div>`;
+    $('stats-riga').innerHTML = `<div class="stat"><div class="sl">Totale fatturato</div><div class="sv" style="color:var(--accent-d)">${eur(totFatture - totNC)}</div><div class="sx">${esc(sub)}</div></div>`;
   }
   function renderFilterbar(){
     const active = FFILT.cliente || FFILT.paid || FFILT.from || FFILT.to;
@@ -776,15 +805,17 @@
       onLogout: doLogout,
     });
 
-    const [clienti, ordini, ddts] = await Promise.all([
+    const [clienti, ordini, ddts, noteCredito] = await Promise.all([
       store.loadCollection('clienti', companyId),
       store.loadCollection('ordiniCliente', companyId),
       store.loadCollection('ddt', companyId),
+      store.loadCollection('noteCredito', companyId),
     ]);
     clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     allOrdiniById = Object.fromEntries(ordini.map(o => [o.id, o]));
     allDdtById = Object.fromEntries(ddts.map(d => [d.id, d]));
     ordiniPerCliente = {}; ordini.forEach(o => { (ordiniPerCliente[o.clienteId] = ordiniPerCliente[o.clienteId] || []).push(o); });
+    noteCreditoArr = noteCredito;
     ddtPerCliente = {}; ddts.forEach(d => { (ddtPerCliente[d.clienteId] = ddtPerCliente[d.clienteId] || []).push(d); });
     $('f-cliente').innerHTML = clienti.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 

@@ -37,6 +37,7 @@
     <h3 id="form-title">Nuovo ordine</h3>
     <label for="f-cliente">Cliente</label>
     <select id="f-cliente"></select>
+    <div id="f-dest-wrap"><label for="f-dest">Destinazione di consegna</label><select id="f-dest"></select></div>
     <div class="grid2">
       <div><label for="f-num">Numero ordine</label><input id="f-num" type="text" placeholder="es. OC/2026/0001"></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
@@ -119,6 +120,29 @@
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco —
+  // stessa funzione di ddt.html/fatture.html.
+  function destSub(it){
+    const cliente = clientiById[it.clienteId];
+    const dest = (it.destId && cliente && cliente.dest) ? cliente.dest.find(d => d.id === it.destId) : null;
+    return dest ? `<div style="font-size:11px;color:var(--faint);margin-top:1px">📍 ${esc(dest.nome || dest.citta || 'Sede')}</div>` : '';
+  }
+  // Le destinazioni di consegna sono gestite in clienti.html (CDEST): qui
+  // si sceglie solo quale usare per QUESTO ordine, tra quelle già
+  // registrate per il cliente selezionato — richiesta reale: "nel vecchio
+  // gestionale quando inserivo un ordine potevo scegliere anche la sede di
+  // destinazione [...] come era fatto nel vecchio gestionale" (ddt.html/
+  // fatture.html avevano già questo campo, ordini.html no — la stessa
+  // funzione, portata qui). "Sede legale" resta il default se il cliente
+  // non ne ha di aggiuntive.
+  function refreshDestOptions(clienteId){
+    const cliente = clientiById[clienteId];
+    const dest = (cliente && cliente.dest) || [];
+    $('f-dest-wrap').hidden = dest.length === 0;
+    $('f-dest').innerHTML = '<option value="">Sede legale</option>' +
+      dest.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
+  }
+  $('f-cliente').addEventListener('change', () => refreshDestOptions($('f-cliente').value));
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
@@ -406,6 +430,8 @@
     editingOrder = ordine;
     $('form-title').textContent = ordine ? `Modifica ${ordine.num}` : 'Nuovo ordine';
     $('f-cliente').value = ordine ? ordine.clienteId : ($('f-cliente').options[0] ? $('f-cliente').options[0].value : '');
+    refreshDestOptions($('f-cliente').value);
+    $('f-dest').value = ordine ? (ordine.destId || '') : '';
     $('f-data').value = ordine ? ordine.data : today();
     if(ordine){
       $('f-num').value = ordine.num;
@@ -464,7 +490,7 @@
 
       await openForm(null);
       const match = window.SaasAiImport.findPartyByNome(Object.values(clientiById), p.cliente);
-      if(match) $('f-cliente').value = match.id;
+      if(match){ $('f-cliente').value = match.id; refreshDestOptions(match.id); }
       $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
       $('righe-body').innerHTML = '';
       const righeGrezze = (Array.isArray(p.righe) ? p.righe : []).map(r => ({
@@ -492,6 +518,7 @@
 
   $('f-save').addEventListener('click', async () => {
     const clienteId = $('f-cliente').value;
+    const destId = $('f-dest').value || null;
     const data = $('f-data').value;
     const righe = readRighe();
     if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
@@ -527,7 +554,7 @@
       // Idem per ddtIds/ftIds/ofIds/ddtId/ftId/ofId (extra, non nel form):
       // si parte dall'ordine esistente invece che da un oggetto vuoto, o
       // il salvataggio li azzererebbe allo stesso modo.
-      const doc = editingOrder ? Object.assign({}, editingOrder, { clienteId, data, righe: righeFinal }) : { clienteId, data, righe: righeFinal };
+      const doc = editingOrder ? Object.assign({}, editingOrder, { clienteId, destId, data, righe: righeFinal }) : { clienteId, destId, data, righe: righeFinal };
       const numInput = $('f-num').value.trim();
       if(editingId){
         doc.id = editingId;
@@ -602,7 +629,7 @@
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${o.id}" ${PICK.has(o.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(o.num)}</td>
           <td>${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'}</td>
-          <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
+          <td>${esc((clientiById[o.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(o)}</td>
           <td>${statoConsegnaBadge(o)}</td>
           <td class="num-col">${eur(impTot(o.righe || []))}</td>
           <td class="num-col">${eur(ivaTot(o.righe || []))}</td>

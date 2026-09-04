@@ -145,7 +145,10 @@
     const righe = await righeConLotti(store, companyId, ordine, righeBase);
     const anno = Number((ordine.data || today()).slice(0, 4)) || Number(today().slice(0, 4));
     const num = await store.nextNumber(companyId, 'DDT', anno);
-    const ddt = await store.saveDoc('ddt', { num, data: today(), clienteId: ordine.clienteId, ocId: ordine.id, righe }, companyId);
+    // destId: la destinazione scelta sull'ordine si propaga da sola al DDT
+    // — come nel vecchio gestionale (aiGenDDT(): "destId: oc.destId||null"),
+    // non va ripetuta a mano ad ogni documento della cascata.
+    const ddt = await store.saveDoc('ddt', { num, data: today(), clienteId: ordine.clienteId, ocId: ordine.id, destId: ordine.destId || null, righe }, companyId);
     const ordineAgg = applicaConsegna(ordine, righe, ddt.num);
     await store.saveDoc('ordiniCliente', ordineAgg, companyId);
     return { ddt, ordine: ordineAgg };

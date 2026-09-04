@@ -3694,6 +3694,30 @@ codice) su una riga vera; poi confermato via una chiamata REST reale
 `ordini_cliente` espone `dest_id` e che `extra` non contiene più
 `destId` per l'ordine migrato.
 
+## Destinazione di consegna anche sui preventivi
+
+**Richiesta di seguito diretto:** "verifica anche i preventivi" —
+nel vecchio gestionale la destinazione si sceglie già al preventivo
+("destId: pv.destId||null" quando diventa ordine), non solo all'ordine:
+stessa lacuna di prima, un livello più a monte nella cascata.
+
+**Fix**, identico a quello di ordini.html:
+1. Nuova migrazione `0015_dest_preventivi.sql`: `dest_id text` su
+   `preventivi` (applicata al database live), con lo stesso backfill
+   difensivo di 0014 — verificato sul database reale: 0 preventivi
+   avevano già il campo in `extra` (a differenza dei 74 ordini), ma la
+   migrazione lo gestisce comunque per coerenza.
+2. `store.js`: `destId` mappato su `dest_id` per `preventivi`.
+3. `preventivi.html`: stesso campo "Destinazione di consegna" sul form
+   (stessa `refreshDestOptions()`/`destSub()`).
+4. `trasformaInOrdine()`: la destinazione del preventivo si propaga
+   all'ordine generato — chiude la cascata completa preventivo → ordine
+   → DDT → fattura, ognuno che eredita dal precedente invece di dover
+   essere scelta ad ogni passo, come nell'originale.
+
+**Verificato end-to-end sul database reale**: chiamata REST reale
+(stessa API del browser) conferma che `preventivi` espone `dest_id`.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

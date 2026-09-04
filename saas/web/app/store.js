@@ -59,7 +59,7 @@
       ref:'ref', tel:'tel', email:'email', note:'note',
     }, hasExtra:false },
     preventivi: { table: 'preventivi', numbered: 'PREV', cols: {
-      num:'num', data:'data', clienteId:'cliente_id', righe:'righe', note:'note', ocId:'oc_id',
+      num:'num', data:'data', clienteId:'cliente_id', righe:'righe', note:'note', ocId:'oc_id', destId:'dest_id',
     }, hasExtra:true },
     ordiniCliente: { table: 'ordini_cliente', numbered: 'OC', cols: {
       num:'num', data:'data', clienteId:'cliente_id', righe:'righe', prevId:'prev_id', destId:'dest_id',

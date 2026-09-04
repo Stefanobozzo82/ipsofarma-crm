@@ -109,7 +109,15 @@
   let fornitoriArr = [];
   let ordiniPerFornitore = {};
   let noteCreditoFornitoreArr = []; // per sottrarle dal "Totale acquisti", vedi renderStats()
-  let SORT = { key: 'num', dir: 'desc' };
+  // Ordinamento iniziale per data (non numero): come nel vecchio gestionale
+  // ("SORT={key:'data',dir:'desc'}", l'unico default usato in tutto
+  // index.html) — vedi il commento più sotto ("Le note di credito
+  // fornitore compaiono...") sul perché questo non è solo un dettaglio
+  // estetico: una nota di credito ha una propria numerazione (del
+  // fornitore), slegata da quella delle fatture — ordinando per "Numero"
+  // finisce sepolta in fondo a un elenco di centinaia di righe invece di
+  // comparire vicino alle fatture recenti a cui si riferisce.
+  let SORT = { key: 'data', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   // Filtri sopra l'elenco: stessa idea di FFILT nel gestionale originale
   // (filterbar sui moduli documento) — qui applicata a fatture fornitore,

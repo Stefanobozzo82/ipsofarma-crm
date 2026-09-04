@@ -109,7 +109,14 @@
   let allOrdiniById = {};
   let ddtPerCliente = {};
   let allDdtById = {};
-  let SORT = { key: 'num', dir: 'desc' };
+  // Ordinamento iniziale per data (non numero): come nel vecchio gestionale
+  // ("SORT={key:'data',dir:'desc'}", l'unico default usato in tutto
+  // index.html) — stessa correzione di fatture-fornitore.html: una nota di
+  // credito ha una propria numerazione, slegata da quella delle fatture,
+  // ordinando per "Numero" finisce sepolta in fondo a un elenco di
+  // centinaia di righe invece di comparire vicino alle fatture recenti a
+  // cui si riferisce.
+  let SORT = { key: 'data', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
   let FFILT = { cliente: '', paid: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale

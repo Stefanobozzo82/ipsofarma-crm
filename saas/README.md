@@ -3748,12 +3748,52 @@ riporta anche quante note di credito sono state sottratte ("− N note di
 credito"), per non dover indovinare la differenza tra fatture e
 importo mostrato.
 
-Non portata la fusione dell'elenco note di credito dentro l'elenco
-fatture stesso (il vecchio gestionale le mostra come righe a sé nella
-stessa lista, con segno negativo) — nel SaaS restano un modulo a parte
-(`note-credito.html`/`note-credito-fornitore.html`): la richiesta era
-sulla somma, non sull'elenco, e i due moduli restano comunque collegati
-tra loro dal box "Documenti collegati" (vedi `app/lineage.js`).
+Non portata, in questo primo passaggio, la fusione dell'elenco note di
+credito dentro l'elenco fatture stesso (il vecchio gestionale le mostra
+come righe a sé nella stessa lista, con segno negativo) — la richiesta
+era sulla somma, non sull'elenco. Richiesto subito dopo, vedi la
+sezione seguente.
+
+## Le note di credito compaiono anche nell'elenco fatture, come righe a sé
+
+**Richiesta di seguito diretto:** "voglio che le note di credito
+compaiano anche nelle righe delle fatture fornitori come nel vecchio
+gestionale" — il pezzo lasciato fuori dal fix precedente.
+
+Verificato su `index.html`: `filteredDocRows()` per `MOD==='ftf'`
+concatena le note di credito fornitore all'elenco fatture come righe
+proprie (stesso per `MOD==='ft'`/note credito cliente) — non un totale
+a parte, ma righe visibili con importo negativo, un badge "Nota di
+credito" al posto dello stato pagata/da pagare, ed escluse quando è
+attivo un filtro di stato (non hanno uno stato di pagamento).
+
+**Fix**, in entrambi `fatture-fornitore.html` e `fatture.html`:
+`renderList()` costruisce ora un elenco unificato — le fatture
+(`elenco`, come prima) più le note di credito filtrate con gli stessi
+criteri già usati per `renderStats()` (`matchesQueryNC`/
+`matchesFilterNC`) — ordinato INSIEME con lo stesso `sortVal()` di
+sempre (funziona identico su entrambe: stessi nomi di campo
+`num`/`data`/`fornitoreId|clienteId`/`righe`). Una riga nota di credito
+mostra imponibile/IVA/totale con segno negativo, un pill grigio "Nota
+di credito" al posto del pulsante pagata/da pagare, e nessuna azione
+per-riga (stampa/PDF/modifica/elimina restano nel suo modulo dedicato).
+
+Cliccare una riga nota di credito non apre il form fattura (i due
+documenti hanno una forma dati diversa: aprirla lì la corromperebbe) —
+naviga invece a `note-credito.html`/`note-credito-fornitore.html`, che
+la trova e la apre, con lo stesso meccanismo già usato dal box
+"Documenti collegati" (`saas_open_doc` in `localStorage`, vedi
+`app/lineage.js`).
+
+Le righe nota di credito restano fuori dalla selezione a spunta e
+dalla barra di azioni collettive (PICK) — la barra qui serve solo a
+"segna pagate/incassate", che non si applica a una nota di credito;
+tenerle selezionabili avrebbe rischiato di farle salvare per errore
+come una fattura tramite `bulkMarkPaid()` (stessa tabella, upsert per
+id: un payload sbagliato basta a corrompere il documento).
+
+Nuovo stile `.pill.nc` in `app/theme.css` (grigio neutro, senza cursore
+a manina: non è un pulsante cliccabile).
 
 ## Prossimo passo
 

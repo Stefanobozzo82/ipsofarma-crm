@@ -597,6 +597,10 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .pill.paid{ color:var(--accent-d); background:var(--accent-soft); }
 .pill.unpaid{ color:var(--amber); background:var(--amber-s); }
+/* Riga nota di credito dentro l'elenco fatture (fatture-fornitore.html/
+   fatture.html): non ha uno stato pagata/da pagare, solo un'etichetta —
+   niente cursore a manina, non è un pulsante che si clicca. */
+.pill.nc{ color:var(--muted); background:var(--border2); cursor:default; }
 
 ::selection{ background:var(--accent-soft); }
 

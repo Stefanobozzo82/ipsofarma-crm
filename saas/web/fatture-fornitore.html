@@ -589,6 +589,16 @@
   }
   function deselectAll(){ PICK.clear(); renderList(); }
 
+  // Naviga alla scheda della nota di credito nel suo modulo dedicato —
+  // stesso meccanismo del box "Documenti collegati" (vedi app/lineage.js,
+  // PAGE_FOR_COLL/saas_open_doc): qui non c'è una SPA, quindi cliccare
+  // una riga nota di credito nell'elenco fatture salva {coll,num} e
+  // naviga a note-credito-fornitore.html, che la trova e la apre.
+  function openNCInOwnPage(num){
+    localStorage.setItem('saas_open_doc', JSON.stringify({ coll: 'noteCreditoFornitore', num }));
+    location.href = 'note-credito-fornitore.html';
+  }
+
   async function renderList(){
     renderFilterbar();
     const area = $('list-area');
@@ -600,18 +610,32 @@
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(elenco.length === 0){
+    if(elenco.length === 0 && noteCreditoFornitoreArr.length === 0){
       renderStats([]);
       area.innerHTML = '<p class="empty">Nessuna fattura ancora. Crea prima un fornitore, poi aggiungi una fattura con "+ Nuova fattura".</p>';
       return;
     }
     elenco = elenco.filter(matchesQuery).filter(matchesFilter);
     renderStats(elenco);
-    if(elenco.length === 0){
+    // Le note di credito fornitore compaiono anche loro nell'elenco, come
+    // righe a sé (segno negativo) — come nel gestionale originale
+    // (filteredDocRows(): "if(MOD==='ftf')rows=rows.concat(...noteCreditoFornitore...)").
+    // Stessi filtri fornitore/ricerca/intervallo date della fattura, ma
+    // NON lo stato di pagamento (matchesFilterNC le esclude già quando
+    // quel filtro è attivo — una nota di credito non ha uno stato
+    // "pagata/da pagare").
+    const ncRows = noteCreditoFornitoreArr.filter(matchesQueryNC).filter(matchesFilterNC);
+    if(elenco.length === 0 && ncRows.length === 0){
       area.innerHTML = '<p class="empty">Nessuna fattura trovata con questi criteri.</p>';
       return;
     }
-    elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    // Righe unificate per la tabella (fatture + note di credito), ordinate
+    // insieme come nel gestionale originale — non due liste separate.
+    // sortVal/docTotale/impTot/ivaTot funzionano identiche su entrambe:
+    // stessi nomi di campo (num/data/fornitoreId/righe).
+    const combined = elenco.map(f => Object.assign({}, f, { isNC: false }))
+      .concat(ncRows.map(n => Object.assign({}, n, { isNC: true })));
+    combined.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
 
     const selRows = elenco.filter(f => PICK.has(f.id));
     let bulkHtml = '';
@@ -628,7 +652,18 @@
     area.innerHTML = bulkHtml + `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('pagamento','Pagamento')}<th></th>
-      </tr></thead><tbody>${elenco.map(f => `
+      </tr></thead><tbody>${combined.map(f => f.isNC ? `
+        <tr class="row-click" data-id="${f.id}" data-nc="1" data-num="${esc(f.num)}">
+          <td class="check-col"></td>
+          <td class="num-col">${esc(f.num)}</td>
+          <td>${f.data ? new Date(f.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${esc((fornitoriById[f.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
+          <td class="num-col">${eur(-impTot(f.righe))}</td>
+          <td class="num-col">${eur(-ivaTot(f.righe))}</td>
+          <td class="num-col">${eur(-docTotale(f.righe))}</td>
+          <td><span class="pill nc">Nota di credito</span></td>
+          <td class="actions"></td>
+        </tr>` : `
         <tr class="row-click" data-id="${f.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
           <td class="num-col">${esc(f.num)}</td>
@@ -650,6 +685,7 @@
     }));
     area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
       if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
+      if(tr.dataset.nc === '1'){ openNCInOwnPage(tr.dataset.num); return; }
       openForm(elenco.find(x => x.id === tr.dataset.id));
     }));
     area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {

@@ -3718,6 +3718,43 @@ stessa lacuna di prima, un livello più a monte nella cascata.
 **Verificato end-to-end sul database reale**: chiamata REST reale
 (stessa API del browser) conferma che `preventivi` espone `dest_id`.
 
+## "Totale acquisti"/"Totale fatturato" ora sottraggono le note di credito
+
+**Richiesta:** "ho notato che la somma delle fatture fornitori non
+tiene conto delle note di credito mentre nel vecchio gestionale si.
+voglio che segui la logica del vecchio gestionale".
+
+Verificato su `index.html`: il "Totale acquisti"/"Totale fatturato"
+del vecchio gestionale sottrae SEMPRE le note di credito collegate
+(`acqTot = ff.reduce((s,f)=>s+tot(f.righe),0)-ncfTot`, `vendTot` uguale
+lato cliente) — una nota di credito è uno storno, non un nuovo
+acquisto/vendita, quindi va tolta dal totale, non ignorata. Lo stesso
+principio vale nell'elenco filtrato per fornitore/cliente ("search-sum"
+in `listView()`, `ncSign`) e nella barra di selezione multipla.
+
+Le card "Totale acquisti"/"Totale fatturato" (vedi le due sezioni qui
+sopra) erano state però costruite sommando solo le fatture, senza
+sottrarre le note di credito collegate — la lacuna segnalata.
+
+**Fix**, in entrambi `fatture-fornitore.html` e `fatture.html`:
+`renderStats()` ora carica anche `noteCreditoFornitore`/`noteCredito`
+(nuova `store.loadCollection(...)` in `init()`), le filtra con lo
+stesso fornitore/cliente + ricerca + intervallo date della fattura (MA
+non lo stato di pagamento: una nota di credito non ha uno stato
+"pagata/incassata", esclusa quando quel filtro è attivo, come faceva il
+vecchio gestionale togliendo le righe nota di credito dall'elenco
+filtrato per stato) e sottrae il loro totale dalla card. Il sottotitolo
+riporta anche quante note di credito sono state sottratte ("− N note di
+credito"), per non dover indovinare la differenza tra fatture e
+importo mostrato.
+
+Non portata la fusione dell'elenco note di credito dentro l'elenco
+fatture stesso (il vecchio gestionale le mostra come righe a sé nella
+stessa lista, con segno negativo) — nel SaaS restano un modulo a parte
+(`note-credito.html`/`note-credito-fornitore.html`): la richiesta era
+sulla somma, non sull'elenco, e i due moduli restano comunque collegati
+tra loro dal box "Documenti collegati" (vedi `app/lineage.js`).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

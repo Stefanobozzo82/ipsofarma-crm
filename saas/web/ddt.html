@@ -318,7 +318,12 @@
     // residuo dell'ordine selezionato (l'utente può comunque modificarle o svuotarle)
     const righeVuote = readRighe().length === 0;
     const ordine = allOrdiniById[$('f-ordine').value];
-    if(ordine && righeVuote) await precompileFromOrdine(ordine);
+    if(!ordine) return;
+    // La destinazione dell'ordine si propaga qui, non solo quando il DDT
+    // viene aperto dal bottone "📦 DDT" (vedi genFromOc più sotto) — scegliere
+    // un ordine già esistente dal menu deve avere lo stesso effetto.
+    $('f-dest').value = ordine.destId || '';
+    if(righeVuote) await precompileFromOrdine(ordine);
   });
 
   async function openForm(ddt){
@@ -594,6 +599,7 @@
         refreshOrdineOptions(ordine.clienteId);
         refreshDestOptions(ordine.clienteId);
         $('f-ordine').value = ordine.id;
+        $('f-dest').value = ordine.destId || '';
         await precompileFromOrdine(ordine);
       }
     }

@@ -62,7 +62,7 @@
       num:'num', data:'data', clienteId:'cliente_id', righe:'righe', note:'note', ocId:'oc_id',
     }, hasExtra:true },
     ordiniCliente: { table: 'ordini_cliente', numbered: 'OC', cols: {
-      num:'num', data:'data', clienteId:'cliente_id', righe:'righe', prevId:'prev_id',
+      num:'num', data:'data', clienteId:'cliente_id', righe:'righe', prevId:'prev_id', destId:'dest_id',
     }, hasExtra:true },
     ordiniFornitore: { table: 'ordini_fornitore', numbered: 'OF', cols: {
       num:'num', data:'data', fornitoreId:'fornitore_id', righe:'righe', ftfIds:'ftf_ids',

@@ -328,7 +328,13 @@
   $('f-ddt').addEventListener('change', () => {
     const righeVuote = readRighe().length === 0;
     const ddt = allDdtById[$('f-ddt').value];
-    if(ddt && righeVuote){
+    if(!ddt) return;
+    // La destinazione del DDT si propaga qui, non solo quando la fattura
+    // viene aperta dal bottone "🧾 Fattura" in ddt.html (vedi genFromDdt più
+    // sotto) — scegliere un DDT già esistente dal menu deve avere lo
+    // stesso effetto, come nel vecchio gestionale (aiGenFT()).
+    $('f-dest').value = ddt.destId || '';
+    if(righeVuote){
       $('righe-body').innerHTML = '';
       // lotto/scad/prezzo/sconto/iva riportati così come sono sul DDT
       // (che a sua volta li eredita dall'ordine cliente e, per lotto/scad,

@@ -3641,6 +3641,59 @@ Verificato con dati reali: filtrando su un cliente reale con un'unica
 fattura (righe: 1×290€, IVA 22%) il totale corrisponde esattamente a
 quanto atteso (€ 353,80).
 
+## Destinazione di consegna anche sugli ordini (mancava solo lì)
+
+**Richiesta:** "nel vecchio gestionale quando inserivo un ordine potevo
+scegliere anche la sede di destinazione e lo stesso poteva essere fatto
+nei DDT e nelle fatture — puoi controllare come era fatto nel vecchio
+gestionale e riportare questa funzione nel nuovo".
+
+Verificato su `index.html`: DDT e fatture avevano già il campo qui (li
+avevo già portati), ma **ordini.html no** — mancava sia il campo sul
+form sia la colonna `dest_id` su `ordini_cliente` (0003_documenti.sql
+l'aveva già su `ddt`/`fatture_cliente`, non su `ordini_cliente`). Nel
+vecchio gestionale, inoltre, la destinazione si sceglie UNA VOLTA
+sull'ordine e si propaga da sola lungo tutta la cascata
+(`aiGenDDT()`/`aiGenFT()`: `destId: oc.destId||null` / `destId:
+ddt.destId||null`) — nel SaaS questo valeva già solo per DDT→fattura
+(`creaFattureDaOrdine()` in cascade.js), non per ordine→DDT.
+
+**Fix:**
+1. Nuova migrazione `0014_dest_ordini_cliente.sql`: `dest_id text` su
+   `ordini_cliente` (applicata anche al database live).
+2. `store.js`: `destId` mappato su `dest_id` nella collection
+   `ordiniCliente` (prima cadeva in `extra`, come qualunque campo non
+   riconosciuto).
+3. `ordini.html`: campo "Destinazione di consegna" sul form (stessa
+   funzione `refreshDestOptions()`/`destSub()` di ddt.html/fatture.html),
+   propagato anche dal riconoscimento cliente dell'import AI.
+4. `cascade.js` (`creaDDTDaResiduo`): il DDT generato da un ordine eredita
+   ora la sua destinazione, come nell'originale.
+5. `ddt.html`/`fatture.html`: la destinazione si propaga anche scegliendo
+   a mano un ordine/DDT già esistente dal menu a tendina (non solo aprendo
+   il documento dal bottone "📦 DDT"/"🧾 Fattura") — stessa lacuna,
+   corretta in entrambi i moduli.
+
+**Backfill necessario, scoperto verificando sul database reale**: prima
+che la colonna esistesse, `destId` finiva dentro `extra` (comportamento
+di `store.js` per ogni campo non mappato) — **74 ordini reali**
+(importati dal vecchio gestionale, che aveva già questo campo) ce
+l'avevano già valorizzato lì. Senza riportarlo nella colonna vera,
+`rowToDoc()` lo avrebbe silenziosamente sovrascritto con `NULL` alla
+prima lettura (il campo mappato si applica DOPO lo spread di `extra`),
+perdendo una destinazione già scelta da un cliente vero. Migrazione con
+backfill (`update ... set dest_id = extra->>'destId', extra = extra -
+'destId'`), applicata al database live: verificato su un ordine reale
+(TIRRENIA HOSPITAL, OC/2026/0151) che il valore si sposta correttamente
+e non resta duplicato in `extra`.
+
+**Verificato end-to-end sul database reale**: round-trip
+`docToRow`/`rowToDoc` di `store.js` (simulato con lo stesso identico
+codice) su una riga vera; poi confermato via una chiamata REST reale
+(stessa API che usa il browser, con una sessione vera) che
+`ordini_cliente` espone `dest_id` e che `extra` non contiene più
+`destId` per l'ordine migrato.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

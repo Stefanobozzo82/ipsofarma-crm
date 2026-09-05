@@ -3972,6 +3972,65 @@ invece di sommarsi, perdendo l'animazione del sollevamento già
 esistente. Verificato leggendo entrambe le regole prima di scrivere la
 nuova, non dopo.
 
+## Assistente AI: mancava "quanto è stato incassato/pagato"
+
+**Richiesta:** "pensa alle domande che si potrebbero fare all'assistente
+ai e fai in modo che possa rispondere perché ho chiesto quant'è
+fatture clienti sono state incassate e nn mi ha saputo rispondere".
+
+Trovata la causa esatta leggendo `buildContext()` in
+`assistente-ai.html`: il riepilogo che l'assistente vede ad ogni
+domanda copriva "quanto resta da incassare" (il residuo) e "quanto
+fatturato" (l'importo delle fatture, pagate o no), ma **non calcolava
+mai quanto fosse stato REALMENTE incassato** — quel dato non esisteva
+da nessuna parte nel riepilogo. Il prompt di sistema dice esplicitamente
+all'IA di non inventare cifre assenti dal riepilogo ("se ti manca un
+dato per rispondere, dillo chiaramente invece di indovinare"): stava
+rispondendo correttamente al vincolo che le è stato dato, mancava il
+dato a monte.
+
+Pensando ad altre domande plausibili con lo stesso problema (nessun
+dato a cui agganciarsi), tutte calcolabili dai dati già caricati senza
+nuove query:
+
+**Fix**, in `buildContext()`:
+1. `incassatoInPeriodo()` (nuova funzione): somma i pagamenti REALI
+   registrati (`pagamenti[].importo`, filtrati per data del pagamento —
+   non della fattura, così una fattura di marzo pagata ad aprile conta
+   nell'incassato di aprile) — usata sia per i clienti (incassato) sia
+   per i fornitori (pagato), su tre orizzonti: mese corrente, anno
+   corrente, da sempre.
+2. Fatturato/acquisti ora anche su base annua (prima solo il mese
+   corrente), e **al netto delle note di credito** — prima erano
+   lordi, un'incoerenza col resto del prodotto (`dashboard.html`
+   "vendTot/acqTot", e le card "Totale acquisti"/"Totale fatturato"
+   sistemate in un giro precedente) che avrebbe reso sbagliato anche il
+   margine appena aggiunto.
+3. Margine (fatturato − acquisti), mese e anno — stessa definizione già
+   usata da `dashboard.html`.
+4. Conteggio fatture pagate/incassate su totali (cliente e fornitore).
+5. Numero di clienti/fornitori in anagrafica.
+6. `totalePerParty()` (nuova funzione): i 5 clienti per fatturato
+   totale — "chi è il mio cliente migliore", diverso da `topProdotti()`
+   (che aggrega gli articoli venduti, non le controparti).
+
+Aggiunti due nuovi esempi cliccabili ("Quanto ho incassato questo
+mese?", "Qual è il mio cliente migliore?") accanto a quelli già
+presenti.
+
+**Deliberatamente fuori da questo giro** (nuove collezioni da caricare,
+non solo nuovi calcoli sui dati già presenti): domande su magazzino/
+giacenze ("quanti pezzi ho di [prodotto]", "qual è il valore del
+magazzino") — `loadDB()` non carica ancora prodotti/depositi/giacenze,
+quindi restano fuori dalla portata dell'assistente. Segnalato qui
+perché chi ci lavora dopo lo sappia.
+
+**Verificato sul database reale** (286 fatture cliente, 279 fatture
+fornitore, dati veri dell'azienda): la domanda originale ora ha una
+risposta concreta — incassato € 242.979,62 in totale, € 127.354,10
+quest'anno, € 3.277,58 questo mese; "chi è il mio cliente migliore"
+risulta TIRRENIA HOSPITAL S.R.L. con € 70.112,67 di fatturato totale.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

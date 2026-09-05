@@ -770,7 +770,10 @@
     ordiniPerFornitore = {};
     ordini.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
     noteCreditoFornitoreArr = noteCreditoFornitore;
-    $('f-fornitore').innerHTML = fornitori.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+    // fornitoriArr (già ordinato alfabeticamente qui sopra, come il menu
+    // "Tutti i fornitori" della filterbar) — non l'array grezzo: altrimenti
+    // il menu del form segue l'ordine di caricamento, non quello alfabetico.
+    $('f-fornitore').innerHTML = fornitoriArr.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
 
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
       companyId, priceField: 'listinoAcq',

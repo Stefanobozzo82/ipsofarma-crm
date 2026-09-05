@@ -520,7 +520,10 @@
     fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
     fatturePerFornitore = {};
     fatture.forEach(f => { (fatturePerFornitore[f.fornitoreId] = fatturePerFornitore[f.fornitoreId] || []).push(f); });
-    $('f-fornitore').innerHTML = fornitori.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+    // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
+    // fornitori" della filterbar qui sopra (fornitoriArr).
+    $('f-fornitore').innerHTML = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
+      .map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
 
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
       companyId, priceField: 'listinoAcq',

@@ -96,6 +96,14 @@
         ? list.map(p => `<div class="sugg-item" data-cod="${esc(p.cod)}"><span class="code">${esc(p.cod)}</span><span class="sugg-d">${esc(p.descr)}</span><span class="sugg-pr">${eur(p[opts.priceField])}</span></div>`).join('')
         : '<div class="sugg-empty">Nessun prodotto trovato</div>';
       sugg.querySelectorAll('.sugg-item').forEach(el => {
+        // Niente equivalente touch qui sul codice del suggerimento: su
+        // schermo touch un tocco È già la scelta del prodotto (mousedown
+        // con preventDefault() sotto, che intercetta il gesto prima che
+        // un eventuale "click" sul solo <span class="code"> possa mai
+        // scattare) — non c'è un gesto separato "sfiora per vedere,
+        // tocca per scegliere" da ricavare sullo stesso elemento senza
+        // cambiare cosa fa un tocco qui. Resta un miglioramento solo
+        // desktop (mouse), niente di meno di prima su mobile.
         el.addEventListener('mousedown', e => { e.preventDefault(); pick(el.dataset.cod); });
         if (opts.priceHistory) {
           const codeEl = el.querySelector('.code');
@@ -112,14 +120,30 @@
     // campo "Codice" di una riga già compilata. Se il campo è vuoto o
     // contiene testo digitato a metà (non un codice reale), priceHistory()
     // non trova righe e il tooltip semplicemente non appare.
+    //
+    // Su schermo touch "mouseenter"/"mouseleave" non scattano MAI (non
+    // esiste hover senza un mouse vero) — qui il campo è un <input> vero,
+    // quindi un tocco può mostrare lo storico senza impedire poi il
+    // comportamento normale (mette a fuoco, apre la tastiera): stesso
+    // principio già in questo prodotto per il grafico della dashboard
+    // (onmousemove+onclick sullo stesso hit-target, vedi dashboard.html),
+    // qui "click" — che il browser genera anche per un tocco, non solo
+    // per un vero clic del mouse — al posto di "mousemove continuo".
+    // Sparisce da solo dopo pochi secondi: un tocco non ha un "mouseleave"
+    // naturale con cui abbinare la sparizione.
     if (opts.priceHistory) {
-      input.addEventListener('mouseenter', e => {
+      let hideTimer = null;
+      const trigger = e => {
         const cod = input.value.trim();
         if (!cod) return;
         const h = opts.priceHistory(cod) || {};
         showTip(e, h.title, h.rows);
-      });
-      input.addEventListener('mouseleave', hideTip);
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(hideTip, 4000);
+      };
+      input.addEventListener('mouseenter', trigger);
+      input.addEventListener('mouseleave', () => { clearTimeout(hideTimer); hideTip(); });
+      input.addEventListener('click', trigger);
     }
 
     function pick(cod) {

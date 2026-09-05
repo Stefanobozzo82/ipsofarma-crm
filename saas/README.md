@@ -3864,6 +3864,23 @@ per non alterare l'ordine con cui `clientiById`/`fornitoriById` e le
 altre strutture derivate vengono costruite altrove nella stessa
 `init()`.
 
+## Anche il menu "Destinazione di consegna" in ordine alfabetico
+
+**Seguito diretto:** dopo aver controllato "ordini-fornitore e
+preventivi" per lo stesso fix, segnalato che il menu "Destinazione di
+consegna" (`f-dest`, il menu che appare quando il cliente selezionato
+ha più sedi) non era ordinato alfabeticamente — confermato: il vecchio
+gestionale non lo ordinava nemmeno lui (le destinazioni restano
+nell'ordine in cui sono state registrate sul cliente), ma qui è stato
+chiesto esplicitamente l'ordine alfabetico anche per questo menu,
+scavalcando volutamente il comportamento dell'originale.
+
+Stessa funzione `refreshDestOptions()` duplicata identica in 4 file
+(`ordini.html`, `ddt.html`, `fatture.html`, `preventivi.html`): ora
+ordina su una copia dell'array delle destinazioni per l'etichetta
+effettivamente mostrata (nome, o città se il nome manca — stessa
+`localeCompare` con collazione italiana usata per clienti/fornitori).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

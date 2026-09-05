@@ -120,8 +120,14 @@
     const cliente = clientiById[clienteId];
     const dest = (cliente && cliente.dest) || [];
     $('f-dest-wrap').hidden = dest.length === 0;
+    // Ordine alfabetico sull'etichetta mostrata (nome, o città se manca) —
+    // richiesto di seguito diretto dopo il fix dei menu cliente/fornitore:
+    // qui il vecchio gestionale non ordinava (le destinazioni restavano
+    // nell'ordine in cui erano state registrate sul cliente), ma per
+    // questo menu è stato chiesto esplicitamente l'ordine alfabetico.
+    const destSorted = [...dest].sort((a, b) => (a.nome || a.citta || '').localeCompare(b.nome || b.citta || '', 'it', { sensitivity:'base' }));
     $('f-dest').innerHTML = '<option value="">Sede legale</option>' +
-      dest.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
+      destSorted.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
   }
   $('f-cliente').addEventListener('change', () => refreshDestOptions($('f-cliente').value));
   function setMsg(text, kind){

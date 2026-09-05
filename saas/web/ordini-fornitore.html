@@ -135,6 +135,27 @@
     });
     return best;
   }
+  // Storico degli ultimi prezzi (fino a 5) pagati per un prodotto — porta
+  // di priceHistory()/acqPriceHistory() nel vecchio gestionale, stessa
+  // fonte di lastAcqPrice() qui sopra (senza filtro fornitore) — per il
+  // tooltip al passaggio del mouse sul codice (vedi app/prodpicker.js).
+  function acqPriceHistory(cod, limit){
+    if(!cod) return [];
+    const out = [];
+    ['fattureFornitore', 'ordiniFornitore'].forEach(coll => {
+      (STORICO_PREZZI[coll] || []).forEach(d => {
+        const r = (d.righe || []).find(x => x.cod === cod);
+        if(r && r.prezzo != null) out.push({ data: d.data, prezzo: r.prezzo, sconto: r.sconto || '', num: d.num });
+      });
+    });
+    out.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    return out.slice(0, limit || 5);
+  }
+  // priceHistory(cod) per SaasProdPicker.attach() qui sotto e in
+  // bindRigaRow().
+  function priceHistoryForForm(cod){
+    return { title: 'Ultimi prezzi di acquisto', rows: acqPriceHistory(cod, 5) };
+  }
   // Il badge "ultimo prezzo" (vedi rigaRowHtml()) sparisce se l'utente
   // tocca prezzo o sconto a mano — stesso comportamento di ordini.html.
   function clearLastBadge(tr){
@@ -305,7 +326,7 @@
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
     window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
-      companyId, priceField: 'listinoAcq', clearOnPick: false,
+      companyId, priceField: 'listinoAcq', clearOnPick: false, priceHistory: priceHistoryForForm,
       onPick: p => {
         const last = lastAcqPrice(p.cod);
         tr.querySelector('.r-cod').value = p.cod;
@@ -696,7 +717,7 @@
     STORICO_PREZZI = { fattureFornitore, ordiniFornitore: ordiniTutti };
 
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
-      companyId, priceField: 'listinoAcq',
+      companyId, priceField: 'listinoAcq', priceHistory: priceHistoryForForm,
       onPick: p => {
         const last = lastAcqPrice(p.cod);
         addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: last ? last.prezzo : (p.listinoAcq || 0), sconto: last ? (last.sconto || '') : '', iva: p.iva || 22, _last: !!last });

@@ -26,11 +26,65 @@
 
   function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function eur(n) { return (Number(n) || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }); }
+  function fdate(d) { return d ? new Date(d).toLocaleDateString('it-IT') : ''; }
+  // Stessa aritmetica dello sconto usata in ogni modulo documento (cascata
+  // "N+M" inclusa) — qui serve solo per decidere COME mostrarlo nel
+  // tooltip dello storico prezzi, non per calcolare un totale.
+  function scFactor(s) { return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0).reduce((f, p) => f * (1 - p / 100), 1); }
+  function scEff(s) { return +(((1 - scFactor(s)) * 100).toFixed(2)); }
+  function scLabel(s) { const e = scEff(s); if (e <= 0) return '—'; return String(s).includes('+') ? String(s).replace(/\s/g, '') + ' %' : e + '%'; }
+
+  // ---------------------------------------------------------------------------
+  // Storico prezzi al passaggio del mouse sul codice di un prodotto — porta
+  // diretta di priceHistTipShow()/priceHistTipHide() nel vecchio gestionale:
+  // un tooltip con le ultime volte che quel prodotto è comparso in un
+  // documento (data, numero, prezzo, sconto), sia sul codice di un
+  // suggerimento appena cercato sia sul codice già scritto in una riga.
+  // Un solo elemento condiviso da tutte le pagine (appeso a document.body
+  // al volo la prima volta che serve, non nell'HTML di ogni pagina), come
+  // il resto di questo file è un unico posto invece di codice ripetuto in
+  // ogni modulo documento.
+  //
+  // Il DATO invece resta pagina-specifico: opts.priceHistory(cod), se
+  // passato, deve restituire {title, rows} — rows: [{data,prezzo,sconto,num}],
+  // già filtrato per cliente/fornitore e ordinato dal più recente (vedi
+  // clientPriceHistory()/acqPriceHistory() in ordini.html/ordini-fornitore.html
+  // ecc.) — qui non c'è idea di "quale cliente", solo di come mostrarlo.
+  // Pagine che non lo passano restano senza tooltip, come prima.
+  let tipEl = null;
+  function ensureTip() {
+    if (tipEl) return tipEl;
+    tipEl = document.createElement('div');
+    tipEl.className = 'price-hist-tip';
+    document.body.appendChild(tipEl);
+    return tipEl;
+  }
+  function showTip(ev, title, rows) {
+    const tip = ensureTip();
+    if (!rows || !rows.length) { tip.classList.remove('show'); return; }
+    tip.innerHTML = `<div class="pht-h">${esc(title || '')}</div>` +
+      rows.map(r => `<div class="pht-r"><span>${fdate(r.data)} · ${esc(r.num || '')}</span><b>${eur(r.prezzo)}${scEff(r.sconto) > 0 ? ' (' + scLabel(r.sconto) + ')' : ''}</b></div>`).join('');
+    tip.classList.add('show');
+    // Stessa logica dell'originale: posiziona fuori schermo, misura le
+    // dimensioni VERE (ora che ha un contenuto), poi lo sposta accanto al
+    // mouse senza sporgere oltre i bordi della finestra.
+    tip.style.left = '-9999px'; tip.style.top = '-9999px';
+    const x = ev.clientX || 0, y = ev.clientY || 0;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = x + 16, top = y + 16;
+    if (left + w > vw - 8) left = x - w - 16;
+    if (top + h > vh - 8) top = y - h - 16;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = Math.max(8, top) + 'px';
+  }
+  function hideTip() { if (tipEl) tipEl.classList.remove('show'); }
 
   // input: il campo di ricerca. sugg: il contenitore dei suggerimenti
   // (va posizionato subito dopo l'input, dentro un contenitore
   // position:relative — vedi .prod-pick in theme.css).
-  // opts: { companyId, priceField: 'listinoVen'|'listinoAcq', onPick(prodotto) }
+  // opts: { companyId, priceField: 'listinoVen'|'listinoAcq', onPick(prodotto),
+  //         priceHistory(cod) opzionale — vedi sopra }
   function attach(input, sugg, opts) {
     let idx = -1;
     let timer = null;
@@ -43,7 +97,29 @@
         : '<div class="sugg-empty">Nessun prodotto trovato</div>';
       sugg.querySelectorAll('.sugg-item').forEach(el => {
         el.addEventListener('mousedown', e => { e.preventDefault(); pick(el.dataset.cod); });
+        if (opts.priceHistory) {
+          const codeEl = el.querySelector('.code');
+          codeEl.addEventListener('mouseenter', e => {
+            const h = opts.priceHistory(el.dataset.cod) || {};
+            showTip(e, h.title, h.rows);
+          });
+          codeEl.addEventListener('mouseleave', hideTip);
+        }
       });
+    }
+    // Stesso tooltip anche sul codice GIÀ scelto in questo campo (non solo
+    // sui suggerimenti prima di sceglierlo) — es. passando il mouse sul
+    // campo "Codice" di una riga già compilata. Se il campo è vuoto o
+    // contiene testo digitato a metà (non un codice reale), priceHistory()
+    // non trova righe e il tooltip semplicemente non appare.
+    if (opts.priceHistory) {
+      input.addEventListener('mouseenter', e => {
+        const cod = input.value.trim();
+        if (!cod) return;
+        const h = opts.priceHistory(cod) || {};
+        showTip(e, h.title, h.rows);
+      });
+      input.addEventListener('mouseleave', hideTip);
     }
 
     function pick(cod) {

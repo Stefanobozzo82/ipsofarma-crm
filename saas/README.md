@@ -4226,6 +4226,48 @@ FT/2026/0265, DDT/2026/0265), tutte ordinate dalla più recente.
 Verificata anche la formattazione dello sconto (nessuno, singolo,
 cascata) con valori sintetici, e la sintassi di tutti i file toccati.
 
+## Fix: lo storico prezzi non funzionava su touch/mobile
+
+**Segnalazione di seguito diretto:** "controlla se funziona anche su
+mobile" — verificato il tooltip appena aggiunto (sezione precedente):
+si basava solo su `mouseenter`/`mouseleave`, eventi che su uno schermo
+touch **non scattano mai** (non esiste un hover senza un mouse vero) —
+su mobile/nell'app non sarebbe mai comparso.
+
+Trovato un precedente già in questo prodotto: il grafico della
+dashboard (`dashboard.html`, `chartTip()`) affianca sempre
+`onclick` a `onmousemove` sullo stesso elemento proprio per lo stesso
+motivo — un tocco genera comunque un evento "click" sintetizzato dal
+browser, anche senza un mouse vero.
+
+**Fix, in `app/prodpicker.js`** (unico file toccato): sul campo
+Codice di una riga già compilata (un vero `<input>`, dove un tocco può
+mostrare lo storico senza impedire poi il comportamento normale — mette
+comunque a fuoco, apre la tastiera) aggiunto un listener `click`
+accanto a `mouseenter`/`mouseleave` — stesso principio del grafico
+dashboard, "click" al posto di "mousemove continuo". Sparisce da solo
+dopo 4 secondi: un tocco non ha un "mouseleave" naturale con cui
+abbinare la sparizione.
+
+**Non esteso ai suggerimenti della ricerca** (il menu che compare
+scrivendo nella barra sopra la tabella, o nel campo Codice prima di
+scegliere un prodotto): lì un tocco È GIÀ la scelta del prodotto
+(`mousedown` con `preventDefault()`, che intercetta il gesto prima che
+un eventuale "click" sul solo `<span class="code">` possa mai
+scattare) — non c'è un gesto separato "sfiora per vedere, tocca per
+scegliere" da ricavare sullo stesso elemento senza cambiare cosa fa un
+tocco lì. Resta un miglioramento solo desktop (mouse) in quel punto
+specifico — non una regressione, il tooltip lì semplicemente non
+esisteva prima di questo intero giro di lavoro.
+
+**Limite noto, non affrontato qui** (nessun precedente in questo
+prodotto per risolverlo): la tastiera virtuale che si apre dopo un
+tocco può in teoria coprire il tooltip se compare vicino al fondo dello
+schermo — la posizione si calcola una sola volta al momento del tocco,
+prima che la tastiera si apra e restringa lo spazio visibile. Un
+tooltip che sparisce da solo dopo 4 secondi limita quanto a lungo
+resta nel posto sbagliato, ma non lo riposiziona.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

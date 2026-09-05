@@ -3881,6 +3881,42 @@ ordina su una copia dell'array delle destinazioni per l'etichetta
 effettivamente mostrata (nome, o città se il nome manca — stessa
 `localeCompare` con collazione italiana usata per clienti/fornitori).
 
+## Controllato anche prodotti.html e magazzino.html
+
+**Richiesta:** "controlla anche prodotti.html e magazzino".
+
+`prodotti.html` (menu "Fornitore abituale"): già corretto — era stato
+sistemato assieme al primo giro di fix su clienti/fornitori (unico
+menu del file, ordinato con lo stesso `localeCompare`).
+
+`magazzino.html`: trovato lo stesso bug, in una forma nuova. Il menu
+"Deposito" del movimento (`mv-deposito`) viene popolato da
+`store.listDepositi()`/`ensureDefaultDeposito()`, che restituiscono i
+depositi in ordine di creazione (`order by created_at`), non
+alfabetico — stessa causa radice del fix sul menu cliente/fornitore,
+qui lato Postgres invece che lato client. `mv-tipo` (Ingresso/Uscita/
+Trasferimento) è un elenco di scelte fisse, non nomi: nessun
+ordinamento da applicare lì.
+
+**Fix:** nuova funzione `depositiSorted()` in `magazzino.html`, usata
+nei due punti che popolano `mv-deposito` (al primo caricamento e dopo
+ogni aggiunta/rinomina/eliminazione deposito).
+
+Non toccato l'elenco "Depositi" qui sopra (le card con nome +
+rinomina/elimina, in `depositi-area`): stesso array, ma è un elenco di
+gestione, non un menu a tendina da cui scegliere — fuori dallo scope
+letterale della richiesta ("menu a tendina"). A differenza delle
+destinazioni cliente (`CDEST` in clienti.html, dove ogni carattere
+digitato è un `input` live sull'array), qui rinominare passa da un
+`prompt()` — un ordinamento non causerebbe lo stesso salto di posizione
+mentre si scrive, quindi se in futuro viene chiesto anche per quella
+lista non ci sono controindicazioni tecniche a farlo.
+
+Verificato sul database reale: l'azienda ha oggi un solo deposito
+("Sede principale"), quindi il fix non è osservabile visivamente finché
+non ne esiste più di uno — confermata comunque la causa (`order by
+created_at` in `listDepositi()`) leggendo la query in `store.js`.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

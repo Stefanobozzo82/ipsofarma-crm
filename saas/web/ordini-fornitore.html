@@ -106,10 +106,42 @@
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
   let editingOrder = null; // l'ordine in modifica, per non perdere qtyEv/emailSent al salvataggio (vedi f-save)
+  // Storico prezzi per lastAcqPrice() qui sotto — caricato una volta
+  // all'apertura della pagina (init), non ad ogni ricerca prodotto.
+  let STORICO_PREZZI = { fattureFornitore: [], ordiniFornitore: [] };
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  // Ultimo prezzo PAGATO per un prodotto — porta diretta di
+  // lastLinePrice()/lastAcqPrice() nel vecchio gestionale: cerca nelle
+  // fatture fornitore e negli altri ordini la riga più recente con lo
+  // stesso codice — SENZA filtrare per fornitore (l'originale non lo
+  // faceva: "l'ultimo prezzo pagato per questo prodotto", a chiunque
+  // l'abbiamo pagato, non "l'ultimo prezzo pagato A QUESTO fornitore" —
+  // stessa scelta di fondo, portata identica). Richiesta reale: "[...] lo
+  // stesso faceva per ordine [a] fornitore mettendo l'ultimo prezzo al
+  // fornitore".
+  function lastAcqPrice(cod){
+    if(!cod) return null;
+    let best = null;
+    ['fattureFornitore', 'ordiniFornitore'].forEach(coll => {
+      (STORICO_PREZZI[coll] || []).forEach(d => {
+        const r = (d.righe || []).find(x => x.cod === cod);
+        if(r && r.prezzo != null && (!best || String(d.data) > String(best.data))){
+          best = { data: d.data, prezzo: r.prezzo, sconto: r.sconto || '' };
+        }
+      });
+    });
+    return best;
+  }
+  // Il badge "ultimo prezzo" (vedi rigaRowHtml()) sparisce se l'utente
+  // tocca prezzo o sconto a mano — stesso comportamento di ordini.html.
+  function clearLastBadge(tr){
+    delete tr.dataset.last;
+    const badge = tr.querySelector('.lastp');
+    if(badge) badge.remove();
+  }
   function setMsg(text, kind){
     const el = $('form-msg');
     if(!text){ el.hidden = true; return; }
@@ -227,9 +259,9 @@
 
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
-    return `<tr>
+    return `<tr ${r._last ? 'data-last="1"' : ''}>
       <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
-      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}</td>
+      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}${r._last ? '<span class="lastp">ultimo prezzo</span>' : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="min-width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
       <td style="min-width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
@@ -249,6 +281,10 @@
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    // Modificare prezzo o sconto a mano toglie il badge "ultimo prezzo" —
+    // vedi clearLastBadge() più sopra.
+    tr.querySelector('.r-prezzo').addEventListener('input', () => clearLastBadge(tr));
+    tr.querySelector('.r-sconto').addEventListener('input', () => clearLastBadge(tr));
     const handle = tr.querySelector('.drag-handle');
     handle.addEventListener('dragstart', e => {
       dragSrcRow = tr;
@@ -271,12 +307,22 @@
     window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
       companyId, priceField: 'listinoAcq', clearOnPick: false,
       onPick: p => {
+        const last = lastAcqPrice(p.cod);
         tr.querySelector('.r-cod').value = p.cod;
         tr.querySelector('.r-descr').value = p.descr;
-        tr.querySelector('.r-prezzo').value = p.listinoAcq || 0;
+        tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoAcq || 0);
+        tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
         tr.querySelector('.r-iva').value = p.iva || 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
+        // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
+        // già nel DOM, quindi si inserisce a mano invece di ripassare da
+        // rigaRowHtml().
+        clearLastBadge(tr);
+        if(last){
+          tr.dataset.last = '1';
+          tr.querySelector('.r-cod').closest('td').insertAdjacentHTML('beforeend', '<span class="lastp">ultimo prezzo</span>');
+        }
         updateTotale();
         qtyEl.focus(); qtyEl.select();
       },
@@ -639,9 +685,22 @@
     $('f-fornitore').innerHTML = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
       .map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
 
+    // Per lastAcqPrice() qui sopra — caricate una volta, non ad ogni
+    // ricerca prodotto. ordiniFornitore qui è un elenco a sé apposta (non
+    // lo stesso di renderList()): serve solo a leggere le righe già
+    // ordinate/fatturate, non a popolare l'elenco documenti sotto.
+    const [fattureFornitore, ordiniTutti] = await Promise.all([
+      store.loadCollection('fattureFornitore', companyId),
+      store.loadCollection('ordiniFornitore', companyId),
+    ]);
+    STORICO_PREZZI = { fattureFornitore, ordiniFornitore: ordiniTutti };
+
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
       companyId, priceField: 'listinoAcq',
-      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: p.listinoAcq || 0, sconto: '', iva: p.iva || 22 }),
+      onPick: p => {
+        const last = lastAcqPrice(p.cod);
+        addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: last ? last.prezzo : (p.listinoAcq || 0), sconto: last ? (last.sconto || '') : '', iva: p.iva || 22, _last: !!last });
+      },
     });
 
     await renderList();

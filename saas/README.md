@@ -4080,6 +4080,62 @@ codice) è stata verificata con dati sintetici che riproducono la
 stessa forma reale (due prodotti, due depositi, uno diviso tra
 entrambi): totali, capped() e dettaglio per deposito tornano corretti.
 
+## Ultimo prezzo praticato, ripreso in automatico su ordini cliente/fornitore
+
+**Richiesta:** "nel vecchio gestionale c'era una bella funzione [...]
+quando inserivo un ordine cliente metteva in automatico l'ultimo
+prezzo venduto a quel cliente e lo stesso faceva per ordine [a]
+fornitore mettendo l'ultimo prezzo al fornitore".
+
+Trovata in `index.html`: `lastLinePrice(colls,cod,filter)` cerca, in un
+insieme di collezioni, la riga più recente (per data documento) con lo
+stesso codice prodotto — `lastClientPrice(clienteId,cod)` la applica a
+`fattureCliente`/`ddt`/`ordiniCliente` **filtrati per quel cliente**;
+`lastAcqPrice(cod)` la applica a `fattureFornitore`/`ordiniFornitore`
+**senza filtrare per fornitore** — l'ultimo prezzo pagato per quel
+prodotto a chiunque, non "a QUESTO fornitore" (nome della richiesta a
+parte, è così che l'originale è stato costruito, e questa porta
+replica esattamente quel comportamento, non un'interpretazione
+diversa). `addProdToOrder()` la richiama scegliendo un prodotto, con un
+badge "ultimo prezzo" (`.lastp`) che sparisce se poi si modifica
+prezzo/sconto a mano; `repriceForClient()`/`onClientePick()` la
+riapplica alle righe ancora col badge quando si cambia cliente a form
+già aperto.
+
+**Fix**, in `ordini.html` e `ordini-fornitore.html` (i due moduli
+citati nella richiesta):
+1. `STORICO_PREZZI` caricato una volta in `init()` (fattureCliente/ddt/
+   ordiniCliente lato cliente; fattureFornitore/ordiniFornitore lato
+   fornitore) — non una query ad ogni ricerca prodotto.
+2. `lastClientPrice(clienteId,cod)` / `lastAcqPrice(cod)`: stessa
+   identica logica di `lastLinePrice()`, stesso filtro (per cliente sì,
+   per fornitore no).
+3. Entrambi i punti di scelta prodotto (la barra di ricerca sopra
+   l'elenco righe, e l'autocompletamento dentro il campo "Codice" di
+   una riga già presente) precompilano prezzo/sconto con l'ultimo
+   trovato, con lo stesso badge "ultimo prezzo" (nuova classe `.lastp`
+   in `theme.css`) — sparisce toccando prezzo o sconto a mano.
+4. `repriceForClient()`: cambiare cliente a form già aperto riprezza le
+   righe ancora col badge (non toccate a mano) per il nuovo cliente;
+   senza uno storico per lui torna al prezzo di listino (ricerca a
+   catalogo per codice esatto), mai lasciato il prezzo pensato per
+   l'altro cliente. Non ha un equivalente lato fornitore: `lastAcqPrice`
+   non dipende dal fornitore selezionato, quindi cambiarlo non
+   cambierebbe comunque nulla da riprezzare.
+
+**Verificato sul database reale** (286 fatture cliente + 286 DDT + 219
+ordini cliente, 279 fatture fornitore + 207 ordini fornitore): trovato
+un prodotto reale (B0068598) comprato 13 volte dallo stesso cliente su
+7 mesi — la funzione individua correttamente l'occorrenza più recente
+(FT/2026/0278 del 2026-09-01) tra tutte, incrociato con un conteggio
+manuale indipendente sugli stessi dati.
+
+**Deliberatamente fuori da questo giro** (chiesti solo ordini cliente/
+fornitore): la stessa funzione, nel vecchio gestionale, si applica
+anche a DDT, fatture e preventivi lato cliente (tutti condividono lo
+stesso `addProdToOrder()`) — segnalato qui perché chi ci lavora dopo lo
+sappia, non implementato salvo richiesta esplicita.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

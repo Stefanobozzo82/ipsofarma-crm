@@ -310,6 +310,21 @@
     return data;
   }
 
+  // Giacenza corrente di OGNI prodotto con almeno un movimento — non
+  // l'intero catalogo (~21.278 righe): "giacenze" (0009_magazzino.sql) è
+  // una VISTA che raggruppa i movimenti per prodotto/deposito, quindi
+  // esiste solo per i prodotti che ne hanno almeno uno — in pratica un
+  // sottoinsieme molto più piccolo del catalogo intero. Usata
+  // dall'assistente AI per rispondere su valore/composizione del
+  // magazzino senza scaricare mai il catalogo per intero (vedi
+  // prodottiByIds() per leggere cod/descr/prezzo dei soli prodotti qui
+  // restituiti).
+  async function listGiacenze(companyId) {
+    const { data, error } = await client().from('giacenze').select('*').eq('company_id', companyId);
+    if (error) throw error;
+    return data;
+  }
+
   async function listMovimentiRecenti(companyId, limit) {
     const { data, error } = await client().from('movimenti_magazzino')
       .select('*, prodotti(cod, descr), depositi(nome)')
@@ -451,6 +466,18 @@
     return data.map(row => rowToDoc('prodotti', row));
   }
 
+  // Prodotti dal catalogo per un elenco di id — MAI l'intero catalogo (le
+  // stesse 21.278 righe di cui sopra): pensata per l'assistente AI, che
+  // deve leggere cod/descr/prezzo dei soli prodotti che compaiono in
+  // listGiacenze() (un sottoinsieme molto più piccolo — solo quelli con
+  // almeno un movimento di magazzino registrato), non per un elenco a sé.
+  async function prodottiByIds(companyId, ids) {
+    if (!ids || ids.length === 0) return [];
+    const { data, error } = await client().from('prodotti').select('*').eq('company_id', companyId).in('id', ids);
+    if (error) throw error;
+    return data.map(row => rowToDoc('prodotti', row));
+  }
+
   // ---------------------------------------------------------------------------
   // Scrittura di un singolo documento — sostituisce il "push in DB.xxx +
   // persist()" del gestionale attuale. Un id già presente aggiorna la riga
@@ -522,9 +549,9 @@
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     peekNumber, bumpCounterPast,
-    getCompany, loadPlans, startCheckout, searchProdotti, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
+    getCompany, loadPlans, startCheckout, searchProdotti, prodottiByIds, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,
-    addMovimento, giacenzeForProdotti, listMovimentiRecenti,
+    addMovimento, giacenzeForProdotti, listGiacenze, listMovimentiRecenti,
   };
 })(window);

@@ -43,6 +43,7 @@
         <button type="button" class="ai-chip" data-fill>Quanto ho incassato questo mese?</button>
         <button type="button" class="ai-chip" data-fill>Qual è il mio cliente migliore?</button>
         <button type="button" class="ai-chip" data-fill>Quanti ordini fornitore sono ancora da ricevere?</button>
+        <button type="button" class="ai-chip" data-fill>Qual è il valore del magazzino?</button>
       </div>
 
       <div class="ai-thread" id="thread"></div>
@@ -237,7 +238,7 @@
   // elenco delle scadenze più urgenti — prima c'era solo il totale per
   // cliente/fornitore, non "quali" fatture e "quando".
   function buildContext(db){
-    const { clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore, preventivi, ddt } = db;
+    const { clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore, preventivi, ddt, righeMagazzino, depositiMag } = db;
     const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     const fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
     const mese = today().slice(0, 7);
@@ -308,6 +309,15 @@
     const ddtMese = (ddt || []).filter(d => (d.data || '').startsWith(mese));
     const venduti = topProdotti(fattureCliente, mese, 5);
     const acquistati = topProdotti(fattureFornitore, mese, 5);
+    // Magazzino: righeMagazzino arriva già pronto da loadDB() (un
+    // prodotto per riga, quantità e valore già sommati su tutti i
+    // depositi) — qui solo l'aggregato totale e i primi per valore, non
+    // l'elenco intero (può comunque avere più righe di quante ne stiano
+    // in un riepilogo leggibile in un'azienda con molti prodotti diversi
+    // a magazzino).
+    const magazzino = righeMagazzino || [];
+    const valoreMagazzinoTotale = magazzino.reduce((s, r) => s + r.valore, 0);
+    const topGiacenza = [...magazzino].sort((a, b) => b.valore - a.valore).slice(0, 10);
 
     const lines = [];
     lines.push('Data odierna: ' + oggi + '.');
@@ -340,6 +350,9 @@
     lines.push(`Ordini fornitore ancora aperti (non completamente ricevuti): ${ordFornAperti.length}${ordFornAperti.length ? ' — ' + ordFornAperti.map(o => o.num).slice(0, 15).join(', ') : ''}.`);
     lines.push(`Preventivi ancora aperti (non trasformati in ordine): ${preventiviAperti.length}.`);
     lines.push(`DDT emessi nel mese corrente (${mese}): ${ddtMese.length}.`);
+    lines.push(`Magazzino: ${magazzino.length} prodotti con giacenza registrata, in ${(depositiMag || []).length} depositi, valore totale al costo di listino ${eur(valoreMagazzinoTotale)}.`);
+    lines.push(magazzino.length ? 'Prodotti col maggior valore a magazzino:' : 'Nessun movimento di magazzino registrato ancora.');
+    if(magazzino.length) lines.push(capped(topGiacenza.map(r => `- ${r.cod} (${r.descr}): ${r.qty} pz, ${eur(r.valore)}`), 10));
     return {
       text: lines.join('\n'),
       hasData: clienti.length > 0 || fornitori.length > 0 || fattureCliente.length > 0 || fattureFornitore.length > 0,
@@ -403,6 +416,20 @@
           const party = collName.includes('Fornitore') ? db.fornitoriById[it.fornitoreId] : db.clientiById[it.clienteId];
           blocks.push(docDetailText(label, it, party));
         }
+      }
+    }
+    // 1b) un codice prodotto citato per intero, tra quelli con giacenza
+    // registrata — MAI l'intero catalogo (~21.278 righe per Ipsofarma):
+    // buildContext() mostra solo i primi 10 per valore, quindi un
+    // prodotto fuori da quella lista ("quanti X ho in magazzino?") non
+    // avrebbe altrimenti nessun dato a cui agganciarsi, stesso problema
+    // di fondo del giro precedente ("quanto è stato incassato").
+    for(const r of (db.righeMagazzino || [])){
+      if(r.cod && q.includes(r.cod.toUpperCase())){
+        const perDepositoTxt = r.perDeposito.length
+          ? r.perDeposito.map(d => `  - ${d.nome}: ${d.qty} pz`).join('\n')
+          : '  (nessun deposito con giacenza positiva)';
+        blocks.push(`Prodotto ${r.cod} (${r.descr}): giacenza totale ${r.qty} pz, valore ${eur(r.valore)} (al costo di listino).\nPer deposito:\n${perDepositoTxt}`);
       }
     }
     // 2) il nome di un cliente o fornitore, citato per intero — storico
@@ -938,7 +965,7 @@ Data odierna: ${today()}.`;
   // dati aggiornati senza bisogno di ricaricare la pagina.
   let companyName = 'Azienda';
   async function loadDB(){
-    const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore, preventivi, ddt] = await Promise.all([
+    const [clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore, noteCredito, noteCreditoFornitore, preventivi, ddt, giacenzeRaw, depositiMag] = await Promise.all([
       store.loadCollection('clienti', companyId),
       store.loadCollection('fornitori', companyId),
       store.loadCollection('fattureCliente', companyId),
@@ -949,12 +976,36 @@ Data odierna: ${today()}.`;
       store.loadCollection('noteCreditoFornitore', companyId),
       store.loadCollection('preventivi', companyId),
       store.loadCollection('ddt', companyId),
+      store.listGiacenze(companyId),
+      store.listDepositi(companyId),
     ]);
+    // Magazzino: MAI il catalogo intero (~21.278 righe per Ipsofarma) —
+    // solo i prodotti che compaiono in "giacenze" (hanno almeno un
+    // movimento registrato, un sottoinsieme molto più piccolo in
+    // pratica), vedi store.js (listGiacenze/prodottiByIds). Estendere
+    // l'assistente al magazzino era stato rimandato di proposito la
+    // prima volta ("richiederebbe nuove collezioni, non solo nuovi
+    // calcoli sui dati già presenti") — questo è quel giro.
+    const prodottoIdsMag = [...new Set(giacenzeRaw.map(g => g.prodotto_id))];
+    const prodottiMagazzino = await store.prodottiByIds(companyId, prodottoIdsMag);
+    const prodByIdMag = Object.fromEntries(prodottiMagazzino.map(p => [p.id, p]));
+    const depByIdMag = Object.fromEntries(depositiMag.map(d => [d.id, d]));
+    const qtyPerProdotto = {};
+    giacenzeRaw.forEach(g => { qtyPerProdotto[g.prodotto_id] = (qtyPerProdotto[g.prodotto_id] || 0) + (g.giacenza || 0); });
+    // "valore" al costo di listino (listinoAcq) — il significato usuale di
+    // "valore di magazzino" in contabilità, non il prezzo di vendita.
+    const righeMagazzino = Object.entries(qtyPerProdotto).map(([pid, qty]) => {
+      const p = prodByIdMag[pid];
+      const perDeposito = giacenzeRaw.filter(g => g.prodotto_id === pid && g.giacenza)
+        .map(g => ({ nome: (depByIdMag[g.deposito_id] || {}).nome || 'deposito sconosciuto', qty: g.giacenza }));
+      return { cod: p ? p.cod : pid, descr: p ? p.descr : '(prodotto non trovato a catalogo)', qty, valore: qty * (p ? (p.listinoAcq || 0) : 0), perDeposito };
+    });
     DB = {
       clienti, fornitori, fattureCliente, fattureFornitore, ordiniCliente, ordiniFornitore,
       noteCredito, noteCreditoFornitore, preventivi, ddt,
       clientiById: Object.fromEntries(clienti.map(c => [c.id, c])),
       fornitoriById: Object.fromEntries(fornitori.map(f => [f.id, f])),
+      righeMagazzino, depositiMag,
     };
     const ctx = buildContext(DB);
     $('no-context').hidden = ctx.hasData;

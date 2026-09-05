@@ -367,7 +367,7 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 .bulkbar button:hover{ background:var(--surface2); }
 .bulkbar button.primary:hover{ background:var(--accent-d); }
 
-button.primary{ padding:7px 15px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); transition:background .12s; }
+button.primary{ padding:7px 15px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); transition:background .14s ease, opacity .14s ease, transform .14s ease; }
 button.primary:hover{ background:var(--accent-d); }
 button.primary:disabled{ opacity:.5; cursor:default; }
 button.ghost{ background:var(--surface); color:var(--txt); border:1px solid var(--border2); border-radius:8px; padding:7px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); }
@@ -601,6 +601,80 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
    fatture.html): non ha uno stato pagata/da pagare, solo un'etichetta —
    niente cursore a manina, non è un pulsante che si clicca. */
 .pill.nc{ color:var(--muted); background:var(--border2); cursor:default; }
+
+/* ---------------------------------------------------------------------------
+   Micro-interazioni — richiesta: "un modo per rendere tutto più bello
+   graficamente con animazioni e transizioni", con un vincolo esplicito
+   dato dall'utente: sobrio e professionale (è uno strumento di lavoro,
+   non una app consumer), applicato da un unico posto (qui) invece che
+   pagina per pagina.
+
+   Perché qui e non nelle pagine: quasi ogni elenco/form di questo prodotto
+   si ridisegna sostituendo interi blocchi di HTML ("area.innerHTML = ...",
+   vedi renderList() in ogni modulo documento) invece di aggiornare i nodi
+   esistenti — una card o una riga "nuova" per il DOM ad ogni tasto premuto
+   nella ricerca, ogni cambio di filtro, ogni ordinamento. Una transizione
+   CSS anima un CAMBIAMENTO DI STATO su un nodo che resta lo stesso; su un
+   nodo appena ricreato non c'è nulla da animare (parte già nello stato
+   finale). Per questo qui sotto ci sono SOLO transizioni su stati che il
+   browser stesso valuta in tempo reale sul DOM attuale, a prescindere da
+   come ci è arrivato — :hover/:focus/:active — più un'unica animazione di
+   ingresso sul contenuto della pagina (.app-main), che non viene mai
+   ricreato durante l'uso della pagina (solo al caricamento di una pagina
+   nuova): non tocca risultati di ricerca, filtri o elenchi che si
+   aggiornano da soli.
+
+   Deliberatamente non toccato (richiederebbe invece di riscrivere la
+   logica JS di ogni singolo modulo, non un intervento da un unico posto):
+   - l'apertura/chiusura del form di un documento (attributo "hidden" tolto/
+     rimesso da JS): con "[hidden]{display:none}" non c'è nulla da animare
+     in CSS puro senza cambiare quella logica in ogni pagina.
+   - le righe di un elenco che compaiono/spariscono filtrando: stesso
+     motivo, sono ricreate da zero ad ogni ricerca — animarle vorrebbe dire
+     un lampeggio ad ogni carattere digitato, l'opposto di "sobrio".
+   Rispetta prefers-reduced-motion: chi lo richiede al sistema operativo
+   non vede nessuna transizione/animazione qui sotto, indipendentemente
+   dal resto di questa sezione.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration:0.001ms !important; animation-iteration-count:1 !important;
+    transition-duration:0.001ms !important; scroll-behavior:auto !important;
+  }
+}
+
+/* Passaggio di colore/bordo/ombra morbido invece che a scatto, su tutti gli
+ * elementi cliccabili/selezionabili del prodotto — bassa specificità
+ * apposta: le regole più specifiche già esistenti più sopra (es.
+ * "button.primary{transition:background .12s}") restano quelle che
+ * contano davvero, questa è solo la base per tutto il resto che non
+ * l'aveva ancora. */
+button, .pill, a.navlink, select, input, textarea,
+.dest-card, .fnode, .ai-chip, .sugg-item, td.actions button, .bulkbar button,
+.dash-period a, .filterbar .ffclear, th.thsort, .stat, tbody tr{
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease, box-shadow .14s ease, opacity .14s ease, transform .14s ease;
+}
+/* tbody tr aveva già lo sfondo hover (tbody tr:hover) ma a scatto — non
+ * un colore pieno che "arriva", solo la stessa dissolvenza del resto.
+ * "a.stat"/".stat.stat-go" restano fuori da questo elenco apposta: hanno
+ * già una loro transizione più sopra (che include anche "transform", per
+ * il sollevamento al passaggio del mouse) — un'altra dichiarazione di
+ * "transition" con la stessa specificità qui sotto l'avrebbe sostituita
+ * invece di sommarsi, perdendo l'animazione del sollevamento. */
+
+/* Riscontro tattile al clic — pochissimo movimento (1px), giusto perché il
+ * pulsante sembri "premuto" per un istante, mai un rimbalzo vistoso. */
+button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
+.bulkbar button:active, .dash-period a:active, .ai-chip:active,
+.pill[data-toggle]:active{ transform:translateY(1px); }
+
+/* Ingresso del contenuto ad ogni caricamento di pagina — questo prodotto è
+ * multi-pagina (non una SPA), quindi ".app-main" viene ricreato una sola
+ * volta per navigazione, mai durante ricerche/filtri/ordinamenti: nessun
+ * rischio di "lampeggiare" mentre si lavora, un unico assestamento
+ * leggero all'apertura di ogni pagina. */
+@keyframes pageIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+.app-main{ animation:pageIn .32s cubic-bezier(.22,1,.36,1) both; }
 
 ::selection{ background:var(--accent-soft); }
 

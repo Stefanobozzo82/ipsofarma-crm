@@ -3838,6 +3838,32 @@ segnalazione (nessuno di loro mescola due numerazioni indipendenti
 nello stesso elenco, quindi non nasconde righe allo stesso modo).
 Segnalato qui perché chi ci lavora dopo lo sappia.
 
+## Menu cliente/fornitore del form non era in ordine alfabetico
+
+**Richiesta:** "quando vado per selezionare un cliente o un fornitore
+voglio che nell'elenco a tendina siano ordinati in ordine alfabetico".
+
+Verificato su tutti gli 8 moduli documento (`ddt.html`, `fatture.html`,
+`fatture-fornitore.html`, `note-credito.html`,
+`note-credito-fornitore.html`, `ordini.html`, `ordini-fornitore.html`,
+`preventivi.html`): il menu "Tutti i clienti"/"Tutti i fornitori"
+della filterbar (sopra l'elenco) era già ordinato alfabeticamente, ma
+il menu Cliente/Fornitore DENTRO IL FORM (quello che si usa creando o
+modificando un documento — cioè esattamente "quando vado per
+selezionare un cliente o un fornitore") veniva popolato dall'array
+grezzo restituito dal database, nell'ordine in cui capitava — non
+alfabetico. Stesso bug identico in tutti e 8, stessa riga
+(`$('f-cliente').innerHTML = clienti.map(...)` invece che sull'array
+già ordinato usato dalla filterbar). `prodotti.html` (menu "Fornitore
+abituale") era già corretto — solo questi 8 avevano la lacuna.
+
+**Fix**, negli 8 file: il menu del form ora usa lo stesso ordinamento
+alfabetico (`localeCompare` con collazione italiana) già usato dalla
+filterbar — su una copia dell'array (`[...clienti]`/`[...fornitori]`),
+per non alterare l'ordine con cui `clientiById`/`fornitoriById` e le
+altre strutture derivate vengono costruite altrove nella stessa
+`init()`.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

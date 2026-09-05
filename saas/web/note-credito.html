@@ -481,7 +481,10 @@
     clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     fatturePerCliente = {};
     fatture.forEach(f => { (fatturePerCliente[f.clienteId] = fatturePerCliente[f.clienteId] || []).push(f); });
-    $('f-cliente').innerHTML = clienti.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
+    // clienti" della filterbar qui sopra (clientiArr).
+    $('f-cliente').innerHTML = [...clienti].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
+      .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
       companyId, priceField: 'listinoVen',

@@ -602,6 +602,13 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
    niente cursore a manina, non è un pulsante che si clicca. */
 .pill.nc{ color:var(--muted); background:var(--border2); cursor:default; }
 
+/* Badge "ultimo prezzo" su una riga di documento (ordini.html/
+   ordini-fornitore.html) — porta diretta di .lastp nel vecchio
+   gestionale: segnala che prezzo/sconto sono stati ripresi
+   dall'ultimo documento con quella controparte, non dal listino.
+   Sparisce da sola se l'utente modifica prezzo o sconto a mano. */
+.lastp{ display:inline-block; margin-left:6px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--accent-d); background:var(--accent-soft); border-radius:4px; padding:1px 5px; vertical-align:middle; }
+
 /* ---------------------------------------------------------------------------
    Micro-interazioni — richiesta: "un modo per rendere tutto più bello
    graficamente con animazioni e transizioni", con un vincolo esplicito

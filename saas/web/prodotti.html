@@ -53,10 +53,42 @@
       <div class="msg" id="form-msg" hidden></div>
     </div>
 
+    <div class="card" id="listino-card" hidden>
+      <div class="toolbar">
+        <h3>Carica listino</h3>
+        <button class="ghost" id="listino-close">Chiudi</button>
+      </div>
+      <p class="ai-intro">Carica un file <b>CSV</b> o <b>Excel</b> (.xlsx/.xls) con il listino di un fornitore. I prodotti vengono aggiunti o aggiornati per <b>codice</b>: una colonna non abbinata non tocca il valore già salvato su un prodotto esistente.</p>
+      <input id="listino-file" type="file" accept=".csv,.xlsx,.xls">
+      <div class="msg" id="listino-upload-msg" hidden></div>
+      <div id="listino-map" hidden>
+        <div class="grid2">
+          <div><label for="lm-codice">Colonna Codice *</label><select id="lm-codice"></select></div>
+          <div><label for="lm-descrizione">Colonna Descrizione</label><select id="lm-descrizione"></select></div>
+        </div>
+        <div class="grid2">
+          <div><label for="lm-ven">Colonna Prezzo vendita</label><select id="lm-ven"></select></div>
+          <div><label for="lm-acq">Colonna Prezzo acquisto</label><select id="lm-acq"></select></div>
+        </div>
+        <div class="grid2">
+          <div><label for="lm-iva">Colonna IVA %</label><select id="lm-iva"></select></div>
+          <div><label for="lm-tipologia">Colonna Tipologia/Categoria</label><select id="lm-tipologia"></select></div>
+        </div>
+        <div id="listino-preview" style="margin-top:14px"></div>
+        <div class="form-actions">
+          <button class="primary" id="listino-import-btn">Importa</button>
+        </div>
+        <div class="msg" id="listino-map-msg" hidden></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="toolbar">
         <h3>Catalogo</h3>
-        <button class="primary" id="new-prodotto">+ Nuovo prodotto</button>
+        <div style="display:flex;gap:10px">
+          <button class="ghost" id="open-listino">⭱ Carica listino</button>
+          <button class="primary" id="new-prodotto">+ Nuovo prodotto</button>
+        </div>
       </div>
       <label for="q" style="margin-top:0">Cerca</label>
       <input id="q" type="text" placeholder="codice o descrizione…">
@@ -245,6 +277,195 @@
   $('q').addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(runSearch, 250);
+  });
+
+  // ===========================================================================
+  // Carica listino — porta di listinoImport() in index.html: carica un file
+  // CSV/Excel di un fornitore, l'utente abbina le colonne (con un tentativo
+  // di indovinarle guardando i nomi di intestazione), poi aggiunge/aggiorna
+  // per CODICE i prodotti del catalogo. Le colonne non abbinate (o vuote su
+  // una singola riga) non toccano un valore già salvato — vedi store.importListino().
+  // ===========================================================================
+  let LISTINO = { cols: [], rows: [] };
+
+  function loadXLSX(){
+    return new Promise((resolve, reject) => {
+      if(window.XLSX){ resolve(window.XLSX); return; }
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = () => resolve(window.XLSX);
+      s.onerror = () => reject(new Error('Impossibile caricare il lettore Excel (serve una connessione internet).'));
+      document.head.appendChild(s);
+    });
+  }
+  function listinoNum(v){
+    if(v == null || v === '') return 0;
+    v = String(v).trim().replace(/[^0-9,.\-]/g, '');
+    if(v.indexOf(',') > -1 && v.indexOf('.') > -1) v = v.replace(/\./g, '').replace(',', '.');
+    else if(v.indexOf(',') > -1) v = v.replace(',', '.');
+    return parseFloat(v) || 0;
+  }
+  function listinoIsNum(v){ v = String(v == null ? '' : v).trim(); return v !== '' && /^[\d.,\s%€]+$/.test(v); }
+  function colLetter(i){ let s = ''; i++; while(i > 0){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+  function parseCSVToAoa(text){
+    text = text.replace(/\r\n?/g, '\n');
+    const lines = text.split('\n').filter(l => l.length);
+    if(!lines.length) return [];
+    const first = lines[0];
+    const delim = (first.split(';').length > first.split(',').length) ? ';' : ',';
+    const pl = l => {
+      const out = []; let cur = '', q = false;
+      for(let i = 0; i < l.length; i++){
+        const c = l[i];
+        if(q){ if(c === '"'){ if(l[i + 1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+        else { if(c === '"') q = true; else if(c === delim){ out.push(cur); cur = ''; } else cur += c; }
+      }
+      out.push(cur); return out;
+    };
+    return lines.map(l => pl(l).map(c => String(c).trim()));
+  }
+  async function listinoParse(file){
+    const name = (file.name || '').toLowerCase();
+    if(name.endsWith('.csv') || file.type === 'text/csv') return parseCSVToAoa(await file.text());
+    const XLSX = await loadXLSX();
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }).map(r => r.map(c => String(c == null ? '' : c).trim()));
+  }
+  function listinoBuild(aoa){
+    // Trova la riga di intestazione (contiene "codice") o, in mancanza,
+    // la prima riga con almeno 2 celle piene.
+    let hi = -1;
+    for(let i = 0; i < Math.min(aoa.length, 25); i++){ if(aoa[i].some(c => /codice|cod\.?$|articol/i.test(c))){ hi = i; break; } }
+    if(hi < 0) for(let i = 0; i < Math.min(aoa.length, 25); i++){ if(aoa[i].filter(c => c !== '').length >= 2){ hi = i; break; } }
+    if(hi < 0) hi = 0;
+    const header = aoa[hi] || [];
+    const rows = aoa.slice(hi + 1).filter(r => r.some(c => c !== ''));
+    const width = Math.max(header.length, ...rows.map(r => r.length), 0);
+    const cols = [];
+    for(let i = 0; i < width; i++){
+      let sample = '';
+      for(let k = 0; k < rows.length && k < 12; k++){ if(rows[k][i] && rows[k][i] !== ''){ sample = rows[k][i]; break; } }
+      cols.push({ idx: i, header: (header[i] || '').trim(), sample });
+    }
+    return { cols, rows };
+  }
+  function listinoColGuess(cols, re, numeric){
+    const cands = cols.filter(c => re.test(c.header) || (c.header === '' && numeric && listinoIsNum(c.sample)));
+    if(numeric){ const n = cands.find(c => listinoIsNum(c.sample)); if(n) return n.idx; }
+    return cands.length ? cands[0].idx : '';
+  }
+  function openListinoCard(){
+    LISTINO = { cols: [], rows: [] };
+    $('listino-file').value = '';
+    $('listino-map').hidden = true;
+    setListinoMsg('upload', '', '');
+    setListinoMsg('map', '', '');
+    $('listino-card').hidden = false;
+  }
+  function closeListinoCard(){ $('listino-card').hidden = true; }
+  function setListinoMsg(step, text, kind){
+    const el = $('listino-' + step + '-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+  $('open-listino').addEventListener('click', openListinoCard);
+  $('listino-close').addEventListener('click', closeListinoCard);
+  $('listino-file').addEventListener('change', async () => {
+    const f = $('listino-file').files[0];
+    if(!f) return;
+    setListinoMsg('upload', '', '');
+    $('listino-map').hidden = true;
+    try{
+      const aoa = await listinoParse(f);
+      const { cols, rows } = listinoBuild(aoa);
+      if(!cols.length || !rows.length){ setListinoMsg('upload', 'Non ho trovato righe valide nel file.', 'error'); return; }
+      LISTINO = { cols, rows };
+      renderListinoMap();
+    }catch(err){
+      setListinoMsg('upload', 'Errore nella lettura del file: ' + err.message, 'error');
+    }
+  });
+  function renderListinoMap(){
+    const C = LISTINO.cols;
+    const g = {
+      codice: listinoColGuess(C, /cod|articol|sku/i, false),
+      descrizione: listinoColGuess(C, /descr|denom|nome/i, false),
+      ven: listinoColGuess(C, /ospedal|listino|prezzo|vend|pubbl/i, true),
+      acq: listinoColGuess(C, /acquist|costo|netto|fornit/i, true),
+      iva: listinoColGuess(C, /iva|aliq/i, false),
+      tipologia: listinoColGuess(C, /tipo|categor|atc|cn\.?d|linea|class/i, false),
+    };
+    const optList = `<option value="">—</option>` + C.map(c => `<option value="${c.idx}">${colLetter(c.idx)}: ${esc(c.header || '(senza titolo)')} — es. ${esc(String(c.sample).slice(0, 28))}</option>`).join('');
+    ['codice', 'descrizione', 'ven', 'acq', 'iva', 'tipologia'].forEach(k => {
+      const sel = $('lm-' + k);
+      sel.innerHTML = optList;
+      if(g[k] !== '') sel.value = String(g[k]);
+      sel.addEventListener('change', renderListinoPreview);
+    });
+    $('listino-map').hidden = false;
+    renderListinoPreview();
+  }
+  function listinoMapGet(){
+    const g = k => { const v = $('lm-' + k).value; return v !== '' ? parseInt(v, 10) : null; };
+    return { codice: g('codice'), descrizione: g('descrizione'), ven: g('ven'), acq: g('acq'), iva: g('iva'), tipologia: g('tipologia') };
+  }
+  function listinoValid(r, m){
+    const cod = String((m.codice != null ? r[m.codice] : '') || '').trim();
+    if(!cod) return false;
+    const d = m.descrizione != null ? String(r[m.descrizione] || '').trim() : '';
+    const v = m.ven != null ? String(r[m.ven] || '').trim() : '';
+    const a = m.acq != null ? String(r[m.acq] || '').trim() : '';
+    return !!(d || v || a);
+  }
+  // Solo i campi con una cella non vuota su QUESTA riga — store.importListino()
+  // lascia invariato un campo assente, non lo azzera (vedi commento lì).
+  function listinoMappedRow(r, m){
+    const row = { cod: String(r[m.codice]).trim() };
+    if(m.descrizione != null){ const v = String(r[m.descrizione] || '').trim(); if(v !== '') row.descr = v; }
+    if(m.ven != null){ const v = String(r[m.ven] || '').trim(); if(v !== '') row.listinoVen = listinoNum(r[m.ven]); }
+    if(m.acq != null){ const v = String(r[m.acq] || '').trim(); if(v !== '') row.listinoAcq = listinoNum(r[m.acq]); }
+    if(m.iva != null){ const v = String(r[m.iva] || '').trim(); if(v !== '') row.iva = listinoNum(r[m.iva]); }
+    if(m.tipologia != null){ const v = String(r[m.tipologia] || '').trim(); if(v !== '') row.tipologia = v; }
+    return row;
+  }
+  function renderListinoPreview(){
+    const m = listinoMapGet();
+    const prev = $('listino-preview');
+    if(m.codice == null){ prev.innerHTML = '<p class="empty">Seleziona almeno la colonna del Codice.</p>'; return; }
+    const valid = LISTINO.rows.filter(r => listinoValid(r, m));
+    const sample = valid.slice(0, 5).map(r => `<tr>
+        <td>${esc(r[m.codice] || '')}</td>
+        <td>${esc(m.descrizione != null ? r[m.descrizione] : '')}</td>
+        <td class="num-col">${m.ven != null ? eur(listinoNum(r[m.ven])) : ''}</td>
+        <td class="num-col">${m.acq != null ? eur(listinoNum(r[m.acq])) : ''}</td>
+      </tr>`).join('');
+    prev.innerHTML = `<p class="ai-intro" style="margin-bottom:8px">Anteprima · verranno importati <b>${valid.length}</b> prodotti su ${LISTINO.rows.length} righe lette:</p>
+      <div class="table-scroll"><table class="elenco-table"><thead><tr><th>Codice</th><th>Descrizione</th><th>Vendita</th><th>Acquisto</th></tr></thead><tbody>${sample}</tbody></table></div>`;
+  }
+  $('listino-import-btn').addEventListener('click', async () => {
+    const m = listinoMapGet();
+    if(m.codice == null){ setListinoMsg('map', 'Seleziona la colonna Codice.', 'error'); return; }
+    const valid = LISTINO.rows.filter(r => listinoValid(r, m)).map(r => listinoMappedRow(r, m));
+    if(!valid.length){ setListinoMsg('map', 'Nessuna riga valida da importare con questa mappatura.', 'error'); return; }
+    // Stesso codice più volte nel file (es. varianti sulla stessa riga di
+    // listino): un unico upsert non può toccare due volte la stessa riga,
+    // quindi le righe successive con lo stesso codice completano quella
+    // precedente invece di generare un conflitto lato database.
+    const byCod = new Map();
+    valid.forEach(r => byCod.set(r.cod, Object.assign(byCod.get(r.cod) || {}, r)));
+    $('listino-import-btn').disabled = true;
+    setListinoMsg('map', '', '');
+    try{
+      const { added, updated } = await store.importListino(companyId, [...byCod.values()]);
+      await runSearch();
+      setListinoMsg('map', `Listino importato: ${added} nuovi, ${updated} aggiornati.`, 'ok');
+    }catch(err){
+      setListinoMsg('map', 'Errore durante l\'importazione: ' + err.message, 'error');
+    }finally{
+      $('listino-import-btn').disabled = false;
+    }
   });
 
   async function doLogout(){

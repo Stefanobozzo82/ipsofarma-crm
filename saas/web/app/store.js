@@ -479,6 +479,54 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Import massivo listino — porta di listinoImport() in index.html: la
+  // pagina (prodotti.html) legge il file e mappa le colonne, qui arrivano già
+  // righe pronte ({cod, descr?, listinoVen?, listinoAcq?, iva?, tipologia?} —
+  // solo i campi con una cella non vuota nel file, mai un campo a stringa
+  // vuota "per azzerarlo": un listino che ha SOLO la colonna prezzo non deve
+  // cancellare descrizione/IVA già salvate su un prodotto esistente).
+  // Il confronto è per CODICE, non per id (il file arriva da fuori e non
+  // conosce gli id interni) — stesso "aggiunge o aggiorna per codice"
+  // dell'originale, sfruttando lo stesso unique(company_id,cod) dello schema
+  // come chiave di conflitto invece di un id.
+  //
+  // Fatto in due giri a lotti (mai un'unica richiesta con l'intero file):
+  // 1) legge i prodotti già esistenti per i codici presenti nel file, per
+  //    unire i campi mancanti invece di sovrascriverli con null;
+  // 2) upsert in blocco onConflict(company_id,cod).
+  async function importListino(companyId, rows) {
+    const CHUNK = 200;
+    const cods = [...new Set(rows.map(r => r.cod))];
+    const existing = new Map();
+    for (let i = 0; i < cods.length; i += CHUNK) {
+      const slice = cods.slice(i, i + CHUNK);
+      const { data, error } = await client().from('prodotti').select('*').eq('company_id', companyId).in('cod', slice);
+      if (error) throw error;
+      data.forEach(row => existing.set(row.cod, row));
+    }
+    let added = 0, updated = 0;
+    const toUpsert = rows.map(r => {
+      const prev = existing.get(r.cod);
+      if (prev) updated++; else added++;
+      const row = prev
+        ? { id: prev.id, company_id: companyId, cod: r.cod, descr: prev.descr, fornitore_id: prev.fornitore_id, listino_acq: prev.listino_acq, listino_ven: prev.listino_ven, iva: prev.iva, unita: prev.unita, extra: prev.extra || {} }
+        : { company_id: companyId, cod: r.cod, descr: '', iva: 22, extra: {} };
+      if (r.descr !== undefined) row.descr = r.descr;
+      if (r.listinoVen !== undefined) row.listino_ven = r.listinoVen;
+      if (r.listinoAcq !== undefined) row.listino_acq = r.listinoAcq;
+      if (r.iva !== undefined) row.iva = r.iva;
+      if (r.tipologia !== undefined) row.extra = Object.assign({}, row.extra, { tipologia: r.tipologia });
+      return row;
+    });
+    for (let i = 0; i < toUpsert.length; i += CHUNK) {
+      const slice = toUpsert.slice(i, i + CHUNK);
+      const { error } = await client().from('prodotti').upsert(slice, { onConflict: 'company_id,cod' });
+      if (error) throw error;
+    }
+    return { added, updated };
+  }
+
+  // ---------------------------------------------------------------------------
   // Scrittura di un singolo documento — sostituisce il "push in DB.xxx +
   // persist()" del gestionale attuale. Un id già presente aggiorna la riga
   // esistente; nessun id ne crea una nuova (l'id lo assegna Postgres).
@@ -549,7 +597,7 @@
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     peekNumber, bumpCounterPast,
-    getCompany, loadPlans, startCheckout, searchProdotti, prodottiByIds, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
+    getCompany, loadPlans, startCheckout, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,
     addMovimento, giacenzeForProdotti, listGiacenze, listMovimentiRecenti,

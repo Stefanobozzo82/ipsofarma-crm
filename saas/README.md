@@ -4268,6 +4268,85 @@ prima che la tastiera si apra e restringa lo spazio visibile. Un
 tooltip che sparisce da solo dopo 4 secondi limita quanto a lungo
 resta nel posto sbagliato, ma non lo riposiziona.
 
+## Import listino fornitori (CSV/Excel) in Prodotti
+
+**Richiesta:** dopo un giro di audit su "quali altre cose c'erano nel
+vecchio gestionale" (Gmail auto-sync, storico prezzi completo sulla
+scheda prodotto, import massivo da Excel, backup/restore JSON, export
+Excel mancante su alcune pagine), l'azienda ha scelto di procedere
+prima con l'**import listino fornitori**: giudicato il Gmail auto-sync
+(`apps-script/gmail-import.gs`) poco applicabile a un prodotto pensato
+per essere venduto ad altre aziende — è uno script legato a UNA casella
+Gmail specifica, da configurare a mano per ciascun cliente, non una
+funzione del prodotto in sé.
+
+In `index.html` la funzione è `listinoImport()` (con `listinoParse`,
+`listinoBuild`, `listinoColGuess`, `listinoRenderMap`, `listinoPreview`,
+tutte lette per intero prima di portarle): carica un CSV o Excel,
+individua da sola la riga di intestazione, propone un abbinamento delle
+colonne (Codice, Descrizione, Prezzo vendita, Prezzo acquisto, IVA,
+Tipologia) indovinandolo dai nomi di intestazione, mostra un'anteprima,
+poi aggiunge o aggiorna i prodotti **per codice** — una colonna non
+abbinata (o una cella vuota su una singola riga) non tocca il valore
+già salvato.
+
+**Porta in `prodotti.html`** (nuovo pulsante "⭱ Carica listino" nella
+toolbar del catalogo, un card dedicato invece del modal dell'originale —
+il SaaS non ha un sistema di modal, ma lo stesso percorso a passi:
+carica file → abbina colonne → anteprima → importa, sullo stile già
+usato da `riconciliazione.html` per l'estratto conto): stessa lettura
+CSV/XLSX (XLSX caricato al volo da cdnjs solo se serve, come
+`loadXLSX()` nell'originale), stesso euristico di abbinamento colonne,
+stessa anteprima delle prime righe valide prima di confermare.
+
+**Nuovo in `app/store.js`: `importListino(companyId, rows)`** — a
+differenza di `saveDoc()` (che aggiorna per `id`), qui il confronto è
+per **codice**, perché il file arriva da fuori e non conosce gli id
+interni: usa lo stesso `unique(company_id, cod)` già nello schema come
+chiave di conflitto. Fatto in due giri a lotti (mai un'unica richiesta
+con l'intero file): legge prima i prodotti già esistenti con quei
+codici (per unire i campi mancanti invece di sovrascriverli con `null`
+— un listino con solo la colonna prezzo non deve azzerare
+descrizione/IVA già salvate), poi un upsert in blocco. La pagina
+deduplica per codice PRIMA di chiamarlo (stesso codice due volte nel
+file altrimenti farebbe fallire l'upsert — "cannot affect row a second
+time" — invece le righe successive completano quella precedente).
+
+**Deliberatamente fuori scope:**
+- Il campo "Tipologia/Categoria" del vecchio gestionale è mappabile e
+  finisce in `extra.tipologia`, per coerenza con l'originale, ma oggi
+  nessuna pagina del SaaS lo legge o lo filtra — resta lì pronto per
+  quando servirà, senza costruire nulla sopra prematuramente.
+- Non tocca il campo "Fornitore abituale" (`fornitoreId`, Fase
+  extension #40): è un legame anagrafico impostato a mano prodotto per
+  prodotto, il vecchio gestionale non ce l'aveva nemmeno, un import
+  listino non decide da solo "questo fornitore è quello abituale".
+- Niente colonna "Confezione/Unità" nella mappatura: non c'era neanche
+  nell'originale (`listinoRenderMap` mappa solo codice, descrizione,
+  due prezzi, IVA, tipologia).
+
+**Verificato sul database reale** (Ipsofarma, `prodotti` con dati
+veri): scaricati 3 prodotti reali e rieseguita la stessa logica di
+`importListino()` in Node contro quei dati (nessuna scrittura reale
+sul database di produzione) — (1) aggiornando SOLO il prezzo d'acquisto
+di un prodotto esistente (`PC6020`), descrizione/prezzo
+vendita/IVA/extra restano quelli originali, solo `listino_acq` cambia;
+(2) aggiornando prezzo e tipologia di un altro prodotto (`FB440R`),
+`extra.cnd`/`extra.rdm`/`extra.note` (lotto/note tecniche, altri campi
+già nello stesso `extra`) restano intatti nonostante la tipologia
+cambi; (3) un codice nuovo genera una riga di insert con `descr:''` e
+`iva:22` di default (rispetta il vincolo NOT NULL su `descr`, stessa
+soglia IVA di riserva dell'originale) e nessun `id` (diventa un
+insert, non un update); (4) due righe con lo stesso codice nel file si
+fondono in una sola prima dell'upsert. Verificata anche la mappatura
+automatica delle colonne su un file di esempio con intestazioni
+italiane tipiche ("Codice Articolo", "Prezzo Acquisto", "Prezzo
+Listino", "IVA", "Categoria") — trovata la stessa identica ambiguità
+già presente nell'originale quando due colonne contengono entrambe la
+parola "prezzo" (sceglie la prima delle due, l'utente corregge dal
+menu a tendina prima di importare): non un bug introdotto qui, un
+limite dell'euristico ereditato inalterato dal vecchio gestionale.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

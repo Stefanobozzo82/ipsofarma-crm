@@ -40,6 +40,8 @@
         <button type="button" class="ai-chip" data-fill>Quanto devo ancora pagare ai fornitori?</button>
         <button type="button" class="ai-chip" data-fill>Quali clienti hanno fatture da incassare?</button>
         <button type="button" class="ai-chip" data-fill>Quanto ho fatturato questo mese?</button>
+        <button type="button" class="ai-chip" data-fill>Quanto ho incassato questo mese?</button>
+        <button type="button" class="ai-chip" data-fill>Qual è il mio cliente migliore?</button>
         <button type="button" class="ai-chip" data-fill>Quanti ordini fornitore sono ancora da ricevere?</button>
       </div>
 
@@ -183,6 +185,41 @@
     }));
     return Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, n);
   }
+  // Quanto è stato REALMENTE incassato/pagato in un periodo — denaro
+  // entrato/uscito per davvero, non l'insoluto (residuo(), che dice quanto
+  // resta) né il fatturato/acquistato (tot(righe), l'importo della
+  // fattura a prescindere se sia stata pagata). Mancava del tutto dal
+  // riepilogo: una domanda come "quant'è stato incassato" non aveva
+  // nessun dato a cui agganciarsi (segnalato dall'utente: l'assistente
+  // non sapeva rispondere).
+  // Per data del PAGAMENTO, non della fattura: una fattura di marzo
+  // pagata ad aprile conta nell'incassato di aprile, non di marzo —
+  // stesso principio di payTot(), solo filtrato per periodo invece che
+  // sommato per intero.
+  function incassatoInPeriodo(fatture, periodo){
+    let s = 0;
+    fatture.forEach(f => {
+      if(f.pagamenti && f.pagamenti.length){
+        f.pagamenti.forEach(p => { if((p.data || '').startsWith(periodo)) s += (p.importo || 0); });
+      } else if(f.paid && (f.paidDate || '').startsWith(periodo)){
+        s += tot(f.righe); // stesso fallback di payTot(): pagata ma senza pagamenti tracciati
+      }
+    });
+    return s;
+  }
+  // Fatturato totale per cliente/fornitore (tutte le fatture, pagate o
+  // no) — utile per "chi è il mio cliente migliore/il fornitore da cui
+  // acquisto di più", diverso da topProdotti() (che aggrega gli articoli,
+  // non le controparti) e da daIncassare/daPagare in buildContext() (che
+  // sommano solo il residuo ancora aperto, non il fatturato reale).
+  function totalePerParty(fatture, idField, partyById){
+    const tot_ = {};
+    fatture.forEach(f => {
+      const nome = (partyById[f[idField]] || {}).nome || 'sconosciuto';
+      tot_[nome] = (tot_[nome] || 0) + tot(f.righe);
+    });
+    return Object.entries(tot_).sort((a, b) => b[1] - a[1]);
+  }
 
   function addBubble(role, text){
     const el = document.createElement('div');
@@ -236,8 +273,34 @@
     scaduteCliente.sort((a, b) => a.scad.localeCompare(b.scad)); // più vecchie prima
     scaduteFornitore.sort((a, b) => a.scad.localeCompare(b.scad));
 
-    const fatturatoMese = fattureCliente.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0);
-    const acquistiMese = fattureFornitore.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0);
+    const anno = today().slice(0, 4);
+    // Fatturato/acquisti al NETTO delle note di credito — stessa
+    // convenzione già usata in dashboard.html ("vendTot = fc - ncTot",
+    // "acqTot = ff - ncfTot") e nelle card "Totale acquisti"/"Totale
+    // fatturato" di fatture.html/fatture-fornitore.html: una nota di
+    // credito è uno storno, non un nuovo fatturato/acquisto. Prima qui
+    // era lordo — inconsistente col resto del prodotto, e avrebbe reso
+    // sbagliato anche il "margine" appena aggiunto qui sotto.
+    const ncMese = noteCredito.filter(n => (n.data || '').startsWith(mese)).reduce((s, n) => s + tot(n.righe), 0);
+    const ncfMese = noteCreditoFornitore.filter(n => (n.data || '').startsWith(mese)).reduce((s, n) => s + tot(n.righe), 0);
+    const ncAnno = noteCredito.filter(n => (n.data || '').startsWith(anno)).reduce((s, n) => s + tot(n.righe), 0);
+    const ncfAnno = noteCreditoFornitore.filter(n => (n.data || '').startsWith(anno)).reduce((s, n) => s + tot(n.righe), 0);
+    const fatturatoMese = fattureCliente.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0) - ncMese;
+    const acquistiMese = fattureFornitore.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0) - ncfMese;
+    const fatturatoAnno = fattureCliente.filter(f => (f.data || '').startsWith(anno)).reduce((s, f) => s + tot(f.righe), 0) - ncAnno;
+    const acquistiAnno = fattureFornitore.filter(f => (f.data || '').startsWith(anno)).reduce((s, f) => s + tot(f.righe), 0) - ncfAnno;
+    // Incassato/pagato REALE (non il fatturato/acquistato, non l'insoluto)
+    // — vedi il commento su incassatoInPeriodo() più sopra: era il dato
+    // mancante che ha fatto restare senza risposta la domanda originale.
+    const incassatoMese = incassatoInPeriodo(fattureCliente, mese);
+    const incassatoAnno = incassatoInPeriodo(fattureCliente, anno);
+    const incassatoTotale = fattureCliente.reduce((s, f) => s + payTot(f), 0);
+    const pagatoMese = incassatoInPeriodo(fattureFornitore, mese);
+    const pagatoAnno = incassatoInPeriodo(fattureFornitore, anno);
+    const pagatoTotale = fattureFornitore.reduce((s, f) => s + payTot(f), 0);
+    const fcPagate = fattureCliente.filter(f => f.paid).length;
+    const ffPagate = fattureFornitore.filter(f => f.paid).length;
+    const topClienti = totalePerParty(fattureCliente, 'clienteId', clientiById).slice(0, 5);
     const ocIdFatturati = new Set(fattureCliente.map(f => f.ocId).filter(Boolean));
     const ordCliAperti = ordiniCliente.filter(o => !ocIdFatturati.has(o.id));
     const ordFornAperti = ordiniFornitore.filter(o => !(o.righe || []).every(r => (r.qtyEv || 0) >= (r.qty || 0)));
@@ -260,8 +323,15 @@
       : '- nessuno, tutte le fatture fornitore risultano pagate');
     lines.push('Fatture fornitore SCADUTE (non pagate entro i termini), le più vecchie prima:');
     lines.push(capped(scaduteFornitore.map(x => `- ${x.num} (${x.nome}), scaduta il ${x.scad}: ${eur(x.r)}`), 15));
-    lines.push(`Fatturato clienti nel mese corrente (${mese}): ${eur(fatturatoMese)}.`);
-    lines.push(`Acquisti da fornitori nel mese corrente (${mese}): ${eur(acquistiMese)}.`);
+    lines.push(`Fatturato clienti (netto di eventuali note di credito): questo mese (${mese}) ${eur(fatturatoMese)}, da inizio anno (${anno}) ${eur(fatturatoAnno)}.`);
+    lines.push(`Acquisti da fornitori (netto di eventuali note di credito): questo mese (${mese}) ${eur(acquistiMese)}, da inizio anno (${anno}) ${eur(acquistiAnno)}.`);
+    lines.push(`Margine (fatturato - acquisti): questo mese ${eur(fatturatoMese - acquistiMese)}, da inizio anno ${eur(fatturatoAnno - acquistiAnno)}.`);
+    lines.push(`Incassato dai clienti (denaro REALMENTE ricevuto — diverso dal fatturato, che conta anche le fatture non ancora pagate): questo mese ${eur(incassatoMese)}, da inizio anno ${eur(incassatoAnno)}, in totale da sempre ${eur(incassatoTotale)}.`);
+    lines.push(`Pagato ai fornitori (denaro REALMENTE versato): questo mese ${eur(pagatoMese)}, da inizio anno ${eur(pagatoAnno)}, in totale da sempre ${eur(pagatoTotale)}.`);
+    lines.push(`Fatture cliente: ${fcPagate} incassate su ${fattureCliente.length} totali. Fatture fornitore: ${ffPagate} pagate su ${fattureFornitore.length} totali.`);
+    lines.push(`Clienti in anagrafica: ${clienti.length}. Fornitori in anagrafica: ${fornitori.length}.`);
+    lines.push(`Clienti per fatturato totale (tutte le fatture, pagate e non — non solo il mese corrente):`);
+    lines.push(topClienti.length ? topClienti.slice(0, 5).map(([n, v]) => `- ${n}: ${eur(v)}`).join('\n') : '- nessuna fattura cliente ancora emessa');
     lines.push(`Prodotti più venduti ai clienti questo mese (quantità):`);
     lines.push(venduti.length ? venduti.map(([n, q]) => `- ${n}: ${q}`).join('\n') : '- nessuna vendita ancora questo mese');
     lines.push(`Prodotti più acquistati dai fornitori questo mese (quantità):`);

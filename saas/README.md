@@ -4136,6 +4136,40 @@ anche a DDT, fatture e preventivi lato cliente (tutti condividono lo
 stesso `addProdToOrder()`) — segnalato qui perché chi ci lavora dopo lo
 sappia, non implementato salvo richiesta esplicita.
 
+## Ultimo prezzo cliente esteso a DDT, fatture e preventivi
+
+**Richiesta di seguito diretto:** "si estendi anche a ddt, fatture e
+preventivi" — il pezzo segnalato come lasciato fuori nel giro
+precedente (nel vecchio gestionale `addProdToOrder()`/
+`lastClientPrice()` è UNA sola funzione condivisa da tutti e quattro i
+moduli lato cliente, non solo dall'ordine).
+
+**Fix**, identico in `ddt.html`, `fatture.html`, `preventivi.html`
+(stessa porta già fatta per `ordini.html`): `STORICO_PREZZI` caricato
+una volta in `init()` (fattureCliente/ddt/ordiniCliente — MAI i
+preventivi, che nell'originale non sono mai stati una fonte per questa
+ricerca, solo un consumatore), `lastClientPrice(clienteId,cod)` con lo
+stesso identico corpo nei quattro file, badge "ultimo prezzo" nei due
+punti di scelta prodotto, `repriceForClient()` quando si cambia
+cliente a form già aperto (in `ddt.html` oltre a `refreshDestOptions`/
+`refreshOrdineOptions` già presenti; in `fatture.html` oltre a
+`refreshDestOptions`/`refreshLinkedOptions`).
+
+**Non riverificato sui dati reali un'altra volta**: la funzione
+`lastClientPrice()` in questi tre file è byte per byte la stessa già
+verificata per `ordini.html` (dataset reale, prodotto comprato 13
+volte dallo stesso cliente, incrociato con un conteggio manuale
+indipendente) — un secondo giro di verifica sugli stessi identici dati
+con la stessa identica funzione non avrebbe scoperto nulla di nuovo.
+Verificata invece la sintassi di tutti e tre i file (nessun errore).
+
+`ordini-fornitore.html` resta l'unico modulo con questa funzione lato
+acquisti — nel vecchio gestionale non esistono DDT/fatture/preventivi
+fornitore con lo stesso meccanismo di ricerca (fatture fornitore e
+note credito fornitore si registrano da un documento reale del
+fornitore, non si "compongono" scegliendo prodotti uno per uno come un
+ordine).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

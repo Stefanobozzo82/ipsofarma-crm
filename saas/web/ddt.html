@@ -101,6 +101,9 @@
   let clientiById = {};
   let ordiniPerCliente = {}; // clienteId -> [ordini]
   let allOrdiniById = {};
+  // Storico prezzi per lastClientPrice() qui sotto — caricato una volta
+  // all'apertura della pagina (init), non ad ogni ricerca prodotto.
+  let STORICO_PREZZI = { fattureCliente: [], ddt: [], ordiniCliente: [] };
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
@@ -194,9 +197,9 @@
   // mano riga per riga (vedi $('f-ddt') in fatture.html).
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
-    return `<tr>
+    return `<tr ${r._last ? 'data-last="1"' : ''}>
       <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
-      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div></td>
+      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r._last ? '<span class="lastp">ultimo prezzo</span>' : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="min-width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
       <td style="min-width:130px"><input class="r-scad" type="date" value="${esc(r.scad || '')}"></td>
@@ -217,6 +220,10 @@
     const tr = $('righe-body').lastElementChild;
     tr.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    // Modificare prezzo o sconto a mano toglie il badge "ultimo prezzo" —
+    // vedi clearLastBadge() più sopra.
+    tr.querySelector('.r-prezzo').addEventListener('input', () => clearLastBadge(tr));
+    tr.querySelector('.r-sconto').addEventListener('input', () => clearLastBadge(tr));
     const handle = tr.querySelector('.drag-handle');
     handle.addEventListener('dragstart', e => {
       dragSrcRow = tr;
@@ -239,12 +246,22 @@
     window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
       companyId, priceField: 'listinoVen', clearOnPick: false,
       onPick: p => {
+        const last = lastClientPrice($('f-cliente').value, p.cod);
         tr.querySelector('.r-cod').value = p.cod;
         tr.querySelector('.r-descr').value = p.descr;
-        tr.querySelector('.r-prezzo').value = p.listinoVen || 0;
+        tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoVen || 0);
+        tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
         tr.querySelector('.r-iva').value = p.iva || 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
+        // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
+        // già nel DOM, quindi si inserisce a mano invece di ripassare da
+        // rigaRowHtml().
+        clearLastBadge(tr);
+        if(last){
+          tr.dataset.last = '1';
+          tr.querySelector('.r-cod').closest('td').insertAdjacentHTML('beforeend', '<span class="lastp">ultimo prezzo</span>');
+        }
         updateTotale();
         qtyEl.focus(); qtyEl.select();
       },
@@ -294,6 +311,60 @@
     $('f-dest').innerHTML = '<option value="">Sede legale</option>' +
       destSorted.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
   }
+  // Ultimo prezzo VENDUTO A QUESTO CLIENTE per un prodotto — porta diretta
+  // di lastLinePrice()/lastClientPrice() nel vecchio gestionale, stessa
+  // funzione già portata in ordini.html: "nel vecchio gestionale [...]
+  // metteva in automatico l'ultimo prezzo venduto a quel cliente" — vale
+  // per DDT/fatture/preventivi tanto quanto per l'ordine (nell'originale è
+  // la stessa identica funzione, addProdToOrder(), condivisa da tutti e
+  // quattro).
+  function lastClientPrice(clienteId, cod){
+    if(!clienteId || !cod) return null;
+    let best = null;
+    ['fattureCliente', 'ddt', 'ordiniCliente'].forEach(coll => {
+      (STORICO_PREZZI[coll] || []).forEach(d => {
+        if(d.clienteId !== clienteId) return;
+        const r = (d.righe || []).find(x => x.cod === cod);
+        if(r && r.prezzo != null && (!best || String(d.data) > String(best.data))){
+          best = { data: d.data, prezzo: r.prezzo, sconto: r.sconto || '' };
+        }
+      });
+    });
+    return best;
+  }
+  // Il badge "ultimo prezzo" (vedi rigaRowHtml()) sparisce se l'utente
+  // tocca prezzo o sconto a mano — stesso comportamento di ordini.html.
+  function clearLastBadge(tr){
+    delete tr.dataset.last;
+    const badge = tr.querySelector('.lastp');
+    if(badge) badge.remove();
+  }
+  // Cambiare cliente A FORM GIÀ APERTO riprezza le righe ancora col badge
+  // (non toccate a mano) per il nuovo cliente — porta di
+  // repriceForClient()/onClientePick() nel vecchio gestionale, stessa
+  // funzione già in ordini.html.
+  async function repriceForClient(clienteId){
+    const rows = [...$('righe-body').querySelectorAll('tr')].filter(tr => tr.dataset.last === '1' && tr.querySelector('.r-cod').value.trim());
+    for(const tr of rows){
+      const cod = tr.querySelector('.r-cod').value.trim();
+      const last = lastClientPrice(clienteId, cod);
+      if(last){
+        tr.querySelector('.r-prezzo').value = last.prezzo;
+        tr.querySelector('.r-sconto').value = last.sconto || '';
+        continue;
+      }
+      let listino = 0;
+      try{
+        const found = await store.searchProdotti(companyId, cod, 5);
+        const p = found.find(x => x.cod === cod);
+        if(p) listino = p.listinoVen || 0;
+      }catch(e){ /* silenzioso: al più resta il prezzo già in campo */ }
+      tr.querySelector('.r-prezzo').value = listino;
+      tr.querySelector('.r-sconto').value = '';
+      clearLastBadge(tr);
+    }
+    updateTotale();
+  }
   // Precompila le righe dal RESIDUO dell'ordine (quanto non ancora
   // consegnato: qty - qtyEv), non dalle righe intere — un ordine può
   // essere evaso in più DDT (cascata, vedi ordini.html/generaDDT()). Un
@@ -318,7 +389,11 @@
     catch(e){ /* niente lotti tracciati, o un problema di rete: le righe restano senza lotto/scadenza, comunque scrivibili a mano */ }
     (righe.length ? righe : [null]).forEach(addRigaRow);
   }
-  $('f-cliente').addEventListener('change', () => { refreshOrdineOptions($('f-cliente').value); refreshDestOptions($('f-cliente').value); });
+  $('f-cliente').addEventListener('change', () => {
+    refreshOrdineOptions($('f-cliente').value);
+    refreshDestOptions($('f-cliente').value);
+    repriceForClient($('f-cliente').value);
+  });
   $('f-ordine').addEventListener('change', async () => {
     // comodità: se non sono ancora state scritte righe, precompila dal
     // residuo dell'ordine selezionato (l'utente può comunque modificarle o svuotarle)
@@ -576,14 +651,19 @@
       onLogout: doLogout,
     });
 
-    const [clienti, ordini] = await Promise.all([
+    const [clienti, ordini, fattureCliente, ddtTutti] = await Promise.all([
       store.loadCollection('clienti', companyId),
       store.loadCollection('ordiniCliente', companyId),
+      store.loadCollection('fattureCliente', companyId),
+      store.loadCollection('ddt', companyId),
     ]);
     clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     allOrdiniById = Object.fromEntries(ordini.map(o => [o.id, o]));
     ordiniPerCliente = {};
     ordini.forEach(o => { (ordiniPerCliente[o.clienteId] = ordiniPerCliente[o.clienteId] || []).push(o); });
+    // Per lastClientPrice() qui sopra — caricate una volta, non ad ogni
+    // ricerca prodotto.
+    STORICO_PREZZI = { fattureCliente, ddt: ddtTutti, ordiniCliente: ordini };
     // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
     // clienti" della filterbar qui sopra (clientiArr).
     $('f-cliente').innerHTML = [...clienti].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
@@ -591,7 +671,10 @@
 
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
       companyId, priceField: 'listinoVen',
-      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: p.listinoVen || 0, sconto: '', iva: p.iva || 22 }),
+      onPick: p => {
+        const last = lastClientPrice($('f-cliente').value, p.cod);
+        addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: last ? last.prezzo : (p.listinoVen || 0), sconto: last ? (last.sconto || '') : '', iva: p.iva || 22, _last: !!last });
+      },
     });
 
     await renderList();

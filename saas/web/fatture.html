@@ -310,7 +310,7 @@
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
     window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
-      companyId, priceField: 'listinoVen', clearOnPick: false,
+      companyId, priceField: 'listinoVen', clearOnPick: false, priceHistory: priceHistoryForForm,
       onPick: p => {
         const last = lastClientPrice($('f-cliente').value, p.cod);
         tr.querySelector('.r-cod').value = p.cod;
@@ -402,6 +402,32 @@
       });
     });
     return best;
+  }
+  // Storico degli ultimi prezzi (fino a 5) venduti a QUESTO cliente per un
+  // prodotto — porta di priceHistory()/clientPriceHistory() nel vecchio
+  // gestionale, stessa fonte di lastClientPrice() qui sopra — per il
+  // tooltip al passaggio del mouse sul codice (vedi app/prodpicker.js).
+  function clientPriceHistory(clienteId, cod, limit){
+    if(!clienteId || !cod) return [];
+    const out = [];
+    ['fattureCliente', 'ddt', 'ordiniCliente'].forEach(coll => {
+      (STORICO_PREZZI[coll] || []).forEach(d => {
+        if(d.clienteId !== clienteId) return;
+        const r = (d.righe || []).find(x => x.cod === cod);
+        if(r && r.prezzo != null) out.push({ data: d.data, prezzo: r.prezzo, sconto: r.sconto || '', num: d.num });
+      });
+    });
+    out.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    return out.slice(0, limit || 5);
+  }
+  // priceHistory(cod) per SaasProdPicker.attach() qui sotto e in bindRigaRow().
+  function priceHistoryForForm(cod){
+    const cliId = $('f-cliente').value;
+    const cli = clientiById[cliId];
+    return {
+      title: cli && cli.nome ? 'Ultimi prezzi a ' + cli.nome : 'Ultimi prezzi al cliente',
+      rows: cliId ? clientPriceHistory(cliId, cod, 5) : [],
+    };
   }
   // Il badge "ultimo prezzo" (vedi rigaRowHtml()) sparisce se l'utente
   // tocca prezzo o sconto a mano — stesso comportamento di ordini.html/
@@ -950,7 +976,7 @@
       .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 
     window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
-      companyId, priceField: 'listinoVen',
+      companyId, priceField: 'listinoVen', priceHistory: priceHistoryForForm,
       onPick: p => {
         const last = lastClientPrice($('f-cliente').value, p.cod);
         addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: last ? last.prezzo : (p.listinoVen || 0), sconto: last ? (last.sconto || '') : '', iva: p.iva || 22, _last: !!last });

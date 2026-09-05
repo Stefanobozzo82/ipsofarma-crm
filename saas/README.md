@@ -4170,6 +4170,62 @@ note credito fornitore si registrano da un documento reale del
 fornitore, non si "compongono" scegliendo prodotti uno per uno come un
 ordine).
 
+## Storico prezzi al passaggio del mouse sul codice prodotto
+
+**Richiesta:** "nel vecchio gestionale c'era anche uno storico dei
+prezzi puoi controllare e eventualmente aggiungerlo".
+
+Trovata in `index.html`: `priceHistTipShow()`/`priceHistTipHide()`, un
+tooltip scuro che compare passando il mouse sul codice di un prodotto
+(nei suggerimenti della ricerca, o nel codice già scritto in una riga)
+con le ultime 5 volte che quel prodotto è comparso in un documento —
+data, numero documento, prezzo, sconto — usando le stesse fonti già
+lette per "ultimo prezzo" (`clientPriceHistory()`/`acqPriceHistory()`,
+un `lastLinePrice()`/`priceHistory()` condiviso che restituisce
+l'elenco intero invece di solo il più recente).
+
+**Fix, in un unico posto condiviso da tutti i moduli documento**
+(`app/prodpicker.js`, lo stesso file che già gestisce l'autocompletamento
+riga da catalogo): il tooltip stesso (creato al volo e appeso a
+`document.body` la prima volta che serve — nessuna pagina deve
+aggiungerlo al proprio HTML), la formattazione (stesso `scLabel()`
+dell'originale: "—" senza sconto, "N%" per uno sconto singolo, "N+M %"
+per uno sconto a cascata) e il posizionamento accanto al mouse senza
+sporgere oltre i bordi della finestra. Il DATO invece resta
+pagina-specifico — `opts.priceHistory(cod)` (nuovo parametro opzionale
+di `SaasProdPicker.attach()`), passato da ognuno degli 8 moduli
+documento che già hanno `lastClientPrice()`/`lastAcqPrice()`:
+
+1. **Lato cliente** (`ordini.html`, `ddt.html`, `fatture.html`,
+   `preventivi.html`): nuova `clientPriceHistory(clienteId,cod,limit)`,
+   stessa fonte di `lastClientPrice()` già presente (fattureCliente/ddt/
+   ordiniCliente filtrati per cliente), ma l'elenco intero fino a 5
+   invece di solo il più recente. Titolo del tooltip col nome del
+   cliente selezionato ("Ultimi prezzi a [nome]"), letto al momento del
+   passaggio del mouse — non quando la pagina si è aperta, può essere
+   cambiato nel frattempo.
+2. **Lato fornitore** (`ordini-fornitore.html`): nuova
+   `acqPriceHistory(cod,limit)`, stessa fonte di `lastAcqPrice()` già
+   presente (senza filtro fornitore, stessa scelta dell'originale) —
+   titolo fisso "Ultimi prezzi di acquisto".
+3. Il tooltip compare sia sul codice di un suggerimento (prima ancora
+   di sceglierlo) sia sul campo "Codice" di una riga già compilata
+   (passando il mouse su un codice già scelto) — stessi due punti già
+   coperti da "ultimo prezzo".
+
+Nuove classi `.price-hist-tip`/`.pht-*` in `theme.css` — stessi colori
+fissi (scuro su entrambi i temi) già usati da `.chart-tip`, un tooltip
+resta leggibile allo stesso modo qualunque sia il tema della pagina
+sotto.
+
+**Verificato sul database reale**: lo stesso prodotto (B0068598)
+comprato 13 volte dallo stesso cliente già usato per verificare
+"ultimo prezzo" — `clientPriceHistory()` restituisce correttamente le
+5 occorrenze più recenti (FT/2026/0278, DDT/2026/0278, OC/2026/0199,
+FT/2026/0265, DDT/2026/0265), tutte ordinate dalla più recente.
+Verificata anche la formattazione dello sconto (nessuno, singolo,
+cascata) con valori sintetici, e la sintassi di tutti i file toccati.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

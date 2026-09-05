@@ -309,6 +309,27 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 .chart-tip .ct-r b{ font-family:var(--mono); }
 .chart-tip .ct-mg{ border-top:1px solid rgba(255,255,255,.16); margin-top:4px; padding-top:4px; }
 
+/* Storico prezzi al passaggio del mouse sul codice di un prodotto (nella
+   ricerca sopra l'elenco righe, o già scritto in una riga) — porta diretta
+   di .price-hist-tip/.pht-* nel vecchio gestionale (vedi app/prodpicker.js).
+   position:fixed, non absolute come .chart-tip qui sopra: è appeso a
+   document.body (un solo elemento condiviso da tutte le pagine, creato al
+   volo la prima volta che serve), posizionato in coordinate di viewport
+   accanto al mouse — non dentro un contenitore posizionato a sé. Stessi
+   colori fissi (scuro su entrambi i temi) di .chart-tip: un tooltip resta
+   leggibile allo stesso modo qualunque sia il tema della pagina sotto. */
+.price-hist-tip{
+  position:fixed; z-index:400; pointer-events:none; background:#1f2733; color:#fff; border-radius:9px;
+  padding:10px 12px; font-size:11.5px; line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,.32);
+  opacity:0; display:none; min-width:190px; max-width:260px;
+}
+.price-hist-tip.show{ opacity:1; display:block; }
+.price-hist-tip .pht-h{ font-weight:700; margin-bottom:6px; font-size:10.5px; letter-spacing:.4px; text-transform:uppercase; color:#cfd6df; }
+.price-hist-tip .pht-r{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:3px 0; }
+.price-hist-tip .pht-r+.pht-r{ border-top:1px solid rgba(255,255,255,.12); }
+.price-hist-tip .pht-r span{ color:#cfd6df; font-size:10.5px; }
+.price-hist-tip .pht-r b{ font-family:var(--mono); white-space:nowrap; }
+
 /* ---------------------------------------------------------------------------
    Componenti condivisi dal contenuto delle pagine
 --------------------------------------------------------------------------- */

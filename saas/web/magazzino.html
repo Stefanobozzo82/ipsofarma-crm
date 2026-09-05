@@ -120,6 +120,13 @@
   }
 
   // ---- Depositi -----------------------------------------------------------
+  // store.listDepositi()/ensureDefaultDeposito() restituiscono i depositi
+  // nell'ordine di creazione (order by created_at) — per il menu "Deposito"
+  // del movimento (mv-deposito) vogliamo invece l'ordine alfabetico, come
+  // già fatto per i menu cliente/fornitore/destinazione negli altri moduli.
+  function depositiSorted(){
+    return [...depositi].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
+  }
   function renderDepositi(){
     $('depositi-area').innerHTML = depositi.map(d => `
       <div class="dest-card">
@@ -153,7 +160,7 @@
   async function refreshDepositi(){
     depositi = await store.listDepositi(companyId);
     renderDepositi();
-    $('mv-deposito').innerHTML = depositi.map(d => `<option value="${d.id}" ${d.predefinito ? 'selected' : ''}>${esc(d.nome)}</option>`).join('');
+    $('mv-deposito').innerHTML = depositiSorted().map(d => `<option value="${d.id}" ${d.predefinito ? 'selected' : ''}>${esc(d.nome)}</option>`).join('');
     if(lastResults.length) await refreshGiacenze();
   }
   $('dep-add').addEventListener('click', async () => {
@@ -315,7 +322,7 @@
     try{
       depositi = await store.ensureDefaultDeposito(companyId);
       renderDepositi();
-      $('mv-deposito').innerHTML = depositi.map(d => `<option value="${d.id}" ${d.predefinito ? 'selected' : ''}>${esc(d.nome)}</option>`).join('');
+      $('mv-deposito').innerHTML = depositiSorted().map(d => `<option value="${d.id}" ${d.predefinito ? 'selected' : ''}>${esc(d.nome)}</option>`).join('');
     }catch(err){
       $('depositi-area').innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
     }

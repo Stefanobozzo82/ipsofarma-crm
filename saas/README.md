@@ -4031,6 +4031,55 @@ risposta concreta — incassato € 242.979,62 in totale, € 127.354,10
 quest'anno, € 3.277,58 questo mese; "chi è il mio cliente migliore"
 risulta TIRRENIA HOSPITAL S.R.L. con € 70.112,67 di fatturato totale.
 
+## Assistente AI esteso al magazzino (giacenze/valore)
+
+**Richiesta di seguito diretto:** "si estendi" — il pezzo lasciato
+fuori dal giro precedente ("domande su magazzino/giacenze... restano
+fuori dalla portata dell'assistente").
+
+Il vincolo era chiaro dall'inizio: mai caricare l'intero catalogo
+prodotti (~21.278 righe per Ipsofarma) solo per rispondere a domande
+di magazzino. La soluzione sfrutta una vista già esistente,
+`giacenze` (0009_magazzino.sql) — raggruppa i movimenti per prodotto/
+deposito, quindi esiste solo per i prodotti che hanno ALMENO UN
+movimento registrato: in pratica un sottoinsieme molto più piccolo del
+catalogo intero, sicuro da caricare per intero.
+
+**Fix:**
+1. `store.js`: due nuove funzioni — `listGiacenze(companyId)` (l'intera
+   vista `giacenze` per l'azienda, non filtrata per prodotto come
+   invece fa `giacenzeForProdotti()` già esistente) e
+   `prodottiByIds(companyId, ids)` (cod/descr/prezzo dei SOLI prodotti
+   che compaiono in quel risultato, mai una query sul catalogo intero).
+2. `assistente-ai.html` (`loadDB()`): carica giacenze + depositi,
+   aggrega per prodotto su tutti i depositi insieme (quantità e valore
+   al costo di listino — il significato usuale di "valore di
+   magazzino" in contabilità, non il prezzo di vendita) più il
+   dettaglio per singolo deposito.
+3. `buildContext()`: nuova riga di riepilogo — numero di prodotti con
+   giacenza, quanti depositi, valore totale, i primi 10 per valore
+   (capped come le altre liste, per non far crescere il riepilogo senza
+   limite in un'azienda con molti prodotti diversi a magazzino).
+4. `findMirroredDetail()`: un codice prodotto citato per intero (tra
+   quelli con giacenza — MAI cercato nel catalogo intero) aggancia il
+   dettaglio esatto per quel prodotto, deposito per deposito — stesso
+   principio già usato per un numero documento o un nome cliente/
+   fornitore citati per intero, così un prodotto fuori dalla top 10 del
+   riepilogo generale resta comunque raggiungibile chiedendone il
+   codice.
+5. Due nuovi esempi cliccabili: "Qual è il valore del magazzino?",
+   oltre alla domanda mirata per codice già coperta da (4).
+
+**Verificato**: sul database reale l'azienda non ha ancora nessun
+movimento di magazzino registrato (`giacenze` vuota per questa
+company) — la nuova riga di riepilogo degrada correttamente a "Nessun
+movimento di magazzino registrato ancora." invece di un errore o un
+vuoto silenzioso. La logica di aggregazione (quantità/valore per
+prodotto su più depositi, dettaglio per deposito, ricerca mirata per
+codice) è stata verificata con dati sintetici che riproducono la
+stessa forma reale (due prodotti, due depositi, uno diviso tra
+entrambi): totali, capped() e dettaglio per deposito tornano corretti.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

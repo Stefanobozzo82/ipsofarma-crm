@@ -3917,6 +3917,61 @@ Verificato sul database reale: l'azienda ha oggi un solo deposito
 non ne esiste più di uno — confermata comunque la causa (`order by
 created_at` in `listDepositi()`) leggendo la query in `store.js`.
 
+## Micro-interazioni: transizioni sobrie in tutto il prodotto
+
+**Richiesta:** "c'è un modo per rendere tutto più bello graficamente
+con animazioni e transizioni" — chiarito con due domande: livello
+"sobrio e professionale" (non "più espressivo"), applicato "ovunque, da
+un unico posto" (non pagina per pagina).
+
+Aggiunta una nuova sezione in fondo ad `app/theme.css`, senza toccare
+nessun'altra pagina:
+
+1. **`prefers-reduced-motion: reduce`** rispettato ovunque — chi lo
+   richiede al sistema operativo non vede nessuna transizione/
+   animazione, di questa sezione o già esistente prima.
+2. Una transizione morbida di sfondo/bordo/colore/ombra/trasparenza/
+   trasform (invece che a scatto) estesa a tutti gli elementi
+   interattivi che non l'avevano ancora: pulsanti, pill, select/input/
+   textarea (il focus ora arriva morbido), le card destinazione, i nodi
+   del box "Documenti collegati", i suggerimenti di autocompletamento,
+   i pulsanti azione per-riga, la barra di selezione multipla, i
+   pulsanti del periodo in dashboard, "Azzera filtri", le intestazioni
+   di colonna ordinabili, le righe di un elenco al passaggio del mouse.
+3. Un piccolo riscontro tattile al clic (1px) sui pulsanti principali,
+   ghost, della barra di selezione multipla, del periodo dashboard, dei
+   suggerimenti IA e del pulsante pagata/da pagare — non un rimbalzo,
+   solo la sensazione di "premuto".
+4. Un unico assestamento leggero (dissolvenza + 6px) del contenuto ad
+   ogni caricamento di pagina (`.app-main`).
+
+**Perché non di più, e non altrove** (spiegato per esteso nel commento
+in cima alla sezione, così chi ci lavora dopo lo trova subito): quasi
+ogni elenco/form di questo prodotto si ridisegna sostituendo interi
+blocchi di HTML (`area.innerHTML = ...`) invece di aggiornare i nodi
+esistenti — una transizione CSS anima un cambiamento di stato su un
+nodo che RESTA lo stesso, non uno appena ricreato (parte già nello
+stato finale, non c'è nulla da animare). Per questo le uniche
+transizioni aggiunte sono su stati che il browser valuta in tempo
+reale sul DOM attuale (`:hover`/`:focus`/`:active`), più un'unica
+animazione sul contenuto che non viene mai ricreato durante l'uso
+della pagina (solo al caricamento). Animare le righe di un elenco che
+compaiono/spariscono filtrando, o l'apertura/chiusura del form di un
+documento (attributo `hidden` tolto/rimesso da JS, niente da animare
+in CSS puro), avrebbe richiesto riscrivere la logica di ogni singolo
+modulo — non un intervento da un unico posto, e con un rischio concreto
+di lampeggiare ad ogni carattere digitato nella ricerca, l'opposto di
+"sobrio".
+
+**Attenzione a una specificità CSS**: `a.stat`/`.stat.stat-go` avevano
+già una loro `transition` (che include anche `transform`, per il
+sollevamento al passaggio del mouse) — tenuti deliberatamente FUORI
+dal nuovo elenco di selettori: un'altra dichiarazione di `transition`
+con la stessa specificità, più in basso nel foglio, l'avrebbe sostituita
+invece di sommarsi, perdendo l'animazione del sollevamento già
+esistente. Verificato leggendo entrambe le regole prima di scrivere la
+nuova, non dopo.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

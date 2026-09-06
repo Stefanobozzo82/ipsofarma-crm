@@ -115,6 +115,11 @@
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
+  // Ultimo elenco scaricato da renderList() — usato da renderResults() per
+  // ridisegnare senza rifare la query di rete quando cambia solo COME viene
+  // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene: vedi
+  // il commento sopra renderResults() più sotto.
+  let ORDINI_ALL = [];
   // FFILT.stato viene precompilato da ?stato=aperti nell'URL (link "Prodotti
   // da evadere" della dashboard, vedi dashboard.html): senza, l'elenco apriva
   // sempre su TUTTI gli ordini invece che solo quelli ancora da evadere.
@@ -378,7 +383,7 @@
   function setSort(key){
     if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
     else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderList();
+    renderResults();
   }
 
   // Ricerca testuale: come Q nel gestionale originale (num + nome cliente).
@@ -391,7 +396,7 @@
   $('q').addEventListener('input', () => {
     Q = $('q').value.trim().toLowerCase();
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderList, 200);
+    searchTimer = setTimeout(renderResults, 200);
   });
 
   // Completo = ogni riga interamente consegnata (qtyEv >= qty) — stessa
@@ -411,8 +416,8 @@
     if(FFILT.to && (o.data || '') > FFILT.to) return false;
     return true;
   }
-  function setFFilt(k, v){ FFILT[k] = v; renderList(); }
-  function clearFFilt(){ FFILT = { cliente:'', stato:'', from:'', to:'' }; renderList(); }
+  function setFFilt(k, v){ FFILT[k] = v; renderResults(); }
+  function clearFFilt(){ FFILT = { cliente:'', stato:'', from:'', to:'' }; renderResults(); }
   function renderFilterbar(){
     const active = FFILT.cliente || FFILT.stato || FFILT.from || FFILT.to;
     const clientiArr = Object.values(clientiById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
@@ -716,22 +721,39 @@
   });
 
   // ---- elenco ---------------------------------------------------------------
+  // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
+  // essere cambiati (apertura pagina, dopo salvataggio/eliminazione...): fa
+  // sempre passare dalla schermata "Carico…", quindi svuota per un istante
+  // la tabella già a video. Chi cambia solo COME viene mostrato l'elenco
+  // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
+  // renderResults() qui sotto, non questa — vedi il suo commento.
   async function renderList(){
-    renderFilterbar();
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let ordini;
     try{
-      ordini = await store.loadCollection('ordiniCliente', companyId);
+      ORDINI_ALL = await store.loadCollection('ordiniCliente', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(ordini.length === 0){
+    renderResults();
+  }
+  // Ridisegna l'elenco dai dati già in ORDINI_ALL, senza rifare la query di
+  // rete. Prima c'era una sola funzione (renderList) che faceva sempre
+  // entrambe le cose: bastava spuntare una riga per farla ripartire da capo
+  // (svuotare la tabella in "Carico…", riscaricare tutto, ridisegnare) —
+  // "quando seleziono un documento per un attimo scompare tutto e poi
+  // ricompare". Selezione, ordinamento, filtri e ricerca cambiano solo la
+  // vista su dati che sono già in memoria: non hanno alcun bisogno di una
+  // nuova richiesta di rete.
+  function renderResults(){
+    renderFilterbar();
+    const area = $('list-area');
+    if(ORDINI_ALL.length === 0){
       area.innerHTML = '<p class="empty">Nessun ordine ancora. Crea prima un cliente, poi aggiungi un ordine con "+ Nuovo ordine".</p>';
       return;
     }
-    ordini = ordini.filter(matchesQuery).filter(matchesFilter);
+    let ordini = ORDINI_ALL.filter(matchesQuery).filter(matchesFilter);
     if(ordini.length === 0){
       area.innerHTML = '<p class="empty">Nessun ordine trovato con questi criteri.</p>';
       return;
@@ -765,12 +787,12 @@
       e.stopPropagation();
       if(e.target.checked) ordini.forEach(o => PICK.add(o.id));
       else ordini.forEach(o => PICK.delete(o.id));
-      renderList();
+      renderResults();
     });
     area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
       e.stopPropagation();
       if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderList();
+      renderResults();
     }));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
       openForm(ordini.find(x => x.id === btn.dataset.edit));

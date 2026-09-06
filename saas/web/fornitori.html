@@ -110,6 +110,10 @@
   let editingId = null;
   let SORT = { key: 'nome', dir: 'asc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  // Ultimo elenco scaricato da renderList() — usato da renderResults() per
+  // ridisegnare senza rifare la query di rete quando cambia solo COME viene
+  // mostrato (ordinamento, ricerca), non cosa contiene.
+  let FORNITORI_ALL = [];
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function setMsg(text, kind){
@@ -139,7 +143,7 @@
   function setSort(key){
     if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
     else { SORT.key = key; SORT.dir = 'asc'; }
-    renderList();
+    renderResults();
   }
 
   function matchesQuery(f){
@@ -152,7 +156,7 @@
   $('q').addEventListener('input', () => {
     Q = $('q').value.trim().toLowerCase();
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderList, 200);
+    searchTimer = setTimeout(renderResults, 200);
   });
 
   function openForm(fornitore){
@@ -211,21 +215,34 @@
     }
   });
 
+  // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
+  // essere cambiati (apertura pagina, dopo salvataggio/eliminazione...): fa
+  // sempre passare dalla schermata "Carico…", quindi svuota per un istante
+  // la tabella già a video. Chi cambia solo COME viene mostrato l'elenco
+  // già scaricato (ordina, cerca) deve chiamare renderResults() qui sotto,
+  // non questa.
   async function renderList(){
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let fornitori;
     try{
-      fornitori = await store.loadCollection('fornitori', companyId);
+      FORNITORI_ALL = await store.loadCollection('fornitori', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(fornitori.length === 0){
+    renderResults();
+  }
+  // Ridisegna l'elenco dai dati già in FORNITORI_ALL, senza rifare la
+  // query di rete — vedi il commento in ordini.html (stessa correzione):
+  // prima bastava ordinare una colonna per far ripartire l'intera lista da
+  // capo (svuotata in "Carico…", riscaricata, ridisegnata).
+  function renderResults(){
+    const area = $('list-area');
+    if(FORNITORI_ALL.length === 0){
       area.innerHTML = '<p class="empty">Nessun fornitore ancora. Aggiungine uno con "+ Nuovo fornitore".</p>';
       return;
     }
-    fornitori = fornitori.filter(matchesQuery);
+    let fornitori = FORNITORI_ALL.filter(matchesQuery);
     if(fornitori.length === 0){
       area.innerHTML = '<p class="empty">Nessun fornitore trovato per la ricerca.</p>';
       return;

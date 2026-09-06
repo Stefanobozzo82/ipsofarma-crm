@@ -122,6 +122,10 @@
   let SORT = { key: 'data', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
+  // Ultimo elenco scaricato da renderList() — usato da renderResults() per
+  // ridisegnare senza rifare la query di rete quando cambia solo COME viene
+  // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene.
+  let FATTURE_ALL = [];
   let FFILT = { cliente: '', paid: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
@@ -164,7 +168,7 @@
   function setSort(key){
     if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
     else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderList();
+    renderResults();
   }
 
   // Ricerca testuale: come Q nel gestionale originale (num + nome cliente).
@@ -177,7 +181,7 @@
   $('q').addEventListener('input', () => {
     Q = $('q').value.trim().toLowerCase();
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderList, 200);
+    searchTimer = setTimeout(renderResults, 200);
   });
 
   // ---- filtri: cliente, stato incasso, intervallo date -------------------
@@ -189,8 +193,8 @@
     if(FFILT.to && (f.data || '') > FFILT.to) return false;
     return true;
   }
-  function setFFilt(k, v){ FFILT[k] = v; renderList(); }
-  function clearFFilt(){ FFILT = { cliente:'', paid:'', from:'', to:'' }; renderList(); }
+  function setFFilt(k, v){ FFILT[k] = v; renderResults(); }
+  function clearFFilt(){ FFILT = { cliente:'', paid:'', from:'', to:'' }; renderResults(); }
 
   // Una nota di credito riduce quanto fatturato al cliente (uno storno,
   // non una nuova vendita): va sottratta dal "Totale fatturato", non
@@ -648,7 +652,7 @@
     PICK.clear();
     await renderList();
   }
-  function deselectAll(){ PICK.clear(); renderList(); }
+  function deselectAll(){ PICK.clear(); renderResults(); }
 
   // ---- generazione XML FatturaPA -----------------------------------------
   // Porta diretta di buildFatturaPAXml()/downloadFatturaPAXml() in
@@ -796,23 +800,36 @@
     location.href = 'note-credito.html';
   }
 
+  // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
+  // essere cambiati (apertura pagina, dopo salvataggio/eliminazione...): fa
+  // sempre passare dalla schermata "Carico…", quindi svuota per un istante
+  // la tabella già a video. Chi cambia solo COME viene mostrato l'elenco
+  // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
+  // renderResults() qui sotto, non questa.
   async function renderList(){
-    renderFilterbar();
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let elenco;
     try{
-      elenco = await store.loadCollection('fattureCliente', companyId);
+      FATTURE_ALL = await store.loadCollection('fattureCliente', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(elenco.length === 0 && noteCreditoArr.length === 0){
+    renderResults();
+  }
+  // Ridisegna l'elenco dai dati già in FATTURE_ALL, senza rifare la query
+  // di rete — vedi il commento in ordini.html (stessa correzione): prima
+  // bastava spuntare una riga per far ripartire l'intera lista da capo
+  // (svuotata in "Carico…", riscaricata, ridisegnata).
+  function renderResults(){
+    renderFilterbar();
+    const area = $('list-area');
+    if(FATTURE_ALL.length === 0 && noteCreditoArr.length === 0){
       renderStats([]);
       area.innerHTML = '<p class="empty">Nessuna fattura ancora. Crea prima un cliente, poi aggiungi una fattura con "+ Nuova fattura".</p>';
       return;
     }
-    elenco = elenco.filter(matchesQuery).filter(matchesFilter);
+    let elenco = FATTURE_ALL.filter(matchesQuery).filter(matchesFilter);
     renderStats(elenco);
     // Le note di credito compaiono anche loro nell'elenco, come righe a sé
     // (segno negativo) — come nel gestionale originale (filteredDocRows():
@@ -922,12 +939,12 @@
       e.stopPropagation();
       if(e.target.checked) elenco.forEach(f => PICK.add(f.id));
       else elenco.forEach(f => PICK.delete(f.id));
-      renderList();
+      renderResults();
     });
     area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
       e.stopPropagation();
       if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderList();
+      renderResults();
     }));
     const docsPerId = Object.fromEntries(elenco.map(f => [f.id, f]));
     const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, docsPerId));

@@ -125,6 +125,10 @@
   // utile (è il modulo con più righe, e con più fornitori diversi).
   let FFILT = { forn: '', paid: '', from: '', to: '' };
   let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
+  // Ultimo elenco scaricato da renderList() — usato da renderResults() per
+  // ridisegnare senza rifare la query di rete quando cambia solo COME viene
+  // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene.
+  let FATTURE_ALL = [];
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -153,7 +157,7 @@
   function setSort(key){
     if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
     else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderList();
+    renderResults();
   }
 
   // Ricerca testuale: come Q nel gestionale originale (num + nome fornitore).
@@ -166,7 +170,7 @@
   $('q').addEventListener('input', () => {
     Q = $('q').value.trim().toLowerCase();
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderList, 200);
+    searchTimer = setTimeout(renderResults, 200);
   });
 
   // ---- filtri: fornitore, stato pagamento, intervallo date --------------
@@ -178,8 +182,8 @@
     if(FFILT.to && (f.data || '') > FFILT.to) return false;
     return true;
   }
-  function setFFilt(k, v){ FFILT[k] = v; renderList(); }
-  function clearFFilt(){ FFILT = { forn:'', paid:'', from:'', to:'' }; renderList(); }
+  function setFFilt(k, v){ FFILT[k] = v; renderResults(); }
+  function clearFFilt(){ FFILT = { forn:'', paid:'', from:'', to:'' }; renderResults(); }
 
   // Una nota di credito fornitore riduce quanto acquistato dal fornitore
   // (uno storno, non un nuovo acquisto): va sottratta dal "Totale
@@ -595,7 +599,7 @@
     PICK.clear();
     await renderList();
   }
-  function deselectAll(){ PICK.clear(); renderList(); }
+  function deselectAll(){ PICK.clear(); renderResults(); }
 
   // Naviga alla scheda della nota di credito nel suo modulo dedicato —
   // stesso meccanismo del box "Documenti collegati" (vedi app/lineage.js,
@@ -607,23 +611,36 @@
     location.href = 'note-credito-fornitore.html';
   }
 
+  // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
+  // essere cambiati (apertura pagina, dopo salvataggio/eliminazione...): fa
+  // sempre passare dalla schermata "Carico…", quindi svuota per un istante
+  // la tabella già a video. Chi cambia solo COME viene mostrato l'elenco
+  // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
+  // renderResults() qui sotto, non questa.
   async function renderList(){
-    renderFilterbar();
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let elenco;
     try{
-      elenco = await store.loadCollection('fattureFornitore', companyId);
+      FATTURE_ALL = await store.loadCollection('fattureFornitore', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(elenco.length === 0 && noteCreditoFornitoreArr.length === 0){
+    renderResults();
+  }
+  // Ridisegna l'elenco dai dati già in FATTURE_ALL, senza rifare la query
+  // di rete — vedi il commento in ordini.html (stessa correzione): prima
+  // bastava spuntare una riga per far ripartire l'intera lista da capo
+  // (svuotata in "Carico…", riscaricata, ridisegnata).
+  function renderResults(){
+    renderFilterbar();
+    const area = $('list-area');
+    if(FATTURE_ALL.length === 0 && noteCreditoFornitoreArr.length === 0){
       renderStats([]);
       area.innerHTML = '<p class="empty">Nessuna fattura ancora. Crea prima un fornitore, poi aggiungi una fattura con "+ Nuova fattura".</p>';
       return;
     }
-    elenco = elenco.filter(matchesQuery).filter(matchesFilter);
+    let elenco = FATTURE_ALL.filter(matchesQuery).filter(matchesFilter);
     renderStats(elenco);
     // Le note di credito fornitore compaiono anche loro nell'elenco, come
     // righe a sé (segno negativo) — come nel gestionale originale
@@ -728,12 +745,12 @@
       e.stopPropagation();
       if(e.target.checked) elenco.forEach(f => PICK.add(f.id));
       else elenco.forEach(f => PICK.delete(f.id));
-      renderList();
+      renderResults();
     });
     area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
       e.stopPropagation();
       if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderList();
+      renderResults();
     }));
     const docsPerId = Object.fromEntries(elenco.map(f => [f.id, f]));
     const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, docsPerId));

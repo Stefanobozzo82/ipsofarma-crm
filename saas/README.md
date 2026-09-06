@@ -4347,6 +4347,58 @@ parola "prezzo" (sceglie la prima delle due, l'utente corregge dal
 menu a tendina prima di importare): non un bug introdotto qui, un
 limite dell'euristico ereditato inalterato dal vecchio gestionale.
 
+## Fix: "quando seleziono un documento per un attimo scompare tutto e poi ricompare"
+
+**Segnalazione:** esattamente questa frase. Non era un problema di
+animazioni/CSS (già investigato e scartato: `.app-main{animation:pageIn}`
+gira una sola volta per caricamento pagina, mai riavviato dall'apertura
+di un documento — vedi la sezione "Micro-interazioni" più sopra) ma un
+vero bug di `renderList()`, presente **identico in tutti e 10 gli
+elenchi** (gli 8 moduli documento più clienti.html/fornitori.html):
+
+```js
+async function renderList(){
+  area.innerHTML = '<p class="empty">Carico…</p>';   // <- svuota SUBITO
+  ordini = await store.loadCollection('ordiniCliente', companyId); // <- rete
+  ... ricostruisce tutta la tabella da zero ...
+}
+```
+
+Il problema: **ogni** interazione con l'elenco — spuntare una riga
+(l'azione che la frase descrive alla lettera: "seleziono un documento" è
+il vocabolario stesso del prodotto per la spunta, vedi "Selezione
+multipla e azioni collettive"), un clic su un'intestazione per
+ordinare, cambiare un filtro, scrivere nella ricerca — chiamava questa
+STESSA funzione, che prima di ridisegnare **svuotava tutta la tabella
+in "Carico…" e rifaceva da capo la query di rete**, anche se i dati non
+erano cambiati affatto: la spunta di una riga è uno stato tutto e solo
+del browser (l'insieme `PICK`), non tocca il database.
+
+**Fix, negli stessi 10 file:** separata la funzione in due — `renderList()`
+resta l'unica che scarica da Supabase (usata solo dove i dati POSSONO
+davvero essere cambiati: apertura pagina, dopo un salvataggio o
+un'eliminazione), e una nuova `renderResults()` ridisegna dai dati già
+scaricati (una variabile di modulo, es. `ORDINI_ALL`) senza alcuna
+richiesta di rete. Tutti i punti che cambiano solo COME viene mostrato
+l'elenco — spunta riga/spunta tutto, cambio ordinamento, filtri,
+ricerca — ora chiamano `renderResults()`; tutti i punti che cambiano
+DAVVERO i dati (salva, elimina, segna incassata/pagata in blocco)
+continuano a chiamare `renderList()` come prima.
+
+**File toccati:** `ordini.html`, `ordini-fornitore.html`, `ddt.html`,
+`fatture.html`, `fatture-fornitore.html`, `note-credito.html`,
+`note-credito-fornitore.html`, `preventivi.html` (spunta + ordinamento +
+filtri + ricerca), `clienti.html`/`fornitori.html` (qui senza spunta:
+solo ordinamento e ricerca, ma stesso bug e stesso fix).
+
+**Verificato:** nessuna logica di filtro/ordinamento/spunta è stata
+toccata (stesso codice, spostato tale e quale dentro `renderResults()`)
+— solo separato IL MOMENTO in cui la rete viene interpellata. In ogni
+file, verificato che tutti i riferimenti alla variabile con l'elenco
+locale restano confinati dentro `renderResults()` (nessun accesso da
+fuori che si aspettasse ancora un fetch sincrono). Sintassi di tutti e
+10 i file verificata con un parser Node dopo ogni modifica.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -99,6 +99,10 @@
   let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
+  // Ultimo elenco scaricato da renderList() — usato da renderResults() per
+  // ridisegnare senza rifare la query di rete quando cambia solo COME viene
+  // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene.
+  let NC_ALL = [];
   let FFILT = { fornitore: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
@@ -128,7 +132,7 @@
   function setSort(key){
     if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
     else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderList();
+    renderResults();
   }
 
   // Ricerca testuale: come Q nel gestionale originale (num + nome fornitore).
@@ -141,7 +145,7 @@
   $('q').addEventListener('input', () => {
     Q = $('q').value.trim().toLowerCase();
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderList, 200);
+    searchTimer = setTimeout(renderResults, 200);
   });
 
   // ---- filtri: fornitore, intervallo date --------------------------------
@@ -151,8 +155,8 @@
     if(FFILT.to && (n.data || '') > FFILT.to) return false;
     return true;
   }
-  function setFFilt(k, v){ FFILT[k] = v; renderList(); }
-  function clearFFilt(){ FFILT = { fornitore:'', from:'', to:'' }; renderList(); }
+  function setFFilt(k, v){ FFILT[k] = v; renderResults(); }
+  function clearFFilt(){ FFILT = { fornitore:'', from:'', to:'' }; renderResults(); }
   function renderFilterbar(){
     const active = FFILT.fornitore || FFILT.from || FFILT.to;
     const fornitoriArr = Object.values(fornitoriById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
@@ -403,22 +407,35 @@
     }
   });
 
+  // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
+  // essere cambiati (apertura pagina, dopo salvataggio/eliminazione...): fa
+  // sempre passare dalla schermata "Carico…", quindi svuota per un istante
+  // la tabella già a video. Chi cambia solo COME viene mostrato l'elenco
+  // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
+  // renderResults() qui sotto, non questa.
   async function renderList(){
-    renderFilterbar();
     const area = $('list-area');
     area.innerHTML = '<p class="empty">Carico…</p>';
-    let elenco;
     try{
-      elenco = await store.loadCollection('noteCreditoFornitore', companyId);
+      NC_ALL = await store.loadCollection('noteCreditoFornitore', companyId);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
       return;
     }
-    if(elenco.length === 0){
+    renderResults();
+  }
+  // Ridisegna l'elenco dai dati già in NC_ALL, senza rifare la query di
+  // rete — vedi il commento in ordini.html (stessa correzione): prima
+  // bastava spuntare una riga per far ripartire l'intera lista da capo
+  // (svuotata in "Carico…", riscaricata, ridisegnata).
+  function renderResults(){
+    renderFilterbar();
+    const area = $('list-area');
+    if(NC_ALL.length === 0){
       area.innerHTML = '<p class="empty">Nessuna nota di credito ancora. Crea prima un fornitore, poi aggiungine una con "+ Nuova nota di credito".</p>';
       return;
     }
-    elenco = elenco.filter(matchesQuery).filter(matchesFilter);
+    let elenco = NC_ALL.filter(matchesQuery).filter(matchesFilter);
     if(elenco.length === 0){
       area.innerHTML = '<p class="empty">Nessuna nota di credito trovata con questi criteri.</p>';
       return;
@@ -448,12 +465,12 @@
       e.stopPropagation();
       if(e.target.checked) elenco.forEach(n => PICK.add(n.id));
       else elenco.forEach(n => PICK.delete(n.id));
-      renderList();
+      renderResults();
     });
     area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
       e.stopPropagation();
       if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderList();
+      renderResults();
     }));
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
     area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {

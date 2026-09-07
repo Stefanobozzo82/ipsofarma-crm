@@ -4637,10 +4637,10 @@ all'elenco quando si apre il form, ripristinata alla chiusura (Annulla,
 Indietro, o dopo un salvataggio — `closeForm()` è l'unico punto in cui
 il form si richiude, in tutti e tre i casi).
 
-**Non toccato**: `fatture.html` (fatture cliente) ha la stessa
-identica card ("Totale fatturato") con lo stesso posizionamento fuori
-da `list-card` — probabilmente lo stesso comportamento, ma la richiesta
-riguardava solo le fatture fornitore: da confermare prima di toccarlo.
+**Esteso di seguito diretto** ("si fai lo stesso anche per quella") a
+`fatture.html` (fatture cliente): stessa identica card ("Totale
+fatturato" invece di "Totale acquisti"), stesso posizionamento fuori
+da `list-card`, stessa correzione — `openForm()`/`closeForm()`.
 
 ## Prossimo passo
 

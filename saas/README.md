@@ -4784,6 +4784,46 @@ o `//`/`/* */`, mai mostrati all'utente.
 **Verificato:** sintassi dei sei file modificati (estratti ed eseguiti
 con `new Function()`) senza errori.
 
+## Controllo mobile del menu "⬇ Scarica" — trovati e corretti due problemi
+
+**Richiesta:** "controlla che i menu scarica funzionino bene anche su
+mobile" — il menu a comparsa introdotto per "⬇ Scarica" (PDF/Excel/
+XML, vedi sopra) non era ancora stato verificato su schermo stretto.
+
+**Verifica (Playwright, viewport telefono 390×664 e 320×568, con
+tocco):** trovati due problemi reali, entrambi in `app/theme.css`
+(`.dl-list`), corretti prima che un utente li incontrasse:
+- **Il menu poteva sforare il bordo destro dello schermo.** Era
+  ancorato con `left:0` al pulsante "⬇ Scarica" (min-width 190px), che
+  però è sempre l'ULTIMO pulsante della riga (dopo "🖨 Stampa") — su un
+  telefono stretto il menu, aprendosi verso destra da lì, finiva in
+  parte fuori schermo. Cambiato l'ancoraggio a `right:0`: si apre verso
+  sinistra, restando sempre dentro la scheda (verificato fino a 320px
+  di larghezza, il caso più stretto comune). Aggiunto anche un
+  `max-width:calc(100vw - 32px)` come rete di sicurezza.
+- **Il menu poteva restare coperto dalla barra di navigazione in
+  basso** (`.mobile-bottombar`, fissa in fondo allo schermo su
+  telefono, z-index 41): `.dl-list` aveva z-index 20, più basso —
+  aperto vicino al fondo pagina sarebbe finito sotto la barra,
+  intoccabile. Alzato a z-index 42.
+- **Voci del menu troppo piccole per il tocco**: erano `<button>`
+  semplici (non `.ghost`/`.primary`), quindi non ricevevano già
+  l'ingrandimento touch sotto gli 860px applicato a quelle classi.
+  Aggiunta una regola dedicata nello stesso media query (padding
+  12px 14px, font 14px).
+
+**Non un problema:** chiusura del menu al tocco di una voce o fuori da
+esso — l'apertura/chiusura (`bindDownloadMenu()`, `app/print.js`) usa
+solo eventi `click`, che il browser genera già dal tocco senza ritardi
+("fast click" nativo, grazie al viewport `width=device-width` già
+presente in ogni pagina) — verificato che funzioni identico col tocco.
+
+**Verificato:** con Playwright (viewport iPhone 390×664 e 320×568,
+`hasTouch`/tocco reale) — nessuno sconfinamento orizzontale del menu a
+nessuna delle due larghezze, z-index del menu sopra quello della barra
+fissa, chiusura corretta sia toccando una voce sia toccando fuori;
+CSS bilanciata (conteggio parentesi).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

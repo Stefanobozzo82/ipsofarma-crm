@@ -180,6 +180,11 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
      leggibili senza dover pizzicare per ingrandire. */
   button.primary, button.ghost{ padding:10px 16px; }
   td.actions button{ padding:6px 8px; }
+  /* Voci del menu "⬇ Scarica" (.dl-list, vedi sopra): sono <button> semplici,
+     non .primary/.ghost, quindi non prendono già il bonus riga sopra —
+     qui un'area di tocco più comoda, non i ~32px di altezza che bastano
+     col mouse. */
+  .dl-list button{ padding:12px 14px; font-size:14px; }
 
   /* iOS Safari ingrandisce automaticamente la pagina quando si mette a
      fuoco un campo con font-size sotto i 16px: qui sotto gli 860px (dove
@@ -408,9 +413,17 @@ button.linklike.back-link:hover{ text-decoration:underline; }
    invece di uno per formato, vedi SaasPrint.bindDownloadMenu() in
    app/print.js. .dl-menu è il contenitore relative che ancora il menu al
    pulsante; .dl-list lo stesso posizionamento di .prod-sugg ma con angoli
-   tutti arrotondati (non è "attaccato" sotto un campo di testo). */
+   tutti arrotondati (non è "attaccato" sotto un campo di testo).
+   right:0 (non left:0): il pulsante è sempre l'ultimo di #f-print-actions
+   (dopo "Stampa") — ancorando a destra il menu si apre VERSO SINISTRA e
+   resta dentro la scheda anche su un telefono stretto, dove il pulsante
+   può stare già oltre metà larghezza schermo (con left:0 il menu (190px)
+   avrebbe sforato il bordo destro). z-index sopra .mobile-bottombar (41,
+   vedi il media query qui sotto) — altrimenti, a documento aperto e
+   pagina scorsa, la barra fissa in fondo allo schermo lo avrebbe coperto
+   rendendo le voci non toccabili. */
 .dl-menu{ position:relative; display:inline-block; }
-.dl-list{ position:absolute; left:0; top:calc(100% + 4px); z-index:20; min-width:190px; background:var(--surface); border:1px solid var(--border2); border-radius:8px; box-shadow:var(--sh-lg); padding:4px; display:flex; flex-direction:column; }
+.dl-list{ position:absolute; right:0; top:calc(100% + 4px); z-index:42; min-width:190px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--border2); border-radius:8px; box-shadow:var(--sh-lg); padding:4px; display:flex; flex-direction:column; }
 .dl-list button{ all:unset; box-sizing:border-box; width:100%; padding:8px 10px; border-radius:6px; font-size:13px; color:var(--txt); cursor:pointer; font-family:inherit; }
 .dl-list button:hover{ background:var(--surface2); }
 

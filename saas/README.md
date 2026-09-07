@@ -4436,6 +4436,39 @@ risultato — nessuna corsa possibile tra "ho appena creato l'ordine" e
 `ordini-fornitore.html` lo ricarica da capo dopo la navigazione
 completa (non è una SPA: è un vero cambio pagina).
 
+## Stampa/PDF disponibili anche dentro il documento, non solo con la spunta
+
+**Richiesta:** "voglio che le opzioni di stampa o scaricare un documento
+siano nel documento e non se li seleziono con la spunta" — Stampa/PDF
+esistevano già (Fase "Stampa/PDF documento"), ma solo come pulsanti
+per-riga nell'elenco, visibili solo quando quella riga era spuntata
+(Fase "Azioni per-riga visibili solo con la spunta") — per stamparlo
+bisognava prima tornare all'elenco e spuntarlo, anche stando già dentro
+il documento aperto.
+
+**Fix, negli stessi 8 moduli documento** (ordini, ordini-fornitore,
+ddt, fatture, fatture-fornitore, note-credito,
+note-credito-fornitore, preventivi): due pulsanti "🖨 Stampa"/"⬇ Scarica
+PDF" aggiunti in cima al form di modifica, subito sotto il titolo —
+stessi `window.SaasPrint.openPrintWindow()`/`downloadPDF()` già usati
+dall'elenco, stesso identico comportamento (finestra di stampa /
+download del PDF), solo un secondo punto da cui richiamarli. Nascosti
+per un documento NUOVO non ancora salvato (niente da stampare finché
+non esiste una riga sul database) — tolto l'`hidden` in `openForm()`
+quando si apre un documento esistente.
+
+**In due file** (`fatture-fornitore.html`, `note-credito-fornitore.html`)
+non esisteva ancora una variabile che tenesse il documento in modifica
+a livello di modulo (solo `editingId`, l'id) — aggiunta
+(`editingFattura`/`editingNc`), sul modello già usato dagli altri 6
+file, solo per questi due pulsanti: nessun'altra logica esistente
+toccata.
+
+**Deliberatamente fuori scope:** il pulsante "Genera XML FatturaPA" di
+`fatture.html` resta solo nell'elenco (non richiesto — la richiesta
+parla di "stampa o scaricare un documento", lo stesso paio presente
+identico su tutti gli altri moduli, non della fattura elettronica).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -182,23 +182,29 @@
     w.document.close();
   }
 
-  function loadScript(src) {
+  // label: cosa dire se il caricamento fallisce (rete assente/instabile —
+  // più probabile su mobile che su desktop) — senza, ogni chiamante
+  // ereditava lo stesso messaggio hardcoded "generatore PDF", sbagliato per
+  // Excel (vedi loadXLSX più sotto: prima di questo parametro, un errore
+  // di rete scaricando Excel diceva all'utente che era il PDF a non
+  // caricarsi).
+  function loadScript(src, label) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = src;
       s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Impossibile caricare il generatore PDF (serve una connessione internet)'));
+      s.onerror = () => reject(new Error(`Impossibile caricare ${label} (serve una connessione internet)`));
       document.head.appendChild(s);
     });
   }
   async function loadJsPDF() {
     if (global.jspdf && global.jspdf.jsPDF) return global.jspdf.jsPDF;
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'il generatore PDF');
     return global.jspdf.jsPDF;
   }
   async function loadHtml2Canvas() {
     if (global.html2canvas) return;
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'il generatore PDF');
   }
 
   // Genera il documento jsPDF (usato sia per il download sia per l'allegato
@@ -258,7 +264,7 @@
   // usa davvero, come in stampa.
   async function loadXLSX() {
     if (global.XLSX) return global.XLSX;
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'il modulo Excel');
     return global.XLSX;
   }
 

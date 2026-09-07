@@ -111,14 +111,21 @@
 
   // Cerca una controparte (cliente o fornitore) per nome tra quelle già in
   // anagrafica — stessa euristica ovunque: corrispondenza esatta, poi
-  // "contiene"/"è contenuto" (un nome letto dall'AI raramente è carattere
-  // per carattere identico a quello salvato, es. "Srl" vs "S.r.l.").
+  // "contiene"/"è contenuto" (un nome letto dall'AI o da un XML raramente
+  // è carattere per carattere identico a quello salvato). Confronto
+  // normalizzato (stessa normDescr() usata più sotto per le descrizioni
+  // prodotto: minuscolo, ogni sequenza di caratteri non alfanumerici
+  // ridotta a UNO spazio) — non solo maiuscole/minuscole o punteggiatura
+  // in sé, ma anche la loro semplice PRESENZA/ASSENZA: caso reale,
+  // "B. Braun Milano S.p.A." (dal file) contro "B.BRAUN MILANO S.P.A."
+  // (già in anagrafica) — differiscono solo per uno spazio dopo "B.", un
+  // confronto solo case-insensitive non li avrebbe fatti combaciare.
   function findPartyByNome(elenco, nome) {
     if (!nome) return null;
-    const n = String(nome).trim().toLowerCase();
+    const n = normDescr(nome);
     if (!n) return null;
-    return elenco.find(p => (p.nome || '').toLowerCase() === n)
-      || elenco.find(p => (p.nome || '').toLowerCase().includes(n) || n.includes((p.nome || '').toLowerCase()));
+    return elenco.find(p => normDescr(p.nome) === n)
+      || elenco.find(p => normDescr(p.nome).includes(n) || n.includes(normDescr(p.nome)));
   }
 
   // ---------------------------------------------------------------------------

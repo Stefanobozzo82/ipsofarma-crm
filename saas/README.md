@@ -4578,6 +4578,49 @@ lo hanno (`ordini.html`, `ordini-fornitore.html`, `fatture-fornitore.html`,
 `note-credito-fornitore.html`) — stesso pulsante, stesso comportamento,
 solo il testo cambiato: "Importa".
 
+## Fix: fornitore non riconosciuto (e quindi ordine non collegato) nell'import
+
+**Segnalazione di seguito diretto**, sull'import XML appena aggiunto:
+"mi ha scritto così ma il fornitore braun è presente" (messaggio
+"nessun fornitore corrisponde a 'B. Braun Milano S.p.A.'") "e poi
+voglio che faccia il collegamento all'ordine [...] era l'ordine 202".
+
+**Causa, una sola per entrambi i sintomi:** `findPartyByNome()`
+(`app/ai-import.js`, condivisa da tutti gli import AI/XML — clienti in
+`ordini.html`, fornitori negli altri) confrontava i nomi solo
+minuscolo/maiuscolo. Il nome letto dall'XML, "B. Braun Milano S.p.A."
+(con uno spazio dopo "B."), e quello già in anagrafica, "B.BRAUN MILANO
+S.P.A." (senza), differiscono SOLO per quello spazio — un confronto
+case-insensitive non basta, restano due stringhe diverse. Il
+collegamento all'ordine fornitore (`findOrdineByRiferimento()`, mai
+toccata) dipende dal fornitore già riconosciuto (`if(match)
+ordineLink = ...`): senza fornitore trovato non veniva nemmeno provato
+— non un secondo bug, la stessa causa che si vedeva due volte.
+
+**Fix, in `findPartyByNome()` (unica funzione toccata):** confronto
+normalizzato con la stessa `normDescr()` già usata poco più sotto nello
+stesso file per le descrizioni prodotto (minuscolo, ogni sequenza di
+caratteri non alfanumerici ridotta a un solo spazio) — non solo
+maiuscole/punteggiatura in sé, ma anche la loro semplice
+presenza/assenza. "B. Braun Milano S.p.A." e "B.BRAUN MILANO S.P.A."
+diventano entrambe "b braun milano s p a": stessa stringa, match
+esatto. Essendo condivisa, la correzione vale per tutti i moduli che
+riconoscono una controparte da un documento importato, non solo
+fatture fornitore.
+
+**Verificato sul database reale**: il fornitore reale ha per
+coincidenza anche una P.IVA diversa da quella nell'XML del fornitore
+(dato dell'anagrafica, non toccato: fuori scope, la richiesta era sul
+riconoscimento per nome) — comunque irrilevante per questo fix, che
+riconosce per ragione sociale, non per P.IVA. Verificato che il
+fornitore reale "B.BRAUN MILANO S.P.A." viene ora trovato dal nome
+letto nell'XML; verificato che l'ordine fornitore reale collegato a
+questo fornitore con numero "OF/2026/0202" viene poi trovato e
+collegato automaticamente a partire dal riferimento "202" letto
+dall'XML (`DatiOrdineAcquisto/IdDocumento`), con lo stesso identico
+codice di collegamento già esistente, semplicemente mai raggiunto
+finché il fornitore non veniva riconosciuto.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -876,12 +876,23 @@
       return;
     }
     const xml = buildFatturaPAXml(ft, cli, company);
+    const piva = ((company && company.piva) || 'ITXXXXXXXXXXX').replace(/\D/g, '');
+    const filename = 'IT' + piva + '_' + String(ft.num || '').replace(/\W/g, '') + '.xml';
+    // Nell'app nativa Android (saas/mobile) un <a download> su un blob:
+    // non ha alcun effetto (stesso discorso di downloadPDF/downloadExcel
+    // in app/print.js) — window.AndroidDownload riceve l'XML come base64
+    // e lo salva/apre lui. btoa(unescape(encodeURIComponent(...))): l'XML
+    // può contenere caratteri UTF-8 (accenti, "€"...) che btoa() da solo
+    // non gestisce, essendo pensato per stringhe Latin1.
+    if(window.AndroidDownload){
+      window.AndroidDownload.saveFile(btoa(unescape(encodeURIComponent(xml))), filename, 'application/xml');
+      return;
+    }
     const blob = new Blob([xml], { type:'application/xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const piva = ((company && company.piva) || 'ITXXXXXXXXXXX').replace(/\D/g, '');
     a.href = url;
-    a.download = 'IT' + piva + '_' + String(ft.num || '').replace(/\W/g, '') + '.xml';
+    a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }

@@ -175,10 +175,21 @@
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(it.num)}</title><style>${PRINT_CSS}</style></head><body onload="window.print()" onafterprint="window.close()">${buildPrintHTML(coll, it, party, company)}</body></html>`;
   }
 
+  // Nell'app nativa Android (saas/mobile, MainActivity.java) la pagina
+  // vive dentro una WebView incorporata, non un vero browser: window.open()
+  // lì non crea nessuna finestra (Capacitor non abilita le finestre
+  // multiple), quindi il pulsante mostrerebbe sempre "popup bloccato" —
+  // fuorviante, non esiste un'impostazione "consenti popup" da attivare in
+  // un'app nativa. window.AndroidPrint (iniettato SOLO da quella WebView,
+  // via addJavascriptInterface — mai presente in un browser vero) prende
+  // lo stesso HTML e lo stampa con l'API nativa di Android (PrintManager),
+  // che apre il vero selettore di stampa/"Salva come PDF" del sistema.
   function openPrintWindow(coll, it, party, company) {
+    const html = buildStandaloneDoc(coll, it, party, company);
+    if (global.AndroidPrint) { global.AndroidPrint.printHtml(html, String(it.num || 'Documento')); return; }
     const w = window.open('', '_blank');
     if (!w) { alert('Il browser ha bloccato la finestra di stampa. Consenti i popup per questo sito e riprova.'); return; }
-    w.document.write(buildStandaloneDoc(coll, it, party, company));
+    w.document.write(html);
     w.document.close();
   }
 
@@ -241,9 +252,21 @@
   // Genera e scarica il PDF, con lo stesso template HTML della stampa —
   // così il file scaricato è sempre identico a quanto si vede stampando,
   // senza mantenere due layout paralleli.
+  //
+  // doc.save() usa lo stesso meccanismo <a download> di un Blob — nell'app
+  // nativa Android (vedi la nota su window.AndroidPrint più sopra) un clic
+  // così non ha ALCUN effetto: nessun gestore dei download in una WebView
+  // incorporata, a differenza di un vero browser. window.AndroidDownload
+  // (stesso discorso di AndroidPrint: iniettato solo da quella WebView)
+  // riceve il PDF come base64 e lo salva/apre lui con l'API Android.
   async function downloadPDF(coll, it, party, company) {
     const doc = await renderToJsPDF(coll, it, party, company);
-    doc.save(String(it.num).replace(/\//g, '-') + '.pdf');
+    const filename = String(it.num).replace(/\//g, '-') + '.pdf';
+    if (global.AndroidDownload) {
+      global.AndroidDownload.saveFile(doc.output('datauristring').split(',')[1], filename, 'application/pdf');
+      return;
+    }
+    doc.save(filename);
   }
 
   // Stesso PDF di downloadPDF, ma come stringa base64 pronta per un allegato
@@ -310,7 +333,20 @@
     ws['!cols'] = head.map((h, i) => ({ wch: Math.max(h.length, ...aoa.map(r => String(r[i] == null ? '' : r[i]).length)) + 2 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Documento');
-    XLSX.writeFile(wb, String(it.num || 'documento').replace(/\//g, '-') + '.xlsx');
+    const filename = String(it.num || 'documento').replace(/\//g, '-') + '.xlsx';
+    // Stesso discorso di downloadPDF: XLSX.writeFile() non ha alcun
+    // effetto nell'app nativa Android (nessun gestore dei download in
+    // quella WebView) — window.AndroidDownload riceve il file come base64
+    // e lo salva/apre lui.
+    if (global.AndroidDownload) {
+      global.AndroidDownload.saveFile(
+        XLSX.write(wb, { type: 'base64', bookType: 'xlsx' }),
+        filename,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      return;
+    }
+    XLSX.writeFile(wb, filename);
   }
 
   // ---------------------------------------------------------------------------

@@ -4965,6 +4965,62 @@ lotto/scadenza/sconto/più aliquote IVA); round-trip genera→rilegge con
 `SaasFatturaPA.parseFatturaPAFile()`: codice, descrizione, quantità,
 prezzo, sconto, IVA, lotto e scadenza tutti tornano intatti.
 
+## "Scarica" e "Stampa" non funzionavano affatto nell'app nativa Android
+
+**Richiesta:** "controlla che il pulsante scarica e stampa funzioni su
+android" — diverso da tutti i controlli mobile precedenti (fatti con
+Chrome/Safari su telefono, cioè un vero browser): "Android" qui vuol
+dire in più l'app nativa vera e propria (`saas/mobile/`, Fase 1 del
+piano app), che carica le stesse pagine dentro una WebView incorporata
+SENZA barra degli indirizzi né gestore dei download propri di un
+browser.
+
+**Verifica (lettura del sorgente Java di Capacitor, vendorizzato in
+`saas/mobile/node_modules/@capacitor/android`):** confermato che
+NESSUNO dei due pulsanti funzionava in quell'app, pur essendo già
+corretti su un vero browser mobile (le sezioni precedenti):
+- `BridgeWebChromeClient.java` non sovrascrive `onCreateWindow` — una
+  WebView incorporata, senza finestre multiple abilitate, non crea
+  nessuna finestra quando JS chiama `window.open()` (usato da
+  "Stampa"): il pulsante avrebbe mostrato sempre l'avviso "il browser
+  ha bloccato la finestra di stampa. Consenti i popup...", fuorviante
+  qui — non esiste un'impostazione "popup" da attivare in un'app
+  nativa.
+- Nessuna classe imposta un `WebView.setDownloadListener` — un
+  `<a download>` su un `blob:` (usato da "⬇ Scarica" → PDF/Excel/XML)
+  non ha ALCUN gestore che lo intercetti: il clic non fa letteralmente
+  nulla, senza nemmeno un errore visibile.
+
+**Fix, due bridge nativi scritti a mano in
+`saas/mobile/android/.../MainActivity.java`** (non un plugin Capacitor,
+il bisogno è troppo piccolo e specifico per uno) — dettagli tecnici
+completi in `saas/mobile/README.md` (nuova sezione "Bridge nativi
+'Stampa' e '⬇ Scarica'"):
+- **`AndroidPrint.printHtml(html, jobName)`**: carica lo stesso HTML
+  che andrebbe in una finestra di stampa vera in una WebView invisibile
+  "usa e getta", poi genera un job di stampa con l'API nativa Android
+  (`PrintManager` + `WebView.createPrintDocumentAdapter()`) — lo stesso
+  selettore di stampa/"Salva come PDF" di qualunque altra app Android.
+- **`AndroidDownload.saveFile(base64, filename, mimeType)`**: salva il
+  file (arriva già come base64) nella cartella esterna PRIVATA dell'app
+  (nessun permesso di storage richiesto su nessuna versione Android),
+  poi lo apre subito con un Intent di condivisione — l'utente sceglie
+  con quale app aprirlo o salvarlo altrove.
+- **`app/print.js`** (`openPrintWindow`/`downloadPDF`/`downloadExcel`) e
+  **`downloadFatturaPAXml()`** (`fatture.html`): usano questi bridge
+  SOLO se esistono (`window.AndroidPrint`/`window.AndroidDownload`,
+  iniettati esclusivamente da quella WebView — mai presenti in un
+  browser vero, incluso quello di un telefono normale); altrimenti il
+  comportamento resta quello di sempre, invariato.
+
+**Verificato:** sintassi JS di `app/print.js` e `fatture.html`;
+`./gradlew :app:compileDebugJavaWithJavac` e `./gradlew :app:assembleDebug`
+completati con successo (compilazione Java e impacchettamento reale
+dell'APK di debug, entrambi senza errori). Non disponibile in questo
+ambiente un emulatore/dispositivo Android per un collaudo a schermo:
+verificato che il codice nativo sia corretto e compili, non il
+comportamento a video.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

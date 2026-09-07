@@ -91,6 +91,47 @@
         "totale": 203.78879999999998
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-07T13:21:29.944Z",
+      "msgId": "1a07bf30ec28e01a",
+      "file": "5718111503.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111503",
+        "date": "2026-09-04",
+        "order_ref": "Rif.cliente Vs.ord. 202",
+        "lines": [
+          {
+            "cod": "C0069420N1",
+            "descr": "NOVOSYN INCOLORE 4/0(1,5) 70CM",
+            "qty": 1,
+            "prezzo": 53.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3629XN",
+            "scad": "2031-07-15"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 1,
+            "prezzo": 52.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624KH",
+            "scad": "2031-06-09"
+          }
+        ],
+        "totale": 129.4176
+      },
+      "src": "Gmail"
     }
   ]
 }

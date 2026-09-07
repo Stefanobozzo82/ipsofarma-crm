@@ -308,11 +308,32 @@
   async function generaOF(o){
     const { created, updated, senzaFornitore, ordine: nuovoOrdine } = await window.SaasCascade.generaOrdiniFornitore(store, companyId, o);
     if(!created.length && !updated.length && !senzaFornitore.length){ alert('Tutti gli articoli dell\'ordine sono già su un ordine fornitore collegato.'); return; }
-    const parts = [];
-    if(created.length) parts.push(created.length + ' ordine/i fornitore creato/i: ' + created.map(x => x.num).join(', '));
-    if(updated.length) parts.push(updated.length + ' aggiornato/i con i nuovi articoli: ' + updated.map(x => x.num).join(', '));
-    if(senzaFornitore.length) parts.push(created.length || updated.length ? 'senza fornitore a catalogo (non ordinati): ' + senzaFornitore.join(', ') : 'Nessuno dei prodotti mancanti ha un fornitore assegnato nel catalogo: assegnalo in Prodotti, poi riprova.');
-    alert(parts.join(' · '));
+    const risultati = created.concat(updated);
+    // Il riepilogo serve solo quando NON basta da solo il fatto di essere
+    // portati sull'ordine fornitore appena creato a capire cos'è successo
+    // — più fornitori coinvolti insieme, o articoli rimasti fuori senza un
+    // fornitore assegnato in Prodotti.
+    if(risultati.length !== 1 || senzaFornitore.length){
+      const parts = [];
+      if(created.length) parts.push(created.length + ' ordine/i fornitore creato/i: ' + created.map(x => x.num).join(', '));
+      if(updated.length) parts.push(updated.length + ' aggiornato/i con i nuovi articoli: ' + updated.map(x => x.num).join(', '));
+      if(senzaFornitore.length) parts.push(created.length || updated.length ? 'senza fornitore a catalogo (non ordinati): ' + senzaFornitore.join(', ') : 'Nessuno dei prodotti mancanti ha un fornitore assegnato nel catalogo: assegnalo in Prodotti, poi riprova.');
+      alert(parts.join(' · '));
+    }
+    // Un solo ordine fornitore coinvolto (il caso comune — un solo
+    // fornitore per tutti gli articoli mancanti): richiesta reale — "non
+    // appena crea l'ordine fornitore voglio che mi porti alla schermata
+    // dell'ordine fornitore" — niente riepilogo di mezzo, ci si va dritti.
+    // Stesso meccanismo già usato da "Genera fattura" nel box "Documenti
+    // collegati" (app/lineage.js): salva {coll,num} e naviga, la pagina di
+    // destinazione lo apre da sola in consumePendingOpenNum(). Con più
+    // ordini fornitore coinvolti insieme (fornitori diversi) non c'è UN
+    // ordine solo da aprire: resta sull'ordine cliente, come prima.
+    if(risultati.length === 1){
+      localStorage.setItem('saas_open_doc', JSON.stringify({ coll: 'ordiniFornitore', num: risultati[0].num }));
+      location.href = 'ordini-fornitore.html';
+      return;
+    }
     // Chiamata dal form (vedi oc-btn-of sotto): riapre il form con l'ordine
     // aggiornato invece di tornare all'elenco, che qui resterebbe comunque
     // nascosto dietro il form aperto. Chiamata dalla riga dell'elenco

@@ -4399,6 +4399,43 @@ locale restano confinati dentro `renderResults()` (nessun accesso da
 fuori che si aspettasse ancora un fetch sincrono). Sintassi di tutti e
 10 i file verificata con un parser Node dopo ogni modifica.
 
+## "Genera ordine fornitore" porta subito alla schermata dell'ordine generato
+
+**Richiesta:** "quando sono in un ordine cliente e premo sul pulsante
+per creare un ordine fornitore voglio che non appena crea l'ordine
+fornitori mi porti alla schermata dell'ordine fornitore" — prima
+`generaOF()` in `ordini.html` mostrava solo un `alert()` di riepilogo e
+restava sull'ordine cliente (o sull'elenco, se chiamata dalla riga).
+
+**Fix, in `ordini.html` (`generaOF()`, unica funzione toccata — usata
+sia dal pulsante "→ Genera ordine fornitore" dentro il form sia dal
+pulsante per-riga nell'elenco):** quando la cascata produce **un solo**
+ordine fornitore (creato o aggiornato — il caso comune, un solo
+fornitore per tutti gli articoli mancanti), salta il riepilogo e
+naviga subito su `ordini-fornitore.html`, con lo **stesso meccanismo
+già usato dal box "Documenti collegati"** (`app/lineage.js`:
+`localStorage.setItem('saas_open_doc', {coll,num})` + `location.href`)
+— la pagina di destinazione lo trova e lo apre da sola in
+`consumePendingOpenNum()`, già presente lì per tutt'altro motivo (i
+nodi cliccabili della filiera), nessun codice nuovo su quel lato.
+
+**Quando resta l'alert (senza navigare, comportamento invariato):**
+- **più fornitori coinvolti insieme** (articoli mancanti sparsi su più
+  fornitori diversi → più ordini fornitore creati/aggiornati in un
+  colpo solo): non c'è UN ordine solo su cui atterrare, si resta
+  sull'ordine cliente come prima;
+- **articoli senza un fornitore assegnato in Prodotti** (l'informazione
+  resta comunque utile anche quando l'ordine generato è uno solo — lo
+  segnala, POI naviga).
+
+**Verificato:** `generaOrdiniFornitore()` (`app/cascade.js`) salva già
+sia l'ordine fornitore sia l'ordine cliente aggiornato (`await
+store.saveDoc(...)`, entrambi attesi) prima di restituire il
+risultato — nessuna corsa possibile tra "ho appena creato l'ordine" e
+"la pagina di destinazione lo trova già scritto su Supabase" quando
+`ordini-fornitore.html` lo ricarica da capo dopo la navigazione
+completa (non è una SPA: è un vero cambio pagina).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

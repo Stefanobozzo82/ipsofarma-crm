@@ -4642,6 +4642,47 @@ il form si richiude, in tutti e tre i casi).
 fatturato" invece di "Totale acquisti"), stesso posizionamento fuori
 da `list-card`, stessa correzione — `openForm()`/`closeForm()`.
 
+## "XML"/"Modifica"/"Elimina" tolti dall'elenco fatture, spostati nel documento
+
+**Richiesta:** "quando seleziono con la spunta una fattura non voglio
+che compaiano xml modifica ed elimina" — in `fatture.html`, spuntando
+una fattura nell'elenco comparivano ancora tre pulsanti per-riga
+(colonna azioni, gli unici tre rimasti lì: Stampa/PDF erano già stati
+tolti in precedenza, vedi sopra).
+
+**Fix, in `fatture.html`:**
+- **"Modifica" rimosso senza sostituto**: cliccare sulla riga apre già
+  lo stesso form (`tr.addEventListener('click', ...)`, presente da
+  prima) — il pulsante era puramente ridondante.
+- **"XML" (Genera XML FatturaPA) spostato dentro il documento**: nuovo
+  pulsante "🧾 XML FatturaPA" in `#f-print-actions`, accanto a
+  Stampa/Scarica PDF, visibile solo a documento aperto — chiama la
+  stessa `downloadFatturaPAXml()` di prima, passandole la fattura in
+  modifica invece che quella cercata per id nell'elenco.
+- **"Elimina" spostato dentro il documento**: nuovo pulsante "🗑
+  Elimina fattura" in un blocco `#f-danger-actions` sotto Salva/Annulla
+  (nascosto per una fattura nuova, mai ancora salvata), stessa conferma
+  e stessa `store.removeDoc('fattureCliente', ...)` di prima — solo
+  che ora chiude il form e torna all'elenco (`closeForm()` +
+  `renderList()`) invece di restare sulla riga appena scomparsa.
+- Rimossi dall'elenco: i tre pulsanti per-riga, la colonna "azioni"
+  ormai sempre vuota (intestazione `<th></th>` e le due `<td>`,
+  fattura e nota di credito) e i relativi `querySelectorAll('[data-*]')`
+  di `renderResults()`.
+- **Nuova regola CSS** `button.ghost.danger` in `app/theme.css`: il
+  rosso "pericoloso" di "Elimina" era definito solo per
+  `td.actions button.danger` (dentro l'elenco) — il pulsante nel form
+  vive fuori da quel contesto e sarebbe comparso senza colore.
+
+**Non toccato:** `fatture-fornitore.html`, `note-credito-fornitore.html`,
+`ordini.html`, `ordini-fornitore.html`, `ddt.html`, `preventivi.html` —
+nessuno di questi ha mai avuto un pulsante "XML" (funzione esclusiva
+delle fatture cliente, unico documento che genera FatturaPA), e i loro
+"Modifica"/"Elimina" per-riga non sono stati menzionati dalla richiesta.
+
+**Verificato:** sintassi dello script di `fatture.html` (estratto ed
+eseguito con `new Function()`) senza errori.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

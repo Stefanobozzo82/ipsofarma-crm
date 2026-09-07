@@ -29,12 +29,15 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuova fattura</h3>
-    <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
-         la riga) — vedi lo stesso commento in ordini.html. Nascosto per una
-         fattura nuova non ancora salvata. -->
+    <!-- Stampa/PDF/XML qui, non solo nell'elenco (dove servivano prima
+         spuntare la riga) — vedi lo stesso commento in ordini.html; XML
+         (Genera XML FatturaPA) spostato qui di seguito diretto ("non
+         voglio che compaiano xml modifica ed elimina" sulla spunta).
+         Nascosto per una fattura nuova non ancora salvata. -->
     <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px">
       <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
       <button type="button" class="ghost" id="f-btn-pdf">⬇ Scarica PDF</button>
+      <button type="button" class="ghost" id="f-btn-xml">🧾 XML FatturaPA</button>
     </div>
     <label for="f-cliente">Cliente</label>
     <select id="f-cliente"></select>
@@ -66,6 +69,14 @@
     <div class="form-actions">
       <button class="primary" id="f-save">Salva</button>
       <button class="ghost" id="f-cancel">Annulla</button>
+    </div>
+    <!-- Elimina spostata qui dall'elenco (era dietro la spunta, insieme a
+         Modifica — tolta invece del tutto: aprire il documento con un clic
+         sulla riga fa già la stessa cosa) — stessa richiesta di sopra.
+         Nascosta per una fattura nuova non ancora salvata: niente da
+         eliminare finché non esiste. -->
+    <div class="form-actions" id="f-danger-actions" hidden style="margin-top:10px">
+      <button type="button" class="ghost danger" id="f-btn-elimina">🗑 Elimina fattura</button>
     </div>
     <div class="msg" id="form-msg" hidden></div>
   </div>
@@ -524,6 +535,7 @@
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
     renderLineage(fattura);
     $('f-print-actions').hidden = !fattura;
+    $('f-danger-actions').hidden = !fattura;
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
@@ -565,6 +577,29 @@
       await window.SaasPrint.downloadPDF('fattureCliente', editingFattura, clientiById[editingFattura.clienteId], company);
     }catch(err){
       alert('Errore durante la generazione del PDF: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('f-btn-xml').addEventListener('click', () => {
+    if(!editingFattura) return;
+    downloadFatturaPAXml(editingFattura);
+  });
+  // Elimina spostata qui dall'elenco — vedi il commento sopra
+  // "f-danger-actions" nell'HTML. Stessa conferma e stessa chiamata già
+  // usate lì, solo richiamate da dentro il documento aperto invece che
+  // da un pulsante per-riga dietro la spunta.
+  $('f-btn-elimina').addEventListener('click', async () => {
+    if(!editingFattura) return;
+    if(!confirm(`Eliminare la fattura ${editingFattura.num}? L'operazione non si può annullare.`)) return;
+    const btn = $('f-btn-elimina');
+    btn.disabled = true;
+    try{
+      await store.removeDoc('fattureCliente', editingFattura.id);
+      closeForm();
+      await renderList();
+    }catch(err){
+      alert('Errore durante l\'eliminazione: ' + err.message);
     }finally{
       btn.disabled = false;
     }
@@ -895,7 +930,7 @@
 
     area.innerHTML = bulkHtml + `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
-        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('incasso','Incasso')}<th></th>
+        ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('incasso','Incasso')}
       </tr></thead><tbody>${combined.map(f => f.isNC ? `
         <tr class="row-click" data-id="${f.id}" data-nc="1" data-num="${esc(f.num)}">
           <td class="check-col"></td>
@@ -906,7 +941,6 @@
           <td class="num-col">${eur(-ivaTot(f.righe))}</td>
           <td class="num-col">${eur(-docTotale(f.righe))}</td>
           <td><span class="pill nc">Nota di credito</span></td>
-          <td class="actions"></td>
         </tr>` : `
         <tr class="row-click" data-id="${f.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${f.id}" ${PICK.has(f.id) ? 'checked' : ''}></td>
@@ -917,16 +951,9 @@
           <td class="num-col">${eur(ivaTot(f.righe))}</td>
           <td class="num-col">${eur(docTotale(f.righe))}</td>
           <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('incassata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da incassare'}</button></td>
-          <td class="actions">${PICK.has(f.id) ? `
-            <button data-xml="${f.id}" title="Genera XML FatturaPA">XML</button><button data-edit="${f.id}">Modifica</button>
-            <button class="danger" data-del="${f.id}">Elimina</button>` : ''}
-          </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'fatture-elenco');
     area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
-    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      openForm(elenco.find(x => x.id === btn.dataset.edit));
-    }));
     area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
       if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
       if(tr.dataset.nc === '1'){ openNCInOwnPage(tr.dataset.num); return; }
@@ -934,19 +961,6 @@
     }));
     area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
       togglePaid(elenco.find(x => x.id === btn.dataset.toggle));
-    }));
-    area.querySelectorAll('[data-xml]').forEach(btn => btn.addEventListener('click', () => {
-      downloadFatturaPAXml(elenco.find(x => x.id === btn.dataset.xml));
-    }));
-    area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
-      const f = elenco.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare la fattura ${f.num}? L'operazione non si può annullare.`)) return;
-      try{
-        await store.removeDoc('fattureCliente', f.id);
-        await renderList();
-      }catch(err){
-        alert('Errore durante l\'eliminazione: ' + err.message);
-      }
     }));
     $('check-all').addEventListener('click', e => {
       e.stopPropagation();

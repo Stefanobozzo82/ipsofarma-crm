@@ -75,8 +75,8 @@
       <h3>Elenco</h3>
       <div class="toolbar-right">
         <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per numero o fornitore…"></div>
-        <button class="ghost" id="ai-import-btn">📎 Importa da PDF/foto (AI)</button>
-        <input type="file" id="ai-import-file" accept="application/pdf,image/*" hidden>
+        <button class="ghost" id="ai-import-btn">📎 Importa da PDF/foto/XML</button>
+        <input type="file" id="ai-import-file" accept="application/pdf,image/*,.xml,text/xml,application/xml" hidden>
         <button class="primary" id="new-fattura">+ Nuova fattura</button>
       </div>
     </div>
@@ -105,6 +105,7 @@
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
 <script src="app/ai-import.js"></script>
+<script src="app/fatturapa-xml.js"></script>
 <script src="app/camera-import.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -470,14 +471,35 @@
     const file = $('ai-import-file').files[0];
     $('ai-import-file').value = '';
     if(!file) return;
-    aiImportStatus('Sto leggendo ' + file.name + ' con l\'AI…', 'info');
+    // Un file .xml è una fattura elettronica FatturaPA: i dati sono già
+    // strutturati nel file stesso (il fornitore l'ha già "compilato" per
+    // noi), leggerlo con un parser deterministico (app/fatturapa-xml.js) è
+    // più affidabile E gratuito rispetto a passarlo comunque all'AI — un
+    // PDF/foto invece resta il caso per cui l'AI serve davvero, qui non
+    // cambia nulla. Richiesta reale: un file .xml caricato non compariva
+    // nemmeno nella finestra di scelta ("accept" dell'input limitato a
+    // PDF/immagini) — vedi anche il nuovo "accept" qui sopra nell'HTML.
+    const isXml = window.SaasFatturaPA.looksLikeXmlFile(file);
+    const fonte = isXml ? 'XML' : 'AI';
+    aiImportStatus('Sto leggendo ' + file.name + (isXml ? '…' : ' con l\'AI…'), 'info');
     try{
-      const p = await window.SaasAiImport.extractFromFile(store, file, {
-        systemPrompt: "Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick.",
-        instr: AI_IMPORT_INSTR,
-        companyId,
-      });
-      if(!p.numero && !p.righe){ throw new Error('l\'AI non ha riconosciuto una fattura fornitore in questo file'); }
+      const p = isXml
+        ? await window.SaasFatturaPA.parseFatturaPAFile(file)
+        : await window.SaasAiImport.extractFromFile(store, file, {
+            systemPrompt: "Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick.",
+            instr: AI_IMPORT_INSTR,
+            companyId,
+          });
+      if(!p.numero && !(p.righe && p.righe.length)){ throw new Error((isXml ? 'il file XML' : 'l\'AI') + ' non ha riconosciuto una fattura fornitore in questo file'); }
+      // Solo per l'XML (contiene la P.IVA di chi emette, l'AI su un
+      // PDF/foto no): se il CedentePrestatore (chi ha EMESSO il documento)
+      // ha la nostra stessa P.IVA, questa è una NOSTRA fattura di vendita
+      // caricata per sbaglio — importarla come fattura fornitore
+      // scambierebbe acquisti e vendite. Stesso controllo di
+      // parseFatturaXML() in index.html ("dir" acquisto/vendita).
+      if(isXml && p.fornitorePiva && company.piva && p.fornitorePiva.replace(/\D/g, '') === String(company.piva).replace(/\D/g, '')){
+        throw new Error('questo XML è una TUA fattura di vendita (l\'hai emessa tu), non una fattura ricevuta da un fornitore: qui si importano solo fatture fornitore');
+      }
 
       openForm(null);
       const match = window.SaasAiImport.findPartyByNome(fornitoriArr, p.fornitore);
@@ -514,8 +536,8 @@
 
       aiImportStatus(
         (match
-          ? `Letto con l'AI: fornitore riconosciuto come "${match.nome}".`
-          : `Letto con l'AI, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`)
+          ? `Letto dal ${fonte}: fornitore riconosciuto come "${match.nome}".`
+          : `Letto dal ${fonte}, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`)
         + (ordineLink ? ` Collegato automaticamente all'ordine ${esc(ordineLink.num)} (rif. "${esc(p.riferimentoOrdine)}" in fattura).`
           : (match && p.riferimentoOrdine ? ` Riferimento "${esc(p.riferimentoOrdine)}" in fattura, ma nessun ordine di questo fornitore corrisponde con certezza: collegalo a mano se serve.` : ''))
         + (daVerificare ? ` ${daVerificare} riga/e non trovate a catalogo, da controllare.` : ' Righe verificate col catalogo.'),

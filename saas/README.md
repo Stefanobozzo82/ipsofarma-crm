@@ -4488,6 +4488,86 @@ toccata: Modifica/Elimina restano per tutti, così come le azioni
 specifiche di ogni modulo (Genera DDT/Ordine fornitore/Fattura, Invia
 email, XML FatturaPA, Trasforma in ordine).
 
+## Import fattura elettronica FatturaPA (.xml) — non passava più dall'AI
+
+**Segnalazione con un file reale allegato:** "devo caricare questa
+fattura fornitori ma se premo importa nn la vede" — un file `.xml`
+(fattura elettronica B.Braun, con la firma XMLDSig incorporata
+nell'XML stesso). Causa: il campo di caricamento di
+`fatture-fornitore.html` (`SaasAiImport`, pensato per PDF/foto da
+leggere con l'AI) aveva `accept="application/pdf,image/*"` — un `.xml`
+non compariva nemmeno nella finestra di scelta del file, prima ancora
+di arrivare all'AI.
+
+**Trovato durante l'indagine:** questo era già un gap noto, individuato
+in un giro di audit precedente ("quali altre cose c'erano nel vecchio
+gestionale") e mai affrontato — e il vecchio gestionale aveva davvero
+già una lettura XML deterministica pronta: `parseFatturaXML()` in
+`index.html` (invocata da `openXmlImport()`, mai collegata all'import
+PDF/foto-AI di questa SaaS, rimasti due percorsi separati anche
+nell'originale). Un file XML/FatturaPA è già interamente strutturato —
+farlo comunque leggere da un modello (AI) sarebbe stato più lento, a
+pagamento (consuma il limite mensile IA, 0011_limite_ai.sql) e MENO
+affidabile di un parser deterministico sullo stesso file.
+
+**Fix:**
+- **Nuovo `app/fatturapa-xml.js`** — legge un `.xml` FatturaPA con
+  `DOMParser` + `getElementsByTagNameNS('*', nome)` (interrogazione per
+  nome locale, indifferente al prefisso di namespace usato dal software
+  di fatturazione del fornitore) e restituisce la STESSA identica forma
+  di oggetto che l'AI restituirebbe per un PDF/foto dello stesso
+  documento (`{fornitore, numero, data, riferimentoOrdine, righe:[...]}`)
+  — il codice a valle (collegamento al fornitore/ordine, verifica
+  incrociata col catalogo) non cambia di una riga, non sa da dove sia
+  arrivato il dato. Struttura e matching (nome locale, `.includes()`
+  permissivo per riconoscere lotto/scadenza tra gli `AltriDatiGestionali`,
+  priorità al codice prodotto che il fornitore riporta esplicitamente
+  come "nostro" — `TipoDato="Prodotto"`, es. B.Braun — invece di un EAN)
+  ricalcano deliberatamente `parseFatturaXML()` già in `index.html`, non
+  reinventati da zero.
+- **`fatture-fornitore.html`/`note-credito-fornitore.html`**: l'`accept`
+  del campo file esteso a `.xml` (oltre a PDF/immagini); alla scelta di
+  un file, se è un `.xml` si passa da `SaasFatturaPA` invece che
+  dall'AI — stesso form precompilato, stesso messaggio di stato (solo
+  "Letto dal XML" invece di "Letto con l'AI"). Aggiunto anche un
+  controllo di sicurezza assente nell'originale scritto da zero qui:
+  se la P.IVA di chi ha EMESSO il documento (CedentePrestatore)
+  coincide con quella della propria azienda, il file è una PROPRIA
+  fattura/nota di credito di vendita caricata per sbaglio — l'XML lo
+  segnala invece di importarla come se fosse un acquisto (scambiando
+  entrate e uscite). L'AI (che legge un PDF/foto, senza la P.IVA in un
+  campo strutturato) resta senza questo controllo, come prima.
+
+**Deliberatamente fuori scope** (nessun caso reale ancora incontrato
+che lo richieda, entrambi già segnalati nell'audit precedente):
+- **`.p7m`**: l'XML firmato "a busta" (diverso da un `.xml` con la
+  firma XMLDSig già incorporata, come nel file di questa richiesta) è
+  un contenitore CAdES/PKCS#7 — servirebbe una libreria di parsing
+  crittografico solo per estrarne l'XML, non per verificarne la firma
+  (mai verificata, come non si verifica quella di un PDF).
+- **Sconto/maggiorazione a importo fisso** (`<Importo>` invece di
+  `<Percentuale>` dentro `ScontoMaggiorazione`): il campo "sconto" del
+  gestionale è sempre percentuale — un importo fisso viene ignorato
+  (riga letta a prezzo pieno). Un'estensione rispetto a
+  `parseFatturaXML()`, che lo sconto in XML non lo leggeva affatto.
+
+**Verificato sul file reale allegato alla richiesta** (fattura B.Braun,
+2 righe, con lotto/scadenza e un riferimento ordine): eseguito il
+parser in un vero browser (Chromium via Playwright, nessuna rete
+necessaria — è tutto locale) — fornitore "B. Braun Milano S.p.A.",
+numero "5718111503", data "2026-09-04", `riferimentoOrdine` "202"
+(dall'elemento `DatiOrdineAcquisto/IdDocumento`), entrambe le righe con
+prezzo/IVA/lotto/scadenza corretti. Codici prodotto estratti
+(`C0069420N1`, `C0068042N1`, dagli `AltriDatiGestionali` con
+`TipoDato="Prodotto"`, non dagli EAN) verificati contro il catalogo
+reale Ipsofarma via API: **entrambi trovati per intero** — la verifica
+incrociata col catalogo (`crossCheckRighe()`, invariata) li avrebbe
+comunque marcati "a catalogo" e allineato la descrizione a quella
+ufficiale. P.IVA di IPSOFARMA SRL (`02944510789`, dal database reale)
+confermata diversa da quella del CedentePrestatore nel file
+(`00674840152`, B.Braun) — il nuovo controllo di sicurezza non blocca
+questo caso reale, come deve.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

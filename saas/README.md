@@ -4568,6 +4568,16 @@ confermata diversa da quella del CedentePrestatore nel file
 (`00674840152`, B.Braun) — il nuovo controllo di sicurezza non blocca
 questo caso reale, come deve.
 
+## Pulsante "Importa da PDF/foto/XML" rinominato solo "Importa"
+
+**Richiesta di seguito diretto:** "voglio che la scritta del pulsante
+sia soltanto Importa" — il pulsante aveva preso via via un'etichetta
+sempre più lunga (emoji + elenco dei formati supportati) mano a mano
+che si estendeva cosa importava. Rinominato in tutti e 4 i moduli che
+lo hanno (`ordini.html`, `ordini-fornitore.html`, `fatture-fornitore.html`,
+`note-credito-fornitore.html`) — stesso pulsante, stesso comportamento,
+solo il testo cambiato: "Importa".
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

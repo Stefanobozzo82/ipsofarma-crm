@@ -30,6 +30,13 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuova nota di credito</h3>
+    <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
+         la riga) — vedi lo stesso commento in ordini.html. Nascosto per una
+         nota di credito nuova non ancora salvata. -->
+    <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px">
+      <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
+      <button type="button" class="ghost" id="f-btn-pdf">⬇ Scarica PDF</button>
+    </div>
     <label for="f-cliente">Cliente</label>
     <select id="f-cliente"></select>
     <div class="grid2">
@@ -299,6 +306,7 @@
     $('righe-body').innerHTML = '';
     (nc ? nc.righe : [null]).forEach(addRigaRow);
     renderLineage(nc);
+    $('f-print-actions').hidden = !nc;
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
@@ -324,6 +332,22 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
+  $('f-btn-print').addEventListener('click', () => {
+    if(!editingNc) return;
+    window.SaasPrint.openPrintWindow('noteCredito', editingNc, clientiById[editingNc.clienteId], company);
+  });
+  $('f-btn-pdf').addEventListener('click', async () => {
+    if(!editingNc) return;
+    const btn = $('f-btn-pdf');
+    btn.disabled = true;
+    try{
+      await window.SaasPrint.downloadPDF('noteCredito', editingNc, clientiById[editingNc.clienteId], company);
+    }catch(err){
+      alert('Errore durante la generazione del PDF: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
 
   $('f-save').addEventListener('click', async () => {
     const clienteId = $('f-cliente').value;

@@ -24,6 +24,13 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuova nota di credito</h3>
+    <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
+         la riga) — vedi lo stesso commento in ordini.html. Nascosto per una
+         nota di credito nuova non ancora salvata. -->
+    <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px">
+      <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
+      <button type="button" class="ghost" id="f-btn-pdf">⬇ Scarica PDF</button>
+    </div>
     <div class="grid2">
       <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
@@ -94,6 +101,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let editingNc = null; // la nota di credito in modifica — solo per Stampa/PDF dal form, vedi f-btn-print/f-btn-pdf
   let fornitoriById = {};
   let fatturePerFornitore = {};
   let SORT = { key: 'num', dir: 'desc' };
@@ -282,6 +290,7 @@
 
   function openForm(nc){
     editingId = nc ? nc.id : null;
+    editingNc = nc;
     $('form-title').textContent = nc ? `Modifica ${nc.num}` : 'Nuova nota di credito';
     $('f-fornitore').value = nc ? nc.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
     refreshFatturaOptions($('f-fornitore').value);
@@ -291,6 +300,7 @@
     $('righe-body').innerHTML = '';
     (nc ? nc.righe : [null]).forEach(addRigaRow);
     renderLineage(nc);
+    $('f-print-actions').hidden = !nc;
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
@@ -307,7 +317,7 @@
       panel.hidden = !shown;
     }catch(e){ panel.hidden = true; }
   }
-  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingNc = null; }
   $('new-nc').addEventListener('click', async () => {
     if(Object.keys(fornitoriById).length === 0){ alert('Crea prima almeno un fornitore.'); return; }
     const lim = await store.checkDocLimit(companyId);
@@ -316,6 +326,22 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
+  $('f-btn-print').addEventListener('click', () => {
+    if(!editingNc) return;
+    window.SaasPrint.openPrintWindow('noteCreditoFornitore', editingNc, fornitoriById[editingNc.fornitoreId], company);
+  });
+  $('f-btn-pdf').addEventListener('click', async () => {
+    if(!editingNc) return;
+    const btn = $('f-btn-pdf');
+    btn.disabled = true;
+    try{
+      await window.SaasPrint.downloadPDF('noteCreditoFornitore', editingNc, fornitoriById[editingNc.fornitoreId], company);
+    }catch(err){
+      alert('Errore durante la generazione del PDF: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
 
   // ---- importa nota di credito fornitore da PDF/foto con l'AI ---------------
   // Stesso meccanismo di fatture-fornitore.html (vedi app/ai-import.js): una

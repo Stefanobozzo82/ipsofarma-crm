@@ -570,7 +570,7 @@
           <td>${p.ocId ? '<span class="pill paid">convertito</span>' : '<span class="pill unpaid">aperto</span>'}</td>
           <td class="actions">${PICK.has(p.id) ? `
             ${p.ocId ? '' : `<button data-trasforma="${p.id}">Trasforma in ordine</button>`}
-            <button data-print="${p.id}" title="Stampa">🖨</button><button data-pdf="${p.id}" title="Scarica PDF">⬇ PDF</button><button data-edit="${p.id}">Modifica</button>
+            <button data-edit="${p.id}">Modifica</button>
             <button class="danger" data-del="${p.id}">Elimina</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
@@ -596,21 +596,6 @@
     area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
       if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
       openForm(elenco.find(x => x.id === tr.dataset.id));
-    }));
-    area.querySelectorAll('[data-print]').forEach(btn => btn.addEventListener('click', () => {
-      const it = elenco.find(x => x.id === btn.dataset.print);
-      window.SaasPrint.openPrintWindow('preventivi', it, clientiById[it.clienteId], company);
-    }));
-    area.querySelectorAll('[data-pdf]').forEach(btn => btn.addEventListener('click', async () => {
-      const it = elenco.find(x => x.id === btn.dataset.pdf);
-      btn.disabled = true;
-      try{
-        await window.SaasPrint.downloadPDF('preventivi', it, clientiById[it.clienteId], company);
-      }catch(err){
-        alert('Errore durante la generazione del PDF: ' + (err.message || err));
-      }finally{
-        btn.disabled = false;
-      }
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const p = elenco.find(x => x.id === btn.dataset.del);

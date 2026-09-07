@@ -642,7 +642,6 @@
           <td>${esc((clientiById[d.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(d)}</td>
           <td>${d.ocId ? `<span class="badge">${esc((allOrdiniById[d.ocId] || {}).num || '?')}</span>` : '—'}</td>
           <td class="actions">${PICK.has(d.id) ? `
-            <button data-print="${d.id}" title="Stampa">🖨</button><button data-pdf="${d.id}" title="Scarica PDF">⬇ PDF</button>
             ${!d.ftId ? `<button data-gen-ft="${d.id}" title="Genera la fattura da questo DDT">🧾 Fattura</button>` : ''}
             <button data-edit="${d.id}">Modifica</button>
             <button class="danger" data-del="${d.id}">Elimina</button>` : ''}
@@ -667,21 +666,6 @@
     area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
       if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
       openForm(elenco.find(x => x.id === tr.dataset.id));
-    }));
-    area.querySelectorAll('[data-print]').forEach(btn => btn.addEventListener('click', () => {
-      const it = elenco.find(x => x.id === btn.dataset.print);
-      window.SaasPrint.openPrintWindow('ddt', it, clientiById[it.clienteId], company);
-    }));
-    area.querySelectorAll('[data-pdf]').forEach(btn => btn.addEventListener('click', async () => {
-      const it = elenco.find(x => x.id === btn.dataset.pdf);
-      btn.disabled = true;
-      try{
-        await window.SaasPrint.downloadPDF('ddt', it, clientiById[it.clienteId], company);
-      }catch(err){
-        alert('Errore durante la generazione del PDF: ' + (err.message || err));
-      }finally{
-        btn.disabled = false;
-      }
     }));
     area.querySelectorAll('[data-gen-ft]').forEach(btn => btn.addEventListener('click', () => {
       localStorage.setItem('saas_gen_ft_from_ddt', btn.dataset.genFt);

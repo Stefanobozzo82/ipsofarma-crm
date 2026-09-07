@@ -4469,6 +4469,25 @@ toccata.
 parla di "stampa o scaricare un documento", lo stesso paio presente
 identico su tutti gli altri moduli, non della fattura elettronica).
 
+## Stampa/PDF tolte dall'elenco: restano solo dentro il documento
+
+**Richiesta di seguito diretto:** "voglio che li togli quando premo la
+spunta" — dopo aver spostato Stampa/PDF dentro il form del documento
+(sezione precedente), l'azienda ha chiarito che voleva una sostituzione,
+non un'aggiunta: i due pulsanti nella colonna azioni dell'elenco
+(visibili solo con la riga spuntata) andavano tolti, non affiancati.
+
+**Fix, negli stessi 8 moduli documento:** rimossi `<button data-print>`/
+`<button data-pdf>` dal template della riga e i relativi
+`querySelectorAll('[data-print]')`/`querySelectorAll('[data-pdf]')` nel
+codice di `renderResults()` — in ognuno dei file, non solo tolto il
+pulsante ma anche il blocco di listener che lo richiamava, altrimenti
+sarebbe rimasto codice morto (un `querySelectorAll` su un selettore che
+non trova più nulla, innocuo ma inutile). Nessun'altra azione per-riga
+toccata: Modifica/Elimina restano per tutti, così come le azioni
+specifiche di ogni modulo (Genera DDT/Ordine fornitore/Fattura, Invia
+email, XML FatturaPA, Trasforma in ordine).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

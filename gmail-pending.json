@@ -60,6 +60,37 @@
         "totale": 278.4528
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-07T13:09:19.846Z",
+      "msgId": "1a07bf2ec23c2d1b",
+      "file": "5718111502.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111502",
+        "date": "2026-09-04",
+        "order_ref": "203",
+        "lines": [
+          {
+            "cod": "C0027822",
+            "descr": "PREMICRON BIANCO 5/0 (1) 45CM",
+            "qty": 1,
+            "prezzo": 167.04,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626154",
+            "scad": "2031-04-09"
+          }
+        ],
+        "totale": 203.78879999999998
+      },
+      "src": "Gmail"
     }
   ]
 }

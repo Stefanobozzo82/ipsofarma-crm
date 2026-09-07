@@ -4621,6 +4621,27 @@ dall'XML (`DatiOrdineAcquisto/IdDocumento`), con lo stesso identico
 codice di collegamento già esistente, semplicemente mai raggiunto
 finché il fornitore non veniva riconosciuto.
 
+## "Totale acquisti" restava a vista aprendo una nuova fattura fornitore
+
+**Richiesta:** "quando carico una nuova fattura fornitori puoi togliere
+il totale in basso di tutte le fatture fornitori" — la card "Totale
+acquisti" (`#stats-riga`, vedi `renderStats()`) vive nell'HTML FUORI da
+`list-card` (tra il form e l'elenco): aprendo il form (`+ Nuova
+fattura` o modificando una esistente) `openForm()` nasconde
+`list-card` ma non toccava affatto `#stats-riga`, che restava a vista
+subito sotto il form appena aperto.
+
+**Fix, in `fatture-fornitore.html`** (uniche due righe toccate,
+`openForm()`/`closeForm()`): `#stats-riga` nascosta insieme
+all'elenco quando si apre il form, ripristinata alla chiusura (Annulla,
+Indietro, o dopo un salvataggio — `closeForm()` è l'unico punto in cui
+il form si richiude, in tutti e tre i casi).
+
+**Non toccato**: `fatture.html` (fatture cliente) ha la stessa
+identica card ("Totale fatturato") con lo stesso posizionamento fuori
+da `list-card` — probabilmente lo stesso comportamento, ma la richiesta
+riguardava solo le fatture fornitore: da confermare prima di toccarlo.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

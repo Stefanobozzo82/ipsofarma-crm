@@ -103,6 +103,62 @@ Java/Kotlin del plugin, in `node_modules/<pacchetto>/android/src/.../*.java`,
 mai dato per scontato dalla sola documentazione JS). Aggiungere un nuovo
 plugin nativo in futuro richiede lo stesso controllo.
 
+## Bridge nativi "Stampa" e "⬇ Scarica" (MainActivity.java)
+
+Non un plugin Capacitor (nessun pacchetto npm): due `addJavascriptInterface`
+scritti a mano direttamente in `MainActivity.java`, perché il bisogno è
+molto piccolo e specifico. Richiesta reale: "controlla che il pulsante
+scarica e stampa funzioni su android" — verificato leggendo il sorgente
+di Capacitor (`BridgeWebChromeClient.java` non sovrascrive
+`onCreateWindow`, nessuna classe imposta un `WebView.setDownloadListener`)
+che NESSUNO dei due funzionava dentro questa app, pur funzionando bene in
+un vero browser mobile (verificato con Playwright, vedi le sezioni
+"Controllo mobile..." in `saas/README.md`):
+
+- **`window.open('', '_blank')`** (usato da "Stampa", `openPrintWindow()`
+  in `app/print.js`) non crea nessuna finestra in una WebView incorporata
+  senza finestre multiple abilitate: il pulsante avrebbe mostrato sempre
+  "popup bloccato" — fuorviante, non esiste un'impostazione "consenti
+  popup" da attivare in un'app nativa.
+- **Un `<a download>` su un `blob:`** (usato da "⬇ Scarica" → PDF/Excel/
+  XML) non ha ALCUN gestore che lo intercetti: il clic non fa
+  letteralmente nulla, senza nemmeno un errore visibile.
+
+`window.AndroidPrint`/`window.AndroidDownload` (iniettati SOLO da questa
+WebView — mai presenti in un browser vero, incluso quello di un
+telefono normale: `app/print.js` e `downloadFatturaPAXml()` in
+`fatture.html` li usano solo se esistono, altrimenti il comportamento
+resta quello di sempre) sostituiscono i due meccanismi con l'equivalente
+nativo Android:
+
+- **`AndroidPrint.printHtml(html, jobName)`**: carica l'HTML già pronto
+  (identico a quanto genera `buildStandaloneDoc()` per un browser vero)
+  in una WebView "usa e getta" invisibile, poi genera un job di stampa
+  con l'API nativa (`android.print.PrintManager` +
+  `WebView.createPrintDocumentAdapter()`) — lo stesso selettore di
+  stampa/"Salva come PDF" di qualunque altra app Android, incluso il
+  supporto a stampanti reali via i servizi di stampa del dispositivo.
+- **`AndroidDownload.saveFile(base64, filename, mimeType)`**: il file
+  arriva già come base64 (generato lato JS da jsPDF/SheetJS, o dalla
+  stringa XML) e viene salvato nella cartella esterna PRIVATA dell'app
+  (`getExternalFilesDir(DIRECTORY_DOWNLOADS)` — nessun permesso di
+  storage richiesto su NESSUNA versione Android, a differenza della
+  cartella Download pubblica), poi aperto subito con un Intent di
+  condivisione/apertura (`Intent.ACTION_VIEW` + `Intent.createChooser()`,
+  tramite il `FileProvider` già configurato per la fotocamera — stesso
+  `file_paths.xml`, `path="."` copre già l'intero albero): l'utente
+  sceglie con quale app aprirlo o salvarlo altrove (Drive, WhatsApp,
+  File, un altro gestionale...), più utile di un salvataggio silenzioso
+  in una cartella che potrebbe non pensare di controllare. Se nessuna
+  app installata sa aprire il tipo di file, un avviso dice comunque dove
+  è stato salvato.
+
+**Verificato**: `./gradlew :app:compileDebugJavaWithJavac` e
+`./gradlew :app:assembleDebug` completati con successo (compilazione e
+impacchettamento reali dell'APK di debug) — non disponibile in questo
+ambiente un emulatore/dispositivo Android per un collaudo a schermo, solo
+la verifica che il codice nativo compili ed è corretto.
+
 ## Checklist per pubblicare davvero (fuori dal codice, solo l'azienda può farlo)
 
 - [x] **Hosting** per `saas/web/` — Cloudflare Workers, collegato al

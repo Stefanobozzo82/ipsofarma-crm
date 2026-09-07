@@ -4683,6 +4683,25 @@ delle fatture cliente, unico documento che genera FatturaPA), e i loro
 **Verificato:** sintassi dello script di `fatture.html` (estratto ed
 eseguito con `new Function()`) senza errori.
 
+## Tolta la scritta "(facoltativo)" dall'etichetta "Ordine collegato"
+
+**Richiesta:** "voglio che venga eliminata la scritta facoltativo dove
+c'è scritto ordine collegato".
+
+**Fix:** rimosso "(facoltativo)" dall'etichetta `<label>` del campo
+"Ordine collegato" in `ddt.html`, `fatture-fornitore.html` e
+`fatture.html` — le tre uniche pagine dove compariva accanto a quella
+dicitura esatta. Nessuna modifica al comportamento del campo (resta
+comunque un campo non obbligatorio in tutte e tre), solo all'etichetta.
+
+**Non toccato:** le etichette "Fattura collegata (facoltativo)" (in
+`note-credito.html` e `note-credito-fornitore.html`) e "DDT collegato
+(facoltativo)" (in `fatture.html`) — dicitura diversa, non menzionata
+dalla richiesta.
+
+**Verificato:** sintassi dei tre script (estratti ed eseguiti con
+`new Function()`) senza errori.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

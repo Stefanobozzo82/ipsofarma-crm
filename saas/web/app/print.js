@@ -79,7 +79,16 @@
 .pa-note{background:#f4f6f8;border-left:3px solid #0ea371;padding:8px 12px;font-size:10.5px;margin-bottom:8px;border-radius:0 6px 6px 0}
 .pa-usernote{white-space:pre-wrap}
 .pa-foot-note{font-size:10px;color:#999;margin-top:6px}
-.pa-footer{margin-top:26px;padding-top:10px;border-top:1px solid #e5e9ee;font-size:9.5px;color:#aaa;text-align:center}`;
+.pa-footer{margin-top:26px;padding-top:10px;border-top:1px solid #e5e9ee;font-size:9.5px;color:#aaa;text-align:center}
+/* Solo per l'anteprima a schermo di openPrintWindow() su un telefono (max-width
+   780px del .pa-doc è pensata per la pagina A4, più larga di molti schermi):
+   la tabella righe scorre nel proprio riquadro invece di sforare la pagina.
+   Nel PDF (renderToJsPDF, contenitore già largo 780px, mai overflow qui) e
+   nella stampa vera (@media print sotto: overflow torna visible) non cambia
+   nulla — un overflow:auto stampato verrebbe RITAGLIATO alla sola porzione
+   visibile a schermo, quindi il reset qui è necessario, non solo estetico. */
+.pa-lines-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media print{.pa-lines-wrap{overflow:visible}}`;
 
   // Inietta il CSS una volta sola nella pagina corrente: serve perché il
   // contenitore usato per generare il PDF (vedi downloadPDF) vive dentro
@@ -140,7 +149,7 @@
       <div class="pa-party"><div class="pa-pl">${partyLabel}</div><div class="pa-pn">${esc(p.nome)}</div><div class="pa-pa">${pAddr}</div><div class="pa-pm">${pMeta}</div></div>
       ${shipBlock}
       ${ddtBlock}
-      <table class="pa-lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hasLot ? '<th>Lotto</th><th class="r">Scadenza</th>' : ''}<th class="r">Q.tà</th>${isDDT ? '' : `<th class="r">Prezzo</th><th class="r">Imponibile</th>${hasSc ? '<th class="r">Sconto</th>' : ''}<th class="r">IVA</th><th class="r">Totale</th>`}</tr></thead><tbody>${rows}</tbody></table>
+      <div class="pa-lines-wrap"><table class="pa-lines"><thead><tr><th>Codice</th><th>Descrizione</th>${hasLot ? '<th>Lotto</th><th class="r">Scadenza</th>' : ''}<th class="r">Q.tà</th>${isDDT ? '' : `<th class="r">Prezzo</th><th class="r">Imponibile</th>${hasSc ? '<th class="r">Sconto</th>' : ''}<th class="r">IVA</th><th class="r">Totale</th>`}</tr></thead><tbody>${rows}</tbody></table></div>
       ${isDDT ? '' : `<div class="pa-tot"><table>
         <tr><td>Imponibile</td><td class="r">${eur(imp(righe))}</td></tr>
         <tr><td>IVA</td><td class="r">${eur(ivaT(righe))}</td></tr>
@@ -152,8 +161,18 @@
     </div>`;
   }
 
+  // meta viewport: senza, un telefono apre questa finestra alla larghezza
+  // "desktop" di default (~980px) e la mostra rimpicciolita per intero,
+  // costretti a fare pinch-zoom per leggerla — non incide sulla stampa vera
+  // (le regole @media print usano le dimensioni fisiche della pagina, non
+  // lo zoom a schermo), conta solo se l'anteprima resta visibile: se
+  // l'utente annulla la stampa, o "afterprint" sotto non scatta (non
+  // garantito su ogni browser/versione mobile — alcuni gestiscono la
+  // stampa tramite il foglio di condivisione del sistema operativo, fuori
+  // dal controllo della pagina), la scheda resta aperta e va letta/chiusa
+  // a mano.
   function buildStandaloneDoc(coll, it, party, company) {
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(it.num)}</title><style>${PRINT_CSS}</style></head><body onload="window.print()" onafterprint="window.close()">${buildPrintHTML(coll, it, party, company)}</body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(it.num)}</title><style>${PRINT_CSS}</style></head><body onload="window.print()" onafterprint="window.close()">${buildPrintHTML(coll, it, party, company)}</body></html>`;
   }
 
   function openPrintWindow(coll, it, party, company) {

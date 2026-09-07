@@ -4824,6 +4824,60 @@ nessuna delle due larghezze, z-index del menu sopra quello della barra
 fissa, chiusura corretta sia toccando una voce sia toccando fuori;
 CSS bilanciata (conteggio parentesi).
 
+## Controllo mobile del pulsante "Stampa" — trovati e corretti due problemi
+
+**Richiesta:** "controlla che funzioni bne anche il pulsante stampa" —
+seguito diretto del controllo sul menu "Scarica" appena fatto.
+
+**Come funziona:** `openPrintWindow()` (`app/print.js`) apre una nuova
+scheda (`window.open('', '_blank')`, chiamata sincrona dentro il click
+— niente await prima, così i blocca-popup non la fermano) e ci scrive
+dentro un documento a sé con lo stesso HTML della stampa, che al
+caricamento chiama subito `window.print()` e si chiude da solo dopo
+(`onafterprint`).
+
+**Verifica (Playwright, viewport iPhone 390×664, tocco reale):**
+trovati e corretti due problemi reali in `app/print.js`, prima che un
+utente li incontrasse:
+- **Mancava il tag `viewport`** nella scheda di stampa: su un telefono
+  si apriva alla larghezza "desktop" di default (~980px, verificato:
+  `window.innerWidth` risultava 980 invece che quello reale del
+  dispositivo), mostrata rimpicciolita per intero — leggibile solo
+  facendo pinch-zoom. Non incide sulla stampa vera in sé (le regole
+  `@media print` non dipendono dallo zoom a schermo), ma conta per
+  l'anteprima: se la stampa viene annullata, o se `afterprint` non
+  scatta (non garantito su ogni browser/versione — alcuni gestiscono
+  la stampa passando dal foglio di condivisione del sistema operativo,
+  fuori dal controllo della pagina) la scheda resta aperta così.
+  Aggiunto `<meta name="viewport" content="width=device-width,
+  initial-scale=1">`, la stessa di ogni altra pagina dell'app.
+- **La tabella delle righe sforava lo schermo in larghezza** una volta
+  risolto il punto sopra (prima si vedeva tutto, ma rimpicciolito):
+  pensata per la pagina A4 (`.pa-doc` max-width 780px), su un telefono
+  le colonne più a destra (Sconto/IVA/Totale) finivano fuori dallo
+  schermo senza modo ovvio di raggiungerle. Racchiusa la tabella in un
+  nuovo contenitore `.pa-lines-wrap` che scorre in orizzontale SOLO a
+  schermo (stesso pattern `.table-scroll` già usato per gli elenchi) —
+  con un reset esplicito `overflow:visible` dentro `@media print`,
+  perché un `overflow:auto` lasciato attivo in stampa avrebbe
+  RITAGLIATO le colonne oltre la parte visibile a schermo invece di
+  stamparle tutte: senza quel reset il fix all'anteprima avrebbe
+  introdotto un problema peggiore nella stampa vera.
+
+**Non un problema:** l'apertura della finestra in sé — la chiamata è
+sincrona dentro il gestore del clic (nessun `await` prima), quindi non
+viene mai scambiata per un popup indesiderato dal browser; il messaggio
+d'errore già esistente ("il browser ha bloccato la finestra...") resta
+per il solo caso in cui l'utente abbia disattivato i popup a mano.
+
+**Verificato:** sintassi di `app/print.js` e degli 8 file che lo usano
+(estratti/eseguiti con `new Function()`); con Playwright — nessun
+errore in console alla generazione dell'anteprima, il documento riempie
+esattamente la larghezza del telefono (nessuno sconfinamento della
+PAGINA), la tabella scorre nel proprio riquadro rivelando tutte le
+colonne, e sotto `@media print` (emulato) `overflow-x` del contenitore
+torna `visible` come atteso — nessun taglio nella stampa reale.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

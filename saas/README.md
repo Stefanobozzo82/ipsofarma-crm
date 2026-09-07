@@ -4753,6 +4753,37 @@ codici prodotto ora tornano intatti, prima sarebbero risultati vuoti.
 parentesi); round-trip XML genera→rilegge su dati di prova (Playwright)
 con esito corretto.
 
+## Tolta la parola "facoltativo" anche dagli altri moduli
+
+**Richiesta:** "voglio che elimini la parola facoltativo anche dagli
+altri moduli" — seguito diretto della richiesta precedente su "Ordine
+collegato" (vedi sopra), estesa a ogni altro punto dell'interfaccia
+dove compariva la stessa parola.
+
+**Fix:** rimosso "facoltativo"/"facoltativa"/"facoltativamente" da
+tutto il testo rivolto all'utente in cui compariva:
+- `<label>` con "(facoltativo)"/"(facoltativa)" accanto — stesso
+  trattamento di "Ordine collegato": "Fattura collegata" (in
+  `note-credito.html` e `note-credito-fornitore.html`), "DDT
+  collegato" (`fatture.html`), "Note" (`preventivi.html`), "Causale"
+  (`magazzino.html`, campo movimento di magazzino).
+- I sottotitoli di pagina che usavano la stessa parola in una frase
+  discorsiva, riformulati per restare corretti in italiano senza
+  quella parola: "Storni ricevuti dai fornitori, con riferimento alla
+  fattura" (`note-credito-fornitore.html`), "Storni verso i clienti,
+  con riferimento alla fattura" (`note-credito.html`), "Documenti di
+  trasporto, collegati a un ordine" (`ddt.html`).
+
+**Non toccato:** in nessuno di questi punti il comportamento del campo
+è cambiato — restano tutti non obbligatori come prima, solo l'etichetta/
+il testo è cambiato. Non toccati nemmeno i commenti di sviluppo che
+usano la stessa parola (`ddt.html`, `note-credito.html`,
+`assistente-ai.html`, `app/biometric-lock.js`): sono dentro `<!-- -->`
+o `//`/`/* */`, mai mostrati all'utente.
+
+**Verificato:** sintassi dei sei file modificati (estratti ed eseguiti
+con `new Function()`) senza errori.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

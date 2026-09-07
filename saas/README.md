@@ -4702,6 +4702,57 @@ dalla richiesta.
 **Verificato:** sintassi dei tre script (estratti ed eseguiti con
 `new Function()`) senza errori.
 
+## Un solo pulsante "Scarica" (PDF/Excel/XML), e fix codici mancanti nell'XML fattura
+
+**Richiesta:** "quando apro un documento voglio che ci sia un solo
+pulsante scarica da cui poi posso scegliere se scaricarlo in pdf,
+excel o xml e poi ho notato che scaricando una fattura xml e aprendola
+nella fattura non compiono i codici ma solo le descrizioni" — due
+richieste distinte, entrambe sul documento aperto.
+
+**1) Un solo pulsante "⬇ Scarica"**, in tutti gli 8 moduli documento
+(ordini, ordini fornitore, ddt, fatture cliente/fornitore, note
+credito cliente/fornitore, preventivi): al posto di un pulsante per
+formato ("Scarica PDF", e in fatture.html anche "XML FatturaPA" a
+parte), ora c'è un solo pulsante che apre un piccolo menu con le
+scelte (PDF sempre, Excel sempre, XML FatturaPA solo in fatture
+cliente — l'unico documento per cui ha senso). "🖨 Stampa" resta un
+pulsante a sé: non è un download, apre la finestra di stampa del
+browser.
+- **Nuovo in `app/print.js`**: `bindDownloadMenu(btn, list)` — apre/
+  chiude il menu (un secondo clic sul pulsante, un clic fuori, Esc, o
+  la scelta di una voce lo richiudono); `downloadExcel(coll, it, party,
+  company)` — stesso SheetJS già usato in report.html/prodotti.html,
+  genera un foglio con intestazione documento + la stessa tabella
+  righe della stampa (Lotto/Scadenza/Sconto solo se il documento li usa
+  davvero) + i totali.
+- **Nuova regola CSS** `.dl-menu`/`.dl-list` in `app/theme.css` (stesso
+  posizionamento assoluto di `.prod-sugg`, riusato per un contesto
+  diverso).
+- Negli 8 moduli documento: il vecchio pulsante "⬇ Scarica PDF" (e
+  "🧾 XML FatturaPA" in fatture.html) è sostituito dal menu; le voci
+  richiamano le stesse funzioni di prima (`downloadPDF`,
+  `downloadFatturaPAXml`), più la nuova `downloadExcel`.
+
+**2) Fix: l'XML di una fattura cliente non portava i codici prodotto.**
+`buildFatturaPAXml()` (in `fatture.html`, genera l'XML scaricabile di
+una PROPRIA fattura) valorizzava solo `<Descrizione>` per ogni riga,
+mai il codice — un file XML che passa da lì (riaperto qui, o da
+qualunque altro software) mostra quindi solo la descrizione. Aggiunto
+sia `<CodiceArticolo><CodiceTipo>ALTRO</CodiceTipo><CodiceValore>...`
+(il campo "giusto" dello standard FatturaPA per un codice articolo) sia
+`<AltriDatiGestionali><TipoDato>Prodotto</TipoDato>...` (lo stesso
+punto che il NOSTRO lettore, `app/fatturapa-xml.js`, controlla per
+primo — vedi la sezione XML più sopra: è così che un fornitore come
+B.Braun riporta il codice del cliente nelle sue fatture). Verificato
+con un giro completo genera→rilegge (Playwright, dati di prova): i
+codici prodotto ora tornano intatti, prima sarebbero risultati vuoti.
+
+**Verificato:** sintassi degli 8 file modificati e di `app/print.js`
+(estratti/eseguiti con `new Function()`); CSS bilanciata (conteggio
+parentesi); round-trip XML genera→rilegge su dati di prova (Playwright)
+con esito corretto.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

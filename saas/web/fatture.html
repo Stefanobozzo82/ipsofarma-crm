@@ -36,8 +36,14 @@
          Nascosto per una fattura nuova non ancora salvata. -->
     <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px">
       <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
-      <button type="button" class="ghost" id="f-btn-pdf">⬇ Scarica PDF</button>
-      <button type="button" class="ghost" id="f-btn-xml">🧾 XML FatturaPA</button>
+      <div class="dl-menu">
+        <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
+        <div class="dl-list" id="f-download-list" hidden>
+          <button type="button" id="f-dl-pdf">📄 PDF</button>
+          <button type="button" id="f-dl-excel">📊 Excel</button>
+          <button type="button" id="f-dl-xml">🧾 XML FatturaPA</button>
+        </div>
+      </div>
     </div>
     <label for="f-cliente">Cliente</label>
     <select id="f-cliente"></select>
@@ -569,9 +575,10 @@
     if(!editingFattura) return;
     window.SaasPrint.openPrintWindow('fattureCliente', editingFattura, clientiById[editingFattura.clienteId], company);
   });
-  $('f-btn-pdf').addEventListener('click', async () => {
+  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
+  $('f-dl-pdf').addEventListener('click', async () => {
     if(!editingFattura) return;
-    const btn = $('f-btn-pdf');
+    const btn = $('f-dl-pdf');
     btn.disabled = true;
     try{
       await window.SaasPrint.downloadPDF('fattureCliente', editingFattura, clientiById[editingFattura.clienteId], company);
@@ -581,7 +588,19 @@
       btn.disabled = false;
     }
   });
-  $('f-btn-xml').addEventListener('click', () => {
+  $('f-dl-excel').addEventListener('click', async () => {
+    if(!editingFattura) return;
+    const btn = $('f-dl-excel');
+    btn.disabled = true;
+    try{
+      await window.SaasPrint.downloadExcel('fattureCliente', editingFattura, clientiById[editingFattura.clienteId], company);
+    }catch(err){
+      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('f-dl-xml').addEventListener('click', () => {
     if(!editingFattura) return;
     downloadFatturaPAXml(editingFattura);
   });
@@ -753,12 +772,14 @@
     const n2 = v => Number(v || 0).toFixed(2);
     const righeXml = (ft.righe || []).map((r, i) => `<DettaglioLinee>
         <NumeroLinea>${i + 1}</NumeroLinea>
+        ${r.cod ? `<CodiceArticolo><CodiceTipo>ALTRO</CodiceTipo><CodiceValore>${xmlEsc(r.cod)}</CodiceValore></CodiceArticolo>` : ''}
         <Descrizione>${xmlEsc(r.descr || r.cod || 'Prodotto')}</Descrizione>
         <Quantita>${n2(r.qty)}</Quantita>
         <PrezzoUnitario>${(r.prezzo || 0).toFixed(4)}</PrezzoUnitario>
         ${scEff(r.sconto) > 0 ? `<ScontoMaggiorazione><Tipo>SC</Tipo><Percentuale>${scEff(r.sconto)}</Percentuale></ScontoMaggiorazione>` : ''}
         <PrezzoTotale>${n2(lineNet(r))}</PrezzoTotale>
         <AliquotaIVA>${n2(r.iva)}</AliquotaIVA>
+        ${r.cod ? `<AltriDatiGestionali><TipoDato>Prodotto</TipoDato><RiferimentoTesto>${xmlEsc(r.cod)}</RiferimentoTesto></AltriDatiGestionali>` : ''}
       </DettaglioLinee>`).join('\n      ');
     const riepilogoXml = Object.keys(gruppi).map(al => `<DatiRiepilogo>
         <AliquotaIVA>${n2(al)}</AliquotaIVA>

@@ -29,7 +29,13 @@
          nota di credito nuova non ancora salvata. -->
     <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px">
       <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
-      <button type="button" class="ghost" id="f-btn-pdf">⬇ Scarica PDF</button>
+      <div class="dl-menu">
+        <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
+        <div class="dl-list" id="f-download-list" hidden>
+          <button type="button" id="f-dl-pdf">📄 PDF</button>
+          <button type="button" id="f-dl-excel">📊 Excel</button>
+        </div>
+      </div>
     </div>
     <div class="grid2">
       <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
@@ -102,7 +108,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
-  let editingNc = null; // la nota di credito in modifica — solo per Stampa/PDF dal form, vedi f-btn-print/f-btn-pdf
+  let editingNc = null; // la nota di credito in modifica — solo per Stampa/Scarica dal form, vedi f-btn-print/f-btn-download
   let fornitoriById = {};
   let fatturePerFornitore = {};
   let SORT = { key: 'num', dir: 'desc' };
@@ -331,14 +337,27 @@
     if(!editingNc) return;
     window.SaasPrint.openPrintWindow('noteCreditoFornitore', editingNc, fornitoriById[editingNc.fornitoreId], company);
   });
-  $('f-btn-pdf').addEventListener('click', async () => {
+  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
+  $('f-dl-pdf').addEventListener('click', async () => {
     if(!editingNc) return;
-    const btn = $('f-btn-pdf');
+    const btn = $('f-dl-pdf');
     btn.disabled = true;
     try{
       await window.SaasPrint.downloadPDF('noteCreditoFornitore', editingNc, fornitoriById[editingNc.fornitoreId], company);
     }catch(err){
       alert('Errore durante la generazione del PDF: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('f-dl-excel').addEventListener('click', async () => {
+    if(!editingNc) return;
+    const btn = $('f-dl-excel');
+    btn.disabled = true;
+    try{
+      await window.SaasPrint.downloadExcel('noteCreditoFornitore', editingNc, fornitoriById[editingNc.fornitoreId], company);
+    }catch(err){
+      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
     }finally{
       btn.disabled = false;
     }

@@ -4917,6 +4917,54 @@ costruzione del foglio corretta sui tre casi sopra; provocato un errore
 di rete reale (CDN irraggiungibile) e confermato che il messaggio ora
 nomina correttamente "il modulo Excel" invece di "il generatore PDF".
 
+## Controllo del pulsante "XML FatturaPA" — trovati e corretti tre problemi
+
+**Richiesta:** "controlla anche il pulsante xml" — ultimo della serie
+sul menu "⬇ Scarica" di `fatture.html` (unico documento con questa
+voce: solo una fattura cliente genera FatturaPA).
+
+**Verifica (Playwright — genera l'XML con dati di prova, controlla che
+sia sintatticamente valido con `DOMParser`, e lo rilegge col nostro
+stesso lettore `app/fatturapa-xml.js` per un giro completo
+genera→rilegge):** trovati e corretti tre problemi reali in
+`buildFatturaPAXml()`/`downloadFatturaPAXml()`, prima che un utente li
+incontrasse:
+- **`<IBAN></IBAN>` vuoto nell'XML** quando l'azienda non ha ancora
+  configurato il proprio IBAN in Impostazioni ma il CLIENTE ha un suo
+  IBAN salvato in anagrafica (campo usato per altro, non per questo):
+  la condizione era `cli.iban || set.iban` ma il valore scritto era
+  SEMPRE `set.iban` — bastava che esistesse `cli.iban` per far comparire
+  il tag, anche vuoto. Un tag `<IBAN>` vuoto in una fattura elettronica
+  reale rischia lo scarto da parte dello SDI. Confrontato con lo stesso
+  campo già corretto in `app/print.js` (stampa/PDF, che guarda solo
+  `set.iban`): la condizione ora fa lo stesso.
+- **Cliente non identificabile nell'XML** se non ha né Partita IVA né
+  Codice Fiscale (`CessionarioCommittente` restava senza nessuno dei
+  due campi): XML sintatticamente valido ma di nuovo a rischio scarto
+  SDI (un cliente in una fattura elettronica deve essere identificabile
+  da almeno uno dei due). Aggiunto un controllo prima di generare il
+  file, stesso stile e stesso punto di quello già esistente per
+  SDI/PEC: blocca con un messaggio chiaro invece di far scaricare un
+  file solo apparentemente valido.
+- **Lotto e scadenza di riga, tracciati nell'editor della fattura,
+  sparivano del tutto nell'XML generato**: `buildFatturaPAXml()` non li
+  scriveva mai, mentre il nostro stesso lettore (`app/fatturapa-xml.js`,
+  usato per leggere le fatture ricevute dai fornitori) sa già
+  riconoscerli da `AltriDatiGestionali` (`TipoDato` che contiene
+  "LOTTO"/"PARTITA" o "SCAD") — la stessa convenzione già sfruttata per
+  il codice prodotto (vedi la sezione più sopra sul fix codici
+  mancanti). Aggiunti due `AltriDatiGestionali` per riga (solo quando
+  lotto/scadenza sono valorizzati), con la stessa convenzione: un giro
+  genera→rilegge ora restituisce lotto e scadenza intatti, prima
+  sarebbero risultati vuoti.
+
+**Verificato:** sintassi di `fatture.html`; con Playwright — XML sempre
+valido (`DOMParser`, nessun `parsererror`) su tre casi (cliente con
+IBAN proprio ma azienda senza, cliente senza P.IVA/CF, fattura con
+lotto/scadenza/sconto/più aliquote IVA); round-trip genera→rilegge con
+`SaasFatturaPA.parseFatturaPAFile()`: codice, descrizione, quantità,
+prezzo, sconto, IVA, lotto e scadenza tutti tornano intatti.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

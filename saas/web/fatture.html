@@ -780,6 +780,8 @@
         <PrezzoTotale>${n2(lineNet(r))}</PrezzoTotale>
         <AliquotaIVA>${n2(r.iva)}</AliquotaIVA>
         ${r.cod ? `<AltriDatiGestionali><TipoDato>Prodotto</TipoDato><RiferimentoTesto>${xmlEsc(r.cod)}</RiferimentoTesto></AltriDatiGestionali>` : ''}
+        ${r.lotto ? `<AltriDatiGestionali><TipoDato>LOTTO</TipoDato><RiferimentoTesto>${xmlEsc(r.lotto)}</RiferimentoTesto></AltriDatiGestionali>` : ''}
+        ${r.scad ? `<AltriDatiGestionali><TipoDato>SCADENZA</TipoDato><RiferimentoData>${xmlEsc(r.scad)}</RiferimentoData></AltriDatiGestionali>` : ''}
       </DettaglioLinee>`).join('\n      ');
     const riepilogoXml = Object.keys(gruppi).map(al => `<DatiRiepilogo>
         <AliquotaIVA>${n2(al)}</AliquotaIVA>
@@ -851,7 +853,7 @@
         <ModalitaPagamento>${modPag}</ModalitaPagamento>
         <DataScadenzaPagamento>${scad}</DataScadenzaPagamento>
         <ImportoPagamento>${n2(docTotale(ft.righe))}</ImportoPagamento>
-        ${cli.iban || set.iban ? `<IBAN>${xmlEsc(set.iban)}</IBAN>` : ''}
+        ${set.iban ? `<IBAN>${xmlEsc(set.iban)}</IBAN>` : ''}
       </DettaglioPagamento>
     </DatiPagamento>
   </FatturaElettronicaBody>
@@ -861,6 +863,16 @@
     const cli = clientiById[ft.clienteId] || {};
     if(!cli.sdi && !cli.pec){
       alert('Manca il Codice Destinatario o la PEC del cliente: aggiungilo alla scheda cliente prima di generare il file.');
+      return;
+    }
+    // Senza nessuno dei due il cliente non è identificabile nel documento
+    // (CessionarioCommittente resterebbe senza IdFiscaleIVA e senza
+    // CodiceFiscale): non un errore di forma dell'XML (resta comunque un
+    // XML valido), ma l'SDI lo respingerebbe in fase di controllo — meglio
+    // fermarsi qui con un messaggio chiaro che scaricare un file inviabile
+    // solo in apparenza.
+    if(!cli.piva && !cli.cf){
+      alert('Manca la Partita IVA o il Codice Fiscale del cliente: aggiungilo alla scheda cliente prima di generare il file.');
       return;
     }
     const xml = buildFatturaPAXml(ft, cli, company);

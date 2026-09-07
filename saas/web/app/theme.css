@@ -403,6 +403,17 @@ button.linklike{ background:none; border:none; color:var(--accent-d); cursor:poi
 button.linklike.back-link{ display:block; text-decoration:none; font-weight:600; margin-bottom:12px; }
 button.linklike.back-link:hover{ text-decoration:underline; }
 
+/* Menu a comparsa del pulsante "⬇ Scarica" nel documento aperto (PDF/Excel,
+   più XML FatturaPA solo per fatture cliente) — un solo pulsante "Scarica"
+   invece di uno per formato, vedi SaasPrint.bindDownloadMenu() in
+   app/print.js. .dl-menu è il contenitore relative che ancora il menu al
+   pulsante; .dl-list lo stesso posizionamento di .prod-sugg ma con angoli
+   tutti arrotondati (non è "attaccato" sotto un campo di testo). */
+.dl-menu{ position:relative; display:inline-block; }
+.dl-list{ position:absolute; left:0; top:calc(100% + 4px); z-index:20; min-width:190px; background:var(--surface); border:1px solid var(--border2); border-radius:8px; box-shadow:var(--sh-lg); padding:4px; display:flex; flex-direction:column; }
+.dl-list button{ all:unset; box-sizing:border-box; width:100%; padding:8px 10px; border-radius:6px; font-size:13px; color:var(--txt); cursor:pointer; font-family:inherit; }
+.dl-list button:hover{ background:var(--surface2); }
+
 table{ width:100%; border-collapse:collapse; font-size:13px; }
 th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--faint); font-weight:700; padding:11px 14px; border-bottom:1px solid var(--border); background:var(--surface2); white-space:nowrap; }
 /* Intestazioni ordinabili (elenco clienti, ordini, fatture...): stesso

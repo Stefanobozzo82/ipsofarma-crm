@@ -229,5 +229,91 @@
     return doc.output('datauristring').split(',')[1];
   }
 
-  global.SaasPrint = { buildPrintHTML, openPrintWindow, downloadPDF, pdfBase64 };
+  // ---------------------------------------------------------------------------
+  // Excel: stesso SheetJS già usato in report.html/prodotti.html (import
+  // listino) per l'export, caricato da CDN al primo utilizzo — non nel
+  // bundle. A differenza di quei due (righe di un elenco, tutte con le
+  // stesse colonne), qui il "foglio" è UN documento: poche righe di
+  // intestazione (numero/data/controparte), poi la stessa tabella righe di
+  // buildPrintHTML — colonne Lotto/Scadenza/Sconto solo se il documento le
+  // usa davvero, come in stampa.
+  async function loadXLSX() {
+    if (global.XLSX) return global.XLSX;
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    return global.XLSX;
+  }
+
+  async function downloadExcel(coll, it, party, company) {
+    const XLSX = await loadXLSX();
+    const p = party || {};
+    const isDDT = coll === 'ddt';
+    const isForn = FORN_COLLS.has(coll);
+    const righe = it.righe || [];
+    const hasSc = !isDDT && righe.some(r => scEff(r.sconto) > 0);
+    const hasLot = ['ddt', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
+
+    const aoa = [
+      [TITLES[coll] || '', it.num],
+      ['Data', fdate(it.data)],
+      [isForn ? 'Fornitore' : 'Cliente', p.nome || ''],
+      [],
+    ];
+    const head = ['Codice', 'Descrizione'];
+    if (hasLot) head.push('Lotto', 'Scadenza');
+    head.push('Q.tà');
+    if (!isDDT) { head.push('Prezzo', 'Imponibile'); if (hasSc) head.push('Sconto %'); head.push('IVA %', 'Totale riga'); }
+    aoa.push(head);
+    righe.forEach(r => {
+      const row = [r.cod || '', r.descr || ''];
+      if (hasLot) row.push(r.lotto || '', r.scad ? fdate(r.scad) : '');
+      row.push(r.qty || 0);
+      if (!isDDT) {
+        row.push(+(r.prezzo || 0).toFixed(4), +lineNet(r).toFixed(2));
+        if (hasSc) row.push(scEff(r.sconto));
+        row.push(r.iva || 0, +(lineNet(r) * (1 + (r.iva || 22) / 100)).toFixed(2));
+      }
+      aoa.push(row);
+    });
+    if (!isDDT) {
+      aoa.push([]);
+      aoa.push(['Imponibile', +imp(righe).toFixed(2)]);
+      aoa.push(['IVA', +ivaT(righe).toFixed(2)]);
+      aoa.push(['Totale documento', +tot(righe).toFixed(2)]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = head.map((h, i) => ({ wch: Math.max(h.length, ...aoa.map(r => String(r[i] == null ? '' : r[i]).length)) + 2 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Documento');
+    XLSX.writeFile(wb, String(it.num || 'documento').replace(/\//g, '-') + '.xlsx');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Menu a comparsa del pulsante "⬇ Scarica" nel documento aperto: un solo
+  // pulsante al posto di uno per formato ("prima avevo Stampa/Scarica PDF/
+  // XML tutti separati, ne voglio uno solo con la scelta dentro"). btn è il
+  // pulsante che apre/chiude, list è il contenitore (già nell'HTML, con i
+  // suoi <button data-dl="pdf|excel|xml"> — il click su una voce lo gestisce
+  // chi chiama, qui solo apertura/chiusura del menu). Chiuso da: un secondo
+  // clic sul pulsante, un clic fuori dal menu, Esc, o il clic su una
+  // qualunque voce della lista (bubbling — non serve saperne l'esito).
+  function bindDownloadMenu(btn, list) {
+    function close() {
+      list.hidden = true;
+      document.removeEventListener('click', onOutside);
+      document.removeEventListener('keydown', onEsc);
+    }
+    function onOutside(e) { if (!list.contains(e.target) && e.target !== btn) close(); }
+    function onEsc(e) { if (e.key === 'Escape') close(); }
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!list.hidden) { close(); return; }
+      list.hidden = false;
+      document.addEventListener('click', onOutside);
+      document.addEventListener('keydown', onEsc);
+    });
+    list.addEventListener('click', e => { if (e.target.closest('button')) close(); });
+  }
+
+  global.SaasPrint = { buildPrintHTML, openPrintWindow, downloadPDF, pdfBase64, downloadExcel, bindDownloadMenu };
 })(window);

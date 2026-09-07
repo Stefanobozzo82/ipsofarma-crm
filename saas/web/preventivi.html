@@ -35,7 +35,13 @@
          preventivo nuovo non ancora salvato. -->
     <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px">
       <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
-      <button type="button" class="ghost" id="f-btn-pdf">⬇ Scarica PDF</button>
+      <div class="dl-menu">
+        <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
+        <div class="dl-list" id="f-download-list" hidden>
+          <button type="button" id="f-dl-pdf">📄 PDF</button>
+          <button type="button" id="f-dl-excel">📊 Excel</button>
+        </div>
+      </div>
     </div>
     <label for="f-cliente">Cliente</label>
     <select id="f-cliente"></select>
@@ -438,14 +444,27 @@
     if(!editingPreventivo) return;
     window.SaasPrint.openPrintWindow('preventivi', editingPreventivo, clientiById[editingPreventivo.clienteId], company);
   });
-  $('f-btn-pdf').addEventListener('click', async () => {
+  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
+  $('f-dl-pdf').addEventListener('click', async () => {
     if(!editingPreventivo) return;
-    const btn = $('f-btn-pdf');
+    const btn = $('f-dl-pdf');
     btn.disabled = true;
     try{
       await window.SaasPrint.downloadPDF('preventivi', editingPreventivo, clientiById[editingPreventivo.clienteId], company);
     }catch(err){
       alert('Errore durante la generazione del PDF: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('f-dl-excel').addEventListener('click', async () => {
+    if(!editingPreventivo) return;
+    const btn = $('f-dl-excel');
+    btn.disabled = true;
+    try{
+      await window.SaasPrint.downloadExcel('preventivi', editingPreventivo, clientiById[editingPreventivo.clienteId], company);
+    }catch(err){
+      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
     }finally{
       btn.disabled = false;
     }

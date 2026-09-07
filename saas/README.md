@@ -4878,6 +4878,45 @@ PAGINA), la tabella scorre nel proprio riquadro rivelando tutte le
 colonne, e sotto `@media print` (emulato) `overflow-x` del contenitore
 torna `visible` come atteso — nessun taglio nella stampa reale.
 
+## Controllo del pulsante "Excel" — trovato e corretto un messaggio d'errore sbagliato
+
+**Richiesta:** "controlla che funziona bene anche il pulsante excel" —
+terzo e ultimo controllo della serie sul menu "⬇ Scarica".
+
+**Come funziona:** `downloadExcel()` (`app/print.js`) carica SheetJS da
+CDN al primo uso (stessa libreria già usata in report.html), costruisce
+un foglio con poche righe di intestazione (numero/data/controparte) più
+la stessa tabella righe della stampa/PDF (Lotto/Scadenza/Sconto solo se
+il documento li usa davvero), e lo salva con `XLSX.writeFile()`.
+
+**Verifica:** in questo ambiente Chromium non raggiunge il vero CDN
+(limite noto della sandbox, non del codice — confermato con lo stesso
+errore di rete anche per jsPDF), quindi non è stato possibile
+scaricare davvero un file .xlsx da qui. Verificata però tutta la
+logica che genera il contenuto, simulando SheetJS (le chiamate
+`aoa_to_sheet`/`writeFile` registrate invece di generare un file
+vero) su tre casi diversi: fattura cliente (con lotto/scadenza/sconto),
+DDT (nessuna colonna prezzo/IVA/totali, come in stampa) e ordine
+fornitore (etichetta "Fornitore" invece di "Cliente") — intestazioni,
+righe, totali e nome file (niente "/" residuo) sempre corretti.
+
+**Trovato un bug reale, non specifico di Excel ma scoperto testando
+proprio questo caso**: se il caricamento di uno script da CDN fallisce
+(rete assente o instabile — più probabile su mobile), il messaggio
+d'errore mostrato all'utente era SEMPRE "Impossibile caricare il
+generatore PDF", anche quando a fallire era il modulo Excel (la
+funzione di caricamento script è condivisa da jsPDF/html2canvas/XLSX,
+ma il messaggio d'errore era scritto fisso per il solo caso PDF).
+Corretto: `loadScript()` prende ora un'etichetta di cosa si sta
+caricando, così un errore di rete su Excel dice correttamente
+"Impossibile caricare il modulo Excel".
+
+**Verificato:** sintassi di `app/print.js` e degli 8 file che lo usano;
+con Playwright — la simulazione della libreria conferma la logica di
+costruzione del foglio corretta sui tre casi sopra; provocato un errore
+di rete reale (CDN irraggiungibile) e confermato che il messaggio ora
+nomina correttamente "il modulo Excel" invece di "il generatore PDF".
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -132,6 +132,78 @@
         "totale": 129.4176
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-08T08:36:51.249Z",
+      "msgId": "1a07ffcc55a5cec9",
+      "file": "5718111733.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111733",
+        "date": "2026-09-07",
+        "order_ref": "Rif.cliente Vs.ord. 206",
+        "lines": [
+          {
+            "cod": "4269110S-01",
+            "descr": "VASOFIX SAFETY PUR 20G 33MM",
+            "qty": 2,
+            "prezzo": 130,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F09G8A04",
+            "scad": "2031-06-01"
+          }
+        ],
+        "totale": 317.2
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-08T08:36:51.250Z",
+      "msgId": "1a07ffc9dc917e43",
+      "file": "5718111732.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111732",
+        "date": "2026-09-07",
+        "order_ref": "Rif.cliente Vs.ord. 204",
+        "lines": [
+          {
+            "cod": "C0068553N1",
+            "descr": "NOVOSYN VIOLA 1 (4) 90CM HR37",
+            "qty": 10,
+            "prezzo": 69.84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3626T7",
+            "scad": "2031-06-26"
+          },
+          {
+            "cod": "C0935220",
+            "descr": "DAFILON BLU 4/0 (1.5) 90CM DS1",
+            "qty": 4,
+            "prezzo": 36.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626235",
+            "scad": "2031-06-05"
+          }
+        ],
+        "totale": 1031.2416
+      },
+      "src": "Gmail"
     }
   ]
 }

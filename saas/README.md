@@ -5090,6 +5090,51 @@ avviso che l'azione non avrebbe niente da fare.
 (il pulsante nel form e quello nell'elenco) chiamano la stessa
 `generaDDT()`, quindi il fix li copre entrambi.
 
+## DDT: "Genera fattura" sotto il titolo; fix lotto/scadenza mai riportati
+
+**Richiesta:** "NEL DDT VOGLIO IL PULSANTE GENERA FATTURA IN ALTO SOTTO
+LA SCRITTA MODIFICA COME ABBIAMO FATTO IN PRECEDENZA E POI HO NOTATO
+CHE SIA NEL DDT CHE NELLA FATTURA NON HA RIPORTATO IL LOTTO E LA
+SCADENZA" — due richieste distinte.
+
+**1) Riposizionamento pulsante**, stesso trattamento già fatto su
+`ordini.html`: "→ Genera fattura" ora sta subito sotto il titolo
+("Modifica DDT/..."), a sinistra, con "🖨 Stampa"/"⬇ Scarica" sulla
+stessa riga a destra — al posto della disposizione precedente (Stampa/
+Scarica in alto, Genera fattura più in basso dopo i campi cliente/
+ordine). Stesso motivo per due `<div>` distinti (si nascondono
+indipendentemente: un DDT nuovo non ha ancora né l'uno né l'altro).
+
+**2) Trovato un bug reale**: lotto e scadenza di una riga non venivano
+MAI riportati generando un DDT dal residuo di un ordine (e quindi
+nemmeno nella fattura generata da quel DDT, che li eredita a sua
+volta) — anche quando l'ordine fornitore corrispondente era stato
+regolarmente fatturato con lotto/scadenza compilati. Causa:
+`righeConLotti()` (`app/cascade.js`) confrontava `ordine.ofIds` (una
+lista di NUMERI ordine fornitore, es. "OF/2026/0176") direttamente
+contro `fatturaFornitore.ofId` — che però vale l'ID INTERNO
+dell'ordine fornitore (un uuid, non il suo numero — vedi
+`fatture-fornitore.html`, il menu a tendina usa `<option value=of.id>`,
+non `of.num`). Un confronto tra un numero e un id non trova mai nulla:
+la funzione restituiva sempre righe senza lotto/scadenza,
+silenziosamente, qualunque fosse la situazione reale.
+
+**Fix:** prima si risalgono i VERI ordini fornitore collegati
+(cercandoli per numero, come già faceva il codice), poi si confrontano
+i LORO id con quello di ciascuna fattura fornitore — non più un
+confronto diretto numero-contro-id.
+
+**Verificato:** sintassi di `ddt.html`/`app/cascade.js`; con
+Playwright — screenshot desktop e mobile del nuovo posizionamento
+(uguale in forma a quello di ordini.html). Bug riprodotto e corretto
+con dati REALI presi da Supabase (l'ordine OC/2026/0176 di questa
+stessa azienda, collegato a OF/2026/0176 e alla fattura fornitore
+5718102257, che ha davvero lotto/scadenza compilati): col codice
+precedente `righeConLotti()` non trovava alcuna fattura fornitore (0
+risultati); con la correzione restituisce lotto e scadenza corretti
+per tutte e tre le righe dell'ordine, identici a quelli registrati
+sulla fattura fornitore reale.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

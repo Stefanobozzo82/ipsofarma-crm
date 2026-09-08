@@ -122,8 +122,18 @@
       store.loadCollection('ordiniFornitore', companyId),
       store.loadCollection('fattureFornitore', companyId),
     ]);
-    const ofSet = new Set(tuttiOF.filter(of => ofNums.includes(of.num)).map(of => of.num));
-    const ftf = tutteFtf.filter(f => f.ofId && ofSet.has(f.ofId)).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    // ordine.ofIds è una lista di NUMERI ordine fornitore (of.num — vedi
+    // generaOrdiniFornitore() più sotto: "ofIds: newOfIds" costruito da
+    // "created.map(x => x.num)"), ma il campo che una fattura fornitore usa
+    // per dire a quale ordine si riferisce è ofId, e vale l'ID INTERNO
+    // dell'ordine fornitore (of.id — vedi fatture-fornitore.html,
+    // "<option value=${o.id}>", non il suo numero): confrontarli
+    // direttamente (ofSet di NUMERI contro un ID) non trovava mai nulla,
+    // quindi lotto/scadenza restavano sempre vuoti. Prima si risale ai
+    // veri ordini fornitore collegati (per numero), poi si confrontano i
+    // LORO id con quello di ciascuna fattura fornitore.
+    const ofIdSet = new Set(tuttiOF.filter(of => ofNums.includes(of.num)).map(of => of.id));
+    const ftf = tutteFtf.filter(f => f.ofId && ofIdSet.has(f.ofId)).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
     const lottiPerCod = {};
     ftf.forEach(f => (f.righe || []).forEach(r => {
       if (!r.lotto && !r.scad) return; // niente da tracciare per questa riga

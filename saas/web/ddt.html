@@ -29,16 +29,28 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo DDT</h3>
-    <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
-         la riga) — vedi lo stesso commento in ordini.html. Nascosto per un
-         DDT nuovo non ancora salvato. -->
-    <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px;justify-content:flex-end">
-      <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
-      <div class="dl-menu">
-        <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
-        <div class="dl-list" id="f-download-list" hidden>
-          <button type="button" id="f-dl-pdf">📄 PDF</button>
-          <button type="button" id="f-dl-excel">📊 Excel</button>
+    <!-- Riga sotto il titolo: "Genera fattura" a sinistra, Stampa/Scarica
+         a destra sulla stessa riga — stesso trattamento già fatto in
+         ordini.html (richiesta reale: "voglio il pulsante genera fattura
+         in alto sotto la scritta modifica come abbiamo fatto in
+         precedenza"). Due <div> a sé perché si nascondono
+         indipendentemente (un DDT nuovo non ha ancora né l'uno né
+         l'altro). -->
+    <div class="form-actions" id="ddt-toolbar" style="justify-content:space-between;flex-wrap:wrap;margin:0 0 14px">
+      <div class="form-actions" id="ddt-cascade-actions" hidden style="margin:0">
+        <button type="button" class="primary" id="ddt-btn-ft">→ Genera fattura</button>
+      </div>
+      <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
+           la riga) — vedi lo stesso commento in ordini.html. Nascosto per un
+           DDT nuovo non ancora salvato. -->
+      <div class="form-actions" id="f-print-actions" hidden style="margin:0">
+        <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
+        <div class="dl-menu">
+          <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
+          <div class="dl-list" id="f-download-list" hidden>
+            <button type="button" id="f-dl-pdf">📄 PDF</button>
+            <button type="button" id="f-dl-excel">📊 Excel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -51,9 +63,6 @@
     <label for="f-ordine">Ordine collegato</label>
     <select id="f-ordine"><option value="">— nessuno —</option></select>
     <div id="f-dest-wrap"><label for="f-dest">Destinazione di consegna</label><select id="f-dest"></select></div>
-    <div class="form-actions" id="ddt-cascade-actions" hidden style="margin:0 0 14px">
-      <button type="button" class="primary" id="ddt-btn-ft">→ Genera fattura</button>
-    </div>
 
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>

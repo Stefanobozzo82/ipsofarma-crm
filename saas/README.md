@@ -5021,6 +5021,33 @@ ambiente un emulatore/dispositivo Android per un collaudo a schermo:
 verificato che il codice nativo sia corretto e compili, non il
 comportamento a video.
 
+## Ordini cliente: "Genera DDT"/"Genera ordine fornitore" spostati sotto il titolo
+
+**Richiesta:** "voglio che i pulsanti genera ddt e genera fatture
+fornitori siano posizionati sotto la scritta modifica oc/2026 al posto
+dei pulsanti stampa e esporta e i pulsanti stampa ed esporta siano
+spostati a destra" — solo `ordini.html` (unico modulo con questi due
+pulsanti di cascata dentro il form).
+
+**Fix:** i due gruppi di pulsanti ("→ Genera DDT"/"→ Genera ordine
+fornitore" e "🖨 Stampa"/"⬇ Scarica") condividono ora la stessa riga,
+subito sotto il titolo del form ("Modifica OC/2026/..."): cascata a
+sinistra, stampa/scarica allineati a destra
+(`justify-content:space-between` sul contenitore che li racchiude
+entrambi). Restano due `<div>` distinti — non un solo blocco — perché
+si nascondono indipendentemente l'uno dall'altro (un ordine nuovo non
+ha ancora né documenti collegati da generare né nulla da stampare);
+`flex-wrap:wrap` sul contenitore così su un telefono stretto, se non
+stanno affiancati, i due gruppi vanno semplicemente a capo invece di
+sforare lo schermo. Nessuna modifica alla logica che li mostra/nasconde
+(`refreshCascadeActions()`, `openForm()`): agganciata agli stessi ID,
+indifferente a dove vivono nell'HTML.
+
+**Verificato:** sintassi di `ordini.html`; con Playwright — screenshot
+a schermo desktop (1200px, disposizione fianco a fianco come richiesto)
+e mobile stretto (375px, i due gruppi vanno a capo restando leggibili,
+nessuno sconfinamento).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

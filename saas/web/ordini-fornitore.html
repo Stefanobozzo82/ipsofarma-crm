@@ -24,16 +24,33 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo ordine</h3>
-    <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
-         la riga) — vedi lo stesso commento in ordini.html. Nascosto per un
-         ordine nuovo non ancora salvato. -->
-    <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px;justify-content:flex-end">
-      <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
-      <div class="dl-menu">
-        <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
-        <div class="dl-list" id="f-download-list" hidden>
-          <button type="button" id="f-dl-pdf">📄 PDF</button>
-          <button type="button" id="f-dl-excel">📊 Excel</button>
+    <!-- Stesso schema di ordini.html: due gruppi indipendenti sulla stessa
+         riga, cascata a sinistra e Stampa/Scarica a destra. Qui la cascata
+         ha un solo bottone ("Segna evaso") perché non esiste un vero
+         bottone "Genera fattura fornitore" nel form (quel passo parte da
+         fatture-fornitore.html, non da qui) — richiesta reale: "anche per
+         ordini fornitori mi serve un pulsante per mettere evaso". -->
+    <div class="form-actions" id="of-toolbar" style="justify-content:space-between;flex-wrap:wrap;margin:0 0 14px">
+      <div class="form-actions" id="of-cascade-actions" hidden style="margin:0">
+        <!-- Per un ordine fornitore che non corrisponde a un vero
+             ricevimento da fatturare — stesso identico bisogno già risolto
+             in ordini.html per gli ordini cliente verso il proprio
+             magazzino, vedi il commento di applicaEvasioneManuale() in
+             app/cascade.js. Nascosto quando l'ordine è già ricevuto per
+             intero (niente da chiudere), vedi refreshCascadeActionsOF(). -->
+        <button type="button" class="ghost" id="of-btn-chiudi">✓ Segna evaso (senza fattura)</button>
+      </div>
+      <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
+           la riga) — vedi lo stesso commento in ordini.html. Nascosto per un
+           ordine nuovo non ancora salvato. -->
+      <div class="form-actions" id="f-print-actions" hidden style="margin:0">
+        <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
+        <div class="dl-menu">
+          <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
+          <div class="dl-list" id="f-download-list" hidden>
+            <button type="button" id="f-dl-pdf">📄 PDF</button>
+            <button type="button" id="f-dl-excel">📊 Excel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -406,10 +423,36 @@
     (ordine ? ordine.righe : [null]).forEach(addRigaRow);
     renderLineage(ordine);
     $('f-print-actions').hidden = !ordine;
+    refreshCascadeActionsOF(ordine);
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
   }
+  // Bottone "Segna evaso (senza fattura)" — stesso schema di
+  // refreshCascadeActions()/oc-btn-chiudi in ordini.html, qui con un solo
+  // bottone (vedi commento sopra il box HTML).
+  function refreshCascadeActionsOF(o){
+    const box = $('of-cascade-actions');
+    if(!o){ box.hidden = true; return; }
+    box.hidden = false;
+    const received = (o.righe || []).length > 0 && window.SaasCascade.residuoRighe(o).every(r => r.residuo <= 0);
+    $('of-btn-chiudi').hidden = received;
+  }
+  $('of-btn-chiudi').addEventListener('click', async () => {
+    if(!editingOrder) return;
+    if(!confirm(`Segnare l'ordine ${editingOrder.num} come evaso SENZA generare una fattura fornitore?\n\nUsalo solo per ordini che non corrispondono a un vero ricevimento da fatturare — a differenza del normale flusso di ricezione (da fatture-fornitore.html) non resta nessun documento collegato.`)) return;
+    const btn = $('of-btn-chiudi');
+    btn.disabled = true;
+    try{
+      const ordineAgg = window.SaasCascade.applicaEvasioneManuale(editingOrder);
+      await store.saveDoc('ordiniFornitore', ordineAgg, companyId);
+      await openForm(ordineAgg);
+    }catch(err){
+      alert('Errore durante il salvataggio: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
   // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
   // cliccabili con l'intera filiera dell'ordine fornitore, come nel
   // vecchio gestionale.

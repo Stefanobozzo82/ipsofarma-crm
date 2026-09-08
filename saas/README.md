@@ -5048,6 +5048,28 @@ a schermo desktop (1200px, disposizione fianco a fianco come richiesto)
 e mobile stretto (375px, i due gruppi vanno a capo restando leggibili,
 nessuno sconfinamento).
 
+## Stampa/Scarica allineati a destra in tutti gli altri moduli documento
+
+**Richiesta:** "stampa e scarica mettili a destra in tutte le pagine" —
+seguito diretto della richiesta precedente (fatta solo per
+`ordini.html`), estesa a tutti gli altri 7 moduli documento.
+
+**Fix:** aggiunto `justify-content:flex-end` al contenitore
+`#f-print-actions` in `ordini-fornitore.html`, `ddt.html`,
+`fatture-fornitore.html`, `fatture.html`, `note-credito.html`,
+`note-credito-fornitore.html` e `preventivi.html` — "🖨 Stampa" e "⬇
+Scarica" restano nella stessa posizione (subito sotto il titolo del
+form) ma allineati a destra invece che a sinistra. Non toccato nessun
+altro pulsante di questi moduli (es. "→ Genera fattura" in `ddt.html`,
+su una riga separata più sotto): la richiesta riguardava solo
+Stampa/Scarica, non un riordino come quello fatto per ordini.html.
+
+**Verificato:** sintassi dei 7 file modificati; con Playwright —
+screenshot desktop e mobile stretto (375px) su `ddt.html` (l'unico,
+insieme a ordini.html, con un altro pulsante nello stesso form):
+Stampa/Scarica allineati a destra, "Genera fattura" resta al suo posto
+invariato, nessuno sconfinamento su schermo stretto.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

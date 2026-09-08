@@ -49,6 +49,14 @@
       <div class="form-actions" id="oc-cascade-actions" hidden style="margin:0">
         <button type="button" class="primary" id="oc-btn-ddt">→ Genera DDT</button>
         <button type="button" class="primary" id="oc-btn-of">→ Genera ordine fornitore</button>
+        <!-- Per un ordine che non prevede una vera consegna a un cliente
+             esterno (es. un "cliente" usato solo per caricare merce nel
+             proprio magazzino) — richiesta reale: "l'ordine risulta
+             ancora da consegnare perché non posso fare ddt e fattura in
+             quanto la merce per adesso rimane nel mio magazzino". Nascosto
+             quando l'ordine è già evaso (niente da chiudere), vedi
+             refreshCascadeActions(). -->
+        <button type="button" class="ghost" id="oc-btn-chiudi">✓ Segna evaso (senza DDT)</button>
       </div>
       <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
            la riga): richiesta reale — "voglio che le opzioni di stampa o
@@ -384,6 +392,9 @@
     ddtBtn.textContent = shipped ? '✓ Consegnato' : '→ Genera DDT';
     ddtBtn.disabled = shipped;
     ddtBtn.className = shipped ? 'ghost' : 'primary';
+    // Niente da chiudere se è già evaso (via DDT o già con questo stesso
+    // pulsante in precedenza).
+    $('oc-btn-chiudi').hidden = shipped;
 
     const ofBtn = $('oc-btn-of');
     ofBtn.disabled = true; ofBtn.className = 'ghost'; ofBtn.textContent = '…';
@@ -400,6 +411,28 @@
     btn.disabled = true;
     try{ await generaOF(editingOrder); }
     catch(err){ alert('Errore durante la generazione dell\'ordine fornitore: ' + (err.message || err)); btn.disabled = false; }
+  });
+  // "Segna evaso (senza DDT)" — per un ordine che non prevede una vera
+  // consegna a un cliente esterno (es. un "cliente" usato solo per
+  // caricare merce nel proprio magazzino, che quindi non lascerebbe mai
+  // il magazzino con un DDT): a differenza di "Genera DDT" non crea
+  // nessun documento, l'unica traccia è il cambio di stato — da qui la
+  // conferma esplicita, diversa dal resto della cascata (vedi il
+  // commento di applicaEvasioneManuale() in app/cascade.js).
+  $('oc-btn-chiudi').addEventListener('click', async () => {
+    if(!editingOrder) return;
+    if(!confirm(`Segnare l'ordine ${editingOrder.num} come evaso SENZA generare un DDT?\n\nUsalo solo per ordini che non prevedono una vera consegna a un cliente esterno (es. un ordine per caricare merce nel proprio magazzino) — a differenza di "Genera DDT" non resta nessun documento di trasporto collegato.`)) return;
+    const btn = $('oc-btn-chiudi');
+    btn.disabled = true;
+    try{
+      const ordineAgg = window.SaasCascade.applicaEvasioneManuale(editingOrder);
+      await store.saveDoc('ordiniCliente', ordineAgg, companyId);
+      await openForm(ordineAgg);
+    }catch(err){
+      alert('Errore durante il salvataggio: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
   });
 
   // ---- ordinamento colonne: come nel gestionale originale — un clic

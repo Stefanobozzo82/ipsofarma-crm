@@ -5070,6 +5070,26 @@ insieme a ordini.html, con un altro pulsante nello stesso form):
 Stampa/Scarica allineati a destra, "Genera fattura" resta al suo posto
 invariato, nessuno sconfinamento su schermo stretto.
 
+## Tolto il popup di conferma su "Genera DDT"
+
+**Richiesta:** "ho premuto genera ddt e mi è uscito un popup con
+scritto 'Genera un DDT con 1 riga/e (il residuo non ancora consegnato
+dell'ordine OC/2026/0203)? Potrai comunque modificare quantità e lotti
+prima di salvare.' vorrei che questo popup non uscisse".
+
+**Fix:** rimosso il `confirm()` in `generaDDT()` (`ordini.html`) — un
+clic su "→ Genera DDT" (dentro il form) o "📦 DDT" (nell'elenco, dietro
+la spunta) porta ora direttamente a `ddt.html` con le righe già
+precompilate dal residuo, senza la domanda di conferma di mezzo. Resta
+l'unico controllo che blocca l'azione per un motivo reale: se non c'è
+nessun residuo da consegnare, l'alert "Tutto già consegnato per questo
+ordine." compare ancora — quello non è una conferma superflua, è un
+avviso che l'azione non avrebbe niente da fare.
+
+**Verificato:** sintassi di `ordini.html`; entrambi i punti d'ingresso
+(il pulsante nel form e quello nell'elenco) chiamano la stessa
+`generaDDT()`, quindi il fix li copre entrambi.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

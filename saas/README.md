@@ -5184,6 +5184,45 @@ allo stesso modo, essendo tutte basate sullo stesso campo. Con
 Playwright — screenshot desktop e mobile (320px/375px): il terzo
 pulsante va a capo in modo pulito, nessuno sconfinamento.
 
+## Lo stesso, per gli ordini fornitore
+
+**Richiesta:** "anche per ordini fornitori mi serve un pulsante per
+mettere evaso".
+
+**Il problema:** stessa identica situazione della sezione precedente,
+ma sul lato fornitore — un ordine fornitore che non corrisponde a un
+vero ricevimento da fatturare restava per sempre "Da evadere", perché
+l'unico modo di valorizzare `qtyEv` su un ordine fornitore era
+`applicaRicezione()`, sempre legata a una fattura fornitore generata da
+`fatture-fornitore.html`.
+
+**Soluzione:** stesso schema di `ordini.html`, portato su
+`ordini-fornitore.html` — nuovo pulsante "✓ Segna evaso (senza
+fattura)" nel form, sopra il titolo accanto a Stampa/Scarica (qui non
+esisteva già un bottone di cascata nel form, a differenza di
+`ordini.html`: generare una fattura fornitore parte da
+`fatture-fornitore.html`, non da qui). Riusa la STESSA
+`applicaEvasioneManuale()` di `app/cascade.js` senza modifiche — la
+funzione era già generica (righe/qty/qtyEv sono lo stesso schema per
+ordini cliente e fornitore), è bastato aggiornarne il commento.
+Visibile solo quando l'ordine non è già ricevuto per intero; stessa
+conferma esplicita prima di procedere, per lo stesso motivo (nessun
+documento generato da rivedere in caso di errore).
+
+**Non toccato**: `ricevere.html` (l'elenco "Prodotti da ricevere dai
+fornitori") continua a leggere lo stesso `qtyEv` e quindi smette
+correttamente di mostrare le righe di un ordine chiuso così, senza
+bisogno di modifiche.
+
+**Verificato:** sintassi di `ordini-fornitore.html`/`app/cascade.js`;
+con dati di prova in forma di ordine fornitore (fornitoreId invece di
+cliente/destinazione) — `applicaEvasioneManuale()` porta correttamente
+lo stato a "✓ Ricevuto" con `residuoRighe()` a zero su ogni riga, altri
+campi (numero, fornitore) invariati, oggetto originale non mutato. Con
+Playwright — screenshot desktop (1100px) e mobile (375px/320px): il
+nuovo pulsante e Stampa/Scarica restano sulla stessa riga su desktop e
+vanno a capo in modo pulito su mobile, nessuno sconfinamento.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

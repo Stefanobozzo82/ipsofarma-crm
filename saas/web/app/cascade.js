@@ -58,17 +58,20 @@
     return Object.assign({}, ordine, { righe: nuoveRighe, ddtIds, ddtId: ddtNum });
   }
 
-  // Segna un ordine cliente come interamente evaso SENZA passare da un
-  // DDT — richiesta reale: un ordine può avere come "cliente" il proprio
-  // magazzino (carico interno di merce, mai spedita a nessuno): in quel
-  // caso generare un vero DDT non ha senso (non c'è nessuna consegna reale
-  // da documentare), ma l'ordine restava per sempre "da consegnare" perché
-  // l'unico modo di valorizzare qtyEv era applicaConsegna(), sempre legata
-  // a un ddtNum. A differenza sua, qui non c'è nessun documento di
-  // trasporto: niente ddtIds/ddtId aggiornati, l'unica traccia che resta è
-  // qtyEv portato al massimo — usarla per un ordine con una consegna reale
-  // ancora da fare nasconderebbe il problema, non lo risolve. Pura: non
-  // salva.
+  // Segna un ordine (cliente O fornitore — funzione generica, righe/qty/
+  // qtyEv sono lo stesso identico schema nei due casi) come interamente
+  // evaso SENZA passare da un DDT o una fattura fornitore — richiesta
+  // reale: un ordine cliente può avere come "cliente" il proprio magazzino
+  // (carico interno di merce, mai spedita a nessuno), e allo stesso modo un
+  // ordine fornitore può non corrispondere a un vero ricevimento da
+  // fatturare. In entrambi i casi generare un vero documento non ha senso,
+  // ma l'ordine restava per sempre "da evadere" perché l'unico modo di
+  // valorizzare qtyEv era applicaConsegna()/applicaRicezione(), sempre
+  // legate a un documento (DDT o fattura fornitore). A differenza loro, qui
+  // non c'è nessun documento collegato: niente ddtIds/ftIds aggiornati,
+  // l'unica traccia che resta è qtyEv portato al massimo — usarla per un
+  // ordine con una consegna/ricezione reale ancora da fare nasconderebbe il
+  // problema, non lo risolve. Pura: non salva.
   function applicaEvasioneManuale(ordine) {
     const nuoveRighe = (ordine.righe || []).map(r => Object.assign({}, r, { qtyEv: r.qty }));
     return Object.assign({}, ordine, { righe: nuoveRighe });

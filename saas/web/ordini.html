@@ -35,18 +35,34 @@
   <div class="card" id="form-card" hidden>
     <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
     <h3 id="form-title">Nuovo ordine</h3>
-    <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
-         la riga): richiesta reale — "voglio che le opzioni di stampa o
-         scaricare un documento siano nel documento e non se li seleziono
-         con la spunta". Nascosto per un ordine nuovo non ancora salvato
-         (niente da stampare finché non esiste un documento). -->
-    <div class="form-actions" id="f-print-actions" hidden style="margin:0 0 14px">
-      <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
-      <div class="dl-menu">
-        <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
-        <div class="dl-list" id="f-download-list" hidden>
-          <button type="button" id="f-dl-pdf">📄 PDF</button>
-          <button type="button" id="f-dl-excel">📊 Excel</button>
+    <!-- Riga sotto il titolo: "Genera DDT"/"Genera ordine fornitore" a
+         sinistra (l'azione più frequente su un ordine esistente, così è
+         la prima cosa visibile aprendolo — richiesta reale: "voglio che
+         i pulsanti genera ddt e genera fatture fornitori siano
+         posizionati sotto la scritta modifica oc/2026"), Stampa/Scarica
+         spostati a destra sulla stessa riga (restano comunque nel
+         documento, non nell'elenco — vedi il commento più sotto). Ogni
+         gruppo nasconde/mostra sé stesso indipendentemente dall'altro
+         (un ordine nuovo non ha ancora né l'uno né l'altro), per questo
+         restano due <div> a sé anche se ora condividono la riga. -->
+    <div class="form-actions" id="oc-toolbar" style="justify-content:space-between;flex-wrap:wrap;margin:0 0 14px">
+      <div class="form-actions" id="oc-cascade-actions" hidden style="margin:0">
+        <button type="button" class="primary" id="oc-btn-ddt">→ Genera DDT</button>
+        <button type="button" class="primary" id="oc-btn-of">→ Genera ordine fornitore</button>
+      </div>
+      <!-- Stampa/PDF qui, non solo nell'elenco (dove servivano prima spuntare
+           la riga): richiesta reale — "voglio che le opzioni di stampa o
+           scaricare un documento siano nel documento e non se li seleziono
+           con la spunta". Nascosto per un ordine nuovo non ancora salvato
+           (niente da stampare finché non esiste un documento). -->
+      <div class="form-actions" id="f-print-actions" hidden style="margin:0">
+        <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
+        <div class="dl-menu">
+          <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
+          <div class="dl-list" id="f-download-list" hidden>
+            <button type="button" id="f-dl-pdf">📄 PDF</button>
+            <button type="button" id="f-dl-excel">📊 Excel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -56,10 +72,6 @@
     <div class="grid2">
       <div><label for="f-num">Numero ordine</label><input id="f-num" type="text" placeholder="es. OC/2026/0001"></div>
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
-    </div>
-    <div class="form-actions" id="oc-cascade-actions" hidden style="margin:0 0 14px">
-      <button type="button" class="primary" id="oc-btn-ddt">→ Genera DDT</button>
-      <button type="button" class="primary" id="oc-btn-of">→ Genera ordine fornitore</button>
     </div>
 
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>

@@ -327,7 +327,6 @@
   async function generaDDT(o){
     const residuo = window.SaasCascade.residuoRighe(o).filter(r => r.residuo > 0);
     if(!residuo.length){ alert('Tutto già consegnato per questo ordine.'); return; }
-    if(!confirm(`Genera un DDT con ${residuo.length} riga/e (il residuo non ancora consegnato dell'ordine ${o.num})? Potrai comunque modificare quantità e lotti prima di salvare.`)) return;
     localStorage.setItem('saas_gen_ddt_from_oc', o.id);
     location.href = 'ddt.html';
   }

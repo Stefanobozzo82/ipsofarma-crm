@@ -5135,6 +5135,55 @@ risultati); con la correzione restituisce lotto e scadenza corretti
 per tutte e tre le righe dell'ordine, identici a quelli registrati
 sulla fattura fornitore reale.
 
+## Ordini "per il magazzino": un modo di segnarli evasi senza un DDT
+
+**Richiesta:** "alcune volte faccio un ordine non per un cliente ma per
+il magazzino come nel caso dell'ordine 202-2 in questo caso come posso
+segnare che quell'ordine è arrivato?" — poi precisato: "l'ordine
+cliente 202-2, nel quale il cliente era il mio magazzino, risulta
+ancora da consegnare perché non posso fare ddt e fattura in quanto la
+merce per adesso rimane nel mio magazzino".
+
+**Il problema:** un ordine cliente il cui "cliente" è in realtà il
+proprio magazzino (carico interno di merce, mai spedita a un cliente
+vero) non ha una consegna reale da documentare — generare un DDT/
+fattura per un movimento che non è mai uscito dal magazzino non avrebbe
+senso. Ma l'UNICO modo che il sistema aveva per considerare un ordine
+"evaso" era proprio generare un DDT (`applicaConsegna()`, valorizza
+`qtyEv`): senza una consegna reale, l'ordine restava per sempre "Da
+evadere" — con tutte le conseguenze a cascata (compare tra i "Prodotti
+da evadere" in dashboard.html/evadere.html, come se ci fosse davvero
+qualcosa in sospeso).
+
+**Soluzione:** nuovo pulsante "✓ Segna evaso (senza DDT)" nel form di
+`ordini.html`, accanto a "→ Genera DDT"/"→ Genera ordine fornitore" —
+visibile solo quando l'ordine non è già evaso. Porta `qtyEv` al
+massimo su ogni riga (lo stesso effetto pratico di una consegna
+completa, per tutti i calcoli che ne dipendono — dashboard, elenco
+ordini, "Prodotti da evadere"), ma SENZA creare nessun DDT: nuova
+funzione pura `applicaEvasioneManuale()` in `app/cascade.js`, diversa
+da `applicaConsegna()` proprio perché non tocca `ddtIds`/`ddtId` (non
+esiste alcun documento di trasporto da collegare). Per questo motivo
+chiede una conferma esplicita prima di procedere (diversamente dalle
+altre due azioni della stessa riga, che restano senza conferma — vedi
+sopra): qui non resta nessun documento generato da rivedere/eliminare
+in caso di errore, l'unica traccia è il cambio di stato in sé.
+
+**Non toccato**: nessun'altra pagina — l'ordine non genera comunque
+nessuna fattura (non contribuisce mai al fatturato nei report, che si
+basano sulle fatture emesse, non sugli ordini) e la funzione di
+cascata IA (`creaDDTDaResiduo`) continua a ignorarlo correttamente una
+volta evaso (residuo zero su ogni riga, esattamente come già faceva
+per un ordine evaso nel modo normale).
+
+**Verificato:** sintassi di `ordini.html`/`app/cascade.js`; con dati di
+prova — `applicaEvasioneManuale()` porta correttamente lo stato a "✓
+Consegnato" senza toccare `ddtIds`, e le altre pagine che leggono lo
+stesso `qtyEv` (`evadere.html`, `dashboard.html`) lo rifletterebbero
+allo stesso modo, essendo tutte basate sullo stesso campo. Con
+Playwright — screenshot desktop e mobile (320px/375px): il terzo
+pulsante va a capo in modo pulito, nessuno sconfinamento.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

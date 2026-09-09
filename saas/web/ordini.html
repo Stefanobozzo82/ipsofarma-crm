@@ -624,7 +624,19 @@
   function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
 
-  $('add-riga').addEventListener('click', () => addRigaRow(null));
+  // Richiesta reale: "quando inserisco nuove righe vorrei che la pagina
+  // scendesse insieme alle nuove righe" — su un documento già con diverse
+  // righe, quella nuova finiva sotto la piega dello schermo senza che
+  // nulla la portasse in vista. Solo sul click manuale (non dentro
+  // addRigaRow() stessa): un precompilamento in blocco — apertura di un
+  // ordine esistente, import IA — chiama addRigaRow() una volta per riga,
+  // e lì uno scroll ad ogni riga aggiunta sarebbe uno sfarfallio fastidioso
+  // invece di un aiuto; block:'nearest' scrolla il minimo necessario (resta
+  // fermo se la riga è già visibile).
+  $('add-riga').addEventListener('click', () => {
+    addRigaRow(null);
+    $('righe-body').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 
   // ---- form apri/chiudi ---------------------------------------------------
   async function openForm(ordine){

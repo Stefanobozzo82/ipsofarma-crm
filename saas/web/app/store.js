@@ -395,16 +395,31 @@
     if (!opts.companyId) throw new Error('companyId mancante (bug interno: chi chiama aiComplete deve sempre passarlo)');
     const session = await getSession();
     if (!session) throw new Error('devi essere collegato');
+    const body = {
+      model: opts.model || 'gemini-2.5-flash',
+      temperature: opts.temperature != null ? opts.temperature : 0.3,
+      max_tokens: opts.maxTokens || 900,
+      companyId: opts.companyId,
+      messages,
+    };
+    // reasoning_effort: 'none' — SOLO se chi chiama lo chiede esplicitamente
+    // (vedi ai-import.js:extractFromFile). Scoperto con una chiamata reale
+    // riproducendo un import fallito ("risposta dell'AI non interpretabile
+    // come JSON", troncata a metà di una descrizione): questi modelli
+    // "pensano" prima di rispondere, e sull'endpoint compatibile OpenAI di
+    // Gemini quei token di pensiero (invisibili, mai nel testo restituito)
+    // vengono contati DENTRO max_tokens — con un documento di più righe
+    // finivano per consumarne quasi tutto il budget (finish_reason:
+    // "length", completion_tokens reali: 158 su un budget di 4000, il
+    // resto tutto "pensiero"), troncando il JSON a metà. Un'estrazione
+    // strutturata da un allegato non ha bisogno di ragionare, solo di
+    // leggere e formattare: disattivarlo qui non toglie nulla e libera
+    // tutto il budget per l'unica cosa che deve produrre.
+    if (opts.reasoningEffort) body.reasoning_effort = opts.reasoningEffort;
     const res = await fetch(global.SUPABASE_URL + '/functions/v1/ai-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-      body: JSON.stringify({
-        model: opts.model || 'gemini-2.5-flash',
-        temperature: opts.temperature != null ? opts.temperature : 0.3,
-        max_tokens: opts.maxTokens || 900,
-        companyId: opts.companyId,
-        messages,
-      }),
+      body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
     // Un errore di Gemini passato da ai-proxy così com'è può arrivare

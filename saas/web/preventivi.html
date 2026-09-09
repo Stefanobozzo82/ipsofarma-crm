@@ -331,7 +331,12 @@
   function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
   function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
-  $('add-riga').addEventListener('click', () => addRigaRow(null));
+  // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
+  // ordini.html.
+  $('add-riga').addEventListener('click', () => {
+    addRigaRow(null);
+    $('righe-body').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 
   // ---- ordinamento colonne
   function sortCmp(va, vb, dir){

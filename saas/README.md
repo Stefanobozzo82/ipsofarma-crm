@@ -5309,6 +5309,38 @@ dell'ordine tutte presenti e corrette (codici, descrizioni, quantità,
 prezzi tutti confrontati col PDF originale). Sintassi di
 `app/store.js`/`app/ai-import.js` verificata.
 
+## "+ aggiungi riga": la pagina scende insieme alla nuova riga
+
+**Richiesta:** "quando inserisco nuove righe vorrei che la pagina
+scendesse insieme alle nuove righe".
+
+**Il problema:** su un documento con già diverse righe, cliccando "+
+aggiungi riga" quella nuova finiva sotto la piega dello schermo — niente
+la portava in vista da sola, bisognava scorrere a mano per trovarla e
+iniziare a compilarla.
+
+**Soluzione:** al click su "+ aggiungi riga", dopo aver aggiunto la
+riga la pagina scorre da sola fino a portarla in vista
+(`scrollIntoView({behavior:'smooth', block:'nearest'})` — `'nearest'`
+scorre il minimo indispensabile, resta fermo se la riga è già visibile,
+invece di ricentrare sempre la pagina anche quando non serve). Il
+cambiamento è SOLO nel gestore del click, non dentro `addRigaRow()`
+stessa: quella funzione viene chiamata anche in blocco (aprendo un
+documento esistente, un'importazione IA) una riga alla volta in un
+ciclo, dove uno scroll ad ogni singola riga sarebbe stato uno
+sfarfallio fastidioso invece che un aiuto. Stessa modifica in tutti gli
+8 moduli documento che hanno "+ aggiungi riga": `ordini.html`,
+`ordini-fornitore.html`, `ddt.html`, `fatture.html`,
+`fatture-fornitore.html`, `note-credito.html`,
+`note-credito-fornitore.html`, `preventivi.html` — stesso identico
+bottone, stesso identico problema in ognuno.
+
+**Verificato:** sintassi di tutti e 8 i file. Con Playwright, su una
+pagina di prova con lo stesso identico gestore di click: col bottone
+"+ aggiungi riga" già fuori dalla vista (15 righe già presenti, 800×500
+di viewport), un clic porta la nuova riga interamente visibile
+nell'area visibile senza intervento manuale.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

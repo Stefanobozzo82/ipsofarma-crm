@@ -386,7 +386,12 @@
   function scEff(s){ return +(((1 - scFactor(s)) * 100).toFixed(2)); }
   function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
-  $('add-riga').addEventListener('click', () => addRigaRow(null));
+  // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
+  // ordini.html.
+  $('add-riga').addEventListener('click', () => {
+    addRigaRow(null);
+    $('righe-body').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 
   function refreshLinkedOptions(clienteId){
     const ordini = ordiniPerCliente[clienteId] || [];

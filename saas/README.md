@@ -5223,6 +5223,44 @@ Playwright — screenshot desktop (1100px) e mobile (375px/320px): il
 nuovo pulsante e Stampa/Scarica restano sulla stessa riga su desktop e
 vanno a capo in modo pulito su mobile, nessuno sconfinamento.
 
+## "Genera DDT": il pulsante "Genera fattura" ora è subito disponibile
+
+**Richiesta:** "quando premo genera ddt voglio che mi apra direttamente
+il ddt e mi dia la possibilità di premere il pulsante genera fattura
+attualmente apre il ddt ma non c'è il pulsante genera fattura, il
+pulsante compare soltanto se salvo e riapro il documento".
+
+**Il problema:** cliccando "→ Genera DDT" da un ordine, `ddt.html` si
+apriva su una BOZZA non ancora salvata (righe precompilate dal residuo,
+ma modificabili prima di salvare — comportamento voluto, per poter
+correggere quantità/lotti). Il bottone "→ Genera fattura" però compare
+solo `if(ddt)` in `openForm()` — cioè solo per un DDT che esiste già.
+Cliccando "Salva" il DDT veniva creato correttamente, ma il codice
+tornava sempre all'elenco (`closeForm()`); per vedere il bottone
+bisognava poi ritrovare a mano quello stesso DDT nell'elenco e riaprirlo
+— esattamente il doppio passaggio lamentato.
+
+**Soluzione:** in `ddt.html`, il gestore di "Salva" ora distingue due
+casi. Un DDT NUOVO appena creato riapre se stesso nel form
+(`openForm(saved)`, con l'oggetto appena tornato da `store.saveDoc()` —
+già con `id`/`num` assegnati) invece di tornare all'elenco: il bottone
+"→ Genera fattura" compare subito, senza uscire dalla pagina. Un DDT già
+esistente in modifica torna invece all'elenco come sempre (nessun
+comportamento nuovo da mostrare in quel caso). L'elenco viene comunque
+aggiornato in background (`renderList()`) prima di riaprire il form, così
+il DDT appena creato risulta già presente se poi si torna indietro.
+
+**Non toccato**: la revisione manuale prima di salvare resta intatta —
+cambia solo cosa succede DOPO aver premuto "Salva", non prima. Il
+percorso "headless" dell'assistente IA (`creaDDTDaResiduo()` in
+`app/cascade.js`, che salva e collega tutto in un solo passo, senza
+passare da `ddt.html`) non è toccato.
+
+**Verificato:** sintassi di `ddt.html`; lettura del codice riga per riga
+per tracciare i due percorsi (DDT nuovo vs DDT in modifica) e confermare
+che `openForm(saved)` riceve un oggetto completo (id, num, righe, ftId
+assente) capace di mostrare correttamente "→ Genera fattura" abilitato.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

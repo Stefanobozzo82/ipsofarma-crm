@@ -611,11 +611,23 @@
           if(ordine){
             const ordineAgg = window.SaasCascade.applicaConsegna(ordine, righe, saved.num);
             await store.saveDoc('ordiniCliente', ordineAgg, companyId);
+            allOrdiniById[ocId] = ordineAgg;
           }
         }catch(e){ /* il DDT è comunque salvato */ }
       }
-      closeForm();
+      // Un DDT appena creato resta aperto (invece di tornare all'elenco)
+      // — richiesta reale: "quando premo genera ddt voglio che mi apra
+      // direttamente il ddt e mi dia la possibilità di premere il pulsante
+      // genera fattura [...] il pulsante compare soltanto se salvo e
+      // riapro il documento". Senza questo, "→ Genera fattura" restava
+      // nascosto finché non si tornava all'elenco e si riapriva a mano lo
+      // stesso DDT appena salvato (openForm() lo mostra solo per un DDT
+      // che esiste già, vedi sopra). Un DDT già esistente (in modifica)
+      // torna invece all'elenco come sempre: qui non c'è nulla di nuovo da
+      // mostrare.
       await renderList();
+      if(isNew) await openForm(saved);
+      else closeForm();
     }catch(err){
       const dup = err && err.code === '23505';
       setMsg(dup ? 'Esiste già un DDT con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');

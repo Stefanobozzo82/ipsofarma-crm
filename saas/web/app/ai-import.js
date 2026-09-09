@@ -105,7 +105,22 @@
     const reply = await store.aiComplete([
       { role: 'system', content: opts.systemPrompt || "Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick." },
       { role: 'user', content },
-    ], { maxTokens: opts.maxTokens || 4000, model: opts.model || 'gemini-3.5-flash', companyId: opts.companyId });
+    ], {
+      // maxTokens alzato da 4000 a 8000: un margine per documenti con più
+      // righe (un ordine reale visto in produzione ne aveva 13, con
+      // descrizioni lunghe). reasoningEffort:'none' è il fix vero, però —
+      // verificato con una chiamata reale riproducendo l'errore segnalato
+      // ("risposta dell'AI non interpretabile come JSON", JSON troncato a
+      // metà di una descrizione): SENZA, il modello spende quasi tutto
+      // max_tokens in "pensiero" invisibile prima di scrivere la risposta
+      // (finish_reason "length" con appena 158 token di JSON reale su
+      // 4000 concessi); un'estrazione da un allegato deve solo leggere e
+      // formattare, non ragionare — disattivarlo restituisce l'intero
+      // documento (stessa identica chiamata, stesso identico allegato,
+      // JSON completo e valido).
+      maxTokens: opts.maxTokens || 8000, reasoningEffort: opts.reasoningEffort || 'none',
+      model: opts.model || 'gemini-3.5-flash', companyId: opts.companyId,
+    });
     return parseAiJson(reply);
   }
 

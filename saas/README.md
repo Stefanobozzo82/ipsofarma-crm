@@ -5261,6 +5261,54 @@ per tracciare i due percorsi (DDT nuovo vs DDT in modifica) e confermare
 che `openForm(saved)` riceve un oggetto completo (id, num, righe, ftId
 assente) capace di mostrare correttamente "→ Genera fattura" abilitato.
 
+## Import da PDF: JSON troncato a metà su documenti con più righe
+
+**Segnalazione:** un ordine cliente reale (13 righe, CA.GI. S.p.A.) dava
+"Lettura non riuscita: risposta dell'AI non interpretabile come JSON —
+ricevuto: { ... (JSON troncato a metà di una descrizione) ...".
+
+**Causa reale, trovata riproducendo l'errore con una chiamata IA vera
+(stesso testo del documento, stessi parametri usati da
+`extractFromFile()`):** `gemini-3.5-flash` (il modello usato per leggere
+un allegato, in `app/ai-import.js`) "pensa" prima di rispondere, e
+sull'endpoint compatibile OpenAI di Gemini quei token di pensiero —
+mai visibili nel testo restituito — vengono contati DENTRO il tetto
+`max_tokens` della richiesta. Su un documento con poche righe passava
+inosservato; su questo (13 righe, descrizioni lunghe) il "pensiero" ha
+consumato quasi tutto il budget di 4000 token concessi
+(`finish_reason: "length"`, appena 158 token di JSON REALE prodotti),
+troncando la risposta a metà — da cui il JSON incompleto che
+`parseAiJson()` non riusciva a interpretare, giustamente.
+
+**Soluzione:** nuovo parametro `reasoning_effort: 'none'` nella
+richiesta a Gemini — aggiunto come opzione a `store.aiComplete()`
+(`opts.reasoningEffort`, inoltrato così com'è a Gemini da `ai-proxy`,
+che già passa il corpo della richiesta senza toccarlo) e attivato di
+default in `extractFromFile()`: un'estrazione strutturata da un
+allegato deve solo leggere e formattare, non ragionare, quindi
+disattivarlo non toglie nulla e libera l'intero budget per l'unica cosa
+che deve produrre. Alzato anche `maxTokens` da 4000 a 8000 in
+`extractFromFile()`, come margine per documenti ancora più lunghi di
+questo. Essendo dentro `extractFromFile()` (non in un singolo modulo),
+il fix vale per tutti e quattro i punti che lo usano: import ordini
+cliente, ordini fornitore, fatture fornitore, note di credito
+fornitore.
+
+**Non toccato**: il modello della chat (`assistente-ai.html`,
+`gemini-2.5-flash`) resta con `reasoning_effort` di default — lì
+capita di dover ragionare su una domanda ("quanto ho incassato questo
+mese"), a differenza di una lettura strutturata di un allegato.
+
+**Verificato con una chiamata reale** all'edge function `ai-proxy`
+(stesso testo del documento CA.GI., stesso modello, stessa istruzione
+usata da `ordini.html`): PRIMA del fix, `max_tokens:4000` senza
+`reasoning_effort` → `finish_reason:"length"`, JSON troncato,
+identico all'errore segnalato. DOPO (`max_tokens:8000`,
+`reasoning_effort:'none'`) → `finish_reason:"stop"`, le 13 righe
+dell'ordine tutte presenti e corrette (codici, descrizioni, quantità,
+prezzi tutti confrontati col PDF originale). Sintassi di
+`app/store.js`/`app/ai-import.js` verificata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

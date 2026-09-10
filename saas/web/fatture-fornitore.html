@@ -617,15 +617,38 @@
       if(match) ordineLink = findOrdineByRiferimento(ordiniPerFornitore[match.id], p.riferimentoOrdine);
       if(ordineLink){ $('f-ordine').value = ordineLink.id; refreshCmpOrdine(); }
 
-      aiImportStatus(
-        (match
-          ? `Letto dal ${fonte}: fornitore riconosciuto come "${match.nome}".`
-          : `Letto dal ${fonte}, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`)
-        + (ordineLink ? ` Collegato automaticamente all'ordine ${esc(ordineLink.num)} (rif. "${esc(p.riferimentoOrdine)}" in fattura).`
-          : (match && p.riferimentoOrdine ? ` Riferimento "${esc(p.riferimentoOrdine)}" in fattura, ma nessun ordine di questo fornitore corrisponde con certezza: collegalo a mano se serve.` : ''))
-        + (daVerificare ? ` ${daVerificare} riga/e non trovate a catalogo, da controllare.` : ' Righe verificate col catalogo.'),
-        match && !daVerificare ? 'ok' : (match ? 'info' : 'error')
-      );
+      // Richiesta reale: "dopo che importo una fattura esce un avviso [...]
+      // voglio che non deve uscire niente" — riferito esattamente a questo
+      // messaggio quando l'import è andato bene su tutta la linea (fornitore
+      // riconosciuto, ordine collegato o non pertinente, righe a catalogo):
+      // a quel punto l'utente ha già rivisto tutto a mano nel form appena
+      // aperto (le stesse informazioni sono già lì, nei menu Fornitore/
+      // Ordine collegato), quindi il messaggio non gli diceva niente di
+      // nuovo — restava solo lì ad attenderlo al ritorno all'elenco (questo
+      // paragrafo vive dentro #list-card, nascosto finché il form è aperto:
+      // ecco perché sembrava comparire "dopo", non subito). Un problema
+      // REALE da controllare continua invece a essere segnalato — lì
+      // l'avviso serve davvero, non è rumore: fornitore non riconosciuto,
+      // righe non a catalogo, O un riferimento d'ordine c'era in fattura ma
+      // non si è riusciti a collegarlo con certezza (ambiguo o non
+      // trovato) — quest'ultimo caso non era già "ok" per caso: senza
+      // questo controllo esplicito sarebbe finito silenziato pure lui,
+      // nascondendo un caso in cui invece serve intervenire a mano.
+      const ordineDaVerificare = !!(match && p.riferimentoOrdine && !ordineLink);
+      const kind = !match ? 'error' : (daVerificare || ordineDaVerificare ? 'info' : 'ok');
+      if(kind !== 'ok'){
+        aiImportStatus(
+          (match
+            ? `Letto dal ${fonte}: fornitore riconosciuto come "${match.nome}".`
+            : `Letto dal ${fonte}, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`)
+          + (ordineLink ? ` Collegato automaticamente all'ordine ${esc(ordineLink.num)} (rif. "${esc(p.riferimentoOrdine)}" in fattura).`
+            : (match && p.riferimentoOrdine ? ` Riferimento "${esc(p.riferimentoOrdine)}" in fattura, ma nessun ordine di questo fornitore corrisponde con certezza: collegalo a mano se serve.` : ''))
+          + (daVerificare ? ` ${daVerificare} riga/e non trovate a catalogo, da controllare.` : ''),
+          kind
+        );
+      }else{
+        aiImportStatus('', '');
+      }
     }catch(err){
       aiImportStatus('Lettura non riuscita: ' + (err.message || err), 'error');
     }

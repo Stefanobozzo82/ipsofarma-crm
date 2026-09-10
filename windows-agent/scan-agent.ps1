@@ -22,12 +22,38 @@ non per una singola installazione su misura.
 ---- INSTALLAZIONE (una tantum) ----
 1. Copia questo file in una cartella stabile del PC, es.
    C:\IpsofarmaScanAgent\scan-agent.ps1
-2. Prova ad avviarlo manualmente: tasto destro sul file -> "Esegui con
-   PowerShell". Deve apparire una finestra nera con scritto "Agente di
-   scansione avviato...". Lasciala aperta, vai sul gestionale (es. "DDT
-   fornitore" -> Importa) e premi "🖨 Scansiona da PC": deve aprirsi la
-   finestra di scansione di Windows.
-3. Per farlo partire sempre, senza dover riaprire la finestra a mano, usa
+2. Sblocca il file PRIMA di avviarlo: essendo scaricato da internet,
+   Windows lo marca come potenzialmente pericoloso (succede a QUALUNQUE
+   script scaricato, non è un problema di questo file) e altrimenti
+   rifiuta di eseguirlo o mostra un avviso SmartScreen. Tasto destro sul
+   file -> Proprietà -> in basso, spunta la casella "Sblocca" -> OK. Se
+   nonostante lo sblocco compare comunque una schermata blu SmartScreen,
+   clicca "Ulteriori informazioni" e poi "Esegui comunque".
+3. Avvia l'agente: tasto destro sul file -> "Esegui con PowerShell". Deve
+   apparire una finestra nera con scritto "Agente di scansione
+   avviato...". Se invece la finestra si apre e si richiude subito (o
+   mostra un errore tipo "script disabilitato" / "non è possibile
+   caricare perché l'esecuzione di script è disabilitata"), avviala così
+   invece: apri PowerShell, poi incolla (adattando il percorso se
+   diverso):
+     powershell -ExecutionPolicy Bypass -File "C:\IpsofarmaScanAgent\scan-agent.ps1"
+   Lasciala aperta, vai sul gestionale (es. "DDT fornitore" -> Importa) e
+   premi "🖨 Scansiona da PC": deve aprirsi la finestra di scansione di
+   Windows.
+4. Se il gestionale continua a dire "Programma di scansione non trovato"
+   anche con la finestra nera aperta e senza errori: (a) apri sullo
+   STESSO PC, nello stesso browser, l'indirizzo
+   http://localhost:18245/ping — deve mostrare la scritta "ok"; se non
+   si apre, l'agente non è davvero in ascolto (torna al punto 3); (b) se
+   invece "ok" si vede ma il gestionale non lo trova lo stesso, controlla
+   che non sia comparso un avviso del Firewall di Windows ("Windows
+   Firewall ha bloccato alcune funzionalità di questa app") e clicca
+   "Consenti l'accesso"; (c) assicurati di avere questa versione
+   aggiornata del file — le versioni dell'agente precedenti a questa
+   nota non rispondevano ancora al controllo "Private Network Access"
+   che i browser più recenti richiedono per contattare un programma
+   locale da una pagina HTTPS come il gestionale.
+5. Per farlo partire sempre, senza dover riaprire la finestra a mano, usa
    l'Utilità di pianificazione di Windows ("Task Scheduler") — stessa
    identica procedura descritta in print-agent.ps1 nella stessa cartella,
    sostituendo il nome dell'attività (es. "Ipsofarma Scan Agent") e il
@@ -62,7 +88,16 @@ function Write-Log($msg) { Write-Host "$(Get-Date -Format 'HH:mm:ss') - $msg" }
 function Send-Response($response, [int]$statusCode, [byte[]]$bytes, [string]$contentType, [string]$origin) {
     $response.StatusCode = $statusCode
     $response.ContentType = $contentType
-    if ($origin -eq $ALLOWED_ORIGIN) { $response.Headers.Add("Access-Control-Allow-Origin", $ALLOWED_ORIGIN) }
+    if ($origin -eq $ALLOWED_ORIGIN) {
+        $response.Headers.Add("Access-Control-Allow-Origin", $ALLOWED_ORIGIN)
+        # Richiesto da Chrome/Edge (Private Network Access) sulle risposte
+        # verso una pagina HTTPS che contatta un indirizzo locale come
+        # questo — senza questo header il browser scarta la risposta e il
+        # gestionale vede l'agente come "non trovato" anche se qui è
+        # acceso e ha risposto correttamente. Vedi anche la gestione di
+        # OPTIONS più sotto, dove serve allo stesso scopo sul preflight.
+        $response.Headers.Add("Access-Control-Allow-Private-Network", "true")
+    }
     if ($bytes -and $bytes.Length -gt 0) { $response.OutputStream.Write($bytes, 0, $bytes.Length) }
     $response.OutputStream.Close()
 }
@@ -103,6 +138,27 @@ while ($listener.IsListening) {
     $path = $request.Url.AbsolutePath
 
     try {
+        if ($request.HttpMethod -eq "OPTIONS") {
+            # "Preflight" che il browser manda PRIMA della vera richiesta
+            # quando una pagina HTTPS (il gestionale) contatta un
+            # indirizzo locale come questo (Private Network Access, in
+            # Chrome/Edge). Se non risponde con questi header esatti, il
+            # browser blocca la richiesta vera senza nemmeno avvisare
+            # l'agente: il gestionale dice "programma non trovato" anche
+            # se qui è acceso e funzionante — non è un errore da correggere
+            # sul PC del cliente, va gestito qui una volta per tutte.
+            if ($origin -eq $ALLOWED_ORIGIN) {
+                $response.Headers.Add("Access-Control-Allow-Origin", $ALLOWED_ORIGIN)
+                $response.Headers.Add("Access-Control-Allow-Private-Network", "true")
+                $response.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS")
+                $response.Headers.Add("Access-Control-Allow-Headers", "*")
+                $response.StatusCode = 204
+            } else {
+                $response.StatusCode = 403
+            }
+            $response.OutputStream.Close()
+            continue
+        }
         if ($path -eq "/ping") {
             # Controllo rapido di "c'è l'agente?" dal gestionale, prima di
             # avviare una vera scansione — vedi app/scan-import.js.

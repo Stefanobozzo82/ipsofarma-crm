@@ -5878,6 +5878,36 @@ entrambi i domini, un'origine non autorizzata resta rifiutata come
 prima. Chi ha scaricato l'agente prima di questa correzione deve
 sostituirlo.
 
+## IpsofarmaScanAgent.exe: il trimming rompeva la scansione vera
+
+Segnalato dall'utente al primo vero tentativo di scansione col file
+`.exe`: `Scansione non riuscita: Errore durante la scansione: Built-in
+COM has been disabled via a feature switch`.
+
+**Causa**: il trimming (`PublishTrimmed`, attivato per stare sotto i
+30 MB dell'invio diretto — vedi sopra) disattiva di default il supporto
+COM "built-in" di .NET, una feature switch a sé stante, indipendente da
+quali metodi il trimmer decide di tenere o togliere. `InvokeScan()` usa
+COM per UNA cosa sola — creare l'oggetto `WIA.CommonDialog` — ed è
+esattamente lì che falliva. **Il collaudo fatto a suo tempo compilando
+per Linux non poteva mostrarlo**: su Linux `Type.GetTypeFromProgID`
+torna `null` PRIMA di toccare il codice COM vero e proprio (niente COM
+affatto su quel sistema operativo), quindi quel percorso non veniva mai
+davvero eseguito — serviva un Windows reale per incontrare il problema,
+come infatti è successo.
+
+Riabilitare il supporto COM insieme al trimming (proprietà
+`BuiltInComInteropSupport`) toglie l'errore esplicito, ma il linker
+stesso avvisa che il supporto COM "non è compatibile col trimming" in
+modo garantito ("Built-in COM support is not trim compatible") — un
+rischio non verificabile da qui per lo stesso motivo di sopra (niente
+COM vero su cui collaudarlo). **Risolto disattivando del tutto il
+trimming**: il file torna a ~35 MB (va scaricato dal repository
+`windows-agent/dist/IpsofarmaScanAgent.exe`, non consegnabile in
+allegato diretto), ma senza nessun compromesso non verificabile su una
+funzione che serve a leggere DOCUMENTI CONTABILI — meglio un file più
+pesante che un rischio non collaudabile in questo ambiente.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

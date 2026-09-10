@@ -467,14 +467,24 @@
     $('f-ordine').value = ddtf.ofId || '';
     if(righeVuote){
       $('righe-body').innerHTML = '';
-      // prezzo/sconto/iva vengono già dal DDT fornitore (backfillati
-      // dall'ordine quando il DDT è stato registrato, o corretti a mano
-      // lì) — niente da riscrivere qui, come fatture.html/f-ddt.
-      (ddtf.righe || []).forEach(r => addRigaRow({
-        cod:r.cod, descr:r.descr, qty:r.qty,
-        prezzo: r.prezzo || 0, sconto: r.sconto || '', iva: r.iva || 22,
-        lotto: r.lotto || '', scad: r.scad || '',
-      }));
+      // Il DDT fornitore non porta prezzo/sconto/iva (un DDT cartaceo non
+      // li riporta mai — vedi ddt-fornitore.html): si riprendono qui, per
+      // codice, dall'ordine collegato — stesso identico dato che
+      // mostrerebbe scegliendo direttamente quell'ordine in "Ordine
+      // collegato" qui sopra. Un codice del DDT assente nell'ordine
+      // (merce non ordinata, o ordine non collegato) resta a 0, da
+      // inserire a mano.
+      const ordine = (ordiniPerFornitore[$('f-fornitore').value] || []).find(o => o.id === ddtf.ofId);
+      (ddtf.righe || []).forEach(r => {
+        const ordineRiga = ordine ? (ordine.righe || []).find(x => x.cod === r.cod) : null;
+        addRigaRow({
+          cod:r.cod, descr:r.descr, qty:r.qty,
+          prezzo: ordineRiga ? (ordineRiga.prezzo || 0) : 0,
+          sconto: ordineRiga ? (ordineRiga.sconto || '') : '',
+          iva: ordineRiga ? (ordineRiga.iva || 22) : 22,
+          lotto: r.lotto || '', scad: r.scad || '',
+        });
+      });
     }
     refreshCmpOrdine();
   });

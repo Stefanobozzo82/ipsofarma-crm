@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- WinExe (non Exe): niente finestra nera della console quando avviato
+         su Windows con un doppio clic o all'accesso — sostituisce la
+         combinazione scan-agent.ps1 + run-scan-agent-hidden.vbs con UN solo
+         file. Sugli altri sistemi operativi (qui, in fase di sviluppo/test)
+         non ha alcun effetto: si comporta come una normale app console. -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>IpsofarmaScanAgent</AssemblyName>
+    <RootNamespace>IpsofarmaScanAgent</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Valori di default per "dotnet publish" senza altri parametri, così
+         il comando di build resta uno solo — vedi windows-agent/README-build.md.
+         Un solo file .exe autosufficiente: include il runtime .NET, non
+         richiede nulla di preinstallato sul PC del cliente. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+</Project>

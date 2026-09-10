@@ -5715,6 +5715,106 @@ risolti**:
    problema. **Risolto** aggiornando `$ALLOWED_ORIGIN` al dominio vero.
    Chi ha scaricato l'agente prima di questa correzione deve sostituirlo.
 
+## DDT fornitore: tolti prezzo/sconto/IVA
+
+Richiesta reale dopo il primo collaudo con documenti veri: "nei ddt puoi
+togliere prezzi e sconti e iva perché non ci sono". Un DDT cartaceo è un
+documento di trasporto, non contabile — non riporta mai questi dati, a
+differenza di quanto assunto nella prima versione del modulo (che li
+backfillava dall'ordine collegato e li mostrava comunque in tabella,
+pensando servissero per il confronto/la fattura successiva).
+
+**Cosa cambia**: `ddt-fornitore.html` non mostra più le colonne
+Prezzo/Sconto %/IVA % nella tabella righe (restano solo Codice,
+Descrizione, Lotto, Scadenza, Qtà), non le legge più dal documento con
+l'AI (l'istruzione ora dice esplicitamente di ignorare qualunque importo
+nel PDF/foto), non le backfilla più dall'ordine, e la sezione "Totale" è
+sparita (non aveva senso senza prezzi). Tolto anche il badge di confronto
+col prezzo dell'ordine (`refreshCmpOrdine`/`cmpOrdineBadgeHtml`), inutile
+ora che il DDT fornitore non porta più un prezzo da confrontare.
+
+**Dove va a finire il prezzo, allora**: resta un dato dell'ordine
+fornitore collegato, non del DDT. Quando si genera la fattura fornitore
+da un DDT (`fatture-fornitore.html`, scegliendo il DDT in "DDT fornitore
+collegato"), prezzo/sconto/IVA di ogni riga vengono ripresi ORA da lì —
+per codice, dall'ordine collegato al DDT — invece che dal DDT stesso
+(che non li ha più). Stesso risultato pratico di prima (l'utente non
+deve riscrivere i prezzi a mano generando la fattura), semplicemente
+letto un passo più avanti nella catena.
+
+**Anche in stampa/PDF/Excel**: `app/print.js` nascondeva i prezzi solo
+per `ddt` (il DDT verso il cliente); esteso anche a `ddtFornitore` per lo
+stesso motivo — il dato non esiste più nemmeno nel documento. Il blocco
+"Causale del trasporto / Trasporto a cura di / Porto" resta SOLO sul DDT
+cliente (ha senso dal punto di vista di chi spedisce; su un DDT fornitore
+— ricevuto, non emesso da noi — sarebbe fuorviante scriverci "Vendita").
+
+**Verificato**: sintassi di tutti i file modificati (parser Node reale
+sugli script inline). Nessun altro punto del gestionale assumeva prezzi
+sulle righe di un DDT fornitore (cercato in tutto `saas/web/`) — la
+modifica non ha effetti collaterali altrove.
+
+## Agente di scansione: anche come file .exe installabile, con avvio automatico
+
+Richiesta reale dopo aver collaudato con successo la versione
+PowerShell: "vorrei che lo script [...] sia installabile su windows come
+un file eseguibile e che si avvii in automatico" — niente più
+`-ExecutionPolicy Bypass` da riga di comando, niente più Task Scheduler
+da configurare a mano per farlo ripartire da solo.
+
+**`windows-agent/dist/IpsofarmaScanAgent.exe`**: stessa identica funzione
+di `scan-agent.ps1` (stesso `/ping`+`/scan`, stessa porta 18245, stesso
+controllo dell'origine, stesso scan via WIA, stesso "niente file salvato
+sul PC"), riscritta in C#/.NET 8 e compilata come UN SOLO eseguibile
+autosufficiente (`dotnet publish -r win-x64 --self-contained
+-p:PublishSingleFile=true` — include il runtime .NET, non serve
+installare nulla a parte sul PC del cliente). Sorgente in
+`windows-agent/ScanAgentApp/`, istruzioni di ricompilazione in
+`windows-agent/BUILD-ScanAgentApp.md`.
+
+**Cosa cambia rispetto alla versione PowerShell**:
+- **Nessuna finestra** (`OutputType=WinExe`): niente più bisogno del file
+  `run-scan-agent-hidden.vbs` per nasconderla.
+- **Si installa da solo**: al primo avvio si registra in
+  `HKEY_CURRENT_USER\...\Run` (nessun diritto di amministratore
+  necessario) per ripartire ad ogni accesso a Windows — un doppio clic,
+  una volta sola, è tutto quello che serve. Le volte successive (comprese
+  quelle avviate da Windows stesso) non toccano di nuovo il registro se
+  il percorso del file non è cambiato.
+- **Un avviso di conferma** (finestra di sistema standard, via
+  `MessageBoxW`) compare SOLO alla primissima registrazione, a conferma
+  che l'installazione è andata a buon fine — dato che non c'è più una
+  finestra di console da guardare.
+- **Log su file** invece che a video (`%LOCALAPPDATA%\IpsofarmaScanAgent\
+  agent.log`, troncato oltre ~1 MB): senza una console, è l'unico modo di
+  vedere cosa è successo se qualcosa non funziona.
+
+La versione PowerShell (`scan-agent.ps1` + `run-scan-agent-hidden.vbs`)
+resta disponibile per chi preferisce vedere il codice sorgente prima di
+eseguirlo invece di un eseguibile binario — stessa funzione, entrambe
+valide.
+
+**Resta lo stesso identico avviso di Windows** su un file scaricato da
+internet e non firmato digitalmente (Mark of the Web/SmartScreen — vedi
+più sopra): sblocco da Proprietà, o "Esegui comunque" da SmartScreen. Un
+certificato di firma del codice (a pagamento, presso una CA) è l'unico
+modo per toglierlo del tutto — rimandato, non blocca l'uso.
+
+**Verificato per davvero, non solo compilato**: installato il .NET SDK 8
+in questo ambiente e compilata la versione Windows reale (`file` conferma
+"PE32+ executable (GUI) x86-64, for MS Windows"). La parte di logica che
+NON dipende da Windows (HttpListener, CORS/Private Network Access,
+gestione OPTIONS, tutte le risposte HTTP) è stata eseguita per davvero
+compilando una seconda volta lo stesso identico `Program.cs` per Linux e
+avviandolo: richieste HTTP reali contro l'agente vero in esecuzione
+confermano lo stesso comportamento già verificato per `scan-agent.ps1`
+(preflight OPTIONS con gli header corretti, origine sbagliata rifiutata,
+percorso sconosciuto -> 404, e — non avendo Windows/WIA a disposizione
+qui — l'errore di scansione gestito in modo pulito invece di un crash,
+con l'agente che resta comunque in ascolto dopo). La registrazione nel
+registro di Windows e la vera acquisizione da uno scanner restano,
+inevitabilmente, da collaudare su un PC Windows reale.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

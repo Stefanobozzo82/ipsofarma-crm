@@ -123,13 +123,22 @@
     // etichettati "luogo di consegna" ma con indirizzi diversi).
     const partyLabel = isForn ? 'Spettabile fornitore' : (coll === 'ddt' ? (dst ? 'Destinatario' : 'Destinatario / luogo di consegna') : 'Spettabile cliente');
     const pMeta = [p.piva ? 'P.IVA ' + p.piva : '', p.cf && p.cf !== p.piva ? 'C.F. ' + p.cf : '', p.sdi ? 'Cod. SDI ' + p.sdi : '', p.pec ? 'PEC ' + p.pec : ''].filter(Boolean).join('<br>');
-    const isDDT = coll === 'ddt';
+    // ddtFornitore incluso: un DDT (cliente o fornitore) non riporta mai
+    // prezzi — richiesta reale dopo il primo collaudo con documenti veri
+    // ("togli prezzi e sconti e iva perché non ci sono"), estesa qui alla
+    // stampa/export perché il dato non esiste più nemmeno nel documento
+    // (vedi ddt-fornitore.html).
+    const isDDT = coll === 'ddt' || coll === 'ddtFornitore';
     const righe = it.righe || [];
     const hasSc = !isDDT && righe.some(r => scEff(r.sconto) > 0);
     const hasLot = ['ddt', 'ddtFornitore', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
     const rows = righe.map(r => `<tr><td>${esc(r.cod)}</td><td>${esc(r.descr)}</td>${hasLot ? `<td>${esc(r.lotto) || '—'}</td><td class="r">${r.scad ? fdate(r.scad) : '—'}</td>` : ''}<td class="r">${r.qty}</td>${isDDT ? '' : `<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc ? `<td class="r">${scLabel(r.sconto)}</td>` : ''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r) * (1 + (r.iva || 22) / 100))}</td>`}</tr>`).join('');
+    // Solo per il DDT cliente: "Vendita"/"Mittente" ha senso dal nostro
+    // punto di vista di chi spedisce — su un DDT fornitore (ricevuto, non
+    // emesso da noi) sarebbe fuorviante, per questo resta fuori da isDDT
+    // qui sopra (che serve solo a nascondere i prezzi su entrambi).
     let ddtBlock = '';
-    if (isDDT) ddtBlock = `<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ${it.colli || '____'}</td></tr></table>`;
+    if (coll === 'ddt') ddtBlock = `<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ${it.colli || '____'}</td></tr></table>`;
     const userNote = it.note ? `<div class="pa-note pa-usernote"><b>Note:</b> ${esc(it.note)}</div>` : '';
     let note = '';
     if (coll === 'fattureCliente' || coll === 'noteCredito') {
@@ -295,7 +304,12 @@
   async function downloadExcel(coll, it, party, company) {
     const XLSX = await loadXLSX();
     const p = party || {};
-    const isDDT = coll === 'ddt';
+    // ddtFornitore incluso: un DDT (cliente o fornitore) non riporta mai
+    // prezzi — richiesta reale dopo il primo collaudo con documenti veri
+    // ("togli prezzi e sconti e iva perché non ci sono"), estesa qui alla
+    // stampa/export perché il dato non esiste più nemmeno nel documento
+    // (vedi ddt-fornitore.html).
+    const isDDT = coll === 'ddt' || coll === 'ddtFornitore';
     const isForn = FORN_COLLS.has(coll);
     const righe = it.righe || [];
     const hasSc = !isDDT && righe.some(r => scEff(r.sconto) > 0);

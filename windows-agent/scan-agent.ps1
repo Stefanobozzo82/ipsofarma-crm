@@ -73,10 +73,15 @@ a "+" o a un indirizzo di rete).
 
 # ============ CONFIGURAZIONE ============
 # Porta locale su cui il gestionale cerca l'agente (deve combaciare con
-# AGENT_PORT in app/scan-import.js) e unico dominio da cui accettare
-# richieste — qualunque altra origine viene rifiutata.
-$PORT            = 18245
-$ALLOWED_ORIGIN  = "https://ipsofarma-crm.stefanobozzo82.workers.dev"
+# AGENT_PORT in app/scan-import.js) e domini da cui accettare richieste —
+# qualunque altra origine viene rifiutata. Il gestionale è raggiungibile
+# da DUE indirizzi in parallelo (Cloudflare Workers e GitHub Pages, stesso
+# sito pubblicato in due posti) — un elenco, non un singolo dominio,
+# altrimenti l'agente rifiuta chi usa l'altro indirizzo (bug reale:
+# funzionava per chi apriva il gestionale da un indirizzo, "non trovato"
+# per chi lo apriva dall'altro).
+$PORT             = 18245
+$ALLOWED_ORIGINS  = @("https://ipsofarma-crm.stefanobozzo82.workers.dev", "https://stefanobozzo82.github.io")
 # GUID del formato immagine WIA da richiedere allo scanner: PNG, senza
 # perdita — a differenza del JPEG non introduce artefatti che
 # peggiorerebbero la lettura AI del testo.
@@ -88,8 +93,8 @@ function Write-Log($msg) { Write-Host "$(Get-Date -Format 'HH:mm:ss') - $msg" }
 function Send-Response($response, [int]$statusCode, [byte[]]$bytes, [string]$contentType, [string]$origin) {
     $response.StatusCode = $statusCode
     $response.ContentType = $contentType
-    if ($origin -eq $ALLOWED_ORIGIN) {
-        $response.Headers.Add("Access-Control-Allow-Origin", $ALLOWED_ORIGIN)
+    if ($ALLOWED_ORIGINS -contains $origin) {
+        $response.Headers.Add("Access-Control-Allow-Origin", $origin)
         # Richiesto da Chrome/Edge (Private Network Access) sulle risposte
         # verso una pagina HTTPS che contatta un indirizzo locale come
         # questo — senza questo header il browser scarta la risposta e il
@@ -147,8 +152,8 @@ while ($listener.IsListening) {
             # l'agente: il gestionale dice "programma non trovato" anche
             # se qui è acceso e funzionante — non è un errore da correggere
             # sul PC del cliente, va gestito qui una volta per tutte.
-            if ($origin -eq $ALLOWED_ORIGIN) {
-                $response.Headers.Add("Access-Control-Allow-Origin", $ALLOWED_ORIGIN)
+            if ($ALLOWED_ORIGINS -contains $origin) {
+                $response.Headers.Add("Access-Control-Allow-Origin", $origin)
                 $response.Headers.Add("Access-Control-Allow-Private-Network", "true")
                 $response.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS")
                 $response.Headers.Add("Access-Control-Allow-Headers", "*")
@@ -165,7 +170,7 @@ while ($listener.IsListening) {
             Send-Text $response 200 "ok" $origin
         }
         elseif ($path -eq "/scan") {
-            if ($origin -ne $ALLOWED_ORIGIN) {
+            if ($ALLOWED_ORIGINS -notcontains $origin) {
                 Write-Log "Richiesta di scansione rifiutata da un'origine non autorizzata: '$origin'"
                 Send-Text $response 403 "Origine non autorizzata." $origin
             } else {

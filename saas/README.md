@@ -5852,6 +5852,32 @@ automatico invece di indovinare; un nome con testo extra intorno
 (indirizzo incollato dall'OCR) o abbreviato continuano a essere
 riconosciuti correttamente.
 
+## Agente di scansione: il gestionale gira su DUE indirizzi, non uno
+
+Segnalato dall'utente subito dopo aver risolto il problema del dominio
+sbagliato: stesso identico errore CORS di prima ("blocked by CORS
+policy: No 'Access-Control-Allow-Origin' header"), ma con un'origine
+diversa nel messaggio — `https://stefanobozzo82.github.io` invece di
+`ipsofarma-crm.stefanobozzo82.workers.dev`.
+
+**Causa reale**: il gestionale è pubblicato su ENTRAMBI gli indirizzi in
+parallelo (Cloudflare Workers e GitHub Pages, stesso sito), non solo su
+quello a cui l'agente era stato appena corretto — chi lo apre da un
+indirizzo funzionava, chi lo apre dall'altro tornava a vedere "non
+trovato". Un singolo `$ALLOWED_ORIGIN` non può bastare quando il sito
+vive in più di un posto.
+
+**Risolto** in entrambe le versioni dell'agente (`scan-agent.ps1` e
+`ScanAgentApp`/`IpsofarmaScanAgent.exe`): un insieme di origini
+consentite invece di una sola, controllo di appartenenza invece di
+uguaglianza, e l'header `Access-Control-Allow-Origin` ora rispecchia
+l'origine della richiesta reale (tra quelle consentite) invece di un
+valore fisso. Verificato con richieste HTTP reali contro entrambi gli
+agenti in esecuzione: `/ping` e il preflight `OPTIONS` accettati da
+entrambi i domini, un'origine non autorizzata resta rifiutata come
+prima. Chi ha scaricato l'agente prima di questa correzione deve
+sostituirlo.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

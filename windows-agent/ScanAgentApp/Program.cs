@@ -31,10 +31,19 @@ internal static class Program
     // ============ CONFIGURAZIONE ============
     // Deve combaciare con AGENT_PORT in app/scan-import.js.
     private const int Port = 18245;
-    // Unico dominio da cui accettare richieste — qualunque altra origine
-    // viene rifiutata. Deve corrispondere all'indirizzo vero del
-    // gestionale (vedi wrangler.jsonc / capacitor.config.json).
-    private const string AllowedOrigin = "https://ipsofarma-crm.stefanobozzo82.workers.dev";
+    // Domini da cui accettare richieste — qualunque altra origine viene
+    // rifiutata. Il gestionale è raggiungibile da DUE indirizzi in
+    // parallelo (Cloudflare Workers e GitHub Pages, stesso sito
+    // pubblicato in due posti — vedi wrangler.jsonc / capacitor.config.json
+    // per il primo) — un insieme, non un singolo dominio, altrimenti
+    // l'agente rifiuta chi usa l'altro indirizzo (bug reale: funzionava
+    // per chi apriva il gestionale da un indirizzo, "non trovato" per chi
+    // lo apriva dall'altro).
+    private static readonly HashSet<string> AllowedOrigins = new(StringComparer.Ordinal)
+    {
+        "https://ipsofarma-crm.stefanobozzo82.workers.dev",
+        "https://stefanobozzo82.github.io",
+    };
     // GUID del formato immagine WIA da richiedere allo scanner: PNG,
     // senza perdita — a differenza del JPEG non introduce artefatti che
     // peggiorerebbero la lettura AI del testo.
@@ -102,9 +111,9 @@ internal static class Program
                 // Network Access, in Chrome/Edge). Se non risponde con
                 // questi header esatti, il browser blocca la richiesta
                 // vera senza nemmeno avvisare l'agente.
-                if (origin == AllowedOrigin)
+                if (origin != null && AllowedOrigins.Contains(origin))
                 {
-                    response.Headers.Add("Access-Control-Allow-Origin", AllowedOrigin);
+                    response.Headers.Add("Access-Control-Allow-Origin", origin);
                     response.Headers.Add("Access-Control-Allow-Private-Network", "true");
                     response.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
                     response.Headers.Add("Access-Control-Allow-Headers", "*");
@@ -127,7 +136,7 @@ internal static class Program
             }
             else if (path == "/scan")
             {
-                if (origin != AllowedOrigin)
+                if (origin == null || !AllowedOrigins.Contains(origin))
                 {
                     Log($"Richiesta di scansione rifiutata da un'origine non autorizzata: '{origin}'");
                     SendText(response, 403, "Origine non autorizzata.", origin);
@@ -169,9 +178,9 @@ internal static class Program
     {
         response.StatusCode = statusCode;
         response.ContentType = contentType;
-        if (origin == AllowedOrigin)
+        if (origin != null && AllowedOrigins.Contains(origin))
         {
-            response.Headers.Add("Access-Control-Allow-Origin", AllowedOrigin);
+            response.Headers.Add("Access-Control-Allow-Origin", origin);
             // Richiesto da Chrome/Edge (Private Network Access) sulle
             // risposte verso una pagina HTTPS che contatta un indirizzo
             // locale come questo — vedi anche la gestione di OPTIONS qui

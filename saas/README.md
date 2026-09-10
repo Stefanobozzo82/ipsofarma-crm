@@ -5564,6 +5564,85 @@ le policy RLS della nuova tabella funzionano), poi entrambe le righe
 di prova sono state eliminate subito dopo, database di produzione
 lasciato pulito.
 
+## DDT: scansione da PC con lo scanner
+
+**Richiesta**, dopo aver provato l'import da foto col telefono: "ho
+provato con la foto e fa qualche errore di trascrizione perché la
+foto è troppo piccola, proviamo a creare il programma da installare
+per vedere se migliora" — dopo aver scartato (giustamente, vendendo
+il gestionale a più clienti) sia un agente locale da configurare a
+mano cliente per cliente sia il giro manuale "scansiona col tuo
+programma, poi importa il file".
+
+**Il limite reale, chiarito prima di scrivere codice**: un sito web
+non può MAI parlare direttamente con i driver di uno scanner (TWAIN/
+WIA) — è una scelta di sicurezza dei browser stessi, non un limite di
+questo gestionale: se fosse possibile, qualunque sito potrebbe
+leggere documenti da uno scanner a insaputa di chi lo usa. Serve per
+forza un piccolo intermediario che gira SUL pc collegato allo
+scanner.
+
+**La soluzione**: un agente Windows (`windows-agent/scan-agent.ps1`,
+sullo stesso principio di `print-agent.ps1` già esistente per la
+stampa remota, ma per la direzione opposta — dal PC verso il
+gestionale, non dal gestionale verso il PC) che sta in ascolto SOLO
+su questo stesso computer (`http://localhost:18245`, mai raggiungibile
+da fuori). A differenza dell'agente di stampa, **non richiede nessuna
+configurazione** — niente token da incollare: fa solo da ponte verso
+lo scanner tramite WIA (incluso in ogni Windows, nessun driver
+aggiuntivo), tutto il resto (login, lettura AI, salvataggio) lo fa
+già il browser con la sessione dell'utente collegato. Per questo lo
+stesso identico file può essere distribuito a ogni cliente del
+gestionale così com'è, senza modificarlo — pensato per essere venduto,
+non per un'installazione su misura.
+
+**Lato gestionale**: nuovo modulo condiviso `app/scan-import.js`
+(stesso principio di `camera-import.js`: si aggiunge da solo su ogni
+pagina con il pattern "Importa" già esistente — DDT fornitore, fatture
+fornitore, ordini, ordini fornitore, note di credito fornitore — zero
+codice nuovo in ciascuna pagina). Il pulsante "🖨 Scansiona da PC"
+compare SOLO nel browser desktop (mai dentro l'app nativa, dove il
+telefono stesso è già "lo scanner"). Al clic: un controllo rapido che
+l'agente sia acceso (altrimenti un messaggio chiaro invece di un
+errore tecnico), poi la richiesta di scansione — l'immagine ricevuta
+viene fatta passare per lo STESSO identico percorso di importazione
+già usato per un file scelto a mano o una foto dal telefono (si simula
+la scelta del file sull'input esistente, invece di scrivere un
+percorso di lettura a sé), quindi eredita gratis tutto quello che
+quel percorso già fa: lettura AI, collegamento automatico all'ordine,
+verifica col catalogo.
+
+**Niente file salvato**: lo scanner acquisisce in un file temporaneo
+(unica scelta possibile: WIA non sa restituire i byte direttamente),
+letto subito in memoria e cancellato immediatamente — prima ancora di
+rispondere al gestionale. Non resta alcuna copia sul PC in nessun
+momento.
+
+**Sicurezza**: l'agente accetta richieste di scansione SOLO da
+`stefanobozzo82.github.io` (controllo dell'header Origin) — qualunque
+altro sito aperto nello stesso browser non può richiamare lo scanner
+di nascosto.
+
+**Verificato**: sintassi di tutti i file (incluso lo script
+PowerShell, con il parser reale di PowerShell — vedi sotto). Con
+Playwright, l'intero contratto browser↔agente: nessun agente in
+ascolto → messaggio d'errore chiaro (non un errore tecnico grezzo);
+agente raggiungibile → l'immagine scansionata arriva come `File` vero
+sullo stesso `<input>` che la pagina già ascolta, con l'evento
+"change" che scatta correttamente (zero modifiche a ciascuna pagina).
+**Lo script PowerShell è stato eseguito per davvero** (non solo letto)
+scaricando PowerShell 7 in questo ambiente: il parser conferma zero
+errori di sintassi, e l'agente vero è stato avviato ed interrogato con
+richieste HTTP reali — `/ping` risponde, un'origine non autorizzata
+viene rifiutata con 403, un percorso sconosciuto dà 404, e persino il
+percorso d'errore è stato provato per davvero (su Linux l'API WIA non
+esiste: la richiesta di scansione fallisce come previsto con un
+errore pulito, e l'agente resta vivo e continua a rispondere dopo
+l'errore, invece di bloccarsi). L'UNICA cosa che non si è potuta
+verificare da qui è la scansione vera con un vero scanner Windows —
+serve necessariamente un PC Windows reale con uno scanner collegato,
+non riproducibile in questo ambiente: da collaudare sul campo.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -133,6 +133,7 @@
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/ai-import.js"></script>
+<script src="app/import-menu.js"></script>
 <script src="app/camera-import.js"></script>
 <script src="app/scan-import.js"></script>
 <script src="app/cascade.js"></script>
@@ -719,8 +720,7 @@
     el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
   }
   const AI_IMPORT_INSTR = "Nel documento allegato c'è un ORDINE ricevuto da un CLIENTE (farmacia o struttura sanitaria che sta ordinando prodotti). Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: cliente (nome del cliente che ordina), data (formato AAAA-MM-GG, oggi se non indicata), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità ordinata, numero), prezzo (prezzo unitario, numero, 0 se non indicato), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", stringa vuota se non c'è sconto), iva (aliquota IVA, numero, 22 se non indicata).";
-  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
-  $('ai-import-file').addEventListener('change', async () => {
+    $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
     $('ai-import-file').value = '';
     if(!file) return;

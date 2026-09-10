@@ -22,11 +22,11 @@
  * aziende, non per un'installazione su misura.
  *
  * Aggiunto SOLO nel browser desktop (mai dentro l'app nativa — lì il
- * telefono stesso è già "lo scanner", vedi camera-import.js) e SOLO se la
- * pagina ha già il normale pulsante di import — nessuna pagina deve
- * aggiungerlo a mano, funziona per costruzione su ogni pagina con lo
- * stesso pattern id="ai-import-btn" / id="ai-import-file", come
- * camera-import.js.
+ * telefono stesso è già "lo scanner", vedi camera-import.js) come voce del
+ * menu "Importa" (vedi app/import-menu.js) e SOLO se la pagina ha già
+ * quel menu — nessuna pagina deve aggiungerla a mano, funziona per
+ * costruzione su ogni pagina con lo stesso pattern id="ai-import-btn" /
+ * id="ai-import-file", come camera-import.js.
  *
  * Una volta ricevuta l'immagine scansionata, invece di scrivere un
  * percorso di lettura a sé per ogni pagina, si simula la scelta manuale
@@ -84,17 +84,12 @@
 
   function setup() {
     if (isNative()) return; // sul telefono lo "scanner" è già la fotocamera, vedi camera-import.js
-    const btn = document.getElementById('ai-import-btn');
     const input = document.getElementById('ai-import-file');
     const statusEl = document.getElementById('ai-import-status');
-    if (!btn || !input || document.getElementById('ai-import-scan-btn')) return;
+    if (!global.SaasImportMenu || !input || document.getElementById('ai-import-scan-opt')) return;
 
-    const scanBtn = document.createElement('button');
-    scanBtn.type = 'button';
-    scanBtn.className = 'ghost';
-    scanBtn.id = 'ai-import-scan-btn';
-    scanBtn.textContent = '🖨 Scansiona da PC';
-    btn.insertAdjacentElement('afterend', scanBtn);
+    const scanBtn = global.SaasImportMenu.addImportOption('🖨 Scansiona da PC', null, 'ai-import-scan-opt');
+    if (!scanBtn) return;
 
     // Stesso paragrafo di stato già usato dalla pagina per l'esito
     // dell'import (aiImportStatus() lì) — qui solo per i messaggi PRIMA

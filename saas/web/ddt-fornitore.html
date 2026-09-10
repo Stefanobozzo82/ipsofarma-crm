@@ -132,6 +132,7 @@
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
 <script src="app/ai-import.js"></script>
+<script src="app/import-menu.js"></script>
 <script src="app/camera-import.js"></script>
 <script src="app/scan-import.js"></script>
 <script>
@@ -427,8 +428,7 @@
     return match.length === 1 ? match[0] : null; // ambiguo (0 o >1 candidati): meglio non collegare da soli
   }
   const AI_IMPORT_INSTR = "Nel documento allegato c'è un DOCUMENTO DI TRASPORTO (DDT) ricevuto da un FORNITORE insieme alla merce. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore mittente), numero (numero del DDT), data (formato AAAA-MM-GG), riferimentoOrdine (il NOSTRO numero d'ordine come lo riporta il fornitore, es. dopo un'etichetta \"Vs. ordine\"/\"Vs.ord.\"/\"Rif. cliente\"/\"Ordine cliente\"/\"PO\" — SOLO il numero, niente date o altro testo attorno; MAI il numero d'ordine interno del fornitore; stringa vuota se non chiaramente presente), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità consegnata, numero), lotto (il numero di lotto/partita indicato vicino alla riga articolo, es. \"Partita\" o \"Lotto\"; stringa vuota se assente), scad (la data di scadenza del lotto indicata vicino alla riga articolo, formato AAAA-MM-GG; stringa vuota se assente). Un documento di trasporto non riporta prezzi: NON leggerli né inventarli, ignora qualunque importo presente nel documento.";
-  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
-  $('ai-import-file').addEventListener('change', async () => {
+    $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
     $('ai-import-file').value = '';
     if(!file) return;

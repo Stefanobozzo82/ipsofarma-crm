@@ -5908,6 +5908,92 @@ allegato diretto), ma senza nessun compromesso non verificabile su una
 funzione che serve a leggere DOCUMENTI CONTABILI — meglio un file più
 pesante che un rischio non collaudabile in questo ambiente.
 
+## Il totale fatture non tornava col vecchio gestionale: 3 fatture mai importate
+
+Segnalato dall'utente allegando l'archivio PDF delle fatture di vendita del
+vecchio gestionale ("puoi controllare come mai non mi trovo con il totale
+fatture tra il vecchio gestionale e il nuovo"). Confronto esatto (script,
+non a occhio) tra le 293 righe del vecchio archivio e le 290 del nuovo:
+quasi tutto coincideva al centesimo, tranne:
+
+- **3 fatture mai importate nel nuovo gestionale**: FT n. 264 (28/07/2026,
+  TIRRENIA HOSPITAL, storno di -1.110,20 €), FT n. 274 (05/08/2026, CASA DI
+  CURA VILLA DEL SOLE SRL CS, storno di -4.084,43 €), FT n. 289
+  (08/09/2026, CA.GI. S.P.A., 762,50 €). Non un bug di codice: non esiste
+  nessuna migrazione automatica in questo repository, ogni fattura viene
+  inserita a mano/con "Importa" (AI) una per volta — semplicemente non
+  erano ancora state importate. Nette mancanti: -4.432,13 €, per questo il
+  totale nuovo risultava PIÙ ALTO pur avendo meno fatture (mancavano due
+  storni negativi, che avrebbero abbassato il totale, e una fattura
+  positiva più piccola).
+- **1 fattura con la data sbagliata**: FT n. 260 (CASA DI CURA VILLA DEL
+  SOLE SRL CS, 4.735,67 €) risultava datata 23/07/2026 invece di
+  22/07/2026 — stesso importo, solo il giorno sbagliato (non incideva sul
+  totale, ma sbagliava il mese in un report per periodo).
+
+**Risolto direttamente sul database di produzione** (Supabase, con
+conferma dall'utente prima di ogni scrittura): corretta la data della
+fattura 260; rinumerate FT/2026/0289→0290 e 0290→0291 per liberare il
+posto giusto nella sequenza (la fattura 289 mancante aveva fatto slittare
+di uno la numerazione di tutte le fatture successive); inserite le 3
+fatture mancanti con una riga generica ("riportato dal vecchio gestionale
+— riga da dettagliare") che riproduce esattamente imponibile/IVA/totale
+del vecchio archivio, con paid corretto (pagate le prime due, non pagata
+la terza, come risultava nel vecchio Saldo%) — l'utente inserirà i
+prodotti veri in un secondo momento. Dopo la correzione: 293 fatture,
+totale 429.578,36 € contro 429.578,52 € del vecchio — 16 centesimi di
+differenza residua, puro arrotondamento sparso su una decina di fatture
+(1-2 centesimi ciascuna), irrilevante.
+
+**Nota per chi rilegge**: durante l'indagine un mio primo confronto
+(trascritto a mano da un risultato SQL molto lungo) segnalava per errore
+anche la fattura 283 come mal datata — una query mirata di verifica prima
+di correggere ha mostrato che quella fattura aveva già la data giusta.
+Corretta solo la 260, che la stessa verifica ha confermato reale.
+
+## Pulsante "Importa": un menu unico, come "Scarica"
+
+Richiesta reale: "vorrei che il pulsante importa racchiudesse i diversi
+modi di importare come abbiamo fatto per il pulsante esporta" — nelle
+pagine con più di un modo di importare (file, fotocamera in app, scanner
+da PC) c'erano fino a 3 pulsanti separati affiancati ("Importa", "📷
+Fotocamera", "🖨 Scansiona da PC"), ognuno aggiunto in autonomia da un
+modulo diverso (camera-import.js/scan-import.js) senza sapere degli
+altri.
+
+**Nuovo `app/import-menu.js`**: avvolge il pulsante "Importa" esistente
+in un menu a tendina — stessa identica struttura (`.dl-menu`/`.dl-list`)
+e stesso apri/chiudi (`bindDownloadMenu`, già scritta per "⬇ Scarica" in
+`app/print.js`) riusati senza modifiche, nessun CSS nuovo. La prima voce,
+sempre presente, è "📄 Da file (PDF/foto)" — lo stesso comportamento che
+il pulsante aveva da solo prima.
+
+**camera-import.js e scan-import.js aggiornati**: invece di creare un
+pulsante a sé stante accanto a "Importa", aggiungono ora una voce a
+questo stesso menu tramite `window.SaasImportMenu.addImportOption(label,
+onClick, id)` (esposta da import-menu.js, ritorna il `<button>` creato
+così scan-import.js può ancora disabilitarlo durante la scansione). Zero
+altre modifiche alla loro logica interna.
+
+**Le 5 pagine con questo pattern** (`ddt-fornitore`, `fatture-fornitore`,
+`note-credito-fornitore`, `ordini-fornitore`, `ordini`) hanno ricevuto
+solo due modifiche meccaniche: aggiunto `<script src="app/import-menu.js">`
+subito dopo `app/ai-import.js` (deve esistere PRIMA che camera-import.js/
+scan-import.js si registrino), e tolta la riga
+`$('ai-import-btn').addEventListener('click', () => $('ai-import-file')
+.click())` — quel click ora apre il menu, non più direttamente il
+selettore di file.
+
+**Verificato con un test Playwright reale** (non solo letto): pulsante
+avvolto correttamente nel menu; menu chiuso all'avvio, si apre al click,
+si chiude cliccando fuori o scegliendo una voce; "📄 Da file" apre
+davvero il selettore (intercettato il click sull'input); "🖨 Scansiona da
+PC" avvia il controllo dell'agente (messaggio corretto quando non è in
+ascolto); nel contesto app nativa (Capacitor simulato) il menu mostra
+"📷 Fotocamera" invece di "🖨 Scansiona da PC", mai entrambi insieme, mai
+nessuno dei due nel browser desktop di uno senza l'altro — esattamente il
+comportamento atteso in ciascun contesto.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

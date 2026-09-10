@@ -100,6 +100,7 @@
 <script src="app/prodpicker.js"></script>
 <script src="app/lineage.js"></script>
 <script src="app/ai-import.js"></script>
+<script src="app/import-menu.js"></script>
 <script src="app/fatturapa-xml.js"></script>
 <script src="app/camera-import.js"></script>
 <script src="app/scan-import.js"></script>
@@ -381,8 +382,7 @@
     el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
   }
   const AI_IMPORT_INSTR = "Nel documento allegato c'è una NOTA DI CREDITO ricevuta da un FORNITORE (uno storno o rimborso, non una fattura). Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore emittente), numero (numero della nota di credito), data (formato AAAA-MM-GG), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità, numero), prezzo (prezzo unitario PIENO prima di eventuali sconti, numero), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", stringa vuota se non c'è sconto), iva (aliquota IVA, numero), lotto (numero di lotto/partita se indicato vicino alla riga; stringa vuota se assente), scad (data di scadenza del lotto, formato AAAA-MM-GG; stringa vuota se assente).";
-  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
-  $('ai-import-file').addEventListener('change', async () => {
+    $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
     $('ai-import-file').value = '';
     if(!file) return;

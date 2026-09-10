@@ -23,14 +23,20 @@
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <!-- Riduce il singolo file da ~35 MB a ~11 MB (limite di invio diretto
-         del file: 30 MB) — verificato che il comportamento resta identico
-         (stesse richieste HTTP reali su una build linux-x64 di prova):
-         l'unica chiamata "dinamica" del programma (InvokeScan, verso un
-         oggetto COM esterno via ProgID) non passa dal codice gestito che
-         il trimming può rimuovere, quindi non ne risente. -->
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>partial</TrimMode>
+    <!-- NIENTE TRIMMING: provato (per stare sotto i 30 MB dell'invio
+         diretto), ma il trimming disattiva di default il supporto COM
+         "built-in" di .NET — InvokeScan() falliva in campo con "Built-in
+         COM has been disabled via a feature switch" proprio nel creare
+         l'oggetto WIA.CommonDialog, l'UNICA cosa per cui questo programma
+         usa COM. Riabilitarlo (BuiltInComInteropSupport=true) toglie
+         l'errore esplicito ma il linker stesso avvisa che il supporto COM
+         "non è compatibile col trimming" in modo garantito — un rischio
+         non verificabile da qui (su Linux GetTypeFromProgID torna null
+         PRIMA di toccare il codice COM vero, quindi non c'è modo di
+         collaudare qui se il trimming toglie anche solo un pezzo che
+         serve). Meglio un file più pesante ma sicuro che uno leggero con
+         un rischio non verificato. -->
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
 </Project>

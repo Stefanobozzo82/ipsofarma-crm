@@ -135,12 +135,34 @@
   // "B. Braun Milano S.p.A." (dal file) contro "B.BRAUN MILANO S.P.A."
   // (già in anagrafica) — differiscono solo per uno spazio dopo "B.", un
   // confronto solo case-insensitive non li avrebbe fatti combaciare.
+  // Bug reale trovato dopo un import da DDT fornitore: il vecchio fallback
+  // confrontava le stringhe CARATTERE per carattere ("...includes..."), non
+  // parola per parola — un nome letto male dall'AI poteva risultare una
+  // sottostringa "per caso" di un fornitore SBAGLIATO (es. un frammento
+  // come "ital" dentro "italmedical"), collegandolo in silenzio senza
+  // nessun avviso da controllare. Il fallback ora confronta per PAROLE
+  // intere (tutte le parole del nome più corto devono comparire tra
+  // quelle del più lungo — stesso principio di prima, ma senza il rischio
+  // di incastrarsi a metà di una parola diversa) e, se più di un
+  // fornitore soddisfa il confronto, non sceglie a caso: restituisce
+  // null, meglio lasciarlo scegliere a mano che indovinare quello
+  // sbagliato.
+  function wordsOf(s) { return normDescr(s).split(' ').filter(Boolean); }
   function findPartyByNome(elenco, nome) {
     if (!nome) return null;
     const n = normDescr(nome);
     if (!n) return null;
-    return elenco.find(p => normDescr(p.nome) === n)
-      || elenco.find(p => normDescr(p.nome).includes(n) || n.includes(normDescr(p.nome)));
+    const esatto = elenco.find(p => normDescr(p.nome) === n);
+    if (esatto) return esatto;
+    const wn = wordsOf(nome);
+    if (n.length < 4 || !wn.length) return null; // troppo corto per essere affidabile
+    const candidati = elenco.filter(p => {
+      const wp = wordsOf(p.nome);
+      if (!wp.length) return false;
+      const [corte, lunghe] = wn.length <= wp.length ? [wn, wp] : [wp, wn];
+      return corte.every(w => lunghe.includes(w));
+    });
+    return candidati.length === 1 ? candidati[0] : null;
   }
 
   // ---------------------------------------------------------------------------

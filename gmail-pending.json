@@ -245,6 +245,243 @@
         "totale": 663.68
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4edb5de89c0",
+      "file": "5718112113.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112113",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 211",
+        "lines": [
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 4,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26E18H8B02",
+            "scad": "2031-05-01"
+          }
+        ],
+        "totale": 414.8
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4ea8062892f",
+      "file": "5718112112.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112112",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 208",
+        "lines": [
+          {
+            "cod": "C0068052N1",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 70CM HR3",
+            "qty": 1,
+            "prezzo": 59.4,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3625PZ",
+            "scad": "2031-06-19"
+          }
+        ],
+        "totale": 72.468
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4e7d04f8759",
+      "file": "5718112111.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112111",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 207",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 1,
+            "prezzo": 101.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126195",
+            "scad": "2031-05-08"
+          }
+        ],
+        "totale": 124.2936
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4e4fa0ee1a7",
+      "file": "5718112110.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112110",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 209",
+        "lines": [
+          {
+            "cod": "FH415",
+            "descr": "SEGA ACCIAIO GIGLI D1,4MM 500M",
+            "qty": 1,
+            "prezzo": 67.06,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "FH480R",
+            "descr": "IMPUGNATURA UNCINO SEGA IN ACC",
+            "qty": 2,
+            "prezzo": 28.96,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 152.4756
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4e21f32baaa",
+      "file": "5718112109.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112109",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 205",
+        "lines": [
+          {
+            "cod": "LX189R",
+            "descr": "PINZA PIATTA 185 MM",
+            "qty": 4,
+            "prezzo": 267.1,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 1303.448
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4df9a8c05c5",
+      "file": "5718112108.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112108",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 208",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 2,
+            "prezzo": 2.83,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126205",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 6.9052
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4dcec85e049",
+      "file": "5718112107.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112107",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 207",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 4,
+            "prezzo": 101.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126205",
+            "scad": "2031-05-15"
+          },
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 1,
+            "prezzo": 101.88,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "126205",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 621.468
+      },
+      "src": "Gmail"
     }
   ]
 }

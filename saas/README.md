@@ -5678,6 +5678,26 @@ risolti**:
    Origin (navigazione diretta da browser vs. `fetch` dal gestionale).
    Chi avesse già installato una copia dell'agente scaricata prima di
    questa correzione deve sostituire il file con la versione aggiornata.
+3. **Avviando lo script con `powershell -File ...` (PowerShell 5.1, quello
+   preinstallato su ogni Windows — diverso da PowerShell 7/`pwsh`),
+   errori di parsing tipo "Carattere di terminazione mancante nella
+   stringa" o "'}' di chiusura mancante"**, pur essendo il file
+   sintatticamente corretto (verificato col parser reale). Causa reale:
+   il file contiene caratteri accentati e il trattino lungo "—" nei
+   commenti, codificati in UTF-8; PowerShell 5.1, se il file non ha un
+   BOM (Byte Order Mark) UTF-8 esplicito a inizio file, lo legge invece
+   con la codifica ANSI del sistema, che decodifica male quei caratteri
+   multi-byte — in particolare il trattino lungo può trasformarsi in un
+   carattere che PowerShell riconosce come "virgoletta intelligente"
+   (accettata come delimitatore di stringa alternativo a `"`), rompendo
+   il parsing di tutto ciò che segue. PowerShell 7 non soffre di questo
+   problema (rileva l'UTF-8 correttamente anche senza BOM), per questo
+   il collaudo in questo ambiente non l'aveva mai incontrato. **Risolto**
+   aggiungendo il BOM UTF-8 a inizio file sia in `scan-agent.ps1` sia in
+   `print-agent.ps1` (stesso rischio latente, anche se non ancora
+   segnalato) — verificato che il parser reale continua a leggerli senza
+   errori con il BOM presente. Chi ha copie scaricate prima di questa
+   correzione deve sostituirle.
 
 ## Prossimo passo
 

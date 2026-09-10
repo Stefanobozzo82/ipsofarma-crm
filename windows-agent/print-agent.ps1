@@ -1,4 +1,4 @@
-<#
+﻿<#
 IPSOFARMA CRM — Agente di stampa remota
 ========================================
 Gira in background sul PC dell'ufficio collegato alla stampante. Controlla

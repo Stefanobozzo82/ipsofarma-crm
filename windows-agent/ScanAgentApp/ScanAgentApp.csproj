@@ -23,7 +23,14 @@
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <PublishTrimmed>false</PublishTrimmed>
+    <!-- Riduce il singolo file da ~35 MB a ~11 MB (limite di invio diretto
+         del file: 30 MB) — verificato che il comportamento resta identico
+         (stesse richieste HTTP reali su una build linux-x64 di prova):
+         l'unica chiamata "dinamica" del programma (InvokeScan, verso un
+         oggetto COM esterno via ProgID) non passa dal codice gestito che
+         il trimming può rimuovere, quindi non ne risente. -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
   </PropertyGroup>
 
 </Project>

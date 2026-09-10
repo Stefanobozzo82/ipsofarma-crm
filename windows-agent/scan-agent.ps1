@@ -1,4 +1,4 @@
-<#
+﻿<#
 IPSOFARMA CRM — Agente di scansione locale
 ============================================
 Gira in background sul PC collegato allo scanner. Sta in ascolto SOLO su

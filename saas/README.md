@@ -5618,10 +5618,10 @@ letto subito in memoria e cancellato immediatamente — prima ancora di
 rispondere al gestionale. Non resta alcuna copia sul PC in nessun
 momento.
 
-**Sicurezza**: l'agente accetta richieste di scansione SOLO da
-`stefanobozzo82.github.io` (controllo dell'header Origin) — qualunque
-altro sito aperto nello stesso browser non può richiamare lo scanner
-di nascosto.
+**Sicurezza**: l'agente accetta richieste di scansione SOLO dal dominio
+del gestionale (`ipsofarma-crm.stefanobozzo82.workers.dev`, controllo
+dell'header Origin) — qualunque altro sito aperto nello stesso browser
+non può richiamare lo scanner di nascosto.
 
 **Verificato**: sintassi di tutti i file (incluso lo script
 PowerShell, con il parser reale di PowerShell — vedi sotto). Con
@@ -5698,6 +5698,22 @@ risolti**:
    segnalato) — verificato che il parser reale continua a leggerli senza
    errori con il BOM presente. Chi ha copie scaricate prima di questa
    correzione deve sostituirle.
+4. **Agente avviato senza errori, ma il gestionale continua a dire
+   "Programma di scansione non trovato"**: errore mio, non un problema
+   dell'ambiente del cliente. `$ALLOWED_ORIGIN` nello script era
+   impostato su `stefanobozzo82.github.io` — un'assunzione sbagliata
+   fatta scrivendo il file, il gestionale non è mai stato pubblicato lì:
+   gira su Cloudflare Workers (`ipsofarma-crm.stefanobozzo82.workers.dev`,
+   vedi capitolo sul deploy). L'agente quindi rifiutava sempre la
+   richiesta reale (l'header Origin del browser non corrispondeva mai a
+   quello atteso), rendendo il ping sempre bloccato dal CORS del browser
+   stesso — confermato dalla console del browser: "blocked by CORS
+   policy: No 'Access-Control-Allow-Origin' header is present". **Verificato
+   che il bug non si ripete altrove**: nelle Edge Function Supabase
+   (`ai-proxy`, `send-email`, `stripe-checkout`) l'origine consentita è
+   `*` (wildcard), non hardcoded, quindi non soffrivano dello stesso
+   problema. **Risolto** aggiornando `$ALLOWED_ORIGIN` al dominio vero.
+   Chi ha scaricato l'agente prima di questa correzione deve sostituirlo.
 
 ## Prossimo passo
 

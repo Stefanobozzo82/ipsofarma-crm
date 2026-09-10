@@ -76,7 +76,7 @@ a "+" o a un indirizzo di rete).
 # AGENT_PORT in app/scan-import.js) e unico dominio da cui accettare
 # richieste — qualunque altra origine viene rifiutata.
 $PORT            = 18245
-$ALLOWED_ORIGIN  = "https://stefanobozzo82.github.io"
+$ALLOWED_ORIGIN  = "https://ipsofarma-crm.stefanobozzo82.workers.dev"
 # GUID del formato immagine WIA da richiedere allo scanner: PNG, senza
 # perdita — a differenza del JPEG non introduce artefatti che
 # peggiorerebbero la lettura AI del testo.

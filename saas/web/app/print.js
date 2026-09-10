@@ -29,10 +29,11 @@
 
   const TITLES = {
     ordiniCliente: 'ORDINE CLIENTE', ordiniFornitore: 'ORDINE A FORNITORE',
-    ddt: 'DOCUMENTO DI TRASPORTO', fattureCliente: 'FATTURA', fattureFornitore: 'FATTURA FORNITORE',
+    ddt: 'DOCUMENTO DI TRASPORTO', ddtFornitore: 'DOCUMENTO DI TRASPORTO FORNITORE',
+    fattureCliente: 'FATTURA', fattureFornitore: 'FATTURA FORNITORE',
     preventivi: 'PREVENTIVO', noteCredito: 'NOTA DI CREDITO', noteCreditoFornitore: 'NOTA DI CREDITO FORNITORE',
   };
-  const FORN_COLLS = new Set(['ordiniFornitore', 'fattureFornitore', 'noteCreditoFornitore']);
+  const FORN_COLLS = new Set(['ordiniFornitore', 'ddtFornitore', 'fattureFornitore', 'noteCreditoFornitore']);
 
   function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function eur(n) { return (Number(n) || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }); }
@@ -125,7 +126,7 @@
     const isDDT = coll === 'ddt';
     const righe = it.righe || [];
     const hasSc = !isDDT && righe.some(r => scEff(r.sconto) > 0);
-    const hasLot = ['ddt', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
+    const hasLot = ['ddt', 'ddtFornitore', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
     const rows = righe.map(r => `<tr><td>${esc(r.cod)}</td><td>${esc(r.descr)}</td>${hasLot ? `<td>${esc(r.lotto) || '—'}</td><td class="r">${r.scad ? fdate(r.scad) : '—'}</td>` : ''}<td class="r">${r.qty}</td>${isDDT ? '' : `<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc ? `<td class="r">${scLabel(r.sconto)}</td>` : ''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r) * (1 + (r.iva || 22) / 100))}</td>`}</tr>`).join('');
     let ddtBlock = '';
     if (isDDT) ddtBlock = `<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ${it.colli || '____'}</td></tr></table>`;
@@ -298,7 +299,7 @@
     const isForn = FORN_COLLS.has(coll);
     const righe = it.righe || [];
     const hasSc = !isDDT && righe.some(r => scEff(r.sconto) > 0);
-    const hasLot = ['ddt', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
+    const hasLot = ['ddt', 'ddtFornitore', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
 
     const aoa = [
       [TITLES[coll] || '', it.num],

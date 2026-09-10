@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DDT fornitore — Gestionale</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ea371">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<!--
+  Il pezzo mancante nella catena lato acquisti (0016_ddt_fornitore.sql).
+  Richiesta reale: "sto pensando di implementare anche i ddt del fornitore
+  che mi arrivano soltanto in forma cartacea insieme al pacco. come possiamo
+  caricarli in modo automatico?" — la catena lato cliente era completa
+  (ordine cliente -> DDT -> fattura), quella lato fornitore si fermava a
+  metà (ordine fornitore -> fattura fornitore): il momento in cui si segnava
+  "è arrivata la merce" (qtyEv) coincideva con quando si registrava la
+  fattura, non con quando arrivava davvero il pacco — nella realtà il DDT
+  cartaceo arriva SUBITO, la fattura magari settimane dopo.
+
+  Speculare a fatture-fornitore.html per come si CREA (non "generato" da noi
+  come ddt.html per i clienti: digitalizzato da un documento esterno, con
+  l'AI su una foto/PDF o a mano — stesso identico "Importa"), speculare a
+  ddt.html per il resto (righe con lotto/scadenza, precompilazione dal
+  RESIDUO dell'ordine collegato, il bottone "Genera fattura fornitore" in
+  cima una volta salvato). A differenza di una fattura fornitore, un DDT
+  cartaceo raramente riporta i prezzi (documento di trasporto, non
+  contabile): prezzo/sconto/iva vengono perciò dall'ordine collegato quando
+  possibile (vedi il backfill nell'import AI più sotto), non dal documento
+  letto — restano comunque modificabili a mano.
+-->
+<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<link rel="stylesheet" href="app/theme.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+  <div class="page-head">
+      <h2>DDT fornitore</h2>
+      <p class="sub">Documenti di trasporto ricevuti dai fornitori insieme alla merce, letti da un DDT cartaceo o digitalizzato.</p>
+    </div>
+
+  <div class="card" id="form-card" hidden>
+    <button type="button" class="linklike back-link" id="f-back">← Torna all'elenco</button>
+    <h3 id="form-title">Nuovo DDT fornitore</h3>
+    <!-- Stesso schema di ddt.html: "Genera fattura fornitore" a sinistra,
+         Stampa/Scarica a destra sulla stessa riga, sotto il titolo. -->
+    <div class="form-actions" id="ddtf-toolbar" style="justify-content:space-between;flex-wrap:wrap;margin:0 0 14px">
+      <div class="form-actions" id="ddtf-cascade-actions" hidden style="margin:0">
+        <button type="button" class="primary" id="ddtf-btn-ft">→ Genera fattura fornitore</button>
+      </div>
+      <div class="form-actions" id="f-print-actions" hidden style="margin:0">
+        <button type="button" class="ghost" id="f-btn-print">🖨 Stampa</button>
+        <div class="dl-menu">
+          <button type="button" class="ghost" id="f-btn-download">⬇ Scarica</button>
+          <div class="dl-list" id="f-download-list" hidden>
+            <button type="button" id="f-dl-pdf">📄 PDF</button>
+            <button type="button" id="f-dl-excel">📊 Excel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div><label for="f-fornitore">Fornitore</label><select id="f-fornitore"></select></div>
+      <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
+    </div>
+    <!-- Come "Numero fattura del fornitore" in fatture-fornitore.html: il
+         DDT porta il numero che il FORNITORE gli ha dato, qui si digita,
+         non si genera. -->
+    <label for="f-num">Numero DDT del fornitore</label>
+    <input id="f-num" type="text" placeholder="es. 4521">
+    <label for="f-ordine">Ordine collegato</label>
+    <select id="f-ordine"><option value="">— nessuno —</option></select>
+
+    <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
+    <label>Righe</label>
+    <div class="table-scroll"><table class="righe-table">
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+      <tbody id="righe-body"></tbody>
+    </table></div>
+    <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
+    <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
+
+    <div class="panel" id="f-lineage-panel" hidden style="margin:16px 0"><div class="panel-h">Documenti collegati</div><div id="f-lineage"></div></div>
+
+    <div class="form-actions">
+      <button class="primary" id="f-save">Salva</button>
+      <button class="ghost" id="f-cancel">Annulla</button>
+    </div>
+    <div class="msg" id="form-msg" hidden></div>
+  </div>
+
+  <div class="card" id="list-card">
+    <div class="toolbar">
+      <h3>Elenco</h3>
+      <div class="toolbar-right">
+        <div class="search-box"><span class="si">⌕</span><input type="text" id="q" placeholder="Cerca per numero o fornitore…"></div>
+        <button class="ghost" id="ai-import-btn">Importa</button>
+        <input type="file" id="ai-import-file" accept="application/pdf,image/*" hidden>
+        <button class="primary" id="new-ddtf">+ Nuovo DDT</button>
+      </div>
+    </div>
+    <p class="msg" id="ai-import-status" hidden></p>
+    <div id="filter-area"></div>
+    <div id="list-area"><p class="empty">Carico…</p></div>
+  </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/theme-mode.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/biometric-lock.js"></script>
+<script src="app/tour.js"></script>
+<script src="app/pwa.js"></script>
+<script src="app/resize.js"></script>
+<script src="app/elenco-cards.js"></script>
+<script src="app/print.js"></script>
+<script src="app/prodpicker.js"></script>
+<script src="app/cascade.js"></script>
+<script src="app/lineage.js"></script>
+<script src="app/ai-import.js"></script>
+<script src="app/camera-import.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  let companyId = null;
+  let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
+  let editingId = null;
+  let editingDdtf = null; // il DDT fornitore in modifica, per non perdere ftfId (extra) al salvataggio — vedi f-save
+  let fornitoriById = {};
+  let fornitoriArr = [];
+  let ordiniPerFornitore = {};
+  let allOrdiniFornitoreById = {};
+  let SORT = { key: 'data', dir: 'desc' };
+  let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
+  let FFILT = { forn: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
+  let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
+  // Ultimo elenco scaricato da renderList() — usato da renderResults() per
+  // ridisegnare senza rifare la query di rete quando cambia solo COME viene
+  // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene.
+  let DDTF_ALL = [];
+
+  function today(){ return new Date().toISOString().slice(0, 10); }
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
+  function setMsg(text, kind){
+    const el = $('form-msg');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
+  }
+
+  // ---- ordinamento colonne: come nel gestionale originale — un clic
+  // sull'intestazione ordina, un secondo clic inverte la direzione.
+  function sortCmp(va, vb, dir){
+    const mul = dir === 'asc' ? 1 : -1;
+    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
+  }
+  function sortVal(key, d){
+    if(key === 'num') return d.num || '';
+    if(key === 'data') return d.data || '';
+    if(key === 'fornitore') return (fornitoriById[d.fornitoreId] || {}).nome || '';
+    if(key === 'ordine') return d.ofId ? ((allOrdiniFornitoreById[d.ofId] || {}).num || '') : '';
+    return '';
+  }
+  function th(key, label){
+    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
+  }
+  function setSort(key){
+    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
+    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
+    renderResults();
+  }
+
+  // Ricerca testuale: come Q nel gestionale originale (num + nome fornitore).
+  function matchesQuery(it){
+    if(!Q) return true;
+    const party = (fornitoriById[it.fornitoreId] || {}).nome || '';
+    return (it.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
+  }
+  let searchTimer = null;
+  $('q').addEventListener('input', () => {
+    Q = $('q').value.trim().toLowerCase();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderResults, 200);
+  });
+
+  // ---- filtri: fornitore, intervallo date --------------------------------
+  function matchesFilter(d){
+    if(FFILT.forn && d.fornitoreId !== FFILT.forn) return false;
+    if(FFILT.from && (d.data || '') < FFILT.from) return false;
+    if(FFILT.to && (d.data || '') > FFILT.to) return false;
+    return true;
+  }
+  function setFFilt(k, v){ FFILT[k] = v; renderResults(); }
+  function clearFFilt(){ FFILT = { forn:'', from:'', to:'' }; renderResults(); }
+  function renderFilterbar(){
+    const active = FFILT.forn || FFILT.from || FFILT.to;
+    const fopts = '<option value="">Tutti i fornitori</option>' +
+      fornitoriArr.map(f => `<option value="${f.id}" ${FFILT.forn === f.id ? 'selected' : ''}>${esc(f.nome)}</option>`).join('');
+    $('filter-area').innerHTML = `<div class="filterbar">
+      <select id="ff-forn">${fopts}</select>
+      <div class="fdate-group">
+        <label class="fdate">Dal <input type="date" id="ff-from" value="${FFILT.from}"></label>
+        <label class="fdate">Al <input type="date" id="ff-to" value="${FFILT.to}"></label>
+      </div>
+      ${active ? '<button type="button" class="ffclear" id="ff-clear">✕ Azzera filtri</button>' : ''}
+    </div>`;
+    $('ff-forn').addEventListener('change', () => setFFilt('forn', $('ff-forn').value));
+    $('ff-from').addEventListener('change', () => setFFilt('from', $('ff-from').value));
+    $('ff-to').addEventListener('change', () => setFFilt('to', $('ff-to').value));
+    if(active) $('ff-clear').addEventListener('click', clearFFilt);
+  }
+
+  function rigaRowHtml(r){
+    r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
+    return `<tr>
+      <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
+      <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}</td>
+      <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
+      <td style="min-width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
+      <td style="min-width:130px"><input class="r-scad" type="date" value="${esc(r.scad || '')}"></td>
+      <td style="min-width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
+      <td style="min-width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
+      <td style="min-width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
+      <td style="min-width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
+      <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
+    </tr>`;
+  }
+  function addRigaRow(r){
+    $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
+    bindRigaRow($('righe-body').lastElementChild);
+    updateTotale();
+    refreshCmpOrdine();
+  }
+  // Riordino righe per trascinamento — vedi la stessa idea in ordini.html.
+  let dragSrcRow = null;
+  function bindRigaRow(tr){
+    tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => { updateTotale(); refreshCmpOrdine(); }));
+    const handle = tr.querySelector('.drag-handle');
+    handle.addEventListener('dragstart', e => {
+      dragSrcRow = tr;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    });
+    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
+    tr.addEventListener('dragover', e => {
+      if(!dragSrcRow || dragSrcRow === tr) return;
+      e.preventDefault();
+      const rect = tr.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
+    });
+    tr.addEventListener('drop', e => e.preventDefault());
+    // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
+    // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
+    // riempie questa riga invece di aggiungerne una nuova.
+    window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
+      companyId, priceField: 'listinoAcq', clearOnPick: false,
+      onPick: p => {
+        tr.querySelector('.r-cod').value = p.cod;
+        tr.querySelector('.r-descr').value = p.descr;
+        tr.querySelector('.r-prezzo').value = p.listinoAcq || 0;
+        tr.querySelector('.r-iva').value = p.iva || 22;
+        const qtyEl = tr.querySelector('.r-qty');
+        if (!Number(qtyEl.value)) qtyEl.value = 1;
+        updateTotale();
+        refreshCmpOrdine();
+        qtyEl.focus(); qtyEl.select();
+      },
+    });
+  }
+  function readRighe(){
+    return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      cod: tr.querySelector('.r-cod').value.trim(),
+      descr: tr.querySelector('.r-descr').value.trim(),
+      lotto: tr.querySelector('.r-lotto').value.trim(),
+      scad: tr.querySelector('.r-scad').value,
+      qty: Number(tr.querySelector('.r-qty').value) || 0,
+      prezzo: Number(tr.querySelector('.r-prezzo').value) || 0,
+      sconto: tr.querySelector('.r-sconto').value.trim(),
+      iva: Number(tr.querySelector('.r-iva').value) || 0,
+    })).filter(r => r.descr || r.cod);
+  }
+  // Stessa aritmetica dello sconto del gestionale originale, cascata "N+M".
+  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
+  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
+  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
+  function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
+  function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
+  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
+  function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
+
+  // Confronto col prezzo dell'ordine fornitore collegato — stessa funzione
+  // di fatture-fornitore.html: qui ANCORA più utile, perché il prezzo di
+  // un DDT quasi sempre non viene dal documento cartaceo (che raramente lo
+  // riporta) ma è già stato backfillato dall'ordine — il confronto conferma
+  // che il backfill è avvenuto per ogni riga, o segnala quelle rimaste a 0
+  // perché il codice non era nell'ordine.
+  function cmpOrdineBadgeHtml(prezzoFatt, ordineRiga){
+    const stessoPrezzo = Math.abs((ordineRiga.prezzo || 0) - (prezzoFatt || 0)) < 0.005;
+    return stessoPrezzo
+      ? `<span class="cat-badge cat-ok" title="Stesso prezzo dell'ordine collegato">= ordine</span>`
+      : `<span class="cat-badge cat-warn" title="Nell'ordine collegato il prezzo era ${eur(ordineRiga.prezzo)}">⚠ ordine ${eur(ordineRiga.prezzo)}</span>`;
+  }
+  function refreshCmpOrdine(){
+    const ordine = allOrdiniFornitoreById[$('f-ordine').value];
+    $('righe-body').querySelectorAll('tr').forEach(tr => {
+      const cell = tr.querySelector('.r-prezzo').closest('td');
+      const old = cell.querySelector('.cat-badge, .cmp-none');
+      if(old) old.remove();
+      if(!ordine) return;
+      const cod = tr.querySelector('.r-cod').value.trim();
+      if(!cod) return;
+      const ordineRiga = (ordine.righe || []).find(r => r.cod === cod);
+      if(!ordineRiga){
+        cell.insertAdjacentHTML('beforeend', '<span class="cmp-none" style="display:inline-block;margin-top:4px;font-size:10.5px;color:var(--faint)">non in ordine</span>');
+        return;
+      }
+      cell.insertAdjacentHTML('beforeend', cmpOrdineBadgeHtml(Number(tr.querySelector('.r-prezzo').value) || 0, ordineRiga));
+    });
+  }
+  // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
+  // ordini.html.
+  $('add-riga').addEventListener('click', () => {
+    addRigaRow(null);
+    $('righe-body').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  function refreshOrdineOptions(fornitoreId){
+    const ordini = ordiniPerFornitore[fornitoreId] || [];
+    $('f-ordine').innerHTML = '<option value="">— nessuno —</option>' +
+      ordini.map(o => `<option value="${o.id}">${esc(o.num)}</option>`).join('');
+  }
+  $('f-fornitore').addEventListener('change', () => { refreshOrdineOptions($('f-fornitore').value); refreshCmpOrdine(); });
+  // Precompila le righe dal RESIDUO dell'ordine (quanto non ancora
+  // ricevuto: qty - qtyEv), non dalle righe intere — un ordine può arrivare
+  // in più DDT parziali (cascata, vedi ordini-fornitore.html e il commento
+  // di applicaRicezione() in app/cascade.js). Stessa idea di
+  // precompileFromOrdine() in ddt.html, ma senza righeConLotti(): qui
+  // lotto/scadenza li porta il DDT stesso (letto dall'AI, o scritti a
+  // mano) — non c'è un documento "a monte" da cui ereditarli, è QUESTO
+  // documento a fare da fonte per tutti gli altri.
+  $('f-ordine').addEventListener('change', () => {
+    const righeVuote = readRighe().length === 0;
+    const ordine = allOrdiniFornitoreById[$('f-ordine').value];
+    if(ordine && righeVuote){
+      $('righe-body').innerHTML = '';
+      const residuo = window.SaasCascade.residuoRighe(ordine)
+        .filter(r => r.residuo > 0)
+        .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo, prezzo:r.prezzo, sconto:r.sconto, iva:r.iva }));
+      (residuo.length ? residuo : [null]).forEach(addRigaRow);
+    }
+    refreshCmpOrdine();
+  });
+
+  async function openForm(ddtf){
+    editingId = ddtf ? ddtf.id : null;
+    editingDdtf = ddtf;
+    $('form-title').textContent = ddtf ? `Modifica ${ddtf.num}` : 'Nuovo DDT fornitore';
+    $('f-fornitore').value = ddtf ? ddtf.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
+    refreshOrdineOptions($('f-fornitore').value);
+    $('f-ordine').value = ddtf ? (ddtf.ofId || '') : '';
+    $('f-num').value = ddtf ? ddtf.num : '';
+    $('f-data').value = ddtf ? ddtf.data : today();
+    $('righe-body').innerHTML = '';
+    (ddtf ? ddtf.righe : [null]).forEach(addRigaRow);
+    // Bottone "Genera fattura fornitore" — stesso schema di ddt-btn-ft in
+    // ddt.html: sempre a vista quando si apre un DDT fornitore esistente.
+    const ftBox = $('ddtf-cascade-actions');
+    if(ddtf){
+      ftBox.hidden = false;
+      const ftBtn = $('ddtf-btn-ft');
+      ftBtn.textContent = ddtf.ftfId ? '✓ Fatturato' : '→ Genera fattura fornitore';
+      ftBtn.disabled = !!ddtf.ftfId;
+      ftBtn.className = ddtf.ftfId ? 'ghost' : 'primary';
+    }else{
+      ftBox.hidden = true;
+    }
+    renderLineage(ddtf);
+    $('f-print-actions').hidden = !ddtf;
+    setMsg('', '');
+    $('form-card').hidden = false;
+    $('list-card').hidden = true;
+  }
+  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
+  // cliccabili con l'intera filiera del DDT fornitore.
+  async function renderLineage(ddtf){
+    const panel = $('f-lineage-panel');
+    if(!ddtf){ panel.hidden = true; return; }
+    try{
+      const docs = await window.SaasLineage.loadAll(store, companyId);
+      const shown = window.SaasLineage.renderInto($('f-lineage'), 'ddtFornitore', ddtf, docs);
+      panel.hidden = !shown;
+    }catch(e){ panel.hidden = true; }
+  }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingDdtf = null; }
+  $('new-ddtf').addEventListener('click', async () => {
+    if($('f-fornitore').options.length === 0){ alert('Crea prima almeno un fornitore.'); return; }
+    const lim = await store.checkDocLimit(companyId);
+    if(!lim.ok){ alert(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`); return; }
+    await openForm(null);
+  });
+  $('f-cancel').addEventListener('click', closeForm);
+  $('f-back').addEventListener('click', closeForm);
+  $('ddtf-btn-ft').addEventListener('click', () => {
+    if(!editingDdtf) return;
+    localStorage.setItem('saas_gen_ftf_from_ddtf', editingDdtf.id);
+    location.href = 'fatture-fornitore.html';
+  });
+  $('f-btn-print').addEventListener('click', () => {
+    if(!editingDdtf) return;
+    window.SaasPrint.openPrintWindow('ddtFornitore', editingDdtf, fornitoriById[editingDdtf.fornitoreId], company);
+  });
+  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
+  $('f-dl-pdf').addEventListener('click', async () => {
+    if(!editingDdtf) return;
+    const btn = $('f-dl-pdf');
+    btn.disabled = true;
+    try{
+      await window.SaasPrint.downloadPDF('ddtFornitore', editingDdtf, fornitoriById[editingDdtf.fornitoreId], company);
+    }catch(err){
+      alert('Errore durante la generazione del PDF: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('f-dl-excel').addEventListener('click', async () => {
+    if(!editingDdtf) return;
+    const btn = $('f-dl-excel');
+    btn.disabled = true;
+    try{
+      await window.SaasPrint.downloadExcel('ddtFornitore', editingDdtf, fornitoriById[editingDdtf.fornitoreId], company);
+    }catch(err){
+      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  // ---- importa DDT da PDF/foto con l'AI ----------------------------------
+  // Stesso schema di fatture-fornitore.html ("Importa"), con due differenze:
+  // niente lettura XML (un DDT non è mai una fattura elettronica FatturaPA),
+  // e prezzo/sconto/iva — quasi sempre assenti su un DDT cartaceo — vengono
+  // BACKFILLATI dall'ordine collegato dopo l'AI, invece di essere letti dal
+  // documento (che di solito non li riporta affatto).
+  function aiImportStatus(text, kind){
+    const el = $('ai-import-status');
+    if(!text){ el.hidden = true; return; }
+    el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
+  }
+  // riferimentoOrdine/findOrdineByRiferimento: stessa identica funzione di
+  // fatture-fornitore.html — vedi i commenti lì.
+  function firstDigits(s){ const m = String(s || '').match(/\d+/); return m ? parseInt(m[0], 10) : null; }
+  function lastDigits(s){ const m = String(s || '').match(/\d+/g); return m ? parseInt(m[m.length - 1], 10) : null; }
+  function findOrdineByRiferimento(ordini, riferimento){
+    const rifNum = firstDigits(riferimento);
+    if(rifNum == null) return null;
+    const match = (ordini || []).filter(o => lastDigits(o.num) === rifNum);
+    return match.length === 1 ? match[0] : null; // ambiguo (0 o >1 candidati): meglio non collegare da soli
+  }
+  const AI_IMPORT_INSTR = "Nel documento allegato c'è un DOCUMENTO DI TRASPORTO (DDT) ricevuto da un FORNITORE insieme alla merce. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore mittente), numero (numero del DDT), data (formato AAAA-MM-GG), riferimentoOrdine (il NOSTRO numero d'ordine come lo riporta il fornitore, es. dopo un'etichetta \"Vs. ordine\"/\"Vs.ord.\"/\"Rif. cliente\"/\"Ordine cliente\"/\"PO\" — SOLO il numero, niente date o altro testo attorno; MAI il numero d'ordine interno del fornitore; stringa vuota se non chiaramente presente), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità consegnata, numero), lotto (il numero di lotto/partita indicato vicino alla riga articolo, es. \"Partita\" o \"Lotto\"; stringa vuota se assente), scad (la data di scadenza del lotto indicata vicino alla riga articolo, formato AAAA-MM-GG; stringa vuota se assente). Un documento di trasporto di solito NON riporta prezzi: non inventarli, se non presenti ometti il campo prezzo dalla riga.";
+  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
+  $('ai-import-file').addEventListener('change', async () => {
+    const file = $('ai-import-file').files[0];
+    $('ai-import-file').value = '';
+    if(!file) return;
+    aiImportStatus('Sto leggendo ' + file.name + ' con l\'AI…', 'info');
+    try{
+      const p = await window.SaasAiImport.extractFromFile(store, file, {
+        systemPrompt: "Sei l'assistente di un gestionale per la distribuzione di dispositivi medici. Rispondi sempre e solo con JSON valido, mai testo libero, mai backtick.",
+        instr: AI_IMPORT_INSTR,
+        companyId,
+      });
+      if(!p.numero && !(p.righe && p.righe.length)){ throw new Error('l\'AI non ha riconosciuto un DDT fornitore in questo file'); }
+
+      openForm(null);
+      const match = window.SaasAiImport.findPartyByNome(fornitoriArr, p.fornitore);
+      if(match){ $('f-fornitore').value = match.id; refreshOrdineOptions(match.id); }
+      $('f-num').value = String(p.numero || '').trim();
+      $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
+
+      // Collegamento automatico all'ordine fornitore, dal riferimento letto
+      // nel DDT (p.riferimentoOrdine) — stessa identica logica di
+      // fatture-fornitore.html, qui PRIMA di costruire le righe: serve per
+      // il backfill di prezzo/sconto/iva subito sotto.
+      let ordineLink = null;
+      if(match) ordineLink = findOrdineByRiferimento(ordiniPerFornitore[match.id], p.riferimentoOrdine);
+      if(ordineLink) $('f-ordine').value = ordineLink.id;
+
+      $('righe-body').innerHTML = '';
+      const righeGrezze = (Array.isArray(p.righe) ? p.righe : []).map(r => {
+        // Backfill di prezzo/sconto/iva dall'ordine collegato, per codice —
+        // un DDT cartaceo quasi mai li riporta (vedi l'istruzione qui
+        // sopra), ma l'ordine sì: senza questo, ogni riga partirebbe da
+        // prezzo 0 da riscrivere tutta a mano, anche quando l'ordine la
+        // conosce già.
+        const ordineRiga = ordineLink ? (ordineLink.righe || []).find(x => x.cod === String(r.cod || '').trim()) : null;
+        return {
+          cod: String(r.cod || '').trim(), descr: String(r.descr || '').trim(),
+          qty: Math.max(1, parseInt(r.qty) || 1),
+          prezzo: ordineRiga ? (ordineRiga.prezzo || 0) : (r.prezzo != null && r.prezzo !== '' ? parseFloat(r.prezzo) || 0 : 0),
+          sconto: ordineRiga ? (ordineRiga.sconto || '') : String(r.sconto || '').replace(/\s/g, ''),
+          iva: ordineRiga ? (ordineRiga.iva || 22) : (r.iva != null && r.iva !== '' ? parseFloat(r.iva) : 22),
+          lotto: String(r.lotto || '').trim(),
+          scad: /^\d{4}-\d{2}-\d{2}$/.test(r.scad || '') ? r.scad : '',
+        };
+      });
+      // Punto 5: verifica incrociata col catalogo prima di mostrare le
+      // righe — stessa funzione condivisa di ordini.html/fatture-fornitore.html.
+      const righe = await window.SaasAiImport.crossCheckRighe(store, companyId, righeGrezze);
+      (righe.length ? righe : [null]).forEach(addRigaRow);
+      const daVerificare = righe.filter(r => r.catalogMatch === 'unmatched').length;
+
+      // Stesso principio di fatture-fornitore.html: niente avviso quando
+      // tutto è andato bene da solo (fornitore riconosciuto, ordine
+      // collegato o non pertinente, righe a catalogo) — un problema REALE
+      // da controllare resta invece sempre segnalato.
+      const ordineDaVerificare = !!(match && p.riferimentoOrdine && !ordineLink);
+      const kind = !match ? 'error' : (daVerificare || ordineDaVerificare ? 'info' : 'ok');
+      if(kind !== 'ok'){
+        aiImportStatus(
+          (match
+            ? `Letto con l'AI: fornitore riconosciuto come "${match.nome}".`
+            : `Letto con l'AI, ma nessun fornitore corrisponde a "${p.fornitore || '?'}": scegline uno dall'elenco prima di salvare (o creane uno nuovo in Fornitori).`)
+          + (ordineLink ? ` Collegato automaticamente all'ordine ${esc(ordineLink.num)} (rif. "${esc(p.riferimentoOrdine)}" nel DDT), prezzi ripresi da lì.`
+            : (match && p.riferimentoOrdine ? ` Riferimento "${esc(p.riferimentoOrdine)}" nel DDT, ma nessun ordine di questo fornitore corrisponde con certezza: collegalo a mano se serve (senza un ordine collegato i prezzi restano a 0, da inserire a mano).` : ''))
+          + (daVerificare ? ` ${daVerificare} riga/e non trovate a catalogo, da controllare.` : ''),
+          kind
+        );
+      }else{
+        aiImportStatus('', '');
+      }
+    }catch(err){
+      aiImportStatus('Lettura non riuscita: ' + (err.message || err), 'error');
+    }
+  });
+
+  $('f-save').addEventListener('click', async () => {
+    const fornitoreId = $('f-fornitore').value;
+    const ofId = $('f-ordine').value || null;
+    const num = $('f-num').value.trim();
+    const data = $('f-data').value;
+    const righe = readRighe();
+    if(!fornitoreId){ setMsg('Seleziona un fornitore.', 'error'); return; }
+    if(!num){ setMsg('Inserisci il numero del DDT del fornitore.', 'error'); return; }
+    if(!data){ setMsg('Inserisci una data.', 'error'); return; }
+    if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
+    if(!editingId){
+      const lim = await store.checkDocLimit(companyId);
+      if(!lim.ok){ setMsg(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`, 'error'); return; }
+    }
+
+    $('f-save').disabled = true;
+    setMsg('', '');
+    try{
+      // Si parte dal DDT esistente (se in modifica) invece che da un
+      // oggetto vuoto: senza questo, salvare una modifica cancellerebbe
+      // silenziosamente ftfId (vive in "extra") — stesso bug già trovato e
+      // corretto in ordini.html/qtyEv e ddt.html/ftId.
+      const doc = editingDdtf ? Object.assign({}, editingDdtf, { fornitoreId, ofId, num, data, righe }) : { fornitoreId, ofId, num, data, righe };
+      const isNew = !editingId;
+      if(editingId) doc.id = editingId;
+      const saved = await store.saveDoc('ddtFornitore', doc, companyId);
+      // Cascata: un DDT fornitore NUOVO collegato a un ordine scala il
+      // residuo dell'ordine (qtyEv) e ne registra il numero — solo alla
+      // creazione (vedi la nota in ordini.html sopra residuoRighe()). Un
+      // errore qui non deve far sembrare fallito il salvataggio del DDT,
+      // già andato a buon fine.
+      if(isNew && ofId){
+        try{
+          const of = allOrdiniFornitoreById[ofId];
+          if(of){
+            const ofAgg = window.SaasCascade.applicaRicezione(of, righe, saved.num);
+            await store.saveDoc('ordiniFornitore', ofAgg, companyId);
+            allOrdiniFornitoreById[ofId] = ofAgg;
+          }
+        }catch(e){ /* il DDT è comunque salvato */ }
+      }
+      // Un DDT fornitore appena creato resta aperto (invece di tornare
+      // all'elenco) — stessa richiesta reale già risolta in ddt.html:
+      // "quando premo genera ddt voglio che mi apra direttamente il ddt e
+      // mi dia la possibilità di premere il pulsante genera fattura [...]".
+      // Qui non c'è nessun bottone "genera" da premere prima (il DDT
+      // fornitore si crea leggendolo, non generandolo), ma la stessa logica
+      // si applica al passo successivo, "→ Genera fattura fornitore": resta
+      // nascosto finché il DDT non esiste già salvato.
+      await renderList();
+      if(isNew) await openForm(saved);
+      else closeForm();
+    }catch(err){
+      const dup = err && err.code === '23505';
+      setMsg(dup ? 'Esiste già un DDT fornitore con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
+    }finally{
+      $('f-save').disabled = false;
+    }
+  });
+
+  // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
+  // essere cambiati (apertura pagina, dopo salvataggio/eliminazione...).
+  async function renderList(){
+    const area = $('list-area');
+    area.innerHTML = '<p class="empty">Carico…</p>';
+    try{
+      DDTF_ALL = await store.loadCollection('ddtFornitore', companyId);
+    }catch(err){
+      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
+      return;
+    }
+    renderResults();
+  }
+  // Ridisegna l'elenco dai dati già in DDTF_ALL, senza rifare la query di
+  // rete — vedi il commento in ordini.html (stessa correzione).
+  function renderResults(){
+    renderFilterbar();
+    const area = $('list-area');
+    if(DDTF_ALL.length === 0){
+      area.innerHTML = '<p class="empty">Nessun DDT fornitore ancora. Importa il primo con "Importa", o creane uno a mano con "+ Nuovo DDT".</p>';
+      return;
+    }
+    let elenco = DDTF_ALL.filter(matchesQuery).filter(matchesFilter);
+    if(elenco.length === 0){
+      area.innerHTML = '<p class="empty">Nessun DDT trovato con questi criteri.</p>';
+      return;
+    }
+    elenco.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    const allChecked = elenco.length > 0 && elenco.every(d => PICK.has(d.id));
+    area.innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr>
+        <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
+        ${th('num','Numero')}${th('data','Data')}${th('fornitore','Fornitore')}${th('ordine','Ordine')}<th></th>
+      </tr></thead><tbody>${elenco.map(d => `
+        <tr class="row-click" data-id="${d.id}">
+          <td class="check-col"><input type="checkbox" class="row-check" data-id="${d.id}" ${PICK.has(d.id) ? 'checked' : ''}></td>
+          <td class="num-col">${esc(d.num)}</td>
+          <td>${d.data ? new Date(d.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${esc((fornitoriById[d.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
+          <td>${d.ofId ? `<span class="badge">${esc((allOrdiniFornitoreById[d.ofId] || {}).num || '?')}</span>` : '—'}</td>
+          <td class="actions">${PICK.has(d.id) ? `
+            ${!d.ftfId ? `<button data-gen-ft="${d.id}" title="Genera la fattura fornitore da questo DDT">📑 Fattura</button>` : ''}
+            <button data-edit="${d.id}">Modifica</button>
+            <button class="danger" data-del="${d.id}">Elimina</button>` : ''}
+          </td>
+        </tr>`).join('')}</tbody></table></div>`;
+    window.SaasResize.makeColsResizable(area.querySelector('table'), 'ddt-fornitore-elenco');
+    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
+    $('check-all').addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) elenco.forEach(d => PICK.add(d.id));
+      else elenco.forEach(d => PICK.delete(d.id));
+      renderResults();
+    });
+    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
+      e.stopPropagation();
+      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
+      renderResults();
+    }));
+    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
+      openForm(elenco.find(x => x.id === btn.dataset.edit));
+    }));
+    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
+      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
+      openForm(elenco.find(x => x.id === tr.dataset.id));
+    }));
+    area.querySelectorAll('[data-gen-ft]').forEach(btn => btn.addEventListener('click', () => {
+      localStorage.setItem('saas_gen_ftf_from_ddtf', btn.dataset.genFt);
+      location.href = 'fatture-fornitore.html';
+    }));
+    area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
+      const d = elenco.find(x => x.id === btn.dataset.del);
+      if(!confirm(`Eliminare il DDT fornitore ${d.num}? L'operazione non si può annullare.`)) return;
+      try{
+        await store.removeDoc('ddtFornitore', d.id);
+        await renderList();
+      }catch(err){
+        alert('Errore durante l\'eliminazione: ' + err.message);
+      }
+    }));
+  }
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
+    window.SaasNav.render('ddt-fornitore', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+
+    const [fornitori, ordiniFornitore] = await Promise.all([
+      store.loadCollection('fornitori', companyId),
+      store.loadCollection('ordiniFornitore', companyId),
+    ]);
+    fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    fornitoriArr = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity: 'base' }));
+    allOrdiniFornitoreById = Object.fromEntries(ordiniFornitore.map(o => [o.id, o]));
+    ordiniPerFornitore = {};
+    ordiniFornitore.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
+    // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
+    // fornitori" della filterbar qui sopra.
+    $('f-fornitore').innerHTML = fornitoriArr.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+
+    window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
+      companyId, priceField: 'listinoAcq',
+      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: p.listinoAcq || 0, sconto: '', iva: p.iva || 22 }),
+    });
+
+    await renderList();
+
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
+    // in un altro modulo (vedi app/lineage.js).
+    const pendingNum = window.SaasLineage.consumePendingOpenNum('ddtFornitore');
+    if(pendingNum){
+      const all = await store.loadCollection('ddtFornitore', companyId);
+      const found = all.find(x => x.num === pendingNum);
+      if(found) await openForm(found);
+    }
+  }
+  init();
+</script>
+</body>
+</html>

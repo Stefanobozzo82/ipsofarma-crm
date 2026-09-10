@@ -53,8 +53,23 @@
          registra: vedi i numeri reali importati, es. "5718067132"). -->
     <label for="f-num">Numero fattura del fornitore</label>
     <input id="f-num" type="text" placeholder="es. 5718067132">
-    <label for="f-ordine">Ordine collegato</label>
-    <select id="f-ordine"><option value="">— nessuno —</option></select>
+    <!-- DDT fornitore collegato (0016_ddt_fornitore.sql): un fornitore che
+         manda anche il DDT cartaceo col pacco può collegare la fattura a
+         QUELLO invece che direttamente all'ordine — le quantità ricevute
+         sono già state segnate quando il DDT è stato registrato (vedi
+         ddt-fornitore.html), qui la fattura eredita anche l'ordine (per la
+         filiera "Documenti collegati") senza doverlo scegliere a mano.
+         "Ordine collegato" resta comunque scegliibile da solo, per chi non
+         manda DDT — comportamento di sempre, invariato. Stesso schema di
+         fatture.html ("Ordine collegato"/"DDT collegato" affiancati). -->
+    <div class="grid2">
+      <div><label for="f-ordine">Ordine collegato</label>
+        <select id="f-ordine"><option value="">— nessuno —</option></select>
+      </div>
+      <div><label for="f-ddtf">DDT fornitore collegato</label>
+        <select id="f-ddtf"><option value="">— nessuno —</option></select>
+      </div>
+    </div>
 
     <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
@@ -123,6 +138,8 @@
   let fornitoriById = {};
   let fornitoriArr = [];
   let ordiniPerFornitore = {};
+  let allDdtfById = {};
+  let ddtfPerFornitore = {}; // per il menu "DDT fornitore collegato" — vedi refreshLinkedOptions()
   let noteCreditoFornitoreArr = []; // per sottrarle dal "Totale acquisti", vedi renderStats()
   // Ordinamento iniziale per data (non numero): come nel vecchio gestionale
   // ("SORT={key:'data',dir:'desc'}", l'unico default usato in tutto
@@ -415,12 +432,15 @@
     $('righe-body').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 
-  function refreshOrdineOptions(fornitoreId){
+  function refreshLinkedOptions(fornitoreId){
     const ordini = ordiniPerFornitore[fornitoreId] || [];
     $('f-ordine').innerHTML = '<option value="">— nessuno —</option>' +
       ordini.map(o => `<option value="${o.id}">${esc(o.num)}</option>`).join('');
+    const ddtf = ddtfPerFornitore[fornitoreId] || [];
+    $('f-ddtf').innerHTML = '<option value="">— nessuno —</option>' +
+      ddtf.map(d => `<option value="${d.id}">${esc(d.num)}</option>`).join('');
   }
-  $('f-fornitore').addEventListener('change', () => { refreshOrdineOptions($('f-fornitore').value); refreshCmpOrdine(); });
+  $('f-fornitore').addEventListener('change', () => { refreshLinkedOptions($('f-fornitore').value); refreshCmpOrdine(); });
   $('f-ordine').addEventListener('change', () => {
     const righeVuote = readRighe().length === 0;
     const ordine = (ordiniPerFornitore[$('f-fornitore').value] || []).find(o => o.id === $('f-ordine').value);
@@ -433,14 +453,39 @@
     // comunque ricalcolato contro l'ordine appena scelto.
     refreshCmpOrdine();
   });
+  // Scegliere un DDT fornitore imposta anche "Ordine collegato" da solo
+  // (a differenza di fatture.html/f-ddt, che non lo fa): qui serve per
+  // forza, altrimenti applicaFatturazioneFornitore() più sotto (che
+  // aggiorna ftfIds SULL'ORDINE) non saprebbe quale ordine aggiornare, e
+  // il box "Documenti collegati" (app/lineage.js) non risalirebbe la
+  // filiera fino all'ordine cliente radice.
+  $('f-ddtf').addEventListener('change', () => {
+    const righeVuote = readRighe().length === 0;
+    const ddtf = allDdtfById[$('f-ddtf').value];
+    if(!ddtf) return;
+    $('f-ordine').value = ddtf.ofId || '';
+    if(righeVuote){
+      $('righe-body').innerHTML = '';
+      // prezzo/sconto/iva vengono già dal DDT fornitore (backfillati
+      // dall'ordine quando il DDT è stato registrato, o corretti a mano
+      // lì) — niente da riscrivere qui, come fatture.html/f-ddt.
+      (ddtf.righe || []).forEach(r => addRigaRow({
+        cod:r.cod, descr:r.descr, qty:r.qty,
+        prezzo: r.prezzo || 0, sconto: r.sconto || '', iva: r.iva || 22,
+        lotto: r.lotto || '', scad: r.scad || '',
+      }));
+    }
+    refreshCmpOrdine();
+  });
 
   function openForm(fattura){
     editingId = fattura ? fattura.id : null;
     editingFattura = fattura;
     $('form-title').textContent = fattura ? `Modifica ${fattura.num}` : 'Nuova fattura';
     $('f-fornitore').value = fattura ? fattura.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
-    refreshOrdineOptions($('f-fornitore').value);
+    refreshLinkedOptions($('f-fornitore').value);
     $('f-ordine').value = fattura ? (fattura.ofId || '') : '';
+    $('f-ddtf').value = fattura ? (fattura.ddtfId || '') : '';
     $('f-num').value = fattura ? fattura.num : '';
     $('f-data').value = fattura ? fattura.data : today();
     $('righe-body').innerHTML = '';
@@ -586,7 +631,7 @@
 
       openForm(null);
       const match = window.SaasAiImport.findPartyByNome(fornitoriArr, p.fornitore);
-      if(match){ $('f-fornitore').value = match.id; refreshOrdineOptions(match.id); }
+      if(match){ $('f-fornitore').value = match.id; refreshLinkedOptions(match.id); }
       $('f-num').value = String(p.numero || '').trim();
       $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
       $('righe-body').innerHTML = '';
@@ -657,6 +702,7 @@
   $('f-save').addEventListener('click', async () => {
     const fornitoreId = $('f-fornitore').value;
     const ofId = $('f-ordine').value || null;
+    const ddtfId = $('f-ddtf').value || null;
     const num = $('f-num').value.trim();
     const data = $('f-data').value;
     const righe = readRighe();
@@ -672,32 +718,48 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = { fornitoreId, ofId, num, data, righe };
+      const doc = { fornitoreId, ofId, ddtfId, num, data, righe };
       const isNew = !editingId;
       if(editingId){
         doc.id = editingId; // lo stato di pagamento resta quello esistente
       } else {
         doc.paid = false; doc.paidDate = null; doc.pagamenti = [];
       }
-      await store.saveDoc('fattureFornitore', doc, companyId);
-      // Cascata: una fattura NUOVA collegata a un ordine fornitore segna
-      // come ricevute (qtyEv) le quantità fatturate — porta di
-      // markOFReceived() dal gestionale originale, semplificata: qui
-      // "fatturato" vale come "ricevuto" (nessun tracciamento separato
-      // arrivo/fattura), e solo alla creazione (stessa nota di ddt.html/
-      // fatture.html: un errore qui non fa sembrare fallito il salvataggio
-      // della fattura, già andato a buon fine).
+      const saved = await store.saveDoc('fattureFornitore', doc, companyId);
+      // Cascata sull'ordine fornitore collegato, solo alla creazione (un
+      // errore qui non deve far sembrare fallito il salvataggio della
+      // fattura, già andato a buon fine — stessa nota di ddt.html/
+      // fatture.html). Due percorsi DIVERSI, a seconda che ci sia o no un
+      // DDT fornitore di mezzo (0016_ddt_fornitore.sql — richiesta reale:
+      // "sto pensando di implementare anche i ddt del fornitore [...]"):
+      //  - CON ddtfId: le quantità ricevute sono già state segnate quando
+      //    il DDT fornitore è stato registrato — qui si aggiorna solo lo
+      //    stato "fatturato" del DDT e dell'ordine (applicaFatturazioneFornitore,
+      //    NON applicaRicezione: contarla di nuovo raddoppierebbe l'arrivo).
+      //  - SENZA ddtfId (comportamento di sempre, invariato — fornitori
+      //    che non mandano DDT): applicaRicezione segna qui, alla
+      //    fattura, come ricevute le quantità fatturate — porta di
+      //    markOFReceived(), semplificata ("fatturato" vale "ricevuto").
       //
-      // Bug reale trovato (un ordine fornitore collegato a una fattura
-      // reale, ma mai segnato ricevuto — updated_at dell'ordine identico
-      // a created_at, nessun aggiornamento è mai partito): il catch qui
-      // sotto inghiottiva SEMPRE l'errore in silenzio, "andato storto ma
-      // nessuno lo sa mai" — corretto perché la fattura è comunque salvata
-      // (non blocca il salvataggio, resta lo stesso comportamento) ma
-      // l'esito della cascata si vede ora nel messaggio finale, invece di
-      // sparire senza traccia.
+      // Bug reale trovato prima di questa cascata a due vie (un ordine
+      // fornitore collegato a una fattura reale, ma mai segnato ricevuto):
+      // il catch sotto inghiottiva SEMPRE l'errore in silenzio — corretto
+      // perché la fattura è comunque salvata (non blocca il salvataggio)
+      // ma l'esito si vede ora nel messaggio finale, invece di sparire
+      // senza traccia.
       let cascadeWarning = '';
-      if(isNew && ofId){
+      if(isNew && ddtfId){
+        try{
+          const ddtf = allDdtfById[ddtfId];
+          if(ddtf){
+            await store.saveDoc('ddtFornitore', Object.assign({}, ddtf, { ftfId: saved.num }), companyId);
+            if(ofId){
+              const of = (ordiniPerFornitore[fornitoreId] || []).find(x => x.id === ofId);
+              if(of) await store.saveDoc('ordiniFornitore', window.SaasCascade.applicaFatturazioneFornitore(of, saved.num), companyId);
+            }
+          }else cascadeWarning = ' (il DDT collegato non è stato trovato: il suo stato "fatturato" non è stato aggiornato — verifica a mano.)';
+        }catch(e){ cascadeWarning = ' (la fattura è salvata, ma l\'aggiornamento dello stato del DDT collegato non è riuscito: ' + (e.message || e) + ' — verifica a mano.)'; }
+      }else if(isNew && ofId){
         try{
           const of = (ordiniPerFornitore[fornitoreId] || []).find(x => x.id === ofId);
           if(of) await store.saveDoc('ordiniFornitore', window.SaasCascade.applicaRicezione(of, righe), companyId);
@@ -916,15 +978,19 @@
       onLogout: doLogout,
     });
 
-    const [fornitori, ordini, noteCreditoFornitore] = await Promise.all([
+    const [fornitori, ordini, ddtFornitore, noteCreditoFornitore] = await Promise.all([
       store.loadCollection('fornitori', companyId),
       store.loadCollection('ordiniFornitore', companyId),
+      store.loadCollection('ddtFornitore', companyId),
       store.loadCollection('noteCreditoFornitore', companyId),
     ]);
     fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
     fornitoriArr = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity: 'base' }));
     ordiniPerFornitore = {};
     ordini.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
+    allDdtfById = Object.fromEntries(ddtFornitore.map(d => [d.id, d]));
+    ddtfPerFornitore = {};
+    ddtFornitore.forEach(d => { (ddtfPerFornitore[d.fornitoreId] = ddtfPerFornitore[d.fornitoreId] || []).push(d); });
     noteCreditoFornitoreArr = noteCreditoFornitore;
     // fornitoriArr (già ordinato alfabeticamente qui sopra, come il menu
     // "Tutti i fornitori" della filterbar) — non l'array grezzo: altrimenti
@@ -937,6 +1003,25 @@
     });
 
     await renderList();
+
+    // Cascata: apertura diretta da "→ Genera fattura fornitore" in
+    // ddt-fornitore.html, con fornitore/ordine già selezionati e le righe
+    // precompilate dal DDT (prezzo/sconto/iva già risolti lì, niente da
+    // riscrivere qui) — stesso meccanismo di "saas_gen_ft_from_ddt" in
+    // fatture.html/ddt.html.
+    const genFromDdtf = localStorage.getItem('saas_gen_ftf_from_ddtf');
+    if(genFromDdtf){
+      localStorage.removeItem('saas_gen_ftf_from_ddtf');
+      const ddtf = allDdtfById[genFromDdtf];
+      if(ddtf){
+        openForm(null);
+        $('f-fornitore').value = ddtf.fornitoreId;
+        refreshLinkedOptions(ddtf.fornitoreId);
+        $('f-ordine').value = ddtf.ofId || '';
+        $('f-ddtf').value = ddtf.id;
+        $('f-ddtf').dispatchEvent(new Event('change')); // precompila le righe dal DDT fornitore
+      }
+    }
 
     // Apertura diretta da un nodo del box "Documenti collegati" cliccato
     // in un altro modulo (vedi app/lineage.js).

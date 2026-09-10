@@ -14,6 +14,7 @@
     ordiniCliente: 'ordini.html',
     ordiniFornitore: 'ordini-fornitore.html',
     ddt: 'ddt.html',
+    ddtFornitore: 'ddt-fornitore.html',
     fattureCliente: 'fatture.html',
     fattureFornitore: 'fatture-fornitore.html',
     noteCredito: 'note-credito.html',
@@ -42,28 +43,32 @@
   // (dove tutto viveva in un solo DB in memoria con ID stabili "OC/2026/1").
   // Qui ogni riferimento va letto per quello che è davvero, verificato nel
   // codice di ogni pagina:
-  //  - ddt.ocId, fattureCliente.ocId/ddtId, fattureFornitore.ofId,
-  //    noteCredito.fatturaId, noteCreditoFornitore.fatturaId sono colonne
-  //    Postgres vere (docToRow/COLLECTIONS in store.js) e contengono l'ID
-  //    riga del documento collegato — scritte sempre, ad ogni salvataggio.
+  //  - ddt.ocId, ddtFornitore.ofId, fattureCliente.ocId/ddtId,
+  //    fattureFornitore.ofId/ddtfId, noteCredito.fatturaId,
+  //    noteCreditoFornitore.fatturaId sono colonne Postgres vere
+  //    (docToRow/COLLECTIONS in store.js) e contengono l'ID riga del
+  //    documento collegato — scritte sempre, ad ogni salvataggio.
   //  - ordiniFornitore.ocId, ordiniCliente.ofIds/ofId invece vivono nella
   //    colonna "extra" e contengono il NUMERO del documento (non l'id) —
   //    scritte solo da cascade.js/generaOrdiniFornitore(), quindi non
   //    affidabili come le colonne vere sopra.
-  //  - ordiniFornitore.ftfIds è una colonna vera ma non viene MAI scritta
-  //    da nessun percorso della SaaS (verificato: nessun saveDoc la
-  //    imposta) — quindi non va usata.
+  //  - ordiniFornitore.ftfIds è una colonna vera, scritta da
+  //    applicaFatturazioneFornitore() SOLO quando la fattura passa da un
+  //    DDT fornitore — una fattura collegata direttamente all'ordine
+  //    (senza DDT, vedi applicaRicezione()) non la tocca: qui comunque non
+  //    serve, si risale sempre per fattureFornitore.ofId/ddtfId, mai da
+  //    questo array.
   // Per questo qui si risale la filiera con una scansione all'indietro
   // (trova i figli di X cercando chi ha X come genitore) sui riferimenti
   // realmente scritti, invece di fidarsi di array/numeri lato genitore
   // come faceva l'originale — più lento ma sempre corretto, anche se un
   // salvataggio a metà strada non ha aggiornato un elenco.
-  // `docs` sono le 7 collection documento della azienda (vedi loadAll
+  // `docs` sono le collection documento della azienda (vedi loadAll
   // sopra). Ritorna una stringa HTML, o '' se non c'è nulla da mostrare
   // (un preventivo, o un documento senza alcun collegamento).
   function buildLineage(coll, item, docs) {
     if (!item || coll === 'preventivi') return '';
-    const t = { ordiniCliente: 'OC', ordiniFornitore: 'OF', ddt: 'DDT', fattureCliente: 'FT', fattureFornitore: 'FTF', noteCredito: 'NC', noteCreditoFornitore: 'NCF' }[coll];
+    const t = { ordiniCliente: 'OC', ordiniFornitore: 'OF', ddt: 'DDT', ddtFornitore: 'DDTF', fattureCliente: 'FT', fattureFornitore: 'FTF', noteCredito: 'NC', noteCreditoFornitore: 'NCF' }[coll];
     if (!t) return '';
     const byId = (arr, id) => id ? (arr || []).find(x => x.id === id) : null;
     const byNum = (arr, num) => num ? (arr || []).find(x => x.num === num) : null;
@@ -71,6 +76,32 @@
     const node = (label, obj, objColl) => `<div class="fnode ${obj.id === cur ? 'cur' : ''}" data-nav-coll="${objColl}" data-nav-num="${esc(obj.num)}"><span class="fl">${esc(label)}</span><span class="fv">${esc(obj.num)}</span></div>`;
     const arrow = '<span class="farrow">→</span>';
     const ghost = label => `<div class="fnode ghost"><span class="fl">${esc(label)}</span><span class="fv">— non generato</span></div>`;
+
+    // Un fornitore che manda anche il DDT (0016_ddt_fornitore.sql):
+    // Ordine fornitore -> DDT fornitore -> Fattura fornitore -> Nota
+    // credito, un ramo per ogni DDT fornitore registrato (una fattura può
+    // arrivare per un solo DDT alla volta, mai raggruppata su più — vedi
+    // fatture-fornitore.html). Un fornitore che NON manda DDT (o un
+    // ordine gestito prima di questa funzione) resta con la fattura
+    // collegata DIRETTAMENTE all'ordine — comportamento di sempre,
+    // invariato: qui i due casi sono ESCLUSIVI per costruzione
+    // (applicaRicezione() in cascade.js non fa mai coesistere entrambi
+    // per lo stesso ordine fornitore).
+    function ofChainHtml(of) {
+      const ddtfList = docs.ddtFornitore.filter(d => d.ofId === of.id);
+      if (!ddtfList.length) {
+        const ftfList = docs.fattureFornitore.filter(f => f.ofId === of.id);
+        return ftfList.length
+          ? ftfList.map((f, j) => node('Fattura fornitore' + (ftfList.length > 1 ? ' ' + (j + 1) : ''), f, 'fattureFornitore') + docs.noteCreditoFornitore.filter(n => n.fatturaId === f.id).map(n => arrow + node('Nota di credito fornitore', n, 'noteCreditoFornitore')).join('')).join(arrow)
+          : ghost('Fattura fornitore');
+      }
+      const rows = ddtfList.map((d, j) => {
+        const ftf = docs.fattureFornitore.find(f => f.ddtfId === d.id);
+        const ftfNode = ftf ? node('Fattura fornitore', ftf, 'fattureFornitore') + docs.noteCreditoFornitore.filter(n => n.fatturaId === ftf.id).map(n => arrow + node('Nota di credito fornitore', n, 'noteCreditoFornitore')).join('') : ghost('Fattura fornitore');
+        return `<div class="flow-row">${node('DDT fornitore' + (ddtfList.length > 1 ? ' ' + (j + 1) : ''), d, 'ddtFornitore')}${arrow}${ftfNode}</div>`;
+      }).join('');
+      return ddtfList.length > 1 ? `<div class="fbranch">${rows}</div>` : rows;
+    }
 
     // OC radice (se esiste), risalendo dal documento aperto tramite gli ID
     // riga scritti realmente (vedi nota sopra) — non tramite numeri.
@@ -85,6 +116,7 @@
     // Lato fornitore: ordiniFornitore.ocId è un NUMERO (non un id), scritto
     // solo da generaOrdiniFornitore() — vedi la nota sopra.
     else if (t === 'OF') oc = byNum(docs.ordiniCliente, item.ocId);
+    else if (t === 'DDTF') { const of = byId(docs.ordiniFornitore, item.ofId); oc = of ? byNum(docs.ordiniCliente, of.ocId) : null; }
     else if (t === 'FTF') { const of = byId(docs.ordiniFornitore, item.ofId); oc = of ? byNum(docs.ordiniCliente, of.ocId) : null; }
     else if (t === 'NCF') { const ftf = byId(docs.fattureFornitore, item.fatturaId); const of = ftf ? byId(docs.ordiniFornitore, ftf.ofId) : null; oc = of ? byNum(docs.ordiniCliente, of.ocId) : null; }
 
@@ -93,11 +125,7 @@
       // genitore), non tramite gli array ofIds/ddtIds del vecchio schema.
       const ofList = docs.ordiniFornitore.filter(of => of.ocId === oc.num);
       const ddtList = docs.ddt.filter(d => d.ocId === oc.id);
-      const ofRows = ofList.length ? ofList.map((of, i) => {
-        const ftfList = docs.fattureFornitore.filter(f => f.ofId === of.id);
-        const ftfNodes = ftfList.length ? ftfList.map((f, j) => node('Fattura fornitore' + (ftfList.length > 1 ? ' ' + (j + 1) : ''), f, 'fattureFornitore') + docs.noteCreditoFornitore.filter(n => n.fatturaId === f.id).map(n => arrow + node('Nota di credito fornitore', n, 'noteCreditoFornitore')).join('')).join(arrow) : ghost('Fattura fornitore');
-        return `<div class="flow-row">${node('Ordine fornitore' + (ofList.length > 1 ? ' ' + (i + 1) : ''), of, 'ordiniFornitore')}${arrow}${ftfNodes}</div>`;
-      }).join('') : `<div class="flow-row">${ghost('Ordine fornitore')}${arrow}${ghost('Fattura fornitore')}</div>`;
+      const ofRows = ofList.length ? ofList.map((of, i) => `<div class="flow-row">${node('Ordine fornitore' + (ofList.length > 1 ? ' ' + (i + 1) : ''), of, 'ordiniFornitore')}${arrow}${ofChainHtml(of)}</div>`).join('') : `<div class="flow-row">${ghost('Ordine fornitore')}${arrow}${ghost('Fattura fornitore')}</div>`;
       const ddtRows = ddtList.length ? ddtList.map((d, i) => {
         const ftObj = docs.fattureCliente.find(f => f.ddtId === d.id);
         return `<div class="flow-row">${node('DDT' + (ddtList.length > 1 ? ' ' + (i + 1) : ''), d, 'ddt')}${arrow}${ftObj ? node('Fattura cliente', ftObj, 'fattureCliente') + docs.noteCredito.filter(n => n.fatturaId === ftObj.id).map(n => arrow + node('Nota di credito', n, 'noteCredito')).join('') : ghost('Fattura cliente')}</div>`;
@@ -112,13 +140,15 @@
     }
 
     // senza ordine cliente radice: mostra comunque lo schema del lato pertinente
-    if (t === 'OF' || t === 'FTF' || t === 'NCF') {
-      const of = t === 'OF' ? item : (t === 'FTF' ? byId(docs.ordiniFornitore, item.ofId) : (() => { const ftf = byId(docs.fattureFornitore, item.fatturaId); return ftf ? byId(docs.ordiniFornitore, ftf.ofId) : null; })());
+    if (t === 'OF' || t === 'DDTF' || t === 'FTF' || t === 'NCF') {
+      const of = t === 'OF' ? item
+        : t === 'DDTF' ? byId(docs.ordiniFornitore, item.ofId)
+        : t === 'FTF' ? byId(docs.ordiniFornitore, item.ofId)
+        : (() => { const ftf = byId(docs.fattureFornitore, item.fatturaId); return ftf ? byId(docs.ordiniFornitore, ftf.ofId) : null; })();
       if (of) {
-        const ftfList = docs.fattureFornitore.filter(f => f.ofId === of.id);
-        const ftfNodes = ftfList.length ? ftfList.map((f, i) => node('Fattura fornitore' + (ftfList.length > 1 ? ' ' + (i + 1) : ''), f, 'fattureFornitore') + docs.noteCreditoFornitore.filter(n => n.fatturaId === f.id).map(n => arrow + node('Nota di credito fornitore', n, 'noteCreditoFornitore')).join('')).join(arrow) : ghost('Fattura fornitore');
-        return `<div class="flow"><div class="flow-row">${node('Ordine fornitore', of, 'ordiniFornitore')}${arrow}${ftfNodes}</div></div>`;
+        return `<div class="flow"><div class="flow-row">${node('Ordine fornitore', of, 'ordiniFornitore')}${arrow}${ofChainHtml(of)}</div></div>`;
       }
+      if (t === 'DDTF') return '<div class="flow"><span class="flow-empty">DDT non collegato a un ordine fornitore.</span></div>';
       if (t === 'FTF') return '<div class="flow"><span class="flow-empty">Fattura non collegata a un ordine fornitore.</span></div>';
       if (t === 'NCF') { const ftf = byId(docs.fattureFornitore, item.fatturaId); return ftf ? `<div class="flow"><div class="flow-row">${node('Fattura fornitore', ftf, 'fattureFornitore')}${arrow}${node('Nota di credito fornitore', item, 'noteCreditoFornitore')}</div></div>` : '<div class="flow"><span class="flow-empty">Nota di credito non collegata a una fattura fornitore.</span></div>'; }
     }

@@ -70,12 +70,26 @@
     ddt: { table: 'ddt', numbered: 'DDT', cols: {
       num:'num', data:'data', clienteId:'cliente_id', ocId:'oc_id', righe:'righe', destId:'dest_id',
     }, hasExtra:true },
+    // Speculare a "ddt", ma verso un fornitore invece che un cliente — e
+    // senza destId: non esiste una "destinazione di consegna" quando la
+    // consegna è verso di noi, sempre nello stesso posto. Vedi la nota nel
+    // README ("DDT fornitore") sul perché esiste: il momento in cui si
+    // segna "è arrivata la merce" (qtyEv) ora può avvenire QUI, quando
+    // arriva davvero il pacco, invece che aspettare la fattura del
+    // fornitore (che può arrivare settimane dopo).
+    ddtFornitore: { table: 'ddt_fornitore', numbered: 'DDTF', cols: {
+      num:'num', data:'data', fornitoreId:'fornitore_id', ofId:'of_id', righe:'righe',
+    }, hasExtra:true },
     fattureCliente: { table: 'fatture_cliente', numbered: 'FT', cols: {
       num:'num', data:'data', clienteId:'cliente_id', ddtId:'ddt_id', ocId:'oc_id', righe:'righe',
       paid:'paid', paidDate:'paid_date', pagamenti:'pagamenti', destId:'dest_id',
     }, hasExtra:true },
+    // ddtfId: come ddtId su fatture_cliente — collegamento facoltativo a un
+    // DDT fornitore (se il fornitore lo manda). ofId resta valorizzabile
+    // anche da solo, per compatibilità con chi non manda DDT: vedi
+    // fatture-fornitore.html/f-save.
     fattureFornitore: { table: 'fatture_fornitore', numbered: 'FTF', cols: {
-      num:'num', data:'data', fornitoreId:'fornitore_id', ofId:'of_id', righe:'righe',
+      num:'num', data:'data', fornitoreId:'fornitore_id', ofId:'of_id', ddtfId:'ddtf_id', righe:'righe',
       paid:'paid', paidDate:'paid_date', pagamenti:'pagamenti',
     }, hasExtra:true },
     noteCredito: { table: 'note_credito', numbered: 'NC', cols: {

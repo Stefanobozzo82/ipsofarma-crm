@@ -5386,6 +5386,42 @@ codice non presente nell'ordine → "non in ordine"; ordine deselezionato
 → tutti i badge spariscono. Screenshot di conferma con due righe
 affiancate, verde e rosso.
 
+## Import fattura fornitore: niente avviso quando è tutto a posto
+
+**Richiesta:** "dopo che importo una fattura esce un avviso: Letto dal
+XML: fornitore riconosciuto come 'B.BRAUN MILANO S.P.A.'. Collegato
+automaticamente all'ordine OF/2026/0206 (rif. '206' in fattura). Righe
+verificate col catalogo. voglio che non deve uscire niente".
+
+**Perché sembrava comparire "dopo"**: il paragrafo del messaggio vive
+dentro `#list-card` (l'elenco), che l'import nasconde subito per
+aprire il form precompilato — il messaggio veniva scritto comunque, ma
+restava invisibile finché non si tornava all'elenco. A quel punto
+l'utente aveva già rivisto tutto a mano nel form (fornitore e ordine
+collegato sono già lì, nei rispettivi menu): il messaggio non diceva
+niente di nuovo, solo rumore ritardato.
+
+**Soluzione:** il messaggio ora compare SOLO quando c'è davvero
+qualcosa da controllare — fornitore non riconosciuto, righe non
+trovate a catalogo, o un riferimento d'ordine presente in fattura ma
+che non si è riusciti a collegare con certezza (ambiguo o non
+trovato). Quando l'import risolve tutto da solo (fornitore
+riconosciuto, ordine collegato o nessun riferimento da collegare,
+righe tutte a catalogo) non appare più nulla — esattamente il caso
+descritto nella richiesta.
+
+**Un dettaglio scoperto sistemando questo**: la classificazione
+"ok/da controllare" di partenza non considerava affatto il caso
+"riferimento d'ordine presente ma non collegabile con certezza" —
+sarebbe finito silenziato anche lui, nascondendo un caso in cui
+serve davvero intervenire a mano. Corretto insieme al resto.
+
+**Verificato:** sintassi di `fatture-fornitore.html`; con dati di
+prova, tutti i casi rilevanti — pienamente risolto (silenzioso),
+fornitore non riconosciuto, righe da verificare a catalogo, e
+riferimento d'ordine ambiguo/non trovato (segnalato, non più
+silenziato per errore) — producono l'esito atteso.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

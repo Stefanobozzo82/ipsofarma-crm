@@ -294,13 +294,14 @@
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
+    refreshCmpOrdine();
   }
   // Riordino righe per trascinamento (vedi la stessa idea in ordini.html):
   // solo la manetta ⠿ è draggable, non l'intera riga.
   let dragSrcRow = null;
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
-    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => { updateTotale(); refreshCmpOrdine(); }));
     const handle = tr.querySelector('.drag-handle');
     handle.addEventListener('dragstart', e => {
       dragSrcRow = tr;
@@ -330,6 +331,7 @@
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         updateTotale();
+        refreshCmpOrdine();
         qtyEl.focus(); qtyEl.select();
       },
     });
@@ -357,6 +359,55 @@
   function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
   function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
+
+  // Confronto col prezzo dell'ordine fornitore collegato — porta di una
+  // funzione reale del gestionale originale (in detailView() e nel
+  // riepilogo di importazione XML/PDF, index.html): un fornitore può
+  // fatturare a un prezzo diverso da quello pattuito sull'ordine, e senza
+  // un confronto esplicito l'unico modo di accorgersene era rileggere
+  // l'ordine a mano riga per riga. Richiesta reale: "quando carico una
+  // fattura fornitori nel vecchio gestionale mi avvisava se il prezzo era
+  // uguale a quello che era presente nell'ordine. voglio che quella
+  // funzione sia riportata anche nel nuovo gestionale".
+  //
+  // Solo qui, non in fatture.html/ddt.html lato cliente: il prezzo di un
+  // documento verso un cliente lo decide l'azienda stessa, non c'è
+  // nessuna controparte esterna da verificare — stessa scelta già fatta
+  // nell'originale (il confronto esisteva solo per fattureFornitore).
+  // Stessa tolleranza (0.005) e stesse classi CSS (cat-badge/cat-ok/
+  // cat-warn) già usate per il badge "✓ a catalogo" qui sopra, per
+  // restare coerenti visivamente invece di introdurne di nuove.
+  function cmpOrdineBadgeHtml(prezzoFatt, ordineRiga){
+    const stessoPrezzo = Math.abs((ordineRiga.prezzo || 0) - (prezzoFatt || 0)) < 0.005;
+    return stessoPrezzo
+      ? `<span class="cat-badge cat-ok" title="Stesso prezzo dell'ordine collegato">= ordine</span>`
+      : `<span class="cat-badge cat-warn" title="Nell'ordine collegato il prezzo era ${eur(ordineRiga.prezzo)}">⚠ ordine ${eur(ordineRiga.prezzo)}</span>`;
+  }
+  // Ricalcola il confronto per OGNI riga a video, cercando per codice
+  // dentro le righe dell'ordine collegato (se ce n'è uno) — chiamata dopo
+  // ogni cambiamento che può renderlo non più valido: ordine selezionato/
+  // cambiato, fornitore cambiato (l'elenco ordini è per fornitore),
+  // qualunque modifica a una riga (codice o prezzo, ma richiamarla su
+  // ogni campo è più semplice che filtrare quali contano davvero — la
+  // tabella ha poche righe, il ricalcolo è a costo zero), e ogni riga
+  // aggiunta (manualmente o in blocco da un ordine/import).
+  function refreshCmpOrdine(){
+    const ordine = (ordiniPerFornitore[$('f-fornitore').value] || []).find(o => o.id === $('f-ordine').value);
+    $('righe-body').querySelectorAll('tr').forEach(tr => {
+      const cell = tr.querySelector('.r-prezzo').closest('td');
+      const old = cell.querySelector('.cat-badge, .cmp-none');
+      if(old) old.remove();
+      if(!ordine) return;
+      const cod = tr.querySelector('.r-cod').value.trim();
+      if(!cod) return;
+      const ordineRiga = (ordine.righe || []).find(r => r.cod === cod);
+      if(!ordineRiga){
+        cell.insertAdjacentHTML('beforeend', '<span class="cmp-none" style="display:inline-block;margin-top:4px;font-size:10.5px;color:var(--faint)">non in ordine</span>');
+        return;
+      }
+      cell.insertAdjacentHTML('beforeend', cmpOrdineBadgeHtml(Number(tr.querySelector('.r-prezzo').value) || 0, ordineRiga));
+    });
+  }
   // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
   // ordini.html.
   $('add-riga').addEventListener('click', () => {
@@ -369,7 +420,7 @@
     $('f-ordine').innerHTML = '<option value="">— nessuno —</option>' +
       ordini.map(o => `<option value="${o.id}">${esc(o.num)}</option>`).join('');
   }
-  $('f-fornitore').addEventListener('change', () => refreshOrdineOptions($('f-fornitore').value));
+  $('f-fornitore').addEventListener('change', () => { refreshOrdineOptions($('f-fornitore').value); refreshCmpOrdine(); });
   $('f-ordine').addEventListener('change', () => {
     const righeVuote = readRighe().length === 0;
     const ordine = (ordiniPerFornitore[$('f-fornitore').value] || []).find(o => o.id === $('f-ordine').value);
@@ -377,6 +428,10 @@
       $('righe-body').innerHTML = '';
       (ordine.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, sconto:r.sconto || '', iva:r.iva || 22 }));
     }
+    // Righe già presenti (es. lette dall'AI/XML) e non appena riempite
+    // dall'ordine qui sopra: il ramo if non le tocca, ma il confronto va
+    // comunque ricalcolato contro l'ordine appena scelto.
+    refreshCmpOrdine();
   });
 
   function openForm(fattura){
@@ -560,7 +615,7 @@
       // riempite dall'AI qui sopra non vengono toccate.
       let ordineLink = null;
       if(match) ordineLink = findOrdineByRiferimento(ordiniPerFornitore[match.id], p.riferimentoOrdine);
-      if(ordineLink) $('f-ordine').value = ordineLink.id;
+      if(ordineLink){ $('f-ordine').value = ordineLink.id; refreshCmpOrdine(); }
 
       aiImportStatus(
         (match

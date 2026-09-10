@@ -5815,6 +5815,43 @@ con l'agente che resta comunque in ascolto dopo). La registrazione nel
 registro di Windows e la vera acquisizione da uno scanner restano,
 inevitabilmente, da collaudare su un PC Windows reale.
 
+## Import AI: fornitore sbagliato riconosciuto in silenzio, senza avviso
+
+Segnalato dall'utente dopo aver scansionato un DDT fornitore: "non è
+riuscito a caricare il fornitore" — non un errore visibile, ma un
+fornitore SBAGLIATO selezionato al posto di quello giusto, senza nessun
+avviso da controllare.
+
+**Causa reale**, in `app/ai-import.js`/`findPartyByNome()` (condivisa da
+6 pagine: `ddt-fornitore`, `fatture-fornitore`, `note-credito-fornitore`,
+`ordini-fornitore`, `ordini`, `assistente-ai`): dopo il confronto esatto
+(nome normalizzato identico), il fallback confrontava le stringhe
+CARATTERE per carattere (`stringaA.includes(stringaB)`) — un nome letto
+male dall'AI poteva risultare una sottostringa "per caso" di un
+fornitore completamente diverso (es. un frammento tipo "ital" dentro
+"italmedical"), collegandolo senza che scattasse nessuno dei controlli
+"da verificare" già presenti altrove nello stesso flusso — perché dal
+punto di vista del codice un fornitore ERA stato trovato, solo quello
+sbagliato.
+
+**Risolto**: il fallback ora confronta per PAROLE intere (tutte le
+parole del nome più corto devono comparire tra quelle del nome più
+lungo, non un sottoinsieme di caratteri) e, se più di un fornitore
+soddisfa il confronto, non ne sceglie uno a caso: restituisce `null` —
+meglio lasciarlo scegliere a mano (l'avviso "nessun fornitore
+corrisponde" esiste già) che indovinare quello sbagliato in silenzio.
+
+**Verificato**: sintassi di tutte le 6 pagine che usano la funzione
+(nessuna modificata, solo la funzione condivisa). Testato con casi
+realistici veri (non solo letto): il caso reale già funzionante
+("B. Braun Milano S.p.A." con uno spazio in più contro "B.BRAUN MILANO
+S.P.A." in anagrafica") continua a combaciare; un frammento troppo corto,
+un nome simile ma non registrato, e una parola generica condivisa da più
+fornitori ("SRL") ora restituiscono correttamente nessun collegamento
+automatico invece di indovinare; un nome con testo extra intorno
+(indirizzo incollato dall'OCR) o abbreviato continuano a essere
+riconosciuti correttamente.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

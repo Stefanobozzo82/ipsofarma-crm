@@ -84,16 +84,45 @@
     return Object.assign({}, ordine, { ftIds, ftId: ftNum });
   }
 
-  // Nuovo oggetto ordine fornitore con qtyEv aggiornato dopo aver
-  // registrato una fattura fornitore collegata con righeFatturate — porta
-  // semplificata di markOFReceived(): qui "fatturato" vale come "ricevuto"
-  // (nessun tracciamento separato arrivo/fattura). Pura: non salva.
-  function applicaRicezione(of, righeFatturate) {
+  // Nuovo oggetto ordine fornitore con qtyEv aggiornato dopo un arrivo di
+  // merce — porta di markOFReceived(). Due chiamanti diversi, stesso
+  // effetto su qtyEv:
+  //  - ddt-fornitore.html, con ddtfNum: il DDT cartaceo del fornitore
+  //    (arrivato SUBITO col pacco) è ora il momento vero in cui si segna
+  //    "è arrivata la merce" — richiesta reale: "sto pensando di
+  //    implementare anche i ddt del fornitore che mi arrivano soltanto in
+  //    forma cartacea insieme al pacco [...] come possiamo caricarli in
+  //    modo automatico?". Registra anche ddtfIds/ddtfId (mirror di
+  //    ddtIds/ddtId in applicaConsegna), per sapere quali DDT hanno
+  //    portato questo ordine.
+  //  - fatture-fornitore.html, SENZA ddtfNum: comportamento di sempre,
+  //    invariato per compatibilità — un fornitore che non manda DDT
+  //    continua a segnare l'arrivo quando arriva la sua fattura (qui
+  //    "fatturato" vale come "ricevuto", nessun tracciamento separato).
+  //    Quando la fattura è invece collegata a un DDT fornitore già
+  //    registrato, qtyEv è già stato aggiornato lì: la fattura chiama
+  //    applicaFatturazioneFornitore() più sotto, NON questa, per non
+  //    contare due volte lo stesso arrivo.
+  // Pura: non salva.
+  function applicaRicezione(of, righeRicevute, ddtfNum) {
     const nuoveRighe = (of.righe || []).map(r => {
-      const fatturata = righeFatturate.filter(x => x.cod === r.cod).reduce((s, x) => s + (x.qty || 0), 0);
-      return fatturata ? Object.assign({}, r, { qtyEv: Math.min(r.qty, (r.qtyEv || 0) + fatturata) }) : r;
+      const ricevuta = righeRicevute.filter(x => x.cod === r.cod).reduce((s, x) => s + (x.qty || 0), 0);
+      return ricevuta ? Object.assign({}, r, { qtyEv: Math.min(r.qty, (r.qtyEv || 0) + ricevuta) }) : r;
     });
-    return Object.assign({}, of, { righe: nuoveRighe });
+    if (!ddtfNum) return Object.assign({}, of, { righe: nuoveRighe });
+    const ddtfIds = [...new Set([...(of.ddtfIds || []), ddtfNum])];
+    return Object.assign({}, of, { righe: nuoveRighe, ddtfIds, ddtfId: ddtfNum });
+  }
+
+  // Nuovo oggetto ordine fornitore con ftfIds aggiornato dopo aver
+  // fatturato un DDT fornitore collegato, numero fattura ftfNum — mirror
+  // esatto di applicaFatturazione() lato cliente. NON tocca qtyEv: è già
+  // stato aggiornato quando il DDT fornitore è stato registrato (vedi
+  // applicaRicezione() sopra) — contarlo di nuovo qui raddoppierebbe
+  // l'arrivo. Pura: non salva.
+  function applicaFatturazioneFornitore(of, ftfNum) {
+    const ftfIds = [...new Set([...(of.ftfIds || []), ftfNum])];
+    return Object.assign({}, of, { ftfIds, ftfId: ftfNum });
   }
 
   // Spezza una riga (qty pezzi di un codice) sui lotti REALMENTE
@@ -121,40 +150,51 @@
     return rows;
   }
 
-  // Traccia lotto/scadenza di un ordine cliente fino alle fatture
-  // fornitore che hanno EFFETTIVAMENTE portato la merce — porta di
+  // Traccia lotto/scadenza di un ordine cliente fino al documento
+  // d'acquisto che ha EFFETTIVAMENTE portato la merce — porta di
   // lotScadFromOF()/splitRigaByLots() dal gestionale originale: quando
   // si genera un DDT (o si precompila una fattura da un DDT che porta
-  // già questi dati), lotto e scadenza vengono dal documento
-  // d'acquisto corrispondente invece di essere lasciati vuoti da
-  // scrivere a mano. Richiede una lettura di rete (ordiniFornitore +
-  // fattureFornitore), quindi non è gratis come residuoRighe() — va
-  // chiamata solo quando serve costruire le righe di un nuovo DDT.
-  // Un ordine senza ordini fornitore collegati (mai passato dalla
-  // cascata OF, o niente ancora fatturato dal fornitore) restituisce le
-  // righe invariate, senza lotto/scadenza — comportamento identico a
-  // prima che questa funzione esistesse.
+  // già questi dati), lotto e scadenza vengono da lì invece di essere
+  // lasciati vuoti da scrivere a mano. Richiede una lettura di rete
+  // (ordiniFornitore + ddtFornitore + fattureFornitore), quindi non è
+  // gratis come residuoRighe() — va chiamata solo quando serve costruire
+  // le righe di un nuovo DDT. Un ordine senza ordini fornitore collegati
+  // (mai passato dalla cascata OF, o niente ancora arrivato dal
+  // fornitore) restituisce le righe invariate, senza lotto/scadenza —
+  // comportamento identico a prima che questa funzione esistesse.
+  //
+  // Un DDT fornitore (se registrato) ha PRECEDENZA sulla fattura
+  // fornitore per lo stesso ordine fornitore: è il documento del
+  // ricevimento fisico REALE, letto dal DDT cartaceo del fornitore al
+  // momento dell'arrivo — la fattura, che può arrivare settimane dopo (a
+  // volte una sola per più DDT), resta il fallback per gli ordini
+  // fornitore senza nessun DDT fornitore tracciato (compatibilità con
+  // ordini gestiti prima di questa funzione, o fornitori che non mandano
+  // DDT) — MAI sommata assieme al DDT per lo stesso ordine fornitore,
+  // altrimenti lo stesso lotto conterebbe due volte.
   async function righeConLotti(store, companyId, ordine, righe) {
     const ofNums = ordine.ofIds && ordine.ofIds.length ? ordine.ofIds : (ordine.ofId ? [ordine.ofId] : []);
     if (!ofNums.length) return righe.map(r => Object.assign({}, r, { lotto: '', scad: '' }));
-    const [tuttiOF, tutteFtf] = await Promise.all([
+    const [tuttiOF, tutteDdtf, tutteFtf] = await Promise.all([
       store.loadCollection('ordiniFornitore', companyId),
+      store.loadCollection('ddtFornitore', companyId),
       store.loadCollection('fattureFornitore', companyId),
     ]);
     // ordine.ofIds è una lista di NUMERI ordine fornitore (of.num — vedi
     // generaOrdiniFornitore() più sotto: "ofIds: newOfIds" costruito da
-    // "created.map(x => x.num)"), ma il campo che una fattura fornitore usa
-    // per dire a quale ordine si riferisce è ofId, e vale l'ID INTERNO
-    // dell'ordine fornitore (of.id — vedi fatture-fornitore.html,
-    // "<option value=${o.id}>", non il suo numero): confrontarli
-    // direttamente (ofSet di NUMERI contro un ID) non trovava mai nulla,
-    // quindi lotto/scadenza restavano sempre vuoti. Prima si risale ai
-    // veri ordini fornitore collegati (per numero), poi si confrontano i
-    // LORO id con quello di ciascuna fattura fornitore.
+    // "created.map(x => x.num)"), ma il campo che un DDT/una fattura
+    // fornitore usa per dire a quale ordine si riferisce è ofId, e vale
+    // l'ID INTERNO dell'ordine fornitore (of.id, non il suo numero):
+    // confrontarli direttamente (ofSet di NUMERI contro un ID) non
+    // trovava mai nulla, quindi lotto/scadenza restavano sempre vuoti.
+    // Prima si risale ai veri ordini fornitore collegati (per numero),
+    // poi si confrontano i LORO id.
     const ofIdSet = new Set(tuttiOF.filter(of => ofNums.includes(of.num)).map(of => of.id));
-    const ftf = tutteFtf.filter(f => f.ofId && ofIdSet.has(f.ofId)).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const ddtf = tutteDdtf.filter(d => d.ofId && ofIdSet.has(d.ofId));
+    const ofConDdtf = new Set(ddtf.map(d => d.ofId));
+    const ftf = tutteFtf.filter(f => f.ofId && ofIdSet.has(f.ofId) && !ofConDdtf.has(f.ofId));
     const lottiPerCod = {};
-    ftf.forEach(f => (f.righe || []).forEach(r => {
+    [...ddtf, ...ftf].sort((a, b) => (a.data || '').localeCompare(b.data || '')).forEach(d => (d.righe || []).forEach(r => {
       if (!r.lotto && !r.scad) return; // niente da tracciare per questa riga
       (lottiPerCod[r.cod] = lottiPerCod[r.cod] || []).push({ lotto: r.lotto || '', scad: r.scad || '', qty: r.qty || 0 });
     }));
@@ -284,7 +324,7 @@
 
   global.SaasCascade = {
     residuoRighe, statoEvasione, applicaConsegna, applicaFatturazione, applicaRicezione,
-    applicaEvasioneManuale, creaDDTDaResiduo, creaFattureDaOrdine, generaOrdiniFornitore,
-    statoOrdineFornitore, righeConLotti, splitRigaByLotti,
+    applicaFatturazioneFornitore, applicaEvasioneManuale, creaDDTDaResiduo, creaFattureDaOrdine,
+    generaOrdiniFornitore, statoOrdineFornitore, righeConLotti, splitRigaByLotti,
   };
 })(window);

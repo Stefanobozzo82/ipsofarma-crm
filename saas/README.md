@@ -5422,6 +5422,148 @@ fornitore non riconosciuto, righe da verificare a catalogo, e
 riferimento d'ordine ambiguo/non trovato (segnalato, non più
 silenziato per errore) — producono l'esito atteso.
 
+## Nuovo modulo: DDT fornitore
+
+**Richiesta:** "sto pensando di implementare anche i ddt del
+fornitore che mi arrivano soltanto in forma cartacea insieme al
+pacco. come possiamo caricarli in modo automatico?"
+
+**Il problema:** la catena documenti lato cliente era completa
+(ordine cliente → DDT → fattura), quella lato fornitore si fermava a
+metà (ordine fornitore → fattura fornitore) — nel database non
+esisteva affatto un "DDT fornitore". Il momento in cui si segnava "è
+arrivata la merce" (`qtyEv`) coincideva quindi con quando si
+registrava la fattura del fornitore, non con quando arrivava
+davvero il pacco: nella realtà il DDT cartaceo arriva SUBITO, la
+fattura magari settimane dopo (a volte una sola per più consegne).
+
+**Scelta di ampiezza**, discussa esplicitamente prima di scrivere
+codice: un documento vero (nuova tabella, nuovo modulo, propria voce
+in "Documenti collegati") invece di un semplice pulsante che aggiorna
+solo `qtyEv` senza lasciare traccia consultabile — per reggere bene
+anche il caso "una fattura sola per più consegne diverse", e per
+restare coerente con l'impianto del resto del gestionale (ogni
+documento cartaceo reale è sempre un documento vero, mai una
+scorciatoia).
+
+**Come si carica "in modo automatico"**: esattamente come le fatture
+fornitore già oggi — si fotografa il DDT cartaceo (stesso pulsante
+"Importa", stesso pulsante 📷 Fotocamera dentro l'app nativa,
+`app/camera-import.js`, funziona già per costruzione su qualunque
+pagina con lo stesso schema) e l'AI legge fornitore/numero/data/righe
+e — novità rispetto alle fatture — anche il riferimento al VOSTRO
+ordine, collegandolo da solo con la stessa euristica già in uso per
+le fatture fornitore. A differenza di una fattura, un DDT cartaceo
+quasi mai riporta i prezzi (documento di trasporto, non contabile):
+l'istruzione data all'AI lo dice esplicitamente, e per ogni riga
+riconosciuta viene fatto un **backfill di prezzo/sconto/IVA
+dall'ordine collegato** (per codice) subito dopo — altrimenti ogni
+riga partirebbe da prezzo 0 da riscrivere tutta a mano, anche quando
+l'ordine lo conosce già.
+
+**Schema database** (`0016_ddt_fornitore.sql`, applicata):
+nuova tabella `ddt_fornitore` — speculare a `ddt` ma verso un
+fornitore, senza `dest_id` (non esiste una "destinazione di
+consegna" quando la consegna è verso di noi). `fatture_fornitore` ha
+un nuovo `ddtf_id` (nullable, come `ddt_id` su `fatture_cliente`):
+`of_id` resta valorizzabile anche DA SOLO, per i fornitori che non
+mandano DDT — comportamento di sempre, invariato, nessuna fattura
+fornitore esistente ne risente. Numerazione: nuovo tipo `DDTF`
+ammesso da `document_counters` (mai usato in pratica — il numero è
+quello del FORNITORE, digitato come già succede per le fatture
+fornitore, non generato).
+
+**`app/cascade.js`**: `applicaRicezione(of, righe, ddtfNum)` accetta
+ora un terzo parametro opzionale — con un DDT fornitore, registra
+anche `ddtfIds`/`ddtfId` sull'ordine (mirror di `ddtIds`/`ddtId` lato
+cliente); senza, si comporta ESATTAMENTE come prima (compatibilità
+totale con ogni fornitore che continua a non mandare DDT). Nuova
+`applicaFatturazioneFornitore(of, ftfNum)` — mirror di
+`applicaFatturazione()` lato cliente: quando la fattura arriva DA un
+DDT fornitore già registrato, aggiorna solo lo stato "fatturato"
+(`ftfIds`/`ftfId`, finalmente scritto: la colonna `ftf_ids` esisteva
+già nello schema fin dall'inizio ma non veniva mai popolata da
+nessun percorso) SENZA ritoccare `qtyEv` — che è già stato segnato
+quando il DDT è arrivato, contarlo di nuovo raddoppierebbe l'arrivo.
+`righeConLotti()` (che traccia lotto/scadenza per un DDT/fattura
+CLIENTE fino al documento d'acquisto che ha portato la merce) ora
+preferisce il DDT fornitore alla fattura fornitore per lo stesso
+ordine — è il documento del ricevimento fisico reale, letto al
+momento dell'arrivo; la fattura (che può arrivare aggregata, o
+settimane dopo) resta il fallback solo per gli ordini senza nessun
+DDT fornitore tracciato.
+
+**Nuovo modulo `ddt-fornitore.html`**: speculare a
+`fatture-fornitore.html` per come si crea (digitalizzato, non
+generato da noi — righe con lotto/scadenza, "Ordine collegato" con
+precompilazione dal RESIDUO non ancora ricevuto, non dalle righe
+intere: un ordine può arrivare in più DDT parziali), speculare a
+`ddt.html` per il resto (il bottone "→ Genera fattura fornitore" in
+cima una volta salvato, disabilitato con "✓ Fatturato" se già
+fatturato; un DDT nuovo resta aperto dopo il salvataggio invece di
+tornare all'elenco, stessa richiesta già risolta per i DDT cliente).
+Il badge di confronto prezzo (già visto per le fatture fornitore) è
+ancora più utile qui: conferma che il backfill dall'ordine è
+avvenuto riga per riga. Voce "DDT" aggiunta al menu laterale, gruppo
+Fornitori, tra Ordini e Fatture — stessa posizione della voce "DDT"
+nel gruppo Clienti.
+
+**`fatture-fornitore.html`**: nuovo campo "DDT fornitore collegato"
+(`f-ddtf`) accanto a "Ordine collegato", stesso schema di "DDT
+collegato" già in `fatture.html`. Scegliere un DDT fornitore imposta
+anche l'ordine da solo (qui SÌ, a differenza di `fatture.html`/
+`f-ddt` che non lo fa lato cliente — una scelta deliberata: senza,
+`applicaFatturazioneFornitore()` non saprebbe quale ordine
+aggiornare, e "Documenti collegati" non risalirebbe la filiera).
+Al salvataggio, due percorsi distinti secondo se c'è o no un DDT
+fornitore di mezzo (vedi cascade.js sopra) — quello senza DDT resta
+bit per bit quello di sempre.
+
+**`app/lineage.js`** (box "Documenti collegati"): la filiera lato
+fornitore ora mostra Ordine fornitore → DDT fornitore → Fattura
+fornitore → Nota di credito quando c'è un DDT fornitore registrato
+(un ramo per ogni DDT, per gli ordini con consegne parziali multiple),
+e torna al vecchio Ordine fornitore → Fattura fornitore diretto
+quando non c'è — mai entrambi insieme per lo stesso ordine (i due
+percorsi sono esclusivi per costruzione in `applicaRicezione()`).
+
+**`app/print.js`**: nuovo tipo `ddtFornitore` (titolo "DOCUMENTO DI
+TRASPORTO FORNITORE", lato fornitore come gli altri tre moduli
+fornitore) — a differenza del DDT cliente, qui prezzo/totali RESTANO
+visibili in stampa/PDF/Excel: è un documento di uso interno (la
+filiera esiste già in mano al fornitore), niente da nascondere come
+invece si fa per il DDT che esce verso un cliente.
+
+**Non toccato**: `assistente-ai.html` (le azioni autonome dell'IA —
+`generate_ddt`/`generate_invoice`/`generate_supplier_order` — non
+sanno ancora di DDT fornitore: restano un possibile passo
+successivo, vedi "Prossimo passo"); `dashboard.html`/`ricevere.html`/
+`evadere.html` (leggono `qtyEv`/`qty` in modo generico, indifferenti
+a COME sono stati valorizzati — nessuna modifica necessaria, già
+verificato leggendo il codice).
+
+**Verificato**: sintassi di tutti i file toccati/nuovi (`store.js`,
+`cascade.js`, `lineage.js`, `print.js`, `nav.js`, `ddt-fornitore.html`,
+`fatture-fornitore.html`) e incrocio di ogni id HTML referenziato dal
+JS col markup reale (nessun riferimento a un elemento inesistente).
+Con dati di prova: `applicaRicezione()` con e senza `ddtfNum` (con →
+registra `ddtfIds`; senza → comportamento invariato di sempre),
+`applicaFatturazioneFornitore()` (non ritocca `qtyEv`), backfill
+prezzo dall'ordine per una riga letta dal DDT senza prezzo. Con
+Playwright, screenshot del nuovo toolbar "→ Genera fattura
+fornitore"/Stampa/Scarica su desktop e mobile — nessuno sconfinamento
+(stesso schema già collaudato per `ddt.html`). **Sul database reale**
+(non solo sintassi): applicata la migrazione 0016 al progetto
+Supabase di produzione, poi verificata inserendo una riga di prova in
+`ddt_fornitore` collegata a un vero ordine fornitore esistente, una
+fattura fornitore di prova collegata a quella tramite `ddtf_id`, e
+confermata la query di join completa Ordine → DDT fornitore →
+Fattura; le stesse righe di prova sono state anche lette con successo
+tramite l'API REST autenticata come farebbe l'app vera (conferma che
+le policy RLS della nuova tabella funzionano), poi entrambe le righe
+di prova sono state eliminate subito dopo, database di produzione
+lasciato pulito.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

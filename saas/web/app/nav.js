@@ -34,6 +34,11 @@
     { label: 'Fornitori', items: [
       { id: 'fornitori', label: 'Fornitori', href: 'fornitori.html', ic: '🏢' },
       { id: 'ordini-fornitore', label: 'Ordini', href: 'ordini-fornitore.html', ic: '📦' },
+      // Stessa posizione di "DDT" nel gruppo Clienti sopra (tra Ordini e
+      // Fatture): "DDT fornitore" — il DDT cartaceo che arriva col pacco
+      // (0016_ddt_fornitore.sql), non generato da noi ma digitalizzato,
+      // come fatture-fornitore.html.
+      { id: 'ddt-fornitore', label: 'DDT', href: 'ddt-fornitore.html', ic: '🚚' },
       { id: 'fatture-fornitore', label: 'Fatture', href: 'fatture-fornitore.html', ic: '📑' },
       { id: 'note-credito-fornitore', label: 'Note di credito', href: 'note-credito-fornitore.html', ic: '↩' },
       { id: 'pagamenti', label: 'Pagamenti', href: 'pagamenti.html', ic: '💳' },

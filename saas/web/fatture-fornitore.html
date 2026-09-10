@@ -126,6 +126,7 @@
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
 <script src="app/ai-import.js"></script>
+<script src="app/import-menu.js"></script>
 <script src="app/fatturapa-xml.js"></script>
 <script src="app/camera-import.js"></script>
 <script src="app/scan-import.js"></script>
@@ -605,8 +606,7 @@
     const match = (ordini || []).filter(o => lastDigits(o.num) === rifNum);
     return match.length === 1 ? match[0] : null; // ambiguo (0 o >1 candidati): meglio non collegare da soli
   }
-  $('ai-import-btn').addEventListener('click', () => $('ai-import-file').click());
-  $('ai-import-file').addEventListener('change', async () => {
+    $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
     $('ai-import-file').value = '';
     if(!file) return;

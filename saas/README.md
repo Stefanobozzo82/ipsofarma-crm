@@ -5643,6 +5643,42 @@ verificare da qui è la scansione vera con un vero scanner Windows —
 serve necessariamente un PC Windows reale con uno scanner collegato,
 non riproducibile in questo ambiente: da collaudare sul campo.
 
+**Due problemi reali emersi al primo collaudo su un PC vero, entrambi
+risolti**:
+
+1. **Windows avvisa che il file "potrebbe essere pericoloso"**: succede
+   a QUALUNQUE script scaricato da internet (Mark of the Web +
+   SmartScreen), non è un problema specifico di questo file. Il file
+   ora spiega la procedura direttamente nella sua intestazione
+   (`windows-agent/scan-agent.ps1`, sezione INSTALLAZIONE, punto 2):
+   tasto destro sul file -> Proprietà -> spunta "Sblocca" -> OK; se
+   compare comunque la schermata SmartScreen, "Ulteriori informazioni"
+   -> "Esegui comunque". In alternativa (più pulito, evita del tutto la
+   segnalazione), avviarlo da una finestra PowerShell già aperta con
+   `powershell -ExecutionPolicy Bypass -File "...\scan-agent.ps1"`.
+2. **Agente avviato e funzionante, ma il gestionale dice lo stesso
+   "Programma di scansione non trovato sul PC"**: causa reale, non un
+   problema di rete o del PC del cliente — i browser più recenti
+   (Chrome/Edge, "Private Network Access") impongono una richiesta di
+   controllo ("preflight" `OPTIONS`) prima di lasciar contattare da una
+   pagina HTTPS un indirizzo locale come `http://localhost:18245`, e la
+   risposta a quel controllo deve contenere l'header
+   `Access-Control-Allow-Private-Network: true` oltre ai soliti header
+   CORS — altrimenti il browser scarta la richiesta prima ancora che
+   arrivi all'agente, che quindi risulta "non trovato" anche se è
+   acceso e risponde perfettamente se interrogato a mano (es. aprendo
+   `http://localhost:18245/ping` direttamente nel browser). **Risolto**
+   in `scan-agent.ps1`: gestione esplicita del metodo `OPTIONS` con
+   tutti gli header richiesti, più lo stesso header aggiunto anche
+   sulle risposte vere e proprie (per i browser/versioni che lo
+   verificano anche lì). Verificato con richieste HTTP reali contro
+   l'agente vero in esecuzione: preflight da origine autorizzata ->
+   `204` con gli header corretti; da origine non autorizzata -> `403`;
+   `GET /ping` continua a rispondere `ok` sia con che senza header
+   Origin (navigazione diretta da browser vs. `fetch` dal gestionale).
+   Chi avesse già installato una copia dell'agente scaricata prima di
+   questa correzione deve sostituire il file con la versione aggiornata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

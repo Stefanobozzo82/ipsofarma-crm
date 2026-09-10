@@ -5341,6 +5341,51 @@ pagina di prova con lo stesso identico gestore di click: col bottone
 di viewport), un clic porta la nuova riga interamente visibile
 nell'area visibile senza intervento manuale.
 
+## Fatture fornitore: confronto col prezzo dell'ordine collegato
+
+**Richiesta:** "quando carico una fattura fornitori nel vecchio
+gestionale mi avvisava se il prezzo era uguale a quello che era
+presente nell'ordine. voglio che quella funzione sia riportata anche
+nel nuovo gestionale".
+
+**Trovata nel gestionale originale** in due punti (`index.html`):
+`detailView()` (aprendo il dettaglio di una fattura fornitore già
+collegata a un ordine) e il riepilogo di importazione XML/PDF — in
+entrambi, un confronto per riga tra il prezzo fatturato e quello
+dell'ordine collegato (stesso codice articolo), con un "pill" verde "=
+ordine" se uguali (tolleranza 0.005, gli arrotondamenti dei decimali
+non devono generare un falso allarme) o rosso "ordine €X" se diversi —
+mostrando il prezzo dell'ordine per un confronto immediato senza dover
+riaprire l'ordine a parte. **Solo per fatture fornitore**, mai per
+documenti verso un cliente (fatture, DDT): il prezzo verso un cliente
+lo decide l'azienda stessa, non c'è nessuna controparte esterna da
+verificare — stessa scelta già fatta nell'originale.
+
+**Riportato in `fatture-fornitore.html`**: un badge identico (stesse
+classi CSS `cat-badge`/`cat-ok`/`cat-warn` già usate per "✓ a
+catalogo", nessuna nuova classe introdotta) accanto al campo Prezzo di
+ogni riga, quando la fattura ha un ordine collegato ("Ordine
+collegato"). Ricalcolato (`refreshCmpOrdine()`) in ogni punto che può
+cambiare l'esito: import AI/XML (il caso della richiesta: l'ordine
+viene collegato in automatico dal riferimento letto in fattura, e a
+quel punto il confronto scatta subito, senza bisogno di aprire o
+salvare nulla), scelta manuale dell'ordine, cambio del fornitore,
+righe aggiunte (a mano o dall'ordine), qualunque modifica a una riga
+(prodotto scelto dall'autocompletamento, codice o prezzo digitati a
+mano). Un codice della fattura che non risulta nell'ordine collegato
+mostra un'etichetta discreta "non in ordine" invece di un pill di
+colore, per non far pensare a un errore quando probabilmente è solo un
+prodotto aggiunto dal fornitore che non era sull'ordine.
+
+**Verificato:** sintassi di `fatture-fornitore.html`. Con Playwright,
+su una pagina di prova con le stesse identiche funzioni copiate dal
+file: nessun ordine selezionato → nessun badge; ordine selezionato,
+prezzo uguale → pill verde "= ordine"; prezzo cambiato a un valore
+diverso → pill rosso "⚠ ordine 100,00 €" (il prezzo dell'ordine);
+codice non presente nell'ordine → "non in ordine"; ordine deselezionato
+→ tutti i badge spariscono. Screenshot di conferma con due righe
+affiancate, verde e rosso.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

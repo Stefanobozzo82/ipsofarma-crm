@@ -76,6 +76,17 @@
     <input id="f-num" type="text" placeholder="es. 4521">
     <label for="f-ordine">Ordine collegato</label>
     <select id="f-ordine"><option value="">— nessuno —</option></select>
+    <!-- Richiesta reale: "pensiamo ad un metodo automatico per collegare
+         un DDT che ho appena importato alla relativa fattura se già
+         presente" — speculare a "DDT fornitore collegato" in
+         fatture-fornitore.html, ma nella direzione opposta: qui si sceglie
+         quale FATTURA già esistente corrisponde a questo DDT. Precompilato
+         da solo dall'import AI quando il fornitore ha esattamente una
+         fattura ancora senza DDT collegato (vedi findFatturaDaCollegare()
+         più sotto) — sempre visibile e modificabile, per correggere o
+         scegliere a mano quando l'automatismo non trova un aggancio sicuro. -->
+    <label for="f-fattura">Fattura collegata</label>
+    <select id="f-fattura"><option value="">— nessuna —</option></select>
 
     <label>Righe</label>
     <!-- Niente colonne Prezzo/Sconto/IVA: un DDT cartaceo non le riporta
@@ -144,6 +155,11 @@
   let fornitoriArr = [];
   let ordiniPerFornitore = {};
   let allOrdiniFornitoreById = {};
+  // Per il collegamento automatico "Fattura collegata" (vedi
+  // findFatturaDaCollegare() più sotto) — richiede conoscere le fatture
+  // fornitore esistenti, non caricate finora da questa pagina.
+  let fattureFornitorePerFornitore = {};
+  let allFattureFornitoreById = {};
   let SORT = { key: 'data', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let FFILT = { forn: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
@@ -298,7 +314,38 @@
     $('f-ordine').innerHTML = '<option value="">— nessuno —</option>' +
       ordini.map(o => `<option value="${o.id}">${esc(o.num)}</option>`).join('');
   }
-  $('f-fornitore').addEventListener('change', () => refreshOrdineOptions($('f-fornitore').value));
+  // Fatture proponibili per "Fattura collegata": quelle di questo
+  // fornitore non ancora agganciate a NESSUN DDT (ddtfId vuoto) — evita di
+  // proporre (e quindi poter scegliere per sbaglio) una fattura già
+  // collegata a un altro DDT. L'unica eccezione è la fattura già collegata
+  // A QUESTO STESSO DDT in modifica: resta in elenco, altrimenti aprendo
+  // per modificarlo il collegamento esistente sparirebbe dalla tendina.
+  function refreshFatturaOptions(fornitoreId){
+    const tutte = fattureFornitorePerFornitore[fornitoreId] || [];
+    const proponibili = tutte.filter(f => !f.ddtfId || (editingDdtf && f.ddtfId === editingDdtf.id));
+    $('f-fattura').innerHTML = '<option value="">— nessuna —</option>' +
+      proponibili.map(f => `<option value="${f.id}">${esc(f.num)}</option>`).join('');
+  }
+  $('f-fornitore').addEventListener('change', () => { refreshOrdineOptions($('f-fornitore').value); refreshFatturaOptions($('f-fornitore').value); });
+  // Collegamento automatico richiesto dall'utente ("un metodo automatico
+  // per collegare un DDT che ho appena importato alla relativa fattura se
+  // già presente"): propone una fattura SOLO se non c'è ambiguità — stessa
+  // identica cautela di findOrdineByRiferimento() qui sopra ("ambiguo: 0 o
+  // >1 candidati, meglio non collegare da soli"). Se il DDT è collegato a
+  // un ordine, la ricerca si restringe prima a quello (più probabile sia
+  // la fattura giusta anche quando il fornitore ne ha più di una aperta);
+  // altrimenti (o se restano più fatture sullo stesso ordine) l'unico modo
+  // sicuro è che il fornitore abbia esattamente UNA fattura ancora senza
+  // DDT collegato in tutto.
+  function findFatturaDaCollegare(fornitoreId, ofId){
+    const candidati = (fattureFornitorePerFornitore[fornitoreId] || []).filter(f => !f.ddtfId);
+    if(ofId){
+      const perOrdine = candidati.filter(f => f.ofId === ofId);
+      if(perOrdine.length === 1) return perOrdine[0];
+      if(perOrdine.length > 1) return null;
+    }
+    return candidati.length === 1 ? candidati[0] : null;
+  }
   // Precompila le righe dal RESIDUO dell'ordine (quanto non ancora
   // ricevuto: qty - qtyEv), non dalle righe intere — un ordine può arrivare
   // in più DDT parziali (cascata, vedi ordini-fornitore.html e il commento
@@ -326,7 +373,19 @@
     $('form-title').textContent = ddtf ? `Modifica ${ddtf.num}` : 'Nuovo DDT fornitore';
     $('f-fornitore').value = ddtf ? ddtf.fornitoreId : ($('f-fornitore').options[0] ? $('f-fornitore').options[0].value : '');
     refreshOrdineOptions($('f-fornitore').value);
+    refreshFatturaOptions($('f-fornitore').value);
     $('f-ordine').value = ddtf ? (ddtf.ofId || '') : '';
+    // ddtf.ftfId è il NUMERO della fattura (come ftfId sull'ordine
+    // fornitore — vedi app/cascade.js), non il suo id: la select usa id
+    // come tutte le altre (f-ordine/f-ddtf), quindi va risalito qui. Già
+    // collegata (fatturato, tramite questo campo o "→ Genera fattura
+    // fornitore") -> disabilitata: cambiare qui il collegamento dopo che
+    // la fattura esiste già non è lo scopo di questo campo.
+    const fatturaCollegata = ddtf && ddtf.ftfId
+      ? (fattureFornitorePerFornitore[ddtf.fornitoreId] || []).find(f => f.num === ddtf.ftfId)
+      : null;
+    $('f-fattura').value = fatturaCollegata ? fatturaCollegata.id : '';
+    $('f-fattura').disabled = !!(ddtf && ddtf.ftfId);
     $('f-num').value = ddtf ? ddtf.num : '';
     $('f-data').value = ddtf ? ddtf.data : today();
     $('righe-body').innerHTML = '';
@@ -441,7 +500,7 @@
 
       openForm(null);
       const match = window.SaasAiImport.findPartyByNome(fornitoriArr, p.fornitore);
-      if(match){ $('f-fornitore').value = match.id; refreshOrdineOptions(match.id); }
+      if(match){ $('f-fornitore').value = match.id; refreshOrdineOptions(match.id); refreshFatturaOptions(match.id); }
       $('f-num').value = String(p.numero || '').trim();
       $('f-data').value = /^\d{4}-\d{2}-\d{2}$/.test(p.data || '') ? p.data : today();
 
@@ -451,6 +510,20 @@
       let ordineLink = null;
       if(match) ordineLink = findOrdineByRiferimento(ordiniPerFornitore[match.id], p.riferimentoOrdine);
       if(ordineLink) $('f-ordine').value = ordineLink.id;
+
+      // Collegamento automatico alla fattura fornitore, se già presente —
+      // richiesta reale: "pensiamo ad un metodo automatico per collegare
+      // un DDT che ho appena importato alla relativa fattura se già
+      // presente". Nessun testo del DDT la referenzia mai (una fattura
+      // arriva quasi sempre dopo, non il contrario): l'unico modo sicuro è
+      // che il fornitore abbia esattamente una fattura ancora da collegare
+      // — vedi findFatturaDaCollegare() più sopra. Silenzioso se non trova
+      // nulla: non è un'anomalia da segnalare, è il caso normale quando la
+      // fattura arriverà più avanti.
+      if(match){
+        const fatturaLink = findFatturaDaCollegare(match.id, ordineLink ? ordineLink.id : null);
+        if(fatturaLink) $('f-fattura').value = fatturaLink.id;
+      }
 
       $('righe-body').innerHTML = '';
       // Niente prezzo/sconto/iva: un DDT cartaceo non li riporta mai — vedi
@@ -494,6 +567,7 @@
   $('f-save').addEventListener('click', async () => {
     const fornitoreId = $('f-fornitore').value;
     const ofId = $('f-ordine').value || null;
+    const fatturaId = $('f-fattura').value || null;
     const num = $('f-num').value.trim();
     const data = $('f-data').value;
     const righe = readRighe();
@@ -516,6 +590,16 @@
       const doc = editingDdtf ? Object.assign({}, editingDdtf, { fornitoreId, ofId, num, data, righe }) : { fornitoreId, ofId, num, data, righe };
       const isNew = !editingId;
       if(editingId) doc.id = editingId;
+      // "Fattura collegata" — richiesta reale: "un metodo automatico per
+      // collegare un DDT che ho appena importato alla relativa fattura se
+      // già presente". Il collegamento verso l'ALTRO documento (la
+      // fattura, sotto) si aggiorna solo quando qui si passa da "nessuna
+      // fattura" a "una scelta" — un DDT già fatturato ha la select
+      // disabilitata (vedi openForm()), quindi non si ripete ad ogni
+      // modifica successiva.
+      const fatturaObj = fatturaId ? allFattureFornitoreById[fatturaId] : null;
+      const linkingFattura = !!(fatturaObj && (!editingDdtf || !editingDdtf.ftfId));
+      if(fatturaObj) doc.ftfId = fatturaObj.num; // stesso campo, stesso formato (NUM) di "→ Genera fattura fornitore"
       const saved = await store.saveDoc('ddtFornitore', doc, companyId);
       // Cascata: un DDT fornitore NUOVO collegato a un ordine scala il
       // residuo dell'ordine (qtyEv) e ne registra il numero — solo alla
@@ -531,6 +615,25 @@
             allOrdiniFornitoreById[ofId] = ofAgg;
           }
         }catch(e){ /* il DDT è comunque salvato */ }
+      }
+      // L'ALTRO lato del collegamento: la fattura scelta sopra deve sapere
+      // a sua volta di questo DDT (ddtfId, come sceglierlo a mano da
+      // fatture-fornitore.html/f-ddtf) — senza questo passo il DDT
+      // risulterebbe "fatturato" ma la fattura non "da DDT", e il box
+      // "Documenti collegati" non risalirebbe la filiera.
+      if(linkingFattura){
+        try{
+          const fatturaAgg = Object.assign({}, fatturaObj, { ddtfId: saved.id });
+          await store.saveDoc('fattureFornitore', fatturaAgg, companyId);
+          allFattureFornitoreById[fatturaObj.id] = fatturaAgg;
+          // Anche nell'elenco per fornitore (guida "Fattura collegata" di
+          // OGNI prossimo DDT aperto in questa sessione, senza ricaricare
+          // la pagina): senza questo, la stessa fattura resterebbe
+          // proponibile — e quindi collegabile due volte — finché non si
+          // torna su questa pagina da capo.
+          const arr = fattureFornitorePerFornitore[fatturaObj.fornitoreId];
+          if(arr){ const idx = arr.findIndex(f => f.id === fatturaObj.id); if(idx >= 0) arr[idx] = fatturaAgg; }
+        }catch(e){ /* il DDT è comunque salvato, collegabile a mano da fatture-fornitore.html se questo fallisce */ }
       }
       // Un DDT fornitore appena creato resta aperto (invece di tornare
       // all'elenco) — stessa richiesta reale già risolta in ddt.html:
@@ -651,15 +754,19 @@
       onLogout: doLogout,
     });
 
-    const [fornitori, ordiniFornitore] = await Promise.all([
+    const [fornitori, ordiniFornitore, fattureFornitore] = await Promise.all([
       store.loadCollection('fornitori', companyId),
       store.loadCollection('ordiniFornitore', companyId),
+      store.loadCollection('fattureFornitore', companyId),
     ]);
     fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
     fornitoriArr = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity: 'base' }));
     allOrdiniFornitoreById = Object.fromEntries(ordiniFornitore.map(o => [o.id, o]));
     ordiniPerFornitore = {};
     ordiniFornitore.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
+    allFattureFornitoreById = Object.fromEntries(fattureFornitore.map(f => [f.id, f]));
+    fattureFornitorePerFornitore = {};
+    fattureFornitore.forEach(f => { (fattureFornitorePerFornitore[f.fornitoreId] = fattureFornitorePerFornitore[f.fornitoreId] || []).push(f); });
     // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
     // fornitori" della filterbar qui sopra.
     $('f-fornitore').innerHTML = fornitoriArr.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');

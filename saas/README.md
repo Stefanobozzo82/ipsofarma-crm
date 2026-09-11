@@ -6316,6 +6316,44 @@ riprovarci in futuro con un approccio diverso (l'intera cronologia del
 problema, incluso il fix appena tentato, resta nel git log e in questo
 README se servisse ripartire da lì).
 
+## DDT fornitore: collegamento automatico alla fattura già presente
+
+Richiesta reale: "piuttosto pensiamo ad un metodo automatico per
+collegare un DDT che ho appena importato alla relativa fattura se già
+presente" — capita che la fattura di un fornitore arrivi (e venga
+importata) PRIMA del suo DDT cartaceo: fino ad ora, importando poi il
+DDT, l'unico modo di agganciarlo alla fattura già in archivio era
+andare su `fatture-fornitore.html`, riaprire quella fattura e sceglierla
+dal menu "DDT fornitore collegato" — comodo solo nella direzione
+opposta (fattura → DDT), non in questa.
+
+**Nuovo campo "Fattura collegata"** in `ddt-fornitore.html`, speculare
+a "DDT fornitore collegato" ma nella direzione opposta: mostra le
+fatture di quel fornitore ancora senza un DDT agganciato. Precompilato
+da solo dopo un import AI quando c'è **esattamente una** fattura
+candidata (prima ristretto all'ordine collegato, se il DDT ne cita uno;
+altrimenti l'unica fattura ancora libera di tutto il fornitore) — stessa
+cautela già usata per l'aggancio all'ordine (`findOrdineByRiferimento`):
+0 o più di 1 candidato, meglio non collegare da soli e lasciare la scelta
+all'utente. Nessun avviso quando trova l'aggancio giusto (stesso
+principio "niente avviso se va tutto bene da solo" già in uso per
+l'ordine) — si vede comunque nel campo precompilato.
+
+Il collegamento è sempre a due vie, aggiornato in un colpo solo al
+salvataggio: il DDT prende `ftfId` (il numero della fattura, stesso
+campo che imposta già "→ Genera fattura fornitore"), la fattura prende
+`ddtfId` (l'id del DDT, come sceglierlo a mano da
+`fatture-fornitore.html`). Una volta collegata, la select si disabilita
+(stessa fattura non proponibile una seconda volta per un altro DDT, né
+ri-collegabile per sbaglio riaprendo questo stesso documento).
+
+Verificato con tre test Playwright sulla pagina reale (import AI vero
+tranne la sola chiamata di rete a Gemini, stubbata): fornitore con
+un'unica fattura libera → collegamento proposto e salvato in entrambe le
+direzioni; fornitore con due fatture libere → nessun collegamento
+proposto (ambiguo); un DDT già fatturato, riaperto → select precompilata
+e disabilitata.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

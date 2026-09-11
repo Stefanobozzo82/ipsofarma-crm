@@ -70,6 +70,16 @@
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
     <p class="righe-total">Totale: <b id="righe-totale">0,00 €</b></p>
 
+    <!-- Incassi in più tranche — presente nel vecchio gestionale
+         (pagamentiPanel/addPagamento/delPagamento in index.html), qui
+         riportato uguale: storico dei versamenti, quanto resta da
+         incassare, un versamento parziale registrabile in qualunque
+         momento invece del solo "tutto o niente" del pallino
+         incassata/da incassare nell'elenco. Nascosto per una fattura
+         nuova non ancora salvata — un incasso si registra su un
+         documento che esiste già. -->
+    <div class="panel" id="f-pagamenti-panel" hidden style="margin:16px 0"><div id="f-pagamenti"></div></div>
+
     <div class="panel" id="f-lineage-panel" hidden style="margin:16px 0"><div class="panel-h">Documenti collegati</div><div id="f-lineage"></div></div>
 
     <div class="form-actions">
@@ -545,6 +555,7 @@
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
     renderLineage(fattura);
+    renderPagamenti(fattura);
     $('f-print-actions').hidden = !fattura;
     $('f-danger-actions').hidden = !fattura;
     setMsg('', '');
@@ -567,6 +578,103 @@
       panel.hidden = !shown;
     }catch(e){ panel.hidden = true; }
   }
+
+  // Pannello "Incassi" — stesso principio di pagamentiPanel()/addPagamento()/
+  // delPagamento() nel gestionale originale (index.html), riscritto sullo
+  // store SaaS invece del DB in memoria. Un incasso non è per forza tutto
+  // in un colpo solo: si registra un versamento alla volta (data + importo),
+  // la fattura risulta "incassata" (paid=true) solo quando la somma dei
+  // versamenti raggiunge il totale — prima resta "parziale".
+  function payTot(fattura){ return (fattura.pagamenti || []).reduce((s, p) => s + (p.importo || 0), 0); }
+  // Una nota di credito collegata a QUESTA fattura (nc.fatturaId) riduce
+  // quanto resta da incassare, come se fosse un versamento — ma non è un
+  // incasso vero (niente soldi in più in banca), per questo resta un
+  // conteggio a sé, mostrato ma non sommato allo storico dei pagamenti.
+  function creditoNotaCredito(fattura){
+    if(!fattura || !fattura.id) return 0;
+    return noteCreditoArr.filter(nc => nc.fatturaId === fattura.id).reduce((s, nc) => s + docTotale(nc.righe), 0);
+  }
+  function payState(fattura){
+    const totale = docTotale(fattura.righe);
+    const creditato = creditoNotaCredito(fattura);
+    const pagato = payTot(fattura);
+    const versato = pagato + creditato;
+    const state = versato <= 0.004 ? 'aperto' : versato >= totale - 0.01 ? 'completo' : 'parziale';
+    const pct = totale ? Math.min(100, Math.round(versato / totale * 100)) : 0;
+    const residuo = Math.max(0, totale - versato);
+    return { totale, pagato, creditato, residuo, state, pct };
+  }
+  function renderPagamenti(fattura){
+    const panel = $('f-pagamenti-panel');
+    if(!fattura){ panel.hidden = true; return; }
+    panel.hidden = false;
+    const p = payState(fattura);
+    const barCol = p.state === 'completo' ? 'var(--accent)' : p.state === 'parziale' ? '#2f7fe0' : '#cd8b1f';
+    const rows = (fattura.pagamenti || []).map((pg, i) => `<div class="pay-row">
+        <span class="pay-date">${pg.data ? new Date(pg.data).toLocaleDateString('it-IT') : '—'}</span>
+        <span class="pay-amt">${eur(pg.importo)}</span>
+        <button type="button" data-rm-pagamento="${i}" title="rimuovi">✕</button>
+      </div>`).join('');
+    $('f-pagamenti').innerHTML = `
+      <div class="panel-h">Incassi<span style="margin-left:auto;font-size:12px;color:var(--faint);font-weight:400">${eur(p.pagato)}${p.creditato ? ' + ' + eur(p.creditato) + ' nota credito' : ''} / ${eur(p.totale)} · ${p.pct}%</span></div>
+      <div style="padding:13px 18px 2px"><div class="pay-bar"><div class="pay-bar-fill" style="width:${p.pct}%;background:${barCol}"></div></div></div>
+      ${p.creditato ? `<div style="padding:0 18px 10px;color:var(--faint);font-size:12px">↩ ${eur(p.creditato)} già stornati con nota di credito, non conteggiati come incasso.</div>` : ''}
+      ${rows || '<p class="empty" style="padding:10px 18px;text-align:left">Nessun incasso registrato.</p>'}
+      ${p.state !== 'completo' ? `<div class="pay-form">
+          <input type="date" id="pay-data" value="${today()}">
+          <input type="number" step="0.01" min="0.01" id="pay-importo" placeholder="Importo" value="${p.residuo.toFixed(2)}">
+          <button type="button" class="primary" id="pay-add">+ Registra incasso</button>
+          <button type="button" class="ghost" id="pay-salda">Salda tutto (${eur(p.residuo)})</button>
+        </div>` : ''}`;
+    if(p.state !== 'completo'){
+      $('pay-add').addEventListener('click', () => addPagamento($('pay-importo').value, $('pay-data').value));
+      $('pay-salda').addEventListener('click', () => addPagamento(p.residuo, today()));
+    }
+    $('f-pagamenti').querySelectorAll('[data-rm-pagamento]').forEach(btn => {
+      btn.addEventListener('click', () => delPagamento(Number(btn.dataset.rmPagamento)));
+    });
+  }
+  // Si parte SEMPRE dalla fattura esistente (Object.assign) per lo stesso
+  // motivo di togglePaid() più sotto — un payload parziale fa fallire
+  // l'upsert sulle colonne "not null". Il form resta aperto dopo un
+  // incasso (a differenza di "Salva"): si può registrare più di un
+  // versamento di seguito senza uscire e rientrare nel documento.
+  async function addPagamento(importoRaw, data){
+    if(!editingFattura) return;
+    const importo = parseFloat(importoRaw);
+    if(!importo || isNaN(importo) || importo <= 0){ alert('Importo non valido.'); return; }
+    const pagamenti = (editingFattura.pagamenti || []).concat([{ data: data || today(), importo: Math.round(importo * 100) / 100 }]);
+    const doc = Object.assign({}, editingFattura, { pagamenti });
+    const p = payState(doc);
+    doc.paid = p.state === 'completo';
+    doc.paidDate = doc.paid ? pagamenti[pagamenti.length - 1].data : null;
+    try{
+      editingFattura = await store.saveDoc('fattureCliente', doc, companyId);
+    }catch(err){
+      alert('Errore durante la registrazione dell\'incasso: ' + (err.message || err));
+      return;
+    }
+    renderPagamenti(editingFattura);
+    await renderList(); // aggiorna il pallino incassata/da incassare nell'elenco, anche se resta nascosto finché il documento è aperto
+  }
+  async function delPagamento(idx){
+    if(!editingFattura || !editingFattura.pagamenti) return;
+    const pagamenti = editingFattura.pagamenti.slice();
+    pagamenti.splice(idx, 1);
+    const doc = Object.assign({}, editingFattura, { pagamenti });
+    const p = payState(doc);
+    doc.paid = p.state === 'completo';
+    if(!doc.paid) doc.paidDate = null;
+    try{
+      editingFattura = await store.saveDoc('fattureCliente', doc, companyId);
+    }catch(err){
+      alert('Errore durante la rimozione dell\'incasso: ' + (err.message || err));
+      return;
+    }
+    renderPagamenti(editingFattura);
+    await renderList();
+  }
+
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; $('stats-riga').hidden = false; editingId = null; editingFattura = null; }
   $('new-fattura').addEventListener('click', async () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }

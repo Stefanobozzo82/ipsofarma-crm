@@ -77,7 +77,6 @@
     <label for="f-ordine">Ordine collegato</label>
     <select id="f-ordine"><option value="">— nessuno —</option></select>
 
-    <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <!-- Niente colonne Prezzo/Sconto/IVA: un DDT cartaceo non le riporta
          mai (documento di trasporto, non contabile) — vedi il commento in
@@ -665,11 +664,6 @@
     // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
     // fornitori" della filterbar qui sopra.
     $('f-fornitore').innerHTML = fornitoriArr.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
-
-    window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
-      companyId, priceField: 'listinoAcq',
-      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1 }),
-    });
 
     await renderList();
 

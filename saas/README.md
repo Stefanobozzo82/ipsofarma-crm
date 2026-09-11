@@ -6085,6 +6085,22 @@ toccato). Verificato con un test Playwright sulla pagina reale (non una
 copia): elenco, apertura di una fattura esistente e pannello Incassi
 continuano a funzionare identici dopo la rimozione.
 
+**Estesa poi a tutti gli altri moduli documento** ("toglila anche dagli
+altri moduli"): stessa casella, stessa `SaasProdPicker.attach($('prodq'),
+$('prodsugg'), {...})` in `init()`, rimossa allo stesso modo da `ddt.html`,
+`ddt-fornitore.html`, `fatture-fornitore.html`, `note-credito.html`,
+`note-credito-fornitore.html`, `ordini.html`, `ordini-fornitore.html` e
+`preventivi.html` — 8 pagine, stesso pattern meccanico ovunque. Lasciata
+com'è la casella simile in `magazzino.html` ("Cerca prodotto per codice o
+descrizione…", id `mv-prod-q`): non aggiunge righe a un documento, serve a
+scegliere il prodotto di un movimento di magazzino — un'altra funzione,
+non quella di cui si lamentava la richiesta. Verificato con lo stesso
+identico test Playwright sulla pagina reale, ripetuto su `ordini.html`
+(il modulo con la logica di autocompletamento più elaborata, "ultimo
+prezzo" incluso): elenco, apertura di un ordine esistente, tabella righe
+e autocompletamento inline sul campo Codice di ogni riga continuano a
+funzionare identici — nessun errore in pagina.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

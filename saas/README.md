@@ -6064,6 +6064,27 @@ correttamente. Verificato anche il caso con nota di credito collegata.
 Registrati sul database di produzione i due incassi reali della fattura
 FT/2026/0228: 16.375,47 € (10/08/2026) e 16.375,00 € (11/09/2026).
 
+## Fatture: tolta la casella di ricerca prodotti sopra le righe
+
+Richiesta reale: "voglio che elimini la casella che si trova sotto
+ordine collegato in cui c'è scritto cerca per codice o descrizione" —
+in `fatture.html`, tra "Destinazione di consegna" e la tabella "Righe",
+c'era un secondo modo di aggiungere una riga da catalogo: una casella di
+ricerca a sé stante (`Cerca per codice o descrizione…`) che, scelto un
+prodotto, aggiungeva una nuova riga in fondo alla tabella.
+
+Ormai ridondante: da quando ogni riga ha il proprio autocompletamento nel
+campo Codice (vedi più sopra "Autocompletamento inline nel campo Codice
+di ogni riga documento"), lo stesso risultato si ottiene con "+ aggiungi
+riga" e digitando nel campo Codice della riga stessa — un solo punto
+dove cercare un prodotto, non due. Rimossa la casella dall'HTML e la
+chiamata `SaasProdPicker.attach` che la collegava in `init()`; lasciato
+invariato tutto il resto (l'autocompletamento per-riga usa lo stesso
+`SaasProdPicker`, ma agganciato al campo Codice di ciascuna riga, non
+toccato). Verificato con un test Playwright sulla pagina reale (non una
+copia): elenco, apertura di una fattura esistente e pannello Incassi
+continuano a funzionare identici dopo la rimozione.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

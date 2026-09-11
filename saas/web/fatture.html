@@ -61,7 +61,6 @@
     </div>
     <div id="f-dest-wrap"><label for="f-dest">Destinazione di consegna</label><select id="f-dest"></select></div>
 
-    <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
       <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
@@ -463,7 +462,7 @@
     out.sort((a, b) => String(b.data).localeCompare(String(a.data)));
     return out.slice(0, limit || 5);
   }
-  // priceHistory(cod) per SaasProdPicker.attach() qui sotto e in bindRigaRow().
+  // priceHistory(cod) per SaasProdPicker.attach() in bindRigaRow() (autocompletamento riga).
   function priceHistoryForForm(cod){
     const cliId = $('f-cliente').value;
     const cli = clientiById[cliId];
@@ -1175,14 +1174,6 @@
     // clienti" della filterbar qui sopra (clientiArr).
     $('f-cliente').innerHTML = [...clienti].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
       .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
-
-    window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
-      companyId, priceField: 'listinoVen', priceHistory: priceHistoryForForm,
-      onPick: p => {
-        const last = lastClientPrice($('f-cliente').value, p.cod);
-        addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: last ? last.prezzo : (p.listinoVen || 0), sconto: last ? (last.sconto || '') : '', iva: p.iva || 22, _last: !!last });
-      },
-    });
 
     await renderList();
 

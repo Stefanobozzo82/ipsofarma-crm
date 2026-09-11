@@ -516,6 +516,11 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 
 .righe-table th, .righe-table td{ padding:6px 4px; }
 .righe-table input{ padding:6px 8px; font-size:13px; }
+/* Colonne Consegnata/Residuo/Stato in ordini.html: presenti sempre nel
+ * markup (stessa tabella, niente da ridisegnare a seconda del caso) ma
+ * visibili solo quando la tabella porta la classe .has-evasione — un
+ * ordine nuovo, mai salvato, non ha ancora nulla da evadere. */
+.righe-table:not(.has-evasione) .ev-col{ display:none; }
 /* Codice e Descrizione sono le uniche due colonne, tra tutte quelle della
  * riga, senza una larghezza fissata da ogni pagina (Qtà/Prezzo/Sconto/IVA,
  * e Lotto/Scadenza dove presenti, hanno tutte uno style="width:...px" nel
@@ -661,6 +666,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .pill.paid{ color:var(--accent-d); background:var(--accent-soft); }
 .pill.unpaid{ color:var(--amber); background:var(--amber-s); }
+.pill.partial{ color:var(--blue); background:var(--blue-s); }
 /* Riga nota di credito dentro l'elenco fatture (fatture-fornitore.html/
    fatture.html): non ha uno stato pagata/da pagare, solo un'etichetta —
    niente cursore a manina, non è un pulsante che si clicca. */

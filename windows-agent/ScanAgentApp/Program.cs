@@ -90,7 +90,16 @@ internal static class Program
             HttpListenerContext context;
             try { context = listener.GetContext(); }
             catch { continue; }
-            HandleRequest(context);
+            // Su un thread del pool, non sul ciclo di accettazione: una
+            // scansione lenta o bloccata (vedi InvokeScan più sotto) non
+            // deve impedire all'agente di rispondere a un /ping nel
+            // frattempo — segnalato dall'utente: durante uno scan
+            // rimasto "in attesa", anche il pulsante "Verifico il
+            // programma di scansione..." nel browser restava fermo,
+            // perché QUESTO ciclo — prima single-threaded — era occupato
+            // e non accettava nessun'altra richiesta finché quella in
+            // corso non finiva.
+            ThreadPool.QueueUserWorkItem(_ => HandleRequest(context));
         }
     }
 
@@ -194,6 +203,24 @@ internal static class Program
     private static void SendText(HttpListenerResponse response, int statusCode, string text, string? origin)
         => SendResponse(response, statusCode, Encoding.UTF8.GetBytes(text), "text/plain; charset=utf-8", origin);
 
+    // Tempo massimo per una scansione: sufficiente per posizionare il
+    // foglio, scegliere le opzioni nella finestra dello scanner e
+    // scansionare davvero, ma non infinito — vedi il commento su
+    // InvokeScan() più sotto sul perché serve un limite qui, a differenza
+    // del timeout lato browser (già presente, 5 minuti) che da solo non
+    // bastava.
+    private static readonly TimeSpan ScanTimeout = TimeSpan.FromMinutes(4);
+
+    // Segnalato dall'utente (log dell'agente): "Exception has been thrown
+    // by the target of an invocation." — il messaggio generico che .NET
+    // mette sempre su una TargetInvocationException, il contenitore che
+    // avvolge OGNI eccezione lanciata da un metodo COM chiamato per
+    // reflection (InvokeMember, usato qui sotto): il vero errore (perché
+    // lo scanner ha fallito) restava nascosto in InnerException, mai
+    // scritto nel log. Usata sia per il messaggio d'errore sia per capire
+    // cosa è successo davvero la prossima volta che si presenta.
+    private static string UnwrapMessage(Exception ex) => ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner.Message : ex.Message;
+
     // Acquisisce un'immagine dallo scanner tramite la finestra di
     // scansione nativa di Windows (WIA.CommonDialog, la stessa API usata
     // da scan-agent.ps1) — mostra lei stessa l'anteprima e il pulsante
@@ -206,7 +233,53 @@ internal static class Program
     // che non sia Windows) GetTypeFromProgID restituisce null: fallisce
     // in modo pulito invece di andare in crash, esattamente come già
     // verificato per scan-agent.ps1 collaudato su Linux.
+    //
+    // Girata su un thread STA dedicato, non su quello (MTA, il default in
+    // .NET) che gestisce la richiesta HTTP: WIA.CommonDialog è un
+    // controllo con una vera finestra e un suo ciclo messaggi, pensato per
+    // girare in un appartamento COM a thread singolo (STA) — la stessa
+    // ragione per cui ogni programma Windows Forms/WPF marca il proprio
+    // thread [STAThread]. Su un thread MTA il comportamento non è
+    // garantito: a volte funziona, a volte resta bloccato in attesa di un
+    // messaggio che nessuno pompa, a volte lancia un'eccezione confusa —
+    // proprio i sintomi segnalati ("apre la finestra, scelgo scansiona,
+    // rimane in attesa" e, nel log, l'eccezione senza un vero motivo).
+    // Un timeout sul Join() copre il caso in cui restasse comunque bloccato
+    // (driver del tutto in stallo): la richiesta HTTP riceve un errore
+    // chiaro invece di restare appesa per sempre, e — dopo la modifica al
+    // ciclo principale più sopra — l'agente resta comunque libero di
+    // rispondere a un /ping nel frattempo.
     private static byte[]? InvokeScan(out string? error, out bool cancelled)
+    {
+        string? localError = null;
+        bool localCancelled = false;
+        byte[]? result = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                result = InvokeScanCore(out localError, out localCancelled);
+            }
+            catch (Exception ex)
+            {
+                localError = UnwrapMessage(ex);
+            }
+        });
+        thread.IsBackground = true; // non deve impedire la chiusura dell'agente se restasse bloccato per sempre
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        if (!thread.Join(ScanTimeout))
+        {
+            error = $"lo scanner non ha risposto entro {ScanTimeout.TotalMinutes:0} minuti (controlla che non sia rimasta aperta un'altra finestra dello scanner in attesa di un click, es. \"Fine\"/\"Scansiona un'altra pagina?\").";
+            cancelled = false;
+            return null;
+        }
+        error = localError;
+        cancelled = localCancelled;
+        return result;
+    }
+
+    private static byte[]? InvokeScanCore(out string? error, out bool cancelled)
     {
         error = null;
         cancelled = false;
@@ -241,7 +314,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            error = UnwrapMessage(ex);
             return null;
         }
     }

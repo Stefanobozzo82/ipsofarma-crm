@@ -547,6 +547,19 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .righe-table{ width:auto; }
 .righe-table td.rm{ text-align:center; }
 .righe-table td.rm button{ background:none; border:none; color:var(--red); cursor:pointer; font-size:16px; line-height:1; padding:2px 6px; }
+/* Pannello "Incassi"/"Pagamenti" (fatture.html/fatture-fornitore.html) —
+ * barra di avanzamento e storico dei versamenti in più tranche, stesso
+ * principio già nel gestionale originale (pagamentiPanel/addPagamento/
+ * delPagamento in index.html). */
+.pay-bar{ height:6px; border-radius:4px; background:var(--border2); overflow:hidden; }
+.pay-bar-fill{ height:100%; border-radius:4px; transition:width .2s ease; }
+.pay-row{ display:flex; align-items:center; gap:10px; padding:9px 18px; border-top:1px solid var(--border); font-size:13px; }
+.pay-row .pay-date{ color:var(--faint); min-width:88px; }
+.pay-row .pay-amt{ font-family:var(--mono); font-weight:600; color:var(--accent-d); }
+.pay-row button{ margin-left:auto; background:none; border:none; color:var(--red); cursor:pointer; font-size:16px; line-height:1; padding:2px 6px; }
+.pay-form{ display:flex; gap:8px; align-items:center; padding:12px 18px; background:var(--surface2); border-top:1px solid var(--border); flex-wrap:wrap; }
+.pay-form input{ padding:7px 10px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--txt); font-family:inherit; font-size:13px; }
+.pay-form input[type="number"]{ width:110px; }
 /* Riordino righe per trascinamento (vedi bindRigaRow() in ordini.html):
  * solo la manetta è draggable, mai l'intera riga — trascinare per
  * selezionare testo in un campo non deve scambiarsi per un riordino. */

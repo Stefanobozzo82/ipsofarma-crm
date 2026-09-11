@@ -6010,6 +6010,60 @@ ascolto); nel contesto app nativa (Capacitor simulato) il menu mostra
 nessuno dei due nel browser desktop di uno senza l'altro — esattamente il
 comportamento atteso in ciascun contesto.
 
+## Incassi in più tranche
+
+Richiesta reale: "la fattura 228 è stata pagata in due tranche la prima
+il 10/08/2026 di euro 16.375,47 e l'altra giorno 11/09/2026 di 16.375,
+puoi inserire un metodo per poter mettere incassate le fatture in più
+tranche, nel vecchio gestionale era presente". Nel nuovo gestionale
+"incassata" era finora solo un interruttore tutto-o-niente (il pallino
+pagata/da pagare nell'elenco) — nessun modo di registrare un versamento
+parziale, né di vedere quanto restava da incassare su una fattura pagata
+a rate.
+
+**Modello ripreso dal vecchio gestionale** (`index.html`,
+`pagamentiPanel`/`addPagamento`/`delPagamento`): un campo `pagamenti`
+(già esistente nello schema di `fatture_cliente`, mai usato dall'interfaccia
+nuova) che è un semplice elenco di `{data, importo}`. La fattura è
+"completa" quando la somma dei versamenti (più quanto eventualmente già
+stornato con una nota di credito collegata) raggiunge il totale; altrimenti
+è "parziale" (almeno un versamento, ma non basta) o "aperta" (nessuno).
+
+**Nuovo pannello "Incassi" in `fatture.html`**, sotto il totale righe,
+visibile solo per una fattura già salvata (un incasso si registra su un
+documento che esiste già, non su una bozza):
+- barra di avanzamento colorata per stato (arancio aperta, blu parziale,
+  verde completa) con percentuale e importo versato/totale;
+- storico dei versamenti, ciascuno con data, importo e un pulsante ✕ per
+  rimuoverlo (correzione di un errore di inserimento);
+- se una nota di credito è collegata alla fattura, il suo importo compare
+  come "già stornato con nota di credito" e riduce il residuo, ma non
+  compare come incasso;
+- finché non è completa, un piccolo form per registrare un nuovo
+  versamento (data, importo pre-compilato col residuo) più un pulsante
+  "Salda tutto (residuo)" per il caso comune dell'ultima tranche esatta;
+  il form sparisce da solo appena la fattura risulta completa.
+
+Ogni aggiunta/rimozione ricalcola anche i campi `paid`/`paidDate` esistenti
+(la fattura risulta "pagata" nell'elenco esattamente quando il pannello la
+mostra completa), così il pallino pagata/da pagare dell'elenco resta
+coerente con lo storico dei versamenti senza doverlo aggiornare a mano.
+Il salvataggio passa da `store.saveDoc`, sempre con il documento intero
+(mai un payload parziale — vedi più sopra il fix critico su
+"segna incassata"/"segna pagata", stesso principio).
+
+**Verificato con un test Playwright reale**, con gli stessi numeri della
+fattura 228 (totale 32.750,47 €): stato iniziale a 0% col form visibile;
+dopo il primo versamento di 16.375,47 € il pulsante "Salda tutto" mostra
+esattamente "16.375,00 €" — l'importo della seconda tranche indicata
+dall'utente, calcolato dal residuo, non ridigitato; cliccandolo la somma
+dei due versamenti torna 32.750,47 € esatti, la fattura risulta pagata e
+il form sparisce; rimuovendo il secondo versamento tutto torna indietro
+correttamente. Verificato anche il caso con nota di credito collegata.
+
+Registrati sul database di produzione i due incassi reali della fattura
+FT/2026/0228: 16.375,47 € (10/08/2026) e 16.375,00 € (11/09/2026).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

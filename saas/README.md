@@ -6101,6 +6101,28 @@ prezzo" incluso): elenco, apertura di un ordine esistente, tabella righe
 e autocompletamento inline sul campo Codice di ogni riga continuano a
 funzionare identici — nessun errore in pagina.
 
+## Indirizzo ufficiale: Cloudflare Workers, non GitHub Pages
+
+Richiesta reale: "come mai sono due" / "quale conviene tenere?" — il
+gestionale gira in parallelo su due indirizzi (vedi più sopra "Agente di
+scansione: il gestionale gira su DUE indirizzi, non uno"), stesso sito,
+stessi dati. Decisione presa: **`ipsofarma-crm.stefanobozzo82.workers.dev`
+(Cloudflare Workers) è l'indirizzo ufficiale da usare/condividere** da
+qui in avanti, `stefanobozzo82.github.io/ipsofarma-crm/saas/web/` (GitHub
+Pages) resta attivo solo per non rompere l'accesso a chi lo avesse già
+salvato, fino alla sua disattivazione.
+
+Motivi: URL pulito (un sottodominio, non il percorso interno del
+repository); più facile aggancio a un dominio proprio quando verrà
+comprato per Resend (vedi "Prossimo passo"); Cloudflare Workers è una
+piattaforma vera, non solo file statici, quindi c'è margine per qualcosa
+lato server in futuro; un solo posto da tenere sincronizzato invece di
+due, con lo stesso tipo di bug già capitato con l'agente di scansione.
+
+Nessun codice toccato da questa decisione — la disattivazione di GitHub
+Pages va fatta dalle impostazioni del repository (fuori dagli strumenti
+disponibili qui) quando l'azienda è pronta.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

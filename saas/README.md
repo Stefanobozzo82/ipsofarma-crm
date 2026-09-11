@@ -5951,6 +5951,22 @@ anche la fattura 283 come mal datata — una query mirata di verifica prima
 di correggere ha mostrato che quella fattura aveva già la data giusta.
 Corretta solo la 260, che la stessa verifica ha confermato reale.
 
+**Correzione del giorno dopo**: segnalato dall'utente che nell'elenco
+fatture il documento 274 compariva due volte. Causa: le due fatture
+"mancanti" con importo negativo (264 e 274) NON erano mancanti affatto —
+erano già registrate correttamente, solo come **note di credito** (tabella
+`note_credito`, non `fatture_cliente`) invece che come fatture con
+importo negativo com'era nel vecchio archivio. Non le avevo controllate
+prima di concludere che mancassero. **Risolto** eliminando le due
+fatture-fantasma inserite per errore (riconosciute dalla loro descrizione
+segnaposto "riportato dal vecchio gestionale", per non toccare le note di
+credito vere): tornate a 291 fatture. La terza (FT/2026/0289, CA.GI.
+S.P.A., una fattura vera non uno storno) non aveva un doppione da nessuna
+parte — verificata e lasciata invariata. Il totale "fatture" da solo non
+è più il numero giusto da confrontare col vecchio archivio: gli storni
+vivono ora in una tabella a parte (`note_credito`) col proprio segno,
+sommarli entrambi dà il confronto corretto.
+
 ## Pulsante "Importa": un menu unico, come "Scarica"
 
 Richiesta reale: "vorrei che il pulsante importa racchiudesse i diversi

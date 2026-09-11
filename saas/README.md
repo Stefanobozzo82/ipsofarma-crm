@@ -6376,6 +6376,40 @@ dopo 0002, non prima per ordine alfabetico) — già garantito dal
 confronto esistente (`localeCompare` con `numeric:true`), non serviva
 codice nuovo.
 
+## Ordini fornitore: ricevuti solo col DDT, non più con la fattura
+
+Richiesta reale: "ora che abbiamo messo i DDT voglio che i prossimi
+ordini fornitori vengano segnati come ricevuti solo quando segno un DDT
+e non come adesso alla registrazione della fattura".
+
+Da quando esiste il DDT fornitore (vedi più sopra), registrare una
+fattura fornitore collegata a un DDT aggiornava correttamente solo lo
+stato "fatturato" (le quantità erano già segnate arrivate quando il DDT
+era stato registrato). Ma per una fattura collegata SOLO a un ordine,
+SENZA un DDT di mezzo, restava il comportamento del vecchio gestionale:
+la fattura stessa segnava le quantità come arrivate (`applicaRicezione`),
+per coprire i fornitori che non mandano mai un DDT. Con questa richiesta
+quel fallback sparisce: **registrare una fattura fornitore non segna più
+da sola nessuna quantità come ricevuta**, in nessun caso.
+
+D'ora in poi un ordine fornitore risulta "ricevuto" in due soli modi:
+- registrando un DDT fornitore per quell'ordine (`ddt-fornitore.html`,
+  invariato);
+- a mano, col pulsante già esistente "✓ Segna evaso (senza fattura)"
+  sull'ordine (`applicaEvasioneManuale`) — per un fornitore che non manda
+  mai un DDT, o per un caso singolo senza DDT.
+
+Rimossa in `fatture-fornitore.html` la cascata `applicaRicezione` sulla
+fattura senza DDT collegato; lasciata invariata quella con un DDT
+collegato (`applicaFatturazioneFornitore`, solo stato "fatturato").
+Aggiornato anche il commento di `applicaRicezione()` in `app/cascade.js`
+per riflettere il nuovo, unico chiamante.
+
+Verificato con due test Playwright sulla pagina reale: fattura collegata
+a un ordine SENZA DDT → nessun salvataggio su `ordiniFornitore` (prima
+lo aggiornava); fattura collegata a un DDT già registrato → il DDT
+risulta fatturato e l'ordine aggiornato come prima, invariato.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

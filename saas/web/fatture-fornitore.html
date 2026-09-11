@@ -739,24 +739,27 @@
       // Cascata sull'ordine fornitore collegato, solo alla creazione (un
       // errore qui non deve far sembrare fallito il salvataggio della
       // fattura, già andato a buon fine — stessa nota di ddt.html/
-      // fatture.html). Due percorsi DIVERSI, a seconda che ci sia o no un
-      // DDT fornitore di mezzo (0016_ddt_fornitore.sql — richiesta reale:
-      // "sto pensando di implementare anche i ddt del fornitore [...]"):
-      //  - CON ddtfId: le quantità ricevute sono già state segnate quando
-      //    il DDT fornitore è stato registrato — qui si aggiorna solo lo
-      //    stato "fatturato" del DDT e dell'ordine (applicaFatturazioneFornitore,
-      //    NON applicaRicezione: contarla di nuovo raddoppierebbe l'arrivo).
-      //  - SENZA ddtfId (comportamento di sempre, invariato — fornitori
-      //    che non mandano DDT): applicaRicezione segna qui, alla
-      //    fattura, come ricevute le quantità fatturate — porta di
-      //    markOFReceived(), semplificata ("fatturato" vale "ricevuto").
+      // fatture.html).
       //
-      // Bug reale trovato prima di questa cascata a due vie (un ordine
-      // fornitore collegato a una fattura reale, ma mai segnato ricevuto):
-      // il catch sotto inghiottiva SEMPRE l'errore in silenzio — corretto
-      // perché la fattura è comunque salvata (non blocca il salvataggio)
-      // ma l'esito si vede ora nel messaggio finale, invece di sparire
-      // senza traccia.
+      // Richiesta reale, dopo l'arrivo del DDT fornitore (0016_ddt_fornitore.sql):
+      // "ora che abbiamo messo i DDT voglio che i prossimi ordini
+      // fornitori vengano segnati come ricevuti solo quando segno un DDT
+      // e non come adesso alla registrazione della fattura" — REGISTRARE
+      // una fattura non segna più da sola nessuna quantità come ricevuta,
+      // nemmeno quando è collegata a un ordine senza passare da un DDT: le
+      // quantità arrivate si segnano SOLO registrando un DDT fornitore
+      // (applicaRicezione, in ddt-fornitore.html) o a mano col pulsante
+      // "✓ Segna evaso (senza fattura)" sull'ordine (applicaEvasioneManuale,
+      // per un fornitore che non manda mai un DDT). Prima, una fattura
+      // SENZA un DDT collegato valeva anche come "arrivo" (comportamento
+      // del vecchio gestionale, portato qui identico) — tolto di proposito
+      // ora che c'è un modo più preciso di segnare l'arrivo davvero.
+      //
+      // Resta invece la cascata CON un DDT già collegato: qui si aggiorna
+      // solo lo stato "fatturato" del DDT e dell'ordine
+      // (applicaFatturazioneFornitore, mai applicaRicezione — le quantità
+      // sono già state segnate arrivate quando il DDT è stato registrato,
+      // contarle di nuovo raddoppierebbe l'arrivo).
       let cascadeWarning = '';
       if(isNew && ddtfId){
         try{
@@ -769,12 +772,6 @@
             }
           }else cascadeWarning = ' (il DDT collegato non è stato trovato: il suo stato "fatturato" non è stato aggiornato — verifica a mano.)';
         }catch(e){ cascadeWarning = ' (la fattura è salvata, ma l\'aggiornamento dello stato del DDT collegato non è riuscito: ' + (e.message || e) + ' — verifica a mano.)'; }
-      }else if(isNew && ofId){
-        try{
-          const of = (ordiniPerFornitore[fornitoreId] || []).find(x => x.id === ofId);
-          if(of) await store.saveDoc('ordiniFornitore', window.SaasCascade.applicaRicezione(of, righe), companyId);
-          else cascadeWarning = ' (l\'ordine collegato non è stato trovato: le quantità ricevute non sono state aggiornate su di esso — verifica a mano.)';
-        }catch(e){ cascadeWarning = ' (la fattura è salvata, ma l\'aggiornamento delle quantità ricevute sull\'ordine collegato non è riuscito: ' + (e.message || e) + ' — verifica a mano.)'; }
       }
       closeForm();
       await renderList();

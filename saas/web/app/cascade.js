@@ -85,24 +85,26 @@
   }
 
   // Nuovo oggetto ordine fornitore con qtyEv aggiornato dopo un arrivo di
-  // merce — porta di markOFReceived(). Due chiamanti diversi, stesso
-  // effetto su qtyEv:
-  //  - ddt-fornitore.html, con ddtfNum: il DDT cartaceo del fornitore
-  //    (arrivato SUBITO col pacco) è ora il momento vero in cui si segna
-  //    "è arrivata la merce" — richiesta reale: "sto pensando di
-  //    implementare anche i ddt del fornitore che mi arrivano soltanto in
-  //    forma cartacea insieme al pacco [...] come possiamo caricarli in
-  //    modo automatico?". Registra anche ddtfIds/ddtfId (mirror di
-  //    ddtIds/ddtId in applicaConsegna), per sapere quali DDT hanno
-  //    portato questo ordine.
-  //  - fatture-fornitore.html, SENZA ddtfNum: comportamento di sempre,
-  //    invariato per compatibilità — un fornitore che non manda DDT
-  //    continua a segnare l'arrivo quando arriva la sua fattura (qui
-  //    "fatturato" vale come "ricevuto", nessun tracciamento separato).
-  //    Quando la fattura è invece collegata a un DDT fornitore già
-  //    registrato, qtyEv è già stato aggiornato lì: la fattura chiama
-  //    applicaFatturazioneFornitore() più sotto, NON questa, per non
-  //    contare due volte lo stesso arrivo.
+  // merce — porta di markOFReceived(). Un solo chiamante ora:
+  // ddt-fornitore.html, con ddtfNum — il DDT cartaceo del fornitore
+  // (arrivato SUBITO col pacco) è il momento vero in cui si segna "è
+  // arrivata la merce" — richiesta reale: "sto pensando di implementare
+  // anche i ddt del fornitore che mi arrivano soltanto in forma cartacea
+  // insieme al pacco [...] come possiamo caricarli in modo automatico?".
+  // Registra anche ddtfIds/ddtfId (mirror di ddtIds/ddtId in
+  // applicaConsegna), per sapere quali DDT hanno portato questo ordine.
+  //
+  // fatture-fornitore.html NON la chiama più: registrava l'arrivo anche
+  // solo con la fattura, per i fornitori senza DDT (comportamento del
+  // vecchio gestionale) — tolto su richiesta reale, dopo l'arrivo del DDT
+  // fornitore: "ora che abbiamo messo i DDT voglio che i prossimi ordini
+  // fornitori vengano segnati come ricevuti solo quando segno un DDT e
+  // non come adesso alla registrazione della fattura". Un fornitore che
+  // non manda mai un DDT si segna ora "arrivato" a mano, col pulsante
+  // "✓ Segna evaso (senza fattura)" sull'ordine (applicaEvasioneManuale,
+  // più sotto) — fatture-fornitore.html continua invece a chiamare
+  // applicaFatturazioneFornitore() quando la fattura è collegata a un DDT
+  // già registrato, per aggiornare solo lo stato "fatturato".
   // Pura: non salva.
   function applicaRicezione(of, righeRicevute, ddtfNum) {
     const nuoveRighe = (of.righe || []).map(r => {

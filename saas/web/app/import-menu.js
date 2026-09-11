@@ -6,9 +6,12 @@
  *
  * Richiesta reale: "vorrei che il pulsante importa racchiudesse i diversi
  * modi di importare come abbiamo fatto per il pulsante esporta" — prima
- * c'erano fino a 3 pulsanti separati affiancati ("Importa", "📷 Fotocamera",
- * "🖨 Scansiona da PC"), ognuno aggiunto da un modulo diverso
- * (camera-import.js/scan-import.js) senza sapere degli altri.
+ * c'erano fino a 2 pulsanti separati affiancati ("Importa", "📷 Fotocamera"),
+ * ognuno aggiunto da un modulo diverso senza sapere dell'altro. (Una terza
+ * voce, "🖨 Scansiona da PC" — agente locale per scansionare da uno scanner
+ * collegato al PC — è stata aggiunta e poi tolta di nuovo: troppi problemi
+ * in campo, mai risolti in modo affidabile — vedi scan-import.js nella
+ * cronologia git se serve recuperarla.)
  *
  * Questo modulo prende il posto del pulsante "Importa" esistente
  * (id="ai-import-btn") avvolgendolo in un menu a tendina, con "📄 Da file
@@ -16,10 +19,10 @@
  * pulsante aveva da solo prima (ogni pagina lo cablava con
  * "$('ai-import-btn').addEventListener('click', () => $('ai-import-file')
  * .click())"; quella riga va tolta dalle pagine, il click ora apre il menu).
- * camera-import.js e scan-import.js, invece di aggiungere un pulsante a sé
- * stante, aggiungono una voce a QUESTO menu tramite addImportOption() —
- * nessuna pagina deve fare altro, funziona per costruzione su ogni pagina
- * con lo stesso pattern id="ai-import-btn"/id="ai-import-file" già usato.
+ * camera-import.js, invece di aggiungere un pulsante a sé stante, aggiunge
+ * una voce a QUESTO menu tramite addImportOption() — nessuna pagina deve
+ * fare altro, funziona per costruzione su ogni pagina con lo stesso pattern
+ * id="ai-import-btn"/id="ai-import-file" già usato.
  * ============================================================================ */
 
 (function (global) {
@@ -57,7 +60,7 @@
     window.SaasPrint.bindDownloadMenu(btn, list);
   }
 
-  // Esposta per camera-import.js/scan-import.js: aggiunge una voce al menu
+  // Esposta per camera-import.js: aggiunge una voce al menu
   // "Importa" invece di un pulsante a sé stante — stessa firma di
   // addEventListener('click', ...) più un id opzionale per la guardia
   // "già aggiunto?" di chi chiama. Ritorna il <button> creato (null se il

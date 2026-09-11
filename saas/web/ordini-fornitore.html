@@ -61,7 +61,6 @@
       <div><label for="f-data">Data</label><input id="f-data" type="date"></div>
     </div>
 
-    <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
       <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
@@ -183,8 +182,8 @@
     out.sort((a, b) => String(b.data).localeCompare(String(a.data)));
     return out.slice(0, limit || 5);
   }
-  // priceHistory(cod) per SaasProdPicker.attach() qui sotto e in
-  // bindRigaRow().
+  // priceHistory(cod) per SaasProdPicker.attach() in
+  // bindRigaRow() (autocompletamento riga).
   function priceHistoryForForm(cod){
     return { title: 'Ultimi prezzi di acquisto', rows: acqPriceHistory(cod, 5) };
   }
@@ -808,14 +807,6 @@
       store.loadCollection('ordiniFornitore', companyId),
     ]);
     STORICO_PREZZI = { fattureFornitore, ordiniFornitore: ordiniTutti };
-
-    window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
-      companyId, priceField: 'listinoAcq', priceHistory: priceHistoryForForm,
-      onPick: p => {
-        const last = lastAcqPrice(p.cod);
-        addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: last ? last.prezzo : (p.listinoAcq || 0), sconto: last ? (last.sconto || '') : '', iva: p.iva || 22, _last: !!last });
-      },
-    });
 
     await renderList();
 

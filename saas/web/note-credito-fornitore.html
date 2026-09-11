@@ -48,7 +48,6 @@
     <label for="f-fattura">Fattura collegata</label>
     <select id="f-fattura"><option value="">— nessuna —</option></select>
 
-    <div class="prod-pick"><input id="prodq" autocomplete="off" placeholder="Cerca per codice o descrizione…"><div class="prod-sugg" id="prodsugg"></div></div>
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
       <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
@@ -595,11 +594,6 @@
     // fornitori" della filterbar qui sopra (fornitoriArr).
     $('f-fornitore').innerHTML = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
       .map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
-
-    window.SaasProdPicker.attach($('prodq'), $('prodsugg'), {
-      companyId, priceField: 'listinoAcq',
-      onPick: p => addRigaRow({ cod: p.cod, descr: p.descr, qty: 1, prezzo: p.listinoAcq || 0, sconto: '', iva: p.iva || 22 }),
-    });
 
     await renderList();
 

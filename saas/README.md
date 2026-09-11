@@ -6284,6 +6284,38 @@ File aggiornato: `windows-agent/dist/IpsofarmaScanAgent.exe` — chi ha
 già installato l'agente deve scaricare di nuovo questo file (stessa
 posizione, stesso modo di installarlo) e sostituire quello vecchio.
 
+## Tolta la scansione diretta da PC: troppo inaffidabile in campo
+
+Richiesta reale, subito dopo il fix del paragrafo precedente e un
+ulteriore tentativo rimasto bloccato allo stesso modo: "mi sta dando
+troppo problemi togli del tutto questa funzione di importare tramite
+scanner".
+
+Rimossi: la voce "🖨 Scansiona da PC" dal menu "Importa" (era aggiunta da
+`app/scan-import.js`, cancellato), l'inclusione dello script dalle 5
+pagine che la avevano (`ddt-fornitore.html`, `fatture-fornitore.html`,
+`note-credito-fornitore.html`, `ordini-fornitore.html`, `ordini.html`), e
+tutto l'agente Windows che la faceva funzionare — `scan-agent.ps1`,
+`ScanAgentApp/` (il progetto .exe), `windows-agent/dist/
+IpsofarmaScanAgent.exe`, `run-scan-agent-hidden.vbs`,
+`BUILD-ScanAgentApp.md`. **Non toccato** `print-agent.ps1`/
+`run-hidden.vbs`: funzione diversa (stampa remota), non quella
+segnalata.
+
+Il menu "Importa" ora ha una sola voce nel browser desktop ("📄 Da file
+(PDF/foto)"), la stessa che aveva da sola prima ancora di introdurre il
+menu — "📷 Fotocamera" resta invariata nell'app nativa (mai stata
+interessata da questo problema). Verificato con un test Playwright sulla
+pagina reale che il menu mostri solo quella voce.
+
+Chi importa un DDT scansionato dovrà farlo come prima che esistesse
+questa funzione: scansionare con il programma del proprio scanner (o
+scattare una foto) e caricare il file risultante da "📄 Da file" — via
+già collaudata e non toccata da questa rimozione. Non è escluso
+riprovarci in futuro con un approccio diverso (l'intera cronologia del
+problema, incluso il fix appena tentato, resta nel git log e in questo
+README se servisse ripartire da lì).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

@@ -145,14 +145,16 @@
   // Storico prezzi per lastClientPrice() qui sotto — caricato una volta
   // all'apertura della pagina (init), non ad ogni ricerca prodotto.
   let STORICO_PREZZI = { fattureCliente: [], ddt: [], ordiniCliente: [] };
-  // Ordinamento iniziale per data (non numero): come nel vecchio gestionale
-  // ("SORT={key:'data',dir:'desc'}", l'unico default usato in tutto
-  // index.html) — stessa correzione di fatture-fornitore.html: una nota di
-  // credito ha una propria numerazione, slegata da quella delle fatture,
-  // ordinando per "Numero" finisce sepolta in fondo a un elenco di
-  // centinaia di righe invece di comparire vicino alle fatture recenti a
-  // cui si riferisce.
-  let SORT = { key: 'data', dir: 'desc' };
+  // Ordinamento iniziale per numero (discendente) — richiesta reale:
+  // "quando apro la lista delle fatture voglio che siano ordinate per
+  // numero". Prima era per data (come il vecchio gestionale, l'unico
+  // default usato in tutto index.html), scelta apposta perché una nota di
+  // credito ha una propria numerazione slegata da quella delle fatture:
+  // ordinando per "Numero" una nota di credito finisce lontana dalla
+  // fattura recente a cui si riferisce invece di comparirle vicino. Resta
+  // comunque un solo clic sull'intestazione "Data" per tornare a quel
+  // criterio quando serve.
+  let SORT = { key: 'num', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
   // Ultimo elenco scaricato da renderList() — usato da renderResults() per

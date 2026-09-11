@@ -6410,6 +6410,47 @@ a un ordine SENZA DDT → nessun salvataggio su `ordiniFornitore` (prima
 lo aggiornava); fattura collegata a un DDT già registrato → il DDT
 risulta fatturato e l'ordine aggiornato come prima, invariato.
 
+## Icona dell'app: il marchio Ipsofarma al posto del segnaposto verde
+
+Richiesta reale: caricata l'immagine del logo Ipsofarma con la frase
+"come logo dell'app si può usare questo che è prima della scritta" —
+cioè solo il simbolo (la croce/vortice blu) che precede la scritta
+"IPSOFARMA", non il logo intero con il testo.
+
+Prima l'icona dell'app (sia la PWA sul web sia l'app Android nativa) era
+un segnaposto generico: un quadrato verde sfumato con una "G". Isolato il
+simbolo dall'immagine caricata (ritaglio dei soli pixel del marchio, sfondo
+trasparente già presente nel PNG originale) e rigenerate a partire da
+quello, alle dimensioni esatte richieste da ciascun formato:
+
+- `saas/web/icons/icon-192.png` e `icon-512.png` (icona "any" del manifest
+  PWA): sfondo bianco pieno, marchio centrato.
+- `saas/web/icons/icon-maskable-192.png` e `icon-maskable-512.png`
+  (icona "maskable"): stesso marchio ma tenuto più dentro, nella zona
+  sicura centrale, perché il sistema operativo può ritagliare l'icona
+  maskable in qualunque forma (cerchio, squircle, ecc.) fino al bordo.
+- App Android nativa (Capacitor, `saas/mobile/android/.../res/mipmap-*`):
+  rigenerati sia i vecchi `ic_launcher.png`/`ic_launcher_round.png` (sfondo
+  bianco pieno, per i telefoni più vecchi) sia i nuovi
+  `ic_launcher_foreground.png` (solo marchio, sfondo trasparente — lo
+  sfondo bianco lo mette già `ic_launcher_background`), per tutte e cinque
+  le densità (mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi), rispettando la zona sicura
+  dell'icona adattiva Android (il sistema può ritagliare il livello
+  "foreground" fino a un cerchio centrale).
+
+Lasciati volutamente invariati: il colore `theme_color`/`background_color`
+nel manifest; l'iniziale dell'azienda nel cerchietto della barra laterale
+(`app/nav.js`) — è calcolata dal nome dell'azienda collegata, non un logo
+fisso, perché il gestionale è multi-azienda e ogni cliente futuro del
+SaaS avrà la propria iniziale, non quella di Ipsofarma; e gli sfondi di
+avvio (splash screen) dell'app Android, che sono un'immagine separata non
+richiesta qui.
+
+Verificato visivamente ogni formato alla sua dimensione reale (192, 512,
+48, 72, 96, 144, 192, 108, 162, 216, 324, 432 px): il marchio resta
+leggibile anche al formato più piccolo (48px) e non viene mai tagliato
+dalle zone sicure "maskable"/adattiva.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

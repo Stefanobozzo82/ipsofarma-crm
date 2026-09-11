@@ -6212,6 +6212,18 @@ ordine nuovo non mostra né barra né colonne; modificare un campo
 qualunque (es. il prezzo) e salvare continua a preservare `qtyEv`
 com'era prima (stessa rete di sicurezza già in f-save, non toccata).
 
+## Stessa cosa per gli ordini fornitore
+
+Richiesta reale: "estendi anche agli ordini fornitori" — identica
+funzione appena aggiunta a `ordini.html`, portata su
+`ordini-fornitore.html` con lo stesso `SaasCascade.residuoRighe()` (già
+usato lì per i pulsanti di cascata, nessuna funzione nuova da scrivere):
+barra "Ricevuto" + colonne Ricevuta/Residuo/Stato per riga, stesso verbo
+del vecchio gestionale (`statoEvasione(righe,'Ricevuto')`) al posto di
+"Consegnata". Stesso identico comportamento: sola lettura, nascosta per
+un ordine nuovo. Verificato con lo stesso test Playwright, stessi numeri
+(13/15 pz · 87%, una riga ricevuta del tutto e una parziale).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

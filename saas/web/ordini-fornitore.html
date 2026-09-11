@@ -62,8 +62,19 @@
     </div>
 
     <label>Righe</label>
-    <div class="table-scroll"><table class="righe-table">
-      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Qtà</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
+    <!-- Riepilogo/colonne di ricezione — stesso identico principio già
+         portato in ordini.html ("Consegnata"), qui con il verbo giusto
+         per un ordine fornitore ("Ricevuta"): richiesta reale "estendi
+         anche agli ordini fornitori". Visibile solo per un ordine già
+         esistente. -->
+    <div id="of-evasione-summary" hidden style="margin:8px 0 10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--faint);margin-bottom:5px">
+        <span>Ricevuto</span><span id="of-evasione-pct"></span>
+      </div>
+      <div class="pay-bar"><div class="pay-bar-fill" id="of-evasione-fill" style="width:0%"></div></div>
+    </div>
+    <div class="table-scroll"><table class="righe-table" id="of-righe-table">
+      <thead><tr><th class="drag-col"></th><th>Codice</th><th>Descrizione</th><th>Qtà</th><th class="ev-col">Ricevuta</th><th class="ev-col">Residuo</th><th class="ev-col">Stato</th><th>Prezzo</th><th>Sconto %</th><th>IVA %</th><th></th></tr></thead>
       <tbody id="righe-body"></tbody>
     </table></div>
     <button class="linklike" id="add-riga" style="margin-top:8px">+ aggiungi riga</button>
@@ -313,6 +324,17 @@
     if(active) $('ff-clear').addEventListener('click', clearFFilt);
   }
 
+  // Colonne "Ricevuta"/"Residuo"/"Stato" (ev-col, nascoste via CSS per un
+  // ordine nuovo — vedi openForm()): sola lettura, stesso principio di
+  // evasioneCellsHtml() in ordini.html — qui "ricevuta" invece di
+  // "consegnata".
+  function evasioneCellsHtml(r){
+    const consegnato = r.consegnato || 0;
+    const residuo = r.residuo != null ? r.residuo : Math.max(0, (r.qty || 0) - consegnato);
+    const done = residuo <= 0 && (r.qty || 0) > 0;
+    const stato = done ? '<span class="pill paid">ricevuta</span>' : consegnato > 0 ? '<span class="pill partial">parziale</span>' : '<span class="pill unpaid">in attesa</span>';
+    return `<td class="ev-col num-col">${consegnato}</td><td class="ev-col num-col">${residuo}</td><td class="ev-col">${stato}</td>`;
+  }
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
     return `<tr ${r._last ? 'data-last="1"' : ''}>
@@ -320,6 +342,7 @@
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}${r._last ? '<span class="lastp">ultimo prezzo</span>' : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
       <td style="min-width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
+      ${evasioneCellsHtml(r)}
       <td style="min-width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
       <td style="min-width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
       <td style="min-width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
@@ -412,6 +435,24 @@
     $('righe-body').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 
+  // Barra + percentuale sopra la tabella righe — stesso calcolo di
+  // renderEvasioneSummary() in ordini.html, qui "ricevuto" invece di
+  // "consegnato". Nascosta per un ordine nuovo o senza pezzi ordinati.
+  function renderEvasioneSummary(ordine){
+    const box = $('of-evasione-summary');
+    if(!ordine){ box.hidden = true; return; }
+    const righe = window.SaasCascade.residuoRighe(ordine);
+    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
+    if(totQ === 0){ box.hidden = true; return; }
+    const consegnatoQ = righe.reduce((s, r) => s + Math.min(r.consegnato, r.qty || 0), 0);
+    const pct = Math.round(consegnatoQ / totQ * 100);
+    const col = pct >= 100 ? 'var(--accent)' : pct > 0 ? 'var(--blue)' : 'var(--amber)';
+    box.hidden = false;
+    $('of-evasione-pct').textContent = `${consegnatoQ}/${totQ} pz · ${pct}%`;
+    $('of-evasione-fill').style.width = pct + '%';
+    $('of-evasione-fill').style.background = col;
+  }
+
   async function openForm(ordine){
     editingId = ordine ? ordine.id : null;
     editingOrder = ordine;
@@ -426,7 +467,11 @@
       catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
     }
     $('righe-body').innerHTML = '';
-    (ordine ? ordine.righe : [null]).forEach(addRigaRow);
+    // Ricevuta/Residuo/Stato per riga — stessa funzione già usata per i
+    // pulsanti di cascata qui sotto, nessun calcolo duplicato.
+    (ordine ? window.SaasCascade.residuoRighe(ordine) : [null]).forEach(addRigaRow);
+    $('of-righe-table').classList.toggle('has-evasione', !!ordine);
+    renderEvasioneSummary(ordine);
     renderLineage(ordine);
     $('f-print-actions').hidden = !ordine;
     refreshCascadeActionsOF(ordine);

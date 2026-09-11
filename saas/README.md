@@ -6123,6 +6123,58 @@ Nessun codice toccato da questa decisione — la disattivazione di GitHub
 Pages va fatta dalle impostazioni del repository (fuori dagli strumenti
 disponibili qui) quando l'azienda è pronta.
 
+## Riconciliazione bancaria: anche da PDF, non solo CSV
+
+Richiesta reale: l'utente ha caricato due estratti conto veri (Intesa
+Sanpaolo) chiedendo "nel gestionale c'è l'opzione per importarli in CSV
+ma io li ho in PDF, a cosa possono essere utili?" — poi, dopo aver
+spiegato l'utilità (abbinare i movimenti reali alle fatture aperte,
+la stessa `riconciliazione.html` già esistente) e le due strade
+possibili, "estendi al pdf".
+
+**Il formato**: un estratto conto di questo tipo è una tabella a colonne
+fisse — Data Operazione, Data Valuta, Descrizione, Addebiti, Accrediti —
+comune a molte banche italiane, non solo Intesa Sanpaolo.
+
+**Primo tentativo scartato**: leggere il PDF come semplice testo (riga
+per riga, come farebbe un lettore PDF qualunque) e riconoscere le colonne
+dall'ordine delle righe — funzionava quasi sempre, ma su descrizioni
+lunghe ("Pagamento su POS TAXI 85...") l'importo finiva "attaccato" alla
+riga di descrizione invece che su una riga a sé, e veniva perso: sommando
+i movimenti letti mancavano 56,10 € rispetto al "Totale addebiti"
+dichiarato nell'estratto conto stesso.
+
+**Soluzione**: `app/bank-statement-pdf.js`, nuovo modulo che legge il PDF
+con pdf.js (libreria caricata da CDN, come già supabase-js) usando non il
+testo semplice ma la POSIZIONE (x, y) di ogni frammento — la tabella vera
+e propria. Le X delle 5 intestazioni di colonna vengono lette una tantum,
+poi ogni frammento di testo viene assegnato alla colonna con la X più
+vicina: un importo resta riconoscibile come "colonna Addebiti"
+indipendentemente da quanto testo di descrizione lo precede sulla stessa
+riga fisica — risolve l'edge case sopra e, più in generale, è una lettura
+più fedele della tabella reale invece di indovinarla dall'ordine del
+testo.
+
+**Verificato con un test Playwright reale** (pdf.js vero nel browser, non
+uno stub, sulla pagina reale `riconciliazione.html`) sui due estratti
+conto caricati dall'utente: sommando tutti i movimenti letti, "Totale
+accrediti" e "Totale addebiti" tornano ESATTI al centesimo con quelli
+dichiarati nell'estratto conto su ENTRAMBI i file (332.714,99 / 276.938,46
+e 116.913,49 / 115.677,68) — 203 e 166 movimenti rispettivamente.
+Verificato anche l'intero percorso della pagina: caricamento del PDF →
+anteprima dei movimenti letti (nuovo passo, al posto della mappatura
+colonne che per un PDF non serve) → proposta di abbinamento con fatture
+di prova → abbinamento esatto trovato correttamente. Verificato anche che
+il percorso CSV esistente continui a funzionare identico dopo la
+modifica (stessa funzione di abbinamento ora condivisa tra i due
+percorsi, `eseguiAbbinamento()`).
+
+Resta un lettore per QUESTO formato a colonne fisse — diffuso ma non
+universale: se le 5 intestazioni di colonna non si trovano (banca con un
+layout diverso), l'import fallisce in modo esplicito invitando a provare
+il CSV, invece di inventare movimenti sbagliati su dati che toccano i
+soldi.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

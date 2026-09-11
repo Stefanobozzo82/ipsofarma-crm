@@ -13,8 +13,8 @@
   funzionale"): loro collegano il conto corrente direttamente (Open
   Banking, un provider a pagamento) e riconciliano in automatico. Qui,
   senza un provider bancario, l'approccio è il file: carichi l'estratto
-  conto in CSV (esportato dalla tua banca), il gestionale propone gli
-  abbinamenti con le fatture aperte per importo, tu confermi.
+  conto (esportato dalla tua banca), il gestionale propone gli abbinamenti
+  con le fatture aperte per importo, tu confermi.
 
   Ogni banca esporta il CSV in un formato diverso — non c'è un formato
   "corretto" da indovinare, quindi dopo aver caricato il file l'utente
@@ -27,6 +27,16 @@
   ma non uguale" scelto in automatico rischierebbe di registrare un
   incasso/pagamento sulla fattura sbagliata. Se non c'è un abbinamento
   esatto, l'utente sceglie a mano dal menu (o salta la riga).
+
+  Accetta anche il PDF (non solo CSV): richiesta reale dopo che l'utente
+  ha caricato due estratti conto veri chiedendo a cosa potessero servire,
+  avendo solo il PDF e non il CSV. Lettura tramite pdf.js + il parser
+  dedicato in app/bank-statement-pdf.js (vedi lì il perché e come). Un PDF
+  non passa dalla mappatura colonne (non ha senso, le colonne le legge già
+  da sé): mostra invece un'anteprima dei movimenti letti prima di
+  procedere all'abbinamento — stessa idea della mappatura CSV, dare
+  comunque un punto per accorgersi di un'estrazione andata storta prima di
+  usarla per registrare incassi/pagamenti veri.
 -->
 <script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
@@ -42,30 +52,44 @@
 
     <div class="card" id="upload-card">
       <div class="toolbar"><h3>1. Carica il file</h3></div>
-      <p class="ai-intro">Esporta l'estratto conto dalla tua banca in formato CSV e caricalo qui. Ogni banca usa un formato diverso: al passo successivo scegli tu quale colonna contiene cosa.</p>
-      <input id="csv-file" type="file" accept=".csv,text/csv">
+      <p class="ai-intro">Esporta l'estratto conto dalla tua banca in CSV, oppure carica direttamente il PDF che scarichi già dal sito/app della banca. Ogni banca usa un formato diverso: per il CSV, al passo successivo scegli tu quale colonna contiene cosa; il PDF viene letto da solo (funziona con gli estratti conto a tabella Data Operazione/Data Valuta/Descrizione/Addebiti/Accrediti, comuni a molte banche italiane).</p>
+      <input id="csv-file" type="file" accept=".csv,text/csv,.pdf,application/pdf">
       <div class="msg" id="upload-msg" hidden></div>
     </div>
 
     <div class="card" id="mapping-card" hidden>
-      <div class="toolbar"><h3>2. Colonne del file</h3></div>
-      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--txt);margin:12px 0"><input id="map-header" type="checkbox" checked style="width:auto"> La prima riga è l'intestazione</label>
+      <div class="toolbar"><h3 id="mapping-title">2. Colonne del file</h3></div>
 
-      <div class="grid2">
-        <div><label for="map-data">Colonna Data</label><select id="map-data"></select></div>
-        <div><label for="map-descr">Colonna Descrizione</label><select id="map-descr"></select></div>
+      <div id="csv-mapping">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--txt);margin:12px 0"><input id="map-header" type="checkbox" checked style="width:auto"> La prima riga è l'intestazione</label>
+
+        <div class="grid2">
+          <div><label for="map-data">Colonna Data</label><select id="map-data"></select></div>
+          <div><label for="map-descr">Colonna Descrizione</label><select id="map-descr"></select></div>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--txt);margin:14px 0 6px"><input id="map-doppia" type="checkbox" style="width:auto"> Il mio estratto conto ha due colonne separate (Entrate/Uscite) invece di una sola con importo positivo/negativo</label>
+        <div class="grid2" id="map-unica-row">
+          <div><label for="map-importo">Colonna Importo</label><select id="map-importo"></select></div>
+        </div>
+        <div class="grid2" id="map-doppia-row" hidden>
+          <div><label for="map-entrate">Colonna Entrate</label><select id="map-entrate"></select></div>
+          <div><label for="map-uscite">Colonna Uscite</label><select id="map-uscite"></select></div>
+        </div>
+
+        <div class="table-scroll" style="margin-top:14px"><table id="preview-table"></table></div>
       </div>
 
-      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;color:var(--txt);margin:14px 0 6px"><input id="map-doppia" type="checkbox" style="width:auto"> Il mio estratto conto ha due colonne separate (Entrate/Uscite) invece di una sola con importo positivo/negativo</label>
-      <div class="grid2" id="map-unica-row">
-        <div><label for="map-importo">Colonna Importo</label><select id="map-importo"></select></div>
+      <!-- Anteprima per il PDF: niente da mappare (le colonne le legge già
+           da sé, vedi app/bank-statement-pdf.js) — solo un elenco dei
+           movimenti letti da controllare prima di proseguire, stesso
+           principio della mappatura CSV: un punto per accorgersi di
+           un'estrazione andata storta prima di usarla per registrare
+           incassi/pagamenti veri. -->
+      <div id="pdf-review" hidden>
+        <p class="ai-intro" id="pdf-review-summary"></p>
+        <div class="table-scroll"><table id="pdf-preview-table"></table></div>
       </div>
-      <div class="grid2" id="map-doppia-row" hidden>
-        <div><label for="map-entrate">Colonna Entrate</label><select id="map-entrate"></select></div>
-        <div><label for="map-uscite">Colonna Uscite</label><select id="map-uscite"></select></div>
-      </div>
-
-      <div class="table-scroll" style="margin-top:14px"><table id="preview-table"></table></div>
 
       <div class="form-actions">
         <button class="primary" id="analizza">Analizza estratto conto</button>
@@ -87,9 +111,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
   window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+  // Il worker gira su un thread a sé (necessario a pdf.js): stessa CDN del
+  // pacchetto principale sopra, versione allineata di proposito.
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 </script>
 <script src="app/store.js"></script>
 <script src="app/theme-mode.js"></script>
@@ -98,14 +126,16 @@
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
 <script src="app/elenco-cards.js"></script>
+<script src="app/bank-statement-pdf.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
   let companyId = null;
   let clientiById = {}, fornitoriById = {};
   let fattureCliente = [], fattureFornitore = [], noteCredito = [], noteCreditoFornitore = [];
+  let fileMode = 'csv';  // 'csv' o 'pdf' — quale ramo del passo 2 mostrare/eseguire
   let rawRows = [];      // tutte le righe del CSV, come array di stringhe
-  let transazioni = [];  // { data, descrizione, importo } dopo l'analisi
+  let transazioni = [];  // { data, descrizione, importo } dopo l'analisi (CSV) o già pronte dal PDF
   let matches = [];      // { transazione, apertePer (candidati), scelta (id fattura o ''), selezionata (bool) }
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -199,11 +229,31 @@
     const file = $('csv-file').files[0];
     if(!file) return;
     setMsg('upload-msg', '', '');
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
     try{
-      const text = await file.text();
-      rawRows = parseCSV(text);
-      if(rawRows.length === 0){ setMsg('upload-msg', 'Il file sembra vuoto.', 'error'); return; }
-      openMapping();
+      if(isPdf){
+        fileMode = 'pdf';
+        setMsg('upload-msg', 'Leggo il PDF…', 'info');
+        const buf = await file.arrayBuffer();
+        const { ok, movimenti } = await window.SaasBankPdf.parseEstrattoContoPdf(buf);
+        if(!ok){
+          setMsg('upload-msg', 'Formato PDF non riconosciuto — funziona con estratti conto a tabella (Data Operazione/Data Valuta/Descrizione/Addebiti/Accrediti), comuni a molte banche italiane. Prova a esportare il CSV, se la tua banca lo offre.', 'error');
+          return;
+        }
+        if(movimenti.length === 0){
+          setMsg('upload-msg', 'Nessun movimento trovato in questo PDF.', 'error');
+          return;
+        }
+        transazioni = movimenti;
+        setMsg('upload-msg', '', '');
+        openPdfPreview();
+      }else{
+        fileMode = 'csv';
+        const text = await file.text();
+        rawRows = parseCSV(text);
+        if(rawRows.length === 0){ setMsg('upload-msg', 'Il file sembra vuoto.', 'error'); return; }
+        openMapping();
+      }
     }catch(err){
       setMsg('upload-msg', 'Impossibile leggere il file: ' + err.message, 'error');
     }
@@ -244,7 +294,35 @@
       <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody>`;
   }
   function openMapping(){
+    $('csv-mapping').hidden = false;
+    $('pdf-review').hidden = true;
+    $('mapping-title').textContent = '2. Colonne del file';
+    $('analizza').textContent = 'Analizza estratto conto';
     fillColumnSelects();
+    setMsg('map-msg', '', '');
+    $('mapping-card').hidden = false;
+    $('upload-card').hidden = true;
+    $('results-card').hidden = true;
+  }
+  // Passo 2 per un PDF: niente colonne da scegliere (lette già da sé),
+  // solo un'anteprima dei movimenti trovati da controllare prima di
+  // proseguire — stesso principio della mappatura CSV.
+  function openPdfPreview(){
+    $('csv-mapping').hidden = true;
+    $('pdf-review').hidden = false;
+    $('mapping-title').textContent = '2. Movimenti letti dal PDF';
+    $('analizza').textContent = 'Continua';
+    $('pdf-review-summary').textContent = `${transazioni.length} movimenti trovati. Controllali prima di procedere all'abbinamento con le fatture.`;
+    const rows = transazioni.slice(0, 30);
+    $('pdf-preview-table').innerHTML = `<thead><tr><th>Data</th><th>Descrizione</th><th>Importo</th></tr></thead>
+      <tbody>${rows.map(t => `<tr>
+          <td>${t.data ? new Date(t.data).toLocaleDateString('it-IT') : '—'}</td>
+          <td>${esc(t.descrizione)}</td>
+          <td class="num-col">${t.importo > 0 ? '+ ' : '− '}${eur(Math.abs(t.importo))}</td>
+        </tr>`).join('')}</tbody>`;
+    if(transazioni.length > rows.length){
+      $('pdf-preview-table').insertAdjacentHTML('beforeend', `<caption style="caption-side:bottom;text-align:left;padding:8px 0;color:var(--faint);font-size:12px">… e altri ${transazioni.length - rows.length} movimenti (mostrati solo i primi 30, verranno abbinati tutti).</caption>`);
+    }
     setMsg('map-msg', '', '');
     $('mapping-card').hidden = false;
     $('upload-card').hidden = true;
@@ -255,6 +333,7 @@
     $('upload-card').hidden = false;
     $('csv-file').value = '';
     rawRows = [];
+    transazioni = [];
   }
   $('map-header').addEventListener('change', fillColumnSelects);
   $('map-doppia').addEventListener('change', () => {
@@ -274,7 +353,34 @@
       .map(x => ({ id: x.fattura.id, num: x.fattura.num, party: (partiById[x.fattura[partyField]] || {}).nome || '(sconosciuto)', residuo: x.ps.residuo }));
   }
 
+  // Comune a CSV e PDF: una volta pronto l'elenco {data, descrizione,
+  // importo}, propone gli abbinamenti con le fatture aperte e passa al
+  // passo 3.
+  function eseguiAbbinamento(){
+    if(transazioni.length === 0){
+      setMsg('map-msg', 'Nessun movimento valido trovato — controlla le colonne scelte.', 'error');
+      return;
+    }
+    const aperteCliente = apertePerDirezione(false);
+    const aperteFornitore = apertePerDirezione(true);
+    matches = transazioni.map(t => {
+      const isCliente = t.importo > 0;
+      const candidati = isCliente ? aperteCliente : aperteFornitore;
+      const importoAbs = Math.abs(t.importo);
+      const esatto = candidati.find(c => Math.abs(c.residuo - importoAbs) < 0.01);
+      return { transazione: t, isCliente, candidati, scelta: esatto ? esatto.id : '', selezionata: !!esatto };
+    });
+
+    renderResults();
+    $('mapping-card').hidden = true;
+    $('results-card').hidden = false;
+  }
+
   $('analizza').addEventListener('click', () => {
+    if(fileMode === 'pdf'){
+      eseguiAbbinamento(); // transazioni già pronte da openPdfPreview()
+      return;
+    }
     const hasHeader = $('map-header').checked;
     const doppia = $('map-doppia').checked;
     const idxData = Number($('map-data').value);
@@ -293,24 +399,7 @@
       return { data, descrizione, importo };
     }).filter(t => t.data && t.importo != null && t.importo !== 0);
 
-    if(transazioni.length === 0){
-      setMsg('map-msg', 'Nessun movimento valido trovato con questa mappatura — controlla le colonne scelte.', 'error');
-      return;
-    }
-
-    const aperteCliente = apertePerDirezione(false);
-    const aperteFornitore = apertePerDirezione(true);
-    matches = transazioni.map(t => {
-      const isCliente = t.importo > 0;
-      const candidati = isCliente ? aperteCliente : aperteFornitore;
-      const importoAbs = Math.abs(t.importo);
-      const esatto = candidati.find(c => Math.abs(c.residuo - importoAbs) < 0.01);
-      return { transazione: t, isCliente, candidati, scelta: esatto ? esatto.id : '', selezionata: !!esatto };
-    });
-
-    renderResults();
-    $('mapping-card').hidden = true;
-    $('results-card').hidden = false;
+    eseguiAbbinamento();
   });
 
   function renderResults(){

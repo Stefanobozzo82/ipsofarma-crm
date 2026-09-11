@@ -6224,6 +6224,66 @@ del vecchio gestionale (`statoEvasione(righe,'Ricevuto')`) al posto di
 un ordine nuovo. Verificato con lo stesso test Playwright, stessi numeri
 (13/15 pz · 87%, una riga ricevuta del tutto e una parziale).
 
+## Agente di scansione: la scansione restava "in attesa" per sempre
+
+Segnalato dall'utente: "sto provando ad importare i DDT fornitori ma
+oggi non funziona mentre ieri si" — indagando insieme, "da file PDF
+funziona, non funziona da scanner": solo la scansione diretta (agente
+locale) era rotta, non l'import in generale. L'utente ha incollato il
+log dell'agente (`%LOCALAPPDATA%\IpsofarmaScanAgent\agent.log`), decisivo
+per la diagnosi:
+
+```
+11:38:23 - Avvio scansione...
+11:39:49 - Errore durante la scansione: Exception has been thrown by the target of an invocation.
+```
+
+e, in altri tentativi, nessuna riga affatto dopo "Avvio scansione..." —
+bloccato per sempre, tanto da dover chiudere l'agente da Task Manager
+per farlo ripartire.
+
+**Causa reale, una vera per due sintomi diversi**: `WIA.CommonDialog`
+(la finestra di scansione nativa di Windows che l'agente invoca) è un
+controllo con una propria finestra e un proprio ciclo messaggi, pensato
+per girare in un appartamento COM a thread singolo (STA) — la stessa
+ragione per cui ogni programma Windows Forms/WPF marca il proprio thread
+`[STAThread]`. L'agente lo chiamava invece sul thread MTA di default di
+.NET: su un thread sbagliato per questo tipo di controllo COM, il
+comportamento non è garantito — a volte resta bloccato per sempre in
+attesa di un messaggio che nessuno pompa (il "resta in attesa" osservato
+in campo), a volte lancia un'eccezione — sempre la stessa,
+`TargetInvocationException`, il contenitore generico che .NET mette
+attorno a OGNI eccezione da un metodo COM chiamato per reflection: il
+vero motivo restava nell'`InnerException`, mai scritto nel log, da qui
+il messaggio inutile visto sopra.
+
+**Risolto**, in `windows-agent/ScanAgentApp/Program.cs`:
+- la scansione ora gira su un thread STA dedicato, creato apposta per
+  ogni scansione — non più sul thread che riceve la richiesta HTTP;
+- il vero errore (`InnerException`, non il contenitore) finisce ora nel
+  log e nel messaggio mostrato nel gestionale;
+- un limite di 4 minuti sulla scansione: se lo scanner non risponde
+  proprio, l'agente restituisce un errore chiaro invece di restare
+  bloccato per sempre;
+- il ciclo che accetta le richieste HTTP le gira ora su un thread del
+  pool invece di gestirle una alla volta sul ciclo stesso: prima, una
+  scansione lenta o bloccata impediva all'agente di rispondere anche a
+  un semplice controllo "c'è l'agente?" (`/ping`) nel frattempo — anche
+  questo contribuiva alla sensazione di "non succede niente".
+
+Nessun modo di collaudare la vera finestra WIA da qui (niente Windows né
+scanner in questo ambiente — stesso limite già incontrato per il fix del
+trimming): verificato tutto il resto che si può verificare senza
+Windows — build pulita, `/ping` e `/scan` rispondono ancora
+correttamente (con un errore pulito, non un crash, dato che WIA non
+esiste su Linux), e soprattutto che `/ping` risponde ANCHE subito dopo
+un `/scan` fallito, a conferma che il ciclo di accettazione non resta
+più bloccato.
+
+File aggiornato: `windows-agent/dist/IpsofarmaScanAgent.exe` — chi ha
+già installato l'agente deve scaricare di nuovo questo file (stessa
+posizione, stesso modo di installarlo) e sostituire quello vecchio.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

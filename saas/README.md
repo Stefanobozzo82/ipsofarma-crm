@@ -6354,6 +6354,28 @@ direzioni; fornitore con due fatture libere → nessun collegamento
 proposto (ambiguo); un DDT già fatturato, riaperto → select precompilata
 e disabilitata.
 
+## Elenco fatture: ordinato per numero all'apertura, non più per data
+
+Richiesta reale: "quando apro la lista delle fatture voglio che siano
+ordinate per numero" — prima l'ordinamento iniziale era per data
+(discendente), scelto apposta perché una nota di credito ha una propria
+numerazione slegata da quella delle fatture (ordinandole insieme per
+"Numero" una nota di credito finirebbe lontana dalla fattura recente a
+cui si riferisce, invece di comparirle vicino). Cambiato comunque
+l'ordinamento iniziale a "Numero" (discendente) come richiesto — resta
+un clic sull'intestazione "Data" per tornare a quel criterio quando
+serve. Applicato sia a `fatture.html` sia a `fatture-fornitore.html`
+(pagine gemelle, stesso comportamento) — non richiesto esplicitamente
+per la seconda, ma per coerenza tra le due; da annullare su una delle
+due se non era quello che si voleva.
+
+Verificato con un test Playwright sulla pagina reale con numeri fuori
+sequenza di data apposta (0002, 0010, 0005): mostra correttamente
+0010‑0005‑0002, confermando anche che il confronto è numerico (0010
+dopo 0002, non prima per ordine alfabetico) — già garantito dal
+confronto esistente (`localeCompare` con `numeric:true`), non serviva
+codice nuovo.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

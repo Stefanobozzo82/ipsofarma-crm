@@ -6175,6 +6175,43 @@ layout diverso), l'import fallisce in modo esplicito invitando a provare
 il CSV, invece di inventare movimenti sbagliati su dati che toccano i
 soldi.
 
+## Ordini cliente: si vede di nuovo cosa è stato consegnato e cosa no
+
+Richiesta reale: "se entro dentro un ordine clienti consegnato in modo
+parziale non riesco a capire quali prodotti sono stati evasi e quali no,
+esamina il vecchio gestionale perché mi sembra che questa funzione era
+presente" — controllato: c'era davvero (`evasione()`/`evasionePanel()` in
+index.html), non ancora portata nella pagina `ordini.html` del SaaS. Il
+dato (`qtyEv` per riga, quanto già consegnato via DDT) c'era già ed era
+già usato per il pallino Evaso/Parziale/Aperto nell'elenco — mancava solo
+la vista quando si apre il singolo ordine.
+
+**Aggiunto in `ordini.html`**, solo per un ordine già esistente (per uno
+nuovo non c'è ancora nulla da evadere):
+- una barra di avanzamento sopra la tabella righe, con "X/Y pz · Z%
+  consegnato" (stesso stile della barra Incassi in fatture.html, riusata
+  senza CSS nuovo);
+- tre colonne in più nella tabella — Consegnata, Residuo, Stato (pallino
+  "consegnata"/"parziale"/"in attesa") — per ogni singola riga, calcolate
+  con `window.SaasCascade.residuoRighe()`, la stessa funzione già usata
+  altrove per i pulsanti "Genera DDT". Sola lettura: la evasione resta
+  guidata dalla generazione del DDT (o da "Segna evaso (senza DDT)", già
+  presente), non editabile a mano riga per riga — un valore scorretto lì
+  rischierebbe di far perdere traccia di cosa è stato davvero consegnato,
+  e un secondo modo di modificarlo in parallelo alla cascata non aggiunge
+  nulla che non ci fosse già.
+
+Le colonne esistono sempre nel markup ma restano nascoste via CSS
+(`.righe-table:not(.has-evasione) .ev-col`) finché non si apre un ordine
+esistente — evita di duplicare il template della tabella per i due casi.
+
+**Verificato con un test Playwright sulla pagina reale**: un ordine con
+una riga completamente consegnata (10/10) e una parziale (3/5) mostra
+correttamente "13/15 pz · 87%" e i pallini giusti riga per riga; un
+ordine nuovo non mostra né barra né colonne; modificare un campo
+qualunque (es. il prezzo) e salvare continua a preservare `qtyEv`
+com'era prima (stessa rete di sicurezza già in f-save, non toccata).
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

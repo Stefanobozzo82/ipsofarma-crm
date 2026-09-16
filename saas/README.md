@@ -6451,6 +6451,26 @@ Verificato visivamente ogni formato alla sua dimensione reale (192, 512,
 leggibile anche al formato più piccolo (48px) e non viene mai tagliato
 dalle zone sicure "maskable"/adattiva.
 
+## Fatture fornitore: di nuovo ordinate per data, non più per numero
+
+Richiesta reale: "le fatture fornitore le voglio ordinate in ordine di
+date". Qualche giorno prima era stato cambiato apposta l'ordinamento
+predefinito di `fatture-fornitore.html` da data a numero (discendente),
+su un'altra richiesta esplicita, allineandolo a `fatture.html` (fatture
+cliente). Con questa richiesta si torna indietro, ma solo per le fatture
+fornitore: `fatture.html` resta a "numero", perché non è stata toccata
+da questa richiesta.
+
+Cambiata solo la riga di inizializzazione `SORT` in
+`fatture-fornitore.html` (`{ key: 'data', dir: 'desc' }`): la funzione di
+ordinamento già sapeva gestire entrambe le chiavi (era il comportamento
+originale, prima del cambio a "numero"), quindi non serviva altro. Resta
+un clic sull'intestazione "Numero" per ordinare per numero quando serve.
+
+Verificato con un test Playwright sulla pagina reale (tre fatture fornitore
+con numeri e date in ordine diverso): l'elenco si apre ordinato per data
+discendente, non più per numero.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

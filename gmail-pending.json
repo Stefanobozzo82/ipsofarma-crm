@@ -685,6 +685,47 @@
         "totale": 829.6
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-16T09:07:00.210Z",
+      "msgId": "1a0a94af164be972",
+      "file": "5718113138.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113138",
+        "date": "2026-09-15",
+        "order_ref": "Rif.cliente Vs.ord. 214",
+        "lines": [
+          {
+            "cod": "C3046235",
+            "descr": "NOVOSYN QUICK INC 3/0 (2) 70CM D",
+            "qty": 6,
+            "prezzo": 101.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126183",
+            "scad": "2031-04-29"
+          },
+          {
+            "cod": "C3090235",
+            "descr": "OPTILENE 3/0 (2) 75CM DS24 (M)",
+            "qty": 1,
+            "prezzo": 46.99,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626096",
+            "scad": "2031-02-28"
+          }
+        ],
+        "totale": 803.0894
+      },
+      "src": "Gmail"
     }
   ]
 }

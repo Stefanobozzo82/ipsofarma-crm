@@ -141,16 +141,13 @@
   let allDdtfById = {};
   let ddtfPerFornitore = {}; // per il menu "DDT fornitore collegato" — vedi refreshLinkedOptions()
   let noteCreditoFornitoreArr = []; // per sottrarle dal "Totale acquisti", vedi renderStats()
-  // Ordinamento iniziale per numero (discendente) — richiesta reale:
-  // "quando apro la lista delle fatture voglio che siano ordinate per
-  // numero", applicata qui come in fatture.html per coerenza tra le due
-  // pagine gemelle. Prima era per data (come il vecchio gestionale),
-  // scelta apposta perché una nota di credito fornitore ha una propria
-  // numerazione slegata da quella delle fatture — ordinando per "Numero"
-  // una nota di credito finisce lontana dalla fattura recente a cui si
-  // riferisce. Resta un clic sull'intestazione "Data" per tornare a quel
-  // criterio quando serve.
-  let SORT = { key: 'num', dir: 'desc' };
+  // Ordinamento iniziale per data (discendente) — richiesta reale: "le
+  // fatture fornitore le voglio ordinate in ordine di date". Era stato
+  // messo "numero" (vedi fatture.html, pagina gemella, rimasta a
+  // "numero") su una richiesta precedente, ma per questa pagina si torna
+  // a "data", come il vecchio gestionale. Resta un clic sull'intestazione
+  // "Numero" per ordinare per numero quando serve.
+  let SORT = { key: 'data', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
   // Filtri sopra l'elenco: stessa idea di FFILT nel gestionale originale
   // (filterbar sui moduli documento) — qui applicata a fatture fornitore,

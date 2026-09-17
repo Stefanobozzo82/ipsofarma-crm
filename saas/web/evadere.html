@@ -33,7 +33,7 @@
   <main class="app-main">
     <div class="page-head">
       <h2>Prodotti da evadere</h2>
-      <p class="sub">Elenco dettagliato di tutti i prodotti ordinati dai clienti e non ancora consegnati, per cliente.</p>
+      <p class="sub">Elenco dettagliato di tutti i prodotti ordinati dai clienti e non ancora fatturati, per cliente.</p>
       <button type="button" class="ghost" id="lista-ordini-btn" style="margin-top:10px">Lista ordini →</button>
     </div>
 
@@ -70,11 +70,22 @@
   function lineNet(x){ return (x.qty || 0) * (x.prezzo || 0) * scFactor(x.sconto); }
   function tot(righeArr){ return (righeArr || []).reduce((s, x) => s + lineNet(x) + lineNet(x) * (x.iva || 0) / 100, 0); }
 
-  // Completo = ogni riga interamente consegnata — stessa definizione usata
-  // da dashboard.html/ordini.html per contare gli ordini aperti.
+  // Completo = ogni riga interamente FATTURATA (qtyFatt), non solo
+  // consegnata (qtyEv) — richiesta reale: "voglio che i prodotti degli
+  // ordini clienti scalati solo quando faccio la fattura", precisata su
+  // questa pagina: "nella lista prodotti da evadere voglio vedere i
+  // prodotti che ancora non sono stati fatturati". Un ordine già spedito
+  // per intero con un DDT ma non ancora fatturato resta quindi visibile
+  // qui — vedi applicaFatturazione() in app/cascade.js per qtyFatt.
+  // dashboard.html/ordini.html usano la stessa identica definizione (per
+  // "Prodotti da evadere"/il filtro "Aperti o parziali"), così i tre si
+  // accordano sugli stessi ordini. Solo il badge "✓ Consegnato"/pulsante
+  // "→ Genera DDT" di ordini.html restano legati a qtyEv apposta: dicono
+  // cosa resta da SPEDIRE, una domanda diversa da "cosa resta da
+  // fatturare".
   function ordineCompleto(o){
     const righe = o.righe || [];
-    return righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
+    return righe.length > 0 && righe.every(r => (r.qtyFatt || 0) >= (r.qty || 0));
   }
 
   // "In arrivo": quanto di un codice, sugli ordini fornitore collegati a
@@ -155,7 +166,7 @@
           <td class="num-col">${esc(r.cod)}</td>
           <td>${esc(r.descr)}${arrBadge}</td>
           <td class="num-col">${r.qtyOrd}</td>
-          <td class="num-col">${r.qtyEv}</td>
+          <td class="num-col">${r.qtyFatt}</td>
           <td class="num-col" style="font-weight:700;color:var(--accent-d)">${r.qtyRes}</td>
           <td class="num-col">${eur(r.val)}</td>
         </tr>`;
@@ -166,7 +177,7 @@
           <span style="margin-left:auto;font-weight:700">${eur(cli.tot)}</span>
         </div>
         <div class="table-scroll"><table class="elenco-table" style="margin:0"><thead><tr>
-          ${th('ordine','Ordine')}${th('data','Data')}${th('cod','Codice')}${th('descr','Descrizione')}<th>Ord.</th><th>Cons.</th>${th('res','Residuo')}${th('val','Totale IVA')}
+          ${th('ordine','Ordine')}${th('data','Data')}${th('cod','Codice')}${th('descr','Descrizione')}<th>Ord.</th><th>Fatt.</th>${th('res','Residuo')}${th('val','Totale IVA')}
         </tr></thead><tbody>${trs}</tbody></table></div>
       </div>`;
     }).join('');
@@ -219,13 +230,13 @@
       if(ordineCompleto(o)) return;
       const ofNums = (o.ofIds && o.ofIds.length) ? o.ofIds : (o.ofId ? [o.ofId] : []);
       (o.righe || []).forEach(r => {
-        const res = Math.max(0, (r.qty || 0) - (r.qtyEv != null ? r.qtyEv : 0));
+        const res = Math.max(0, (r.qty || 0) - (r.qtyFatt != null ? r.qtyFatt : 0));
         if(res <= 0) return;
         const qtyArr = Math.min(res, ofInvoicedQty(ofNums, r.cod, ordiniFornitoreByNum));
         rows.push({
           ocNum: o.num, ocId: o.id, data: o.data, clienteId: o.clienteId,
           cliente: (clientiById[o.clienteId] || {}).nome || '(cliente non trovato)',
-          cod: r.cod, descr: r.descr, qtyOrd: r.qty, qtyEv: r.qtyEv || 0, qtyRes: res, qtyArr,
+          cod: r.cod, descr: r.descr, qtyOrd: r.qty, qtyFatt: r.qtyFatt || 0, qtyRes: res, qtyArr,
           val: tot([Object.assign({}, r, { qty: res })]),
           valArr: qtyArr > 0 ? tot([Object.assign({}, r, { qty: qtyArr })]) : 0,
         });

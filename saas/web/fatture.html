@@ -783,16 +783,22 @@
       const saved = await store.saveDoc('fattureCliente', doc, companyId);
       // Cascata: una fattura NUOVA collegata a un DDT lo marca fatturato
       // (ftId), e se il DDT viene a sua volta da un ordine ne aggiorna
-      // anche l'elenco fatture (best-effort — un errore qui non deve far
-      // sembrare fallito il salvataggio della fattura, già andato a buon
-      // fine, vedi la stessa nota in ddt.html).
+      // anche l'elenco fatture E il qtyFatt delle righe (best-effort — un
+      // errore qui non deve far sembrare fallito il salvataggio della
+      // fattura, già andato a buon fine, vedi la stessa nota in ddt.html).
+      // qtyFatt (quanto FATTURATO) è un contatore a sé, separato da qtyEv
+      // (quanto CONSEGNATO via il DDT, invariato) — vedi il commento di
+      // applicaFatturazione() in app/cascade.js per il perché: richiesta
+      // reale, "voglio che i prodotti degli ordini clienti scalati solo
+      // quando faccio la fattura", precisata su "prodotti da evadere"
+      // (evadere.html), che ora guarda qtyFatt invece di qtyEv.
       if(isNew && ddtId){
         try{
           const ddt = allDdtById[ddtId];
           if(ddt) await store.saveDoc('ddt', Object.assign({}, ddt, { ftId: saved.num }), companyId);
           if(ocId){
             const ordine = allOrdiniById[ocId];
-            if(ordine) await store.saveDoc('ordiniCliente', window.SaasCascade.applicaFatturazione(ordine, saved.num), companyId);
+            if(ordine) await store.saveDoc('ordiniCliente', window.SaasCascade.applicaFatturazione(ordine, righe, saved.num), companyId);
           }
         }catch(e){ /* la fattura è comunque salvata */ }
       }

@@ -6471,6 +6471,43 @@ Verificato con un test Playwright sulla pagina reale (tre fatture fornitore
 con numeri e date in ordine diverso): l'elenco si apre ordinato per data
 discendente, non più per numero.
 
+## Ordini cliente: i prodotti "scalano" solo quando si fattura, non alla consegna
+
+Richiesta reale: "voglio che i prodotti degli ordini clienti scalati solo
+quando faccio la fattura". Chiesto un chiarimento (il pannello di
+evasione — vedi "Ordini cliente: si vede di nuovo cosa è stato consegnato
+e cosa no" più sopra — serve anche a "Genera DDT" per sapere cosa resta
+da spedire: spostare tutto alla fattura rischiava di far generare due
+volte un DDT per lo stesso residuo), la richiesta si è precisata su un
+caso concreto: "nella lista prodotti da evadere voglio vedere i prodotti
+che ancora non sono stati fatturati".
+
+Introdotto un contatore nuovo, `qtyFatt` (quanto FATTURATO), separato da
+`qtyEv` (quanto CONSEGNATO via un DDT, invariato) — la stessa distinzione
+che il vecchio gestionale aveva già, ma solo sugli ordini fornitore
+(`qtyEv`=ricevuto, `qtyFatt`=fatturato, mai la stessa cosa lì): qui viene
+portata anche sul lato cliente. `applicaConsegna()` (generazione DDT) in
+`app/cascade.js` continua a valorizzare `qtyEv` esattamente come prima —
+"Genera DDT"/il pannello "Consegnata/Residuo/Stato" di `ordini.html`
+restano quindi legati alla spedizione, senza nessun rischio di doppie
+spedizioni. `applicaFatturazione()` (generazione fattura) valorizza ora
+anche `qtyFatt` sulle righe fatturate, oltre a `ftIds`/`ftId` come prima.
+
+Cosa guarda `qtyFatt` invece di `qtyEv` adesso: la lista "Prodotti da
+evadere" (`evadere.html` — un ordine spedito per intero ma non ancora
+fatturato ci resta dentro, con residuo pieno, invece di sparire come
+prima), la sua card nella dashboard, e il filtro "Aperti o parziali" di
+`ordini.html` (così i tre restano coerenti fra loro e con "Lista ordini
+→"). Il lato fornitore ("Da ricevere dai fornitori") resta invariato su
+`qtyEv`, perché non toccato da questa richiesta.
+
+Verificato con uno unit test diretto su `app/cascade.js` (qtyEv e qtyFatt
+avanzano davvero in modo indipendente: un DDT sposta solo il primo, una
+fattura solo il secondo) e un test Playwright su `evadere.html` con due
+ordini finti — uno spedito per intero ma non fatturato (deve comparire,
+residuo pieno) e uno spedito E fatturato (deve sparire): risultato
+corretto in entrambi i casi.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

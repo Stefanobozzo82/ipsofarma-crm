@@ -79,43 +79,9 @@
 
   // Nuovo oggetto ordine cliente con ftIds aggiornato dopo aver fatturato
   // un DDT collegato, numero fattura ftNum. Pura: non salva.
-  //
-  // NON tocca (più) qtyEv, e non tiene nemmeno un proprio contatore
-  // "qtyFatt" sull'ordine: una prima versione di questo cambio lo faceva,
-  // ma un contatore che parte da zero è sbagliato per qualunque ordine
-  // GIÀ fatturato prima che esistesse — è la causa esatta del bug
-  // segnalato ("nella lista prodotti da evadere mi dà tantissimi prodotti
-  // che sono stati già evasi"). "Quanto fatturato" va quindi SEMPRE
-  // calcolato dal vivo sulle fatture vere collegate all'ordine — vedi
-  // residuoFatturazione() più sotto — mai da un contatore salvato qui.
   function applicaFatturazione(ordine, ftNum) {
     const ftIds = [...new Set([...(ordine.ftIds || []), ftNum])];
     return Object.assign({}, ordine, { ftIds, ftId: ftNum });
-  }
-
-  // Quanto di ogni riga di un ordine cliente è stato FATTURATO e quanto
-  // resta ancora da fatturare — calcolato dal vivo sommando le righe di
-  // TUTTE le fatture collegate a quest'ordine (fattura.ocId === ordine.id),
-  // MAI da un contatore salvato sull'ordine (vedi applicaFatturazione()
-  // sopra per il perché). Stessa idea di "Totale fatturato" in
-  // dashboard.html, sempre sommato dalle fatture reali: non può mai
-  // disallinearsi, e funziona da subito anche per gli ordini già
-  // fatturati prima che questo calcolo esistesse — nessuna migrazione dei
-  // dati storici necessaria. Porta sul lato cliente di "ricalcolaFatt"/
-  // qtyFatt in index.html (lì per gli ordini fornitore, mai la stessa
-  // cosa di qtyEv neanche là). Usata da evadere.html/ordini.html/
-  // dashboard.html per "cosa resta da fatturare" — window.SaasCascade.
-  // residuoRighe() resta invece la fonte per "cosa resta da SPEDIRE"
-  // (qtyEv), una domanda diversa.
-  function residuoFatturazione(ordine, tutteFattureCliente) {
-    const fatturatoPerCod = {};
-    (tutteFattureCliente || []).filter(f => f.ocId === ordine.id).forEach(f => (f.righe || []).forEach(r => {
-      fatturatoPerCod[r.cod] = (fatturatoPerCod[r.cod] || 0) + (r.qty || 0);
-    }));
-    return (ordine.righe || []).map(r => {
-      const fatturato = Math.min(r.qty || 0, fatturatoPerCod[r.cod] || 0);
-      return Object.assign({}, r, { fatturato, residuoFatt: Math.max(0, (r.qty || 0) - fatturato) });
-    });
   }
 
   // Nuovo oggetto ordine fornitore con qtyEv aggiornato dopo un arrivo di
@@ -359,7 +325,7 @@
   }
 
   global.SaasCascade = {
-    residuoRighe, residuoFatturazione, statoEvasione, applicaConsegna, applicaFatturazione, applicaRicezione,
+    residuoRighe, statoEvasione, applicaConsegna, applicaFatturazione, applicaRicezione,
     applicaFatturazioneFornitore, applicaEvasioneManuale, creaDDTDaResiduo, creaFattureDaOrdine,
     generaOrdiniFornitore, statoOrdineFornitore, righeConLotti, splitRigaByLotti,
   };

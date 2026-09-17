@@ -785,11 +785,7 @@
       // (ftId), e se il DDT viene a sua volta da un ordine ne aggiorna
       // anche l'elenco fatture (best-effort — un errore qui non deve far
       // sembrare fallito il salvataggio della fattura, già andato a buon
-      // fine, vedi la stessa nota in ddt.html). "Quanto fatturato" per
-      // ogni riga dell'ordine NON è più un contatore da aggiornare qui —
-      // vedi window.SaasCascade.residuoFatturazione(), calcolato dal vivo
-      // sulle fatture vere (fattura.ocId), usato da evadere.html/
-      // ordini.html/dashboard.html.
+      // fine, vedi la stessa nota in ddt.html).
       if(isNew && ddtId){
         try{
           const ddt = allDdtById[ddtId];

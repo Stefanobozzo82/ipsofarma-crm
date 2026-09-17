@@ -6554,6 +6554,34 @@ nell'elenco (prima ci sarebbe rimasto per sempre); su `ordini.html`, il
 filtro "Evasi" mostra solo l'ordine storico e "Aperti o parziali" mostra
 solo quello nuovo non ancora fatturato.
 
+## Il fix sopra non bastava: tutta la funzione tolta, tornati a prima
+
+Richiesta reale: "no nn va bene ho controllato e sono molti che sono
+stati già fatturati riporta tutto come prima che ti facessi fare questa
+modifica".
+
+Il calcolo dal vivo introdotto nel fix qui sopra si appoggiava su
+`fattura.ocId === ordine.id` per trovare le fatture di un ordine — testato
+con dati finti costruiti apposta con quel collegamento, ma evidentemente
+molte fatture VERE di Ipsofarma (in particolare quelle più vecchie, con
+ogni probabilità arrivate dall'import dei dati reali piuttosto che create
+da questo prodotto) non hanno `ocId` valorizzato allo stesso modo, quindi
+il calcolo non le trovava e gli ordini corrispondenti restavano "da
+evadere" comunque — lo stesso identico sintomo di prima, non risolto.
+
+Anziché inseguire un'altra ipotesi non verificabile senza accesso ai dati
+reali di produzione, tolta per intero la modifica: `saas/web/app/
+cascade.js`, `dashboard.html`, `evadere.html`, `fatture.html`,
+`ordini.html` riportati esattamente allo stato precedente (commit
+`8b08b4e`, l'ultimo prima di questa storia). "Prodotti da evadere"/il
+filtro "Aperti o parziali"/la card in dashboard tornano quindi a guardare
+`qtyEv` (consegnato via DDT), come facevano PRIMA della richiesta "voglio
+che i prodotti degli ordini clienti scalati solo quando faccio la
+fattura" — quella richiesta resta quindi non implementata: se dovesse
+tornare, andrà ripensata con accesso ai dati reali per capire davvero
+come le fatture storiche sono collegate ai rispettivi ordini, non solo
+con dati di prova costruiti a mano.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

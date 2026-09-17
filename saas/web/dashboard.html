@@ -28,20 +28,6 @@
   per i documenti storici; per i documenti creati da questo prodotto
   (senza qtyEv) il calcolo resta corretto, dà solo "niente ancora evaso"
   perché quel campo manca.
-
-  "Prodotti da evadere" (ordini cliente) e "Da ricevere dai fornitori"
-  (ordini fornitore) NON guardano più la stessa cosa: il secondo legge
-  ancora qtyEv (quanto ricevuto via DDT, un contatore sull'ordine stesso,
-  invariato) — il primo calcola invece "quanto fatturato" dal VIVO sulle
-  fatture vere collegate (window.SaasCascade.residuoFatturazione, come
-  "Totale fatturato" qui sopra), non da un contatore sull'ordine — vedi
-  daEvaderePerCliente()/daEvaderePer() più sotto. Richiesta reale sul lato
-  cliente: "voglio che i prodotti degli ordini clienti scalati solo
-  quando faccio la fattura", poi "nella lista prodotti da evadere mi dà
-  tantissimi prodotti che sono stati già evasi" — un contatore sull'ordine
-  (qtyFatt, la prima versione di questo cambio) parte da zero per ogni
-  ordine fatturato PRIMA che esistesse, mentre il calcolo dal vivo è
-  corretto da subito, senza nessuna migrazione dei dati storici.
 -->
 <script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
@@ -87,7 +73,6 @@
 <script src="app/biometric-lock.js"></script>
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
-<script src="app/cascade.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -162,11 +147,9 @@
     return { state, residuo };
   }
 
-  // Ordini FORNITORE: qtyEv è un contatore sull'ordine stesso (aggiornato
-  // da applicaRicezione() alla registrazione di un DDT fornitore) — non
-  // c'è bisogno di guardare le fatture, invariato rispetto a prima.
   function evasione(o){
     const righe = o.righe || [];
+    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
     const evQ = righe.reduce((s, r) => s + Math.min(r.qtyEv || 0, r.qty || 0), 0);
     const complete = righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
     return { state: evQ <= 0 ? 'aperto' : complete ? 'completo' : 'parziale' };
@@ -180,21 +163,6 @@
         const res = Math.max(0, (r.qty || 0) - (r.qtyEv != null ? r.qtyEv : 0));
         if(res > 0) ov += tot([Object.assign({}, r, { qty: res })]);
       });
-      if(ov > 0){ importo += ov; n++; }
-    });
-    return { importo, n };
-  }
-
-  // Ordini CLIENTE: "quanto fatturato" non è un contatore sull'ordine ma
-  // va calcolato dal vivo sulle fatture collegate (window.SaasCascade.
-  // residuoFatturazione — vedi app/cascade.js e il commento in cima al
-  // file per il perché).
-  function daEvaderePerCliente(ordini, fattureCliente){
-    let importo = 0, n = 0;
-    ordini.forEach(o => {
-      const righe = window.SaasCascade.residuoFatturazione(o, fattureCliente);
-      let ov = 0;
-      righe.forEach(r => { if(r.residuoFatt > 0) ov += tot([Object.assign({}, r, { qty: r.residuoFatt })]); });
       if(ov > 0){ importo += ov; n++; }
     });
     return { importo, n };
@@ -236,7 +204,7 @@
     const daInc = ftOpen.reduce((s, f) => s + payState(f, DB.noteCredito, DB.noteCreditoFornitore, false).residuo, 0);
     const daPag = ftfOpen.reduce((s, f) => s + payState(f, DB.noteCredito, DB.noteCreditoFornitore, true).residuo, 0);
 
-    const oc = daEvaderePerCliente(DB.ordiniCliente, DB.fattureCliente);
+    const oc = daEvaderePer(DB.ordiniCliente);
     const of = daEvaderePer(DB.ordiniFornitore);
 
     $('stats-riga1').innerHTML =

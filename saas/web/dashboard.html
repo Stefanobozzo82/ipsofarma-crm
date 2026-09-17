@@ -21,21 +21,27 @@
   usano la stessa identica aritmetica, coerenti tra loro.
 
   Una differenza onesta rimasta: la evasione parziale quantità per
-  quantità (qtyEv/qtyFatt) non ha ancora un editor in questo prodotto
-  quando si crea un nuovo ordine da qui. I dati REALI importati da
-  Ipsofarma la portano già con sé (fa parte del blob "righe", non filtrato
-  da store.js) — quindi qui sotto il calcolo la usa comunque, correttamente,
+  quantità (qtyEv) non ha ancora un editor in questo prodotto quando si
+  crea un nuovo ordine da qui. I dati REALI importati da Ipsofarma la
+  portano già con sé (fa parte del blob "righe", non filtrato da
+  store.js) — quindi qui sotto il calcolo la usa comunque, correttamente,
   per i documenti storici; per i documenti creati da questo prodotto
-  (senza qtyEv/qtyFatt) il calcolo resta corretto, dà solo "niente ancora
-  evaso" perché quel campo manca.
+  (senza qtyEv) il calcolo resta corretto, dà solo "niente ancora evaso"
+  perché quel campo manca.
 
   "Prodotti da evadere" (ordini cliente) e "Da ricevere dai fornitori"
-  (ordini fornitore) NON guardano più lo stesso campo: il primo guarda
-  qtyFatt (quanto fatturato), il secondo qtyEv (quanto ricevuto via DDT) —
-  vedi evasione()/daEvaderePer() più sotto. Richiesta reale sul lato
+  (ordini fornitore) NON guardano più la stessa cosa: il secondo legge
+  ancora qtyEv (quanto ricevuto via DDT, un contatore sull'ordine stesso,
+  invariato) — il primo calcola invece "quanto fatturato" dal VIVO sulle
+  fatture vere collegate (window.SaasCascade.residuoFatturazione, come
+  "Totale fatturato" qui sopra), non da un contatore sull'ordine — vedi
+  daEvaderePerCliente()/daEvaderePer() più sotto. Richiesta reale sul lato
   cliente: "voglio che i prodotti degli ordini clienti scalati solo
-  quando faccio la fattura" (evadere.html applica lo stesso cambio, per
-  restare coerente col numero mostrato qui).
+  quando faccio la fattura", poi "nella lista prodotti da evadere mi dà
+  tantissimi prodotti che sono stati già evasi" — un contatore sull'ordine
+  (qtyFatt, la prima versione di questo cambio) parte da zero per ogni
+  ordine fatturato PRIMA che esistesse, mentre il calcolo dal vivo è
+  corretto da subito, senza nessuna migrazione dei dati storici.
 -->
 <script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
@@ -81,6 +87,7 @@
 <script src="app/biometric-lock.js"></script>
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
+<script src="app/cascade.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -155,29 +162,39 @@
     return { state, residuo };
   }
 
-  // campo: 'qtyEv' (consegnato/ricevuto via DDT) per gli ordini fornitore
-  // ("Da ricevere dai fornitori", invariato), 'qtyFatt' (fatturato) per gli
-  // ordini cliente — richiesta reale: "voglio che i prodotti degli ordini
-  // clienti scalati solo quando faccio la fattura", precisata su
-  // evadere.html: "voglio vedere i prodotti che ancora non sono stati
-  // fatturati". Questa card deve restare coerente col numero che si vede
-  // aprendo evadere.html, che ora conta allo stesso modo — vedi
-  // applicaFatturazione()/ordineCompleto() lì per lo stesso cambio.
-  function evasione(o, campo){
+  // Ordini FORNITORE: qtyEv è un contatore sull'ordine stesso (aggiornato
+  // da applicaRicezione() alla registrazione di un DDT fornitore) — non
+  // c'è bisogno di guardare le fatture, invariato rispetto a prima.
+  function evasione(o){
     const righe = o.righe || [];
-    const evQ = righe.reduce((s, r) => s + Math.min(r[campo] || 0, r.qty || 0), 0);
-    const complete = righe.length > 0 && righe.every(r => (r[campo] || 0) >= (r.qty || 0));
+    const evQ = righe.reduce((s, r) => s + Math.min(r.qtyEv || 0, r.qty || 0), 0);
+    const complete = righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
     return { state: evQ <= 0 ? 'aperto' : complete ? 'completo' : 'parziale' };
   }
-  function daEvaderePer(ordini, campo){
+  function daEvaderePer(ordini){
     let importo = 0, n = 0;
     ordini.forEach(o => {
-      if(evasione(o, campo).state === 'completo') return;
+      if(evasione(o).state === 'completo') return;
       let ov = 0;
       (o.righe || []).forEach(r => {
-        const res = Math.max(0, (r.qty || 0) - (r[campo] != null ? r[campo] : 0));
+        const res = Math.max(0, (r.qty || 0) - (r.qtyEv != null ? r.qtyEv : 0));
         if(res > 0) ov += tot([Object.assign({}, r, { qty: res })]);
       });
+      if(ov > 0){ importo += ov; n++; }
+    });
+    return { importo, n };
+  }
+
+  // Ordini CLIENTE: "quanto fatturato" non è un contatore sull'ordine ma
+  // va calcolato dal vivo sulle fatture collegate (window.SaasCascade.
+  // residuoFatturazione — vedi app/cascade.js e il commento in cima al
+  // file per il perché).
+  function daEvaderePerCliente(ordini, fattureCliente){
+    let importo = 0, n = 0;
+    ordini.forEach(o => {
+      const righe = window.SaasCascade.residuoFatturazione(o, fattureCliente);
+      let ov = 0;
+      righe.forEach(r => { if(r.residuoFatt > 0) ov += tot([Object.assign({}, r, { qty: r.residuoFatt })]); });
       if(ov > 0){ importo += ov; n++; }
     });
     return { importo, n };
@@ -219,8 +236,8 @@
     const daInc = ftOpen.reduce((s, f) => s + payState(f, DB.noteCredito, DB.noteCreditoFornitore, false).residuo, 0);
     const daPag = ftfOpen.reduce((s, f) => s + payState(f, DB.noteCredito, DB.noteCreditoFornitore, true).residuo, 0);
 
-    const oc = daEvaderePer(DB.ordiniCliente, 'qtyFatt');
-    const of = daEvaderePer(DB.ordiniFornitore, 'qtyEv');
+    const oc = daEvaderePerCliente(DB.ordiniCliente, DB.fattureCliente);
+    const of = daEvaderePer(DB.ordiniFornitore);
 
     $('stats-riga1').innerHTML =
       stat('Totale fatturato', eur0(vendTot), fc.length + ' fatture cliente' + (nc.length ? ' − ' + nc.length + ' note di credito' : '') + ' · IVA incl.', 'var(--accent-d)', 'fatture.html') +

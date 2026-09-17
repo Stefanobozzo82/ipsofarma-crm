@@ -6508,6 +6508,52 @@ ordini finti — uno spedito per intero ma non fatturato (deve comparire,
 residuo pieno) e uno spedito E fatturato (deve sparire): risultato
 corretto in entrambi i casi.
 
+## Bug reale trovato subito dopo: "prodotti da evadere" pieno di roba già fatturata
+
+Richiesta reale: "ora c'è un problema, se vado nella lista dei prodotti da
+evadere mi dà tantissimi prodotti che sono stati già evasi".
+
+Causa: `qtyFatt` (il contatore introdotto nel cambio qui sopra) è un
+contatore che parte da ZERO su ogni ordine, valorizzato solo quando si
+registra una NUOVA fattura da questo momento in poi. Tutti gli ordini
+clienti già fatturati PRIMA di questo cambio — cioè quasi tutto lo storico
+reale di Ipsofarma — non avevano mai avuto occasione di valorizzarlo:
+`qtyFatt` restava a zero anche se la fattura esisteva davvero, quindi
+`evadere.html`/la dashboard/il filtro di `ordini.html` li mostravano tutti
+come "ancora da fatturare". Lo stesso identico problema che il vecchio
+gestionale non aveva sul lato fornitore, perché lì `qtyFatt` viene
+ricalcolato da zero su TUTTE le fatture collegate ogni volta, mai tenuto
+come un contatore incrementale.
+
+Fix: tolto il contatore `qtyFatt` salvato sull'ordine. "Quanto fatturato"
+si calcola ora dal VIVO, sommando le righe di tutte le fatture collegate
+all'ordine (`fattura.ocId === ordine.id`) — nuova funzione
+`window.SaasCascade.residuoFatturazione(ordine, fattureCliente)` in
+`app/cascade.js`, stessa idea di come "Totale fatturato" in
+dashboard.html è sempre sommato dalle fatture vere, mai da un contatore a
+parte. Funziona da subito su TUTTO lo storico, senza nessuna migrazione
+dei dati: una fattura già esistente vale già come "fatturato", che sia
+stata registrata prima o dopo questo cambio. `applicaFatturazione()`
+torna a fare solo `ftIds`/`ftId` come all'origine; `qtyEv` (consegnato via
+DDT) resta un contatore vero sull'ordine, invariato — lì il problema non
+si pone perché lo storico reale importato da Ipsofarma porta già `qtyEv`
+con sé (vedi la nota in cima a `dashboard.html`).
+
+Toccati: `evadere.html` (carica anche `fattureCliente`, non solo
+`ordiniCliente`/`ordiniFornitore`), `ordini.html` (il filtro "Aperti o
+parziali"/"Evasi" usa `STORICO_PREZZI.fattureCliente`, già caricato),
+`dashboard.html` (la card "Prodotti da evadere" usa `DB.fattureCliente`,
+già caricata) — tutti e tre ora includono `app/cascade.js`, che prima non
+serviva loro.
+
+Verificato con uno unit test diretto (un ordine "storico" con una fattura
+vera collegata ma senza mai aver avuto `qtyFatt` valorizzato risulta
+correttamente già fatturato) e due test Playwright reali: su
+`evadere.html`, un ordine storico già fatturato non compare più
+nell'elenco (prima ci sarebbe rimasto per sempre); su `ordini.html`, il
+filtro "Evasi" mostra solo l'ordine storico e "Aperti o parziali" mostra
+solo quello nuovo non ancora fatturato.
+
 ## Prossimo passo
 
 Tre filoni distinti, tutti rimandati per scelta esplicita dell'azienda:

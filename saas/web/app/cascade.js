@@ -77,30 +77,45 @@
     return Object.assign({}, ordine, { righe: nuoveRighe });
   }
 
-  // Nuovo oggetto ordine cliente con qtyFatt/ftIds aggiornati dopo aver
-  // fatturato righeFatturate con una fattura numero ftNum. Pura: non salva.
+  // Nuovo oggetto ordine cliente con ftIds aggiornato dopo aver fatturato
+  // un DDT collegato, numero fattura ftNum. Pura: non salva.
   //
-  // qtyFatt è un contatore SEPARATO da qtyEv (quanto consegnato via un
-  // DDT, invariato da qui — applicaConsegna() sopra continua a
-  // valorizzarlo alla generazione del DDT): qtyEv resta quello che
-  // "Genera DDT"/il pannello di evasione di ordini.html usano per sapere
-  // cosa è stato fisicamente spedito e cosa resta da spedire, e non deve
-  // cambiare significato — farlo avanzare solo in fattura rischierebbe di
-  // far generare due volte un DDT per lo stesso residuo. qtyFatt segue
-  // invece SOLO la fattura: porta sul lato cliente la stessa distinzione
-  // già presente nel vecchio gestionale sugli ordini fornitore (qtyEv =
-  // ricevuto, qtyFatt = fatturato, mai state la stessa cosa lì).
-  // Richiesta reale: "voglio che i prodotti degli ordini clienti scalati
-  // solo quando faccio la fattura" — precisata poi su "prodotti da
-  // evadere": evadere.html usa infatti qtyFatt (non qtyEv) per decidere
-  // cosa manca ancora da fatturare, vedi lì.
-  function applicaFatturazione(ordine, righeFatturate, ftNum) {
-    const nuoveRighe = (ordine.righe || []).map(r => {
-      const fatturata = righeFatturate.filter(x => x.cod === r.cod).reduce((s, x) => s + (x.qty || 0), 0);
-      return fatturata ? Object.assign({}, r, { qtyFatt: Math.min(r.qty, (r.qtyFatt || 0) + fatturata) }) : r;
-    });
+  // NON tocca (più) qtyEv, e non tiene nemmeno un proprio contatore
+  // "qtyFatt" sull'ordine: una prima versione di questo cambio lo faceva,
+  // ma un contatore che parte da zero è sbagliato per qualunque ordine
+  // GIÀ fatturato prima che esistesse — è la causa esatta del bug
+  // segnalato ("nella lista prodotti da evadere mi dà tantissimi prodotti
+  // che sono stati già evasi"). "Quanto fatturato" va quindi SEMPRE
+  // calcolato dal vivo sulle fatture vere collegate all'ordine — vedi
+  // residuoFatturazione() più sotto — mai da un contatore salvato qui.
+  function applicaFatturazione(ordine, ftNum) {
     const ftIds = [...new Set([...(ordine.ftIds || []), ftNum])];
-    return Object.assign({}, ordine, { righe: nuoveRighe, ftIds, ftId: ftNum });
+    return Object.assign({}, ordine, { ftIds, ftId: ftNum });
+  }
+
+  // Quanto di ogni riga di un ordine cliente è stato FATTURATO e quanto
+  // resta ancora da fatturare — calcolato dal vivo sommando le righe di
+  // TUTTE le fatture collegate a quest'ordine (fattura.ocId === ordine.id),
+  // MAI da un contatore salvato sull'ordine (vedi applicaFatturazione()
+  // sopra per il perché). Stessa idea di "Totale fatturato" in
+  // dashboard.html, sempre sommato dalle fatture reali: non può mai
+  // disallinearsi, e funziona da subito anche per gli ordini già
+  // fatturati prima che questo calcolo esistesse — nessuna migrazione dei
+  // dati storici necessaria. Porta sul lato cliente di "ricalcolaFatt"/
+  // qtyFatt in index.html (lì per gli ordini fornitore, mai la stessa
+  // cosa di qtyEv neanche là). Usata da evadere.html/ordini.html/
+  // dashboard.html per "cosa resta da fatturare" — window.SaasCascade.
+  // residuoRighe() resta invece la fonte per "cosa resta da SPEDIRE"
+  // (qtyEv), una domanda diversa.
+  function residuoFatturazione(ordine, tutteFattureCliente) {
+    const fatturatoPerCod = {};
+    (tutteFattureCliente || []).filter(f => f.ocId === ordine.id).forEach(f => (f.righe || []).forEach(r => {
+      fatturatoPerCod[r.cod] = (fatturatoPerCod[r.cod] || 0) + (r.qty || 0);
+    }));
+    return (ordine.righe || []).map(r => {
+      const fatturato = Math.min(r.qty || 0, fatturatoPerCod[r.cod] || 0);
+      return Object.assign({}, r, { fatturato, residuoFatt: Math.max(0, (r.qty || 0) - fatturato) });
+    });
   }
 
   // Nuovo oggetto ordine fornitore con qtyEv aggiornato dopo un arrivo di
@@ -262,7 +277,7 @@
         destId: ddt.destId || null, righe: ddt.righe, paid: false, paidDate: null, pagamenti: [],
       }, companyId);
       await store.saveDoc('ddt', Object.assign({}, ddt, { ftId: ft.num }), companyId);
-      ordineCorrente = applicaFatturazione(ordineCorrente, ddt.righe, ft.num);
+      ordineCorrente = applicaFatturazione(ordineCorrente, ft.num);
       fatture.push(ft);
     }
     if (fatture.length) await store.saveDoc('ordiniCliente', ordineCorrente, companyId);
@@ -344,7 +359,7 @@
   }
 
   global.SaasCascade = {
-    residuoRighe, statoEvasione, applicaConsegna, applicaFatturazione, applicaRicezione,
+    residuoRighe, residuoFatturazione, statoEvasione, applicaConsegna, applicaFatturazione, applicaRicezione,
     applicaFatturazioneFornitore, applicaEvasioneManuale, creaDDTDaResiduo, creaFattureDaOrdine,
     generaOrdiniFornitore, statoOrdineFornitore, righeConLotti, splitRigaByLotti,
   };

@@ -512,19 +512,26 @@
     searchTimer = setTimeout(renderResults, 200);
   });
 
-  // Completo = ogni riga interamente FATTURATA (qtyFatt >= qty), non solo
-  // consegnata (qtyEv) — stessa definizione di evasione() in
-  // dashboard.html, così "aperti o parziali" qui seleziona esattamente
-  // gli stessi ordini che la dashboard/evadere.html contano. Richiesta
-  // reale: "voglio che i prodotti degli ordini clienti scalati solo
-  // quando faccio la fattura" — un ordine già consegnato per intero ma
-  // non ancora fatturato resta "aperto o parziale" qui, coerente con
-  // "Lista ordini →" raggiunto da evadere.html. Il badge "✓ Consegnato"/
-  // "→ Genera DDT" più sotto (refreshCascadeActions) resta invece legato
-  // a qtyEv apposta: dice cosa resta da SPEDIRE, una domanda diversa.
+  // Completo = ogni riga interamente FATTURATA, non solo consegnata
+  // (qtyEv) — calcolato dal vivo sulle fatture vere (window.SaasCascade.
+  // residuoFatturazione, su STORICO_PREZZI.fattureCliente già caricato in
+  // init()), MAI da un contatore salvato sull'ordine: una prima versione
+  // di questo cambio ne usava uno (qtyFatt) — bug reale poi segnalato,
+  // "nella lista prodotti da evadere mi dà tantissimi prodotti che sono
+  // stati già evasi", perché un contatore parte da zero per ogni ordine
+  // già fatturato prima che esistesse. Stessa definizione di
+  // daEvaderePerCliente() in dashboard.html/evadere.html, così "aperti o
+  // parziali" qui seleziona esattamente gli stessi ordini che le altre
+  // due contano. Richiesta reale: "voglio che i prodotti degli ordini
+  // clienti scalati solo quando faccio la fattura" — un ordine già
+  // consegnato per intero ma non ancora fatturato resta "aperto o
+  // parziale" qui, coerente con "Lista ordini →" raggiunto da
+  // evadere.html. Il badge "✓ Consegnato"/"→ Genera DDT" più sotto
+  // (refreshCascadeActions) resta invece legato a qtyEv apposta: dice
+  // cosa resta da SPEDIRE, una domanda diversa.
   function ordineCompleto(o){
-    const righe = o.righe || [];
-    return righe.length > 0 && righe.every(r => (r.qtyFatt || 0) >= (r.qty || 0));
+    const righe = window.SaasCascade.residuoFatturazione(o, STORICO_PREZZI.fattureCliente);
+    return righe.length > 0 && righe.every(r => r.residuoFatt <= 0);
   }
 
   // ---- filtri: cliente, stato evasione, intervallo date ------------------

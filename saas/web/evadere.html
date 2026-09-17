@@ -54,6 +54,7 @@
 <script src="app/biometric-lock.js"></script>
 <script src="app/tour.js"></script>
 <script src="app/pwa.js"></script>
+<script src="app/cascade.js"></script>
 <script>
   const $ = id => document.getElementById(id);
   const store = window.SaasStore;
@@ -69,24 +70,6 @@
   function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
   function lineNet(x){ return (x.qty || 0) * (x.prezzo || 0) * scFactor(x.sconto); }
   function tot(righeArr){ return (righeArr || []).reduce((s, x) => s + lineNet(x) + lineNet(x) * (x.iva || 0) / 100, 0); }
-
-  // Completo = ogni riga interamente FATTURATA (qtyFatt), non solo
-  // consegnata (qtyEv) — richiesta reale: "voglio che i prodotti degli
-  // ordini clienti scalati solo quando faccio la fattura", precisata su
-  // questa pagina: "nella lista prodotti da evadere voglio vedere i
-  // prodotti che ancora non sono stati fatturati". Un ordine già spedito
-  // per intero con un DDT ma non ancora fatturato resta quindi visibile
-  // qui — vedi applicaFatturazione() in app/cascade.js per qtyFatt.
-  // dashboard.html/ordini.html usano la stessa identica definizione (per
-  // "Prodotti da evadere"/il filtro "Aperti o parziali"), così i tre si
-  // accordano sugli stessi ordini. Solo il badge "✓ Consegnato"/pulsante
-  // "→ Genera DDT" di ordini.html restano legati a qtyEv apposta: dicono
-  // cosa resta da SPEDIRE, una domanda diversa da "cosa resta da
-  // fatturare".
-  function ordineCompleto(o){
-    const righe = o.righe || [];
-    return righe.length > 0 && righe.every(r => (r.qtyFatt || 0) >= (r.qty || 0));
-  }
 
   // "In arrivo": quanto di un codice, sugli ordini fornitore collegati a
   // QUESTO ordine cliente (ofIds/ofId, numeri d'ordine — vedi cascade.js
@@ -212,12 +195,13 @@
     });
 
     const area = $('sections-area');
-    let clienti, ordiniCliente, ordiniFornitore;
+    let clienti, ordiniCliente, ordiniFornitore, fattureCliente;
     try{
-      [clienti, ordiniCliente, ordiniFornitore] = await Promise.all([
+      [clienti, ordiniCliente, ordiniFornitore, fattureCliente] = await Promise.all([
         store.loadCollection('clienti', companyId),
         store.loadCollection('ordiniCliente', companyId),
         store.loadCollection('ordiniFornitore', companyId),
+        store.loadCollection('fattureCliente', companyId),
       ]);
     }catch(err){
       area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
@@ -227,17 +211,23 @@
     const ordiniFornitoreByNum = Object.fromEntries(ordiniFornitore.map(o => [o.num, o]));
     rows = [];
     ordiniCliente.forEach(o => {
-      if(ordineCompleto(o)) return;
+      // "Quanto fatturato" calcolato dal vivo sulle fatture vere collegate
+      // (window.SaasCascade.residuoFatturazione — vedi app/cascade.js), non
+      // da un contatore salvato sull'ordine: richiesta reale, "nella lista
+      // prodotti da evadere mi dà tantissimi prodotti che sono stati già
+      // evasi" — un contatore partirebbe da zero per ogni ordine fatturato
+      // PRIMA di questo calcolo, mostrandolo qui come se non lo fosse.
+      const righeFatt = window.SaasCascade.residuoFatturazione(o, fattureCliente);
+      if(righeFatt.length > 0 && righeFatt.every(r => r.residuoFatt <= 0)) return;
       const ofNums = (o.ofIds && o.ofIds.length) ? o.ofIds : (o.ofId ? [o.ofId] : []);
-      (o.righe || []).forEach(r => {
-        const res = Math.max(0, (r.qty || 0) - (r.qtyFatt != null ? r.qtyFatt : 0));
-        if(res <= 0) return;
-        const qtyArr = Math.min(res, ofInvoicedQty(ofNums, r.cod, ordiniFornitoreByNum));
+      righeFatt.forEach(r => {
+        if(r.residuoFatt <= 0) return;
+        const qtyArr = Math.min(r.residuoFatt, ofInvoicedQty(ofNums, r.cod, ordiniFornitoreByNum));
         rows.push({
           ocNum: o.num, ocId: o.id, data: o.data, clienteId: o.clienteId,
           cliente: (clientiById[o.clienteId] || {}).nome || '(cliente non trovato)',
-          cod: r.cod, descr: r.descr, qtyOrd: r.qty, qtyFatt: r.qtyFatt || 0, qtyRes: res, qtyArr,
-          val: tot([Object.assign({}, r, { qty: res })]),
+          cod: r.cod, descr: r.descr, qtyOrd: r.qty, qtyFatt: r.fatturato, qtyRes: r.residuoFatt, qtyArr,
+          val: tot([Object.assign({}, r, { qty: r.residuoFatt })]),
           valArr: qtyArr > 0 ? tot([Object.assign({}, r, { qty: qtyArr })]) : 0,
         });
       });

@@ -1005,6 +1005,12 @@
     // il menu del form segue l'ordine di caricamento, non quello alfabetico.
     $('f-fornitore').innerHTML = fornitoriArr.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
 
+    // Link "Totale acquisti"/"Da pagare ai fornitori" dalla dashboard
+    // (fatture-fornitore.html?anno=2025): apre già filtrato Dal 1° gennaio
+    // Al 31 dicembre di quell'anno, invece che su tutti gli anni.
+    const urlAnno = new URLSearchParams(location.search).get('anno');
+    if(urlAnno){ FFILT.from = `${urlAnno}-01-01`; FFILT.to = `${urlAnno}-12-31`; }
+
     await renderList();
 
     // Cascata: apertura diretta da "→ Genera fattura fornitore" in

@@ -32,7 +32,7 @@
   <aside class="sidebar" id="sidebar"></aside>
   <main class="app-main">
     <div class="page-head">
-      <h2>Prodotti da evadere</h2>
+      <h2 id="page-h2">Prodotti da evadere</h2>
       <p class="sub">Elenco dettagliato di tutti i prodotti ordinati dai clienti e non ancora consegnati, per cliente.</p>
       <button type="button" class="ghost" id="lista-ordini-btn" style="margin-top:10px">Lista ordini →</button>
     </div>
@@ -214,8 +214,16 @@
     }
     const clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     const ordiniFornitoreByNum = Object.fromEntries(ordiniFornitore.map(o => [o.num, o]));
+    // Link "Prodotti da evadere" dalla dashboard (evadere.html?anno=2025):
+    // limita alle righe dei soli ordini cliente datati in quell'anno,
+    // invece che a tutto il residuo aperto indipendentemente dall'anno.
+    const urlAnno = new URLSearchParams(location.search).get('anno');
+    if(urlAnno){
+      $('page-h2').innerHTML = `Prodotti da evadere — ${esc(urlAnno)} <a href="evadere.html" style="font-size:13px;font-weight:400;color:var(--muted)">(mostra tutti gli anni)</a>`;
+    }
     rows = [];
     ordiniCliente.forEach(o => {
+      if(urlAnno && !(o.data || '').startsWith(urlAnno)) return;
       if(ordineCompleto(o)) return;
       const ofNums = (o.ofIds && o.ofIds.length) ? o.ofIds : (o.ofId ? [o.ofId] : []);
       (o.righe || []).forEach(r => {

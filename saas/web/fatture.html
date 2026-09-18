@@ -125,6 +125,7 @@
 <script src="app/pwa.js"></script>
 <script src="app/resize.js"></script>
 <script src="app/elenco-cards.js"></script>
+<script src="app/list-cap.js"></script>
 <script src="app/print.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
@@ -1071,6 +1072,9 @@
     const combined = elenco.map(f => Object.assign({}, f, { isNC: false }))
       .concat(ncRows.map(n => Object.assign({}, n, { isNC: true })));
     combined.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
+    // Limita solo il DISEGNO della tabella, non l'elenco vero (usato sotto
+    // per conteggi e azioni di massa) — vedi app/list-cap.js.
+    const { shown: combinedShown, hidden: combinedHidden } = window.SaasListCap.capForRender(combined);
 
     // Barra delle azioni collettive: compare solo se c'è almeno una riga
     // selezionata (tra quelle attualmente visibili, come nell'originale).
@@ -1086,10 +1090,10 @@
     }
     const allChecked = elenco.length > 0 && elenco.every(f => PICK.has(f.id));
 
-    area.innerHTML = bulkHtml + `<div class="table-scroll"><table class="elenco-table"><thead><tr>
+    area.innerHTML = bulkHtml + window.SaasListCap.capNoticeHtml(combinedHidden) + `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('imponibile','Imponibile')}${th('iva','IVA')}${th('totale','Totale')}${th('incasso','Incasso')}
-      </tr></thead><tbody>${combined.map(f => f.isNC ? `
+      </tr></thead><tbody>${combinedShown.map(f => f.isNC ? `
         <tr class="row-click" data-id="${f.id}" data-nc="1" data-num="${esc(f.num)}">
           <td class="check-col"></td>
           <td class="num-col">${esc(f.num)}</td>

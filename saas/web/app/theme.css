@@ -468,6 +468,9 @@ td.actions button.danger:hover{ background:var(--red-s); border-color:var(--red)
 button.ghost.danger{ color:var(--red); border-color:var(--red-border); }
 button.ghost.danger:hover{ background:var(--red-s); border-color:var(--red); }
 .empty{ color:var(--faint); font-size:13px; padding:26px 0; text-align:center; }
+/* Avviso di app/list-cap.js quando un elenco (fatture/ddt/ordini fornitore
+   con lo storico importato) supera il limite di righe disegnate a video. */
+.list-cap-notice{ color:var(--muted); font-size:12.5px; padding:9px 2px; margin:0 0 8px; }
 
 label{ display:block; font-size:11.5px; color:var(--muted); margin:12px 0 4px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
 label:first-of-type{ margin-top:0; }

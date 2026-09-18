@@ -470,12 +470,30 @@
 
   // Come loadCompany(), ma per una sola collection: usata dalle pagine che
   // mostrano un solo modulo (es. la lista clienti) invece dell'intera azienda.
+  //
+  // Pagina con .range() invece di un unico select('*'): PostgREST/Supabase
+  // tronca silenziosamente le risposte oltre il "Max Rows" del progetto
+  // (1000 di default) senza segnalare errore — con lo storico Maestro Gold
+  // importato, ordini_fornitore/ddt/fatture_cliente superano abbondantemente
+  // quella soglia. Senza questo loop, l'elenco (e la cascata in cascade.js,
+  // che usa loadCollection per sapere quali OF/DDT/fatture esistono già)
+  // vedrebbe solo una fetta arbitraria della collection: documenti mancanti
+  // nell'elenco, e nextNumber() che propone un numero in realtà già
+  // presente in una riga rimasta fuori dalla pagina.
   async function loadCollection(collName, companyId) {
     const def = COLLECTIONS[collName];
     if (!def) throw new Error('collection sconosciuta: ' + collName);
-    const { data, error } = await client().from(def.table).select('*').eq('company_id', companyId);
-    if (error) throw error;
-    return data.map(row => rowToDoc(collName, row));
+    const pageSize = 1000;
+    let all = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await client().from(def.table).select('*').eq('company_id', companyId).range(from, from + pageSize - 1);
+      if (error) throw error;
+      all = all.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all.map(row => rowToDoc(collName, row));
   }
 
   // Catalogo prodotti: filtrato e limitato lato server, mai scaricato per

@@ -160,6 +160,13 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
     position:fixed; left:0; top:0; bottom:0; height:100vh; z-index:40;
     transform:translateX(-100%); transition:transform .22s ease;
     box-shadow:0 0 40px rgba(0,0,0,.35);
+    /* La barra in basso (.mobile-bottombar, z-index:41 — sopra apposta,
+       vedi il commento lì sotto) copre la fascia finale dello schermo
+       anche a cassetto aperto: senza questo margine, "Esci"/"Cambia
+       azienda" in fondo al cassetto (.account) finivano proprio sotto la
+       barra, coperti e non toccabili. Stesso valore usato per lo stesso
+       scopo in .app-main qui sotto. */
+    padding-bottom:calc(78px + env(safe-area-inset-bottom));
   }
   .sidebar.open{ transform:translateX(0); }
   /* Barra fissa in fondo allo schermo — 4 destinazioni + "Altro" (apre lo

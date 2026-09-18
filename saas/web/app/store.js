@@ -233,12 +233,29 @@
   // il limite è sulla creazione, non sulla modifica di uno già esistente).
   // { ok:true } se il piano non ha un limite (null = illimitato, come
   // "Base" e "Pro" oggi) o se non è ancora stato raggiunto.
+  //
+  // Bug reale trovato: questa chiamata sta PRIMA del blocco try/catch di
+  // ogni "Salva" (ordini/ddt/fatture/preventivi/note credito — vedi quei
+  // file), quindi un suo errore (rete instabile: countDocsThisMonth() fa
+  // 8 query in parallelo, una sola che fallisce basta a far rifiutare
+  // l'intero Promise.all) non veniva mai intercettato: il pulsante restava
+  // disabilitato per sempre, senza nessun messaggio, e il documento non si
+  // salvava — a chi capitava sembrava che l'app si fosse bloccata. Un
+  // controllo che dovrebbe solo AVVISARE se il piano è pieno non deve mai
+  // poter bloccare il salvataggio vero e proprio: se il controllo stesso
+  // fallisce, si lascia passare (si preferisce eccezionalmente superare il
+  // limite mensile piuttosto che perdere un documento per un problema di
+  // rete che non ha nulla a che fare col limite).
   async function checkDocLimit(companyId) {
-    const [company, plans] = await Promise.all([getCompany(companyId), loadPlans()]);
-    const plan = plans.find(p => p.id === company.piano);
-    if (!plan || plan.limite_documenti_mese == null) return { ok: true };
-    const count = await countDocsThisMonth(companyId);
-    return { ok: count < plan.limite_documenti_mese, count, limite: plan.limite_documenti_mese, piano: plan.nome };
+    try{
+      const [company, plans] = await Promise.all([getCompany(companyId), loadPlans()]);
+      const plan = plans.find(p => p.id === company.piano);
+      if (!plan || plan.limite_documenti_mese == null) return { ok: true };
+      const count = await countDocsThisMonth(companyId);
+      return { ok: count < plan.limite_documenti_mese, count, limite: plan.limite_documenti_mese, piano: plan.nome };
+    }catch(e){
+      return { ok: true };
+    }
   }
 
   // Uso mensile dell'IA per azienda (0011_limite_ai.sql) — stesso schema di
@@ -248,13 +265,21 @@
   // non infinito. L'applicazione VERA è lato server, in ai-proxy — questa
   // è solo la verifica preventiva per un avviso chiaro nell'interfaccia
   // invece di scoprirlo dopo aver scritto la domanda.
+  // Stesso "fallisce aperto" di checkDocLimit() qui sopra, a maggior
+  // ragione qui: l'applicazione VERA del limite è lato server (ai-proxy),
+  // questa è solo l'anteprima nell'interfaccia — un suo errore di rete non
+  // deve mai bloccare l'azione che sta solo cercando di descrivere.
   async function checkAiLimit(companyId) {
-    const [company, plans] = await Promise.all([getCompany(companyId), loadPlans()]);
-    const plan = plans.find(p => p.id === company.piano);
-    if (!plan || plan.limite_ai_mese == null) return { ok: true };
-    const { data: count, error } = await client().rpc('count_ai_usage_this_month', { p_company_id: companyId });
-    if (error) throw error;
-    return { ok: count < plan.limite_ai_mese, count, limite: plan.limite_ai_mese, piano: plan.nome };
+    try{
+      const [company, plans] = await Promise.all([getCompany(companyId), loadPlans()]);
+      const plan = plans.find(p => p.id === company.piano);
+      if (!plan || plan.limite_ai_mese == null) return { ok: true };
+      const { data: count, error } = await client().rpc('count_ai_usage_this_month', { p_company_id: companyId });
+      if (error) throw error;
+      return { ok: count < plan.limite_ai_mese, count, limite: plan.limite_ai_mese, piano: plan.nome };
+    }catch(e){
+      return { ok: true };
+    }
   }
 
   // ---------------------------------------------------------------------------

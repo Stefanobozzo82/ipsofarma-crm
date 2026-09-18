@@ -78,6 +78,16 @@ body{
   font-size:clamp(14px, 0.25vw + 12.4px, 16px);
   line-height:1.5;
   -webkit-font-smoothing:antialiased;
+  /* Rete di sicurezza: se un blocco (es. .dash-period sotto, con lo
+     storico ora fino a 19 anni) sfora la larghezza dello schermo invece di
+     scorrere al suo interno, il documento intero diventa scorrevole in
+     orizzontale — e nella WebView Android questo trascina fuori schermo
+     anche gli elementi "position:fixed" come la barra di navigazione in
+     basso (bug noto dei motori mobile: durante lo scroll orizzontale del
+     layout, il fixed segue il viewport di layout, non quello visibile).
+     Vietare lo scroll orizzontale qui evita l'intera categoria di bug,
+     qualunque blocco in futuro dimentichi di contenersi. */
+  overflow-x:hidden;
 }
 button{ font-family:inherit; cursor:pointer; }
 code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
@@ -269,8 +279,16 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
    Dashboard — stessi componenti del gestionale originale (stat, panel,
    grafico a barre in SVG con tooltip), non un modulo disegnato da zero.
 --------------------------------------------------------------------------- */
-.dash-period{ display:flex; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px; gap:0; }
-.dash-period a{ border:none; background:none; padding:5px 11px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--muted); text-decoration:none; }
+/* overflow-x:auto invece di andare a capo: con lo storico importato la
+   fila di anni arriva a 19 voci (2008-2026), più di quante ne stiano in
+   larghezza su un telefono — deve scorrere lei stessa invece di sforare lo
+   schermo (vedi la nota su overflow-x:hidden sul body, poco sopra). */
+.dash-period{
+  display:flex; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px; gap:0;
+  max-width:100%; min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+.dash-period::-webkit-scrollbar{ display:none; }
+.dash-period a{ border:none; background:none; padding:5px 11px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--muted); text-decoration:none; flex:0 0 auto; white-space:nowrap; }
 .dash-period a.on{ background:var(--surface); color:var(--txt); box-shadow:var(--sh); }
 
 .stats{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; margin-bottom:14px; }

@@ -1,0 +1,4 @@
+# Cache/stato locale di wrangler (creata da `wrangler deploy`/`wrangler whoami`
+# eseguiti dalla radice del repo) — non è codice del progetto, va rigenerata
+# ad ogni deploy, non committata.
+.wrangler/

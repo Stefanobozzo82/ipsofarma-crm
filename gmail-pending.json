@@ -726,6 +726,88 @@
         "totale": 803.0894
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-18T13:52:41.423Z",
+      "msgId": "1a0b4b7fd3e881dc",
+      "file": "5718113593.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113593",
+        "date": "2026-09-17",
+        "order_ref": "Rif.cliente Vs.ord. 215",
+        "lines": [
+          {
+            "cod": "G0058716",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 250CM AR",
+            "qty": 6,
+            "prezzo": 23.76,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126252",
+            "scad": "2031-06-16"
+          },
+          {
+            "cod": "C0068553N1",
+            "descr": "NOVOSYN VIOLA 1 (4) 90CM HR37",
+            "qty": 6,
+            "prezzo": 69.84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3626T7",
+            "scad": "2031-06-26"
+          },
+          {
+            "cod": "C0762610",
+            "descr": "SILKAM NERO 1 (4) 75CM D$39",
+            "qty": 6,
+            "prezzo": 33.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626212",
+            "scad": "2031-05-19"
+          }
+        ],
+        "totale": 930.2256
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-18T13:52:41.423Z",
+      "msgId": "1a0b4b7d2fd756f1",
+      "file": "5718113592.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113592",
+        "date": "2026-09-17",
+        "order_ref": "Rif.cliente Vs.ord. 215",
+        "lines": [
+          {
+            "cod": "8722960",
+            "descr": "SET PERFUSOR PVC 150 CM",
+            "qty": 1,
+            "prezzo": 82,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26G02E8SB4",
+            "scad": "2031-07-01"
+          }
+        ],
+        "totale": 100.03999999999999
+      },
+      "src": "Gmail"
     }
   ]
 }

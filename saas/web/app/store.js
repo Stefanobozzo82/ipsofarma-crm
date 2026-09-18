@@ -587,11 +587,22 @@
     return rowToDoc(collName, data);
   }
 
+  // Bug reale trovato con un utente "operatore" reale: ogni tabella
+  // documento ha una RLS che riserva DELETE al solo ruolo "admin" (vedi
+  // le migration — creare/modificare è aperto a ogni membro non-viewer,
+  // cancellare no). Una riga bloccata dalla RLS in un DELETE non è un
+  // errore per Postgrest: la query torna comunque "riuscita", con
+  // semplicemente zero righe toccate — .delete() da solo (senza .select())
+  // non ha modo di accorgersene, quindi il pulsante "Elimina" sembrava non
+  // fare nulla, senza nessun messaggio, per chi non è amministratore.
   async function removeDoc(collName, id) {
     const def = COLLECTIONS[collName];
     if (!def) throw new Error('collection sconosciuta: ' + collName);
-    const { error } = await client().from(def.table).delete().eq('id', id);
+    const { data, error } = await client().from(def.table).delete().eq('id', id).select();
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error('Non hai i permessi per eliminare questo documento: solo un amministratore dell\'azienda può farlo.');
+    }
   }
 
   // ---------------------------------------------------------------------------

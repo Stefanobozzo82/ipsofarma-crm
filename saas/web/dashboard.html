@@ -183,7 +183,9 @@
   }
 
   function renderAnni(){
-    const anni = [...new Set([...DB.fattureCliente, ...DB.fattureFornitore].map(f => (f.data || '').slice(0, 4)).filter(Boolean))].sort();
+    // Ordine decrescente (2026, 2025, ... indietro): dopo "Tutti" si vuole
+    // subito l'anno più recente, non doverci scorrere in fondo alla fila.
+    const anni = [...new Set([...DB.fattureCliente, ...DB.fattureFornitore].map(f => (f.data || '').slice(0, 4)).filter(Boolean))].sort().reverse();
     $('anni').innerHTML = `<a class="${DASHY === '' ? 'on' : ''}" href="#" data-y="">Tutti</a>` +
       anni.map(y => `<a class="${DASHY === y ? 'on' : ''}" href="#" data-y="${y}">${y}</a>`).join('');
     $('anni').querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => {

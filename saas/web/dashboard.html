@@ -48,10 +48,10 @@
     <div class="panel">
       <div class="panel-h">
         <span id="panel-title">Andamento mensile (IVA inclusa)</span>
-        <div class="legend">
-          <span class="lg"><i style="background:#0ea371"></i>Fatturato</span>
-          <span class="lg"><i style="background:#7c5cd6"></i>Acquisti</span>
-          <span class="lg"><i style="background:#f59e0b"></i>Margine</span>
+        <div class="legend" id="chart-legend">
+          <button type="button" class="lg on" data-series="vend"><i style="background:#0ea371"></i>Fatturato</button>
+          <button type="button" class="lg on" data-series="acq"><i style="background:#7c5cd6"></i>Acquisti</button>
+          <button type="button" class="lg on" data-series="margin"><i style="background:#f59e0b"></i>Margine</button>
         </div>
       </div>
       <div class="chart-wrap" id="chart-wrap">
@@ -80,6 +80,10 @@
   let DB = null;       // { ordiniCliente, ordiniFornitore, fattureCliente, fattureFornitore, noteCredito, noteCreditoFornitore }
   let DASHY = new Date().toISOString().slice(0, 4);
   let MONTHLY = [];
+  // Legenda cliccabile del grafico: quali serie disegnare (fatturato/
+  // acquisti/margine). Solo di sessione (non salvata) — riparte sempre da
+  // tutte e tre visibili al ricarico della pagina.
+  const CHART_ON = { vend: true, acq: true, margin: true };
 
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function eur(n){ return '€ ' + (Number(n) || 0).toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
@@ -240,12 +244,24 @@
   // in entrambi i temi — sono già abbastanza saturi da leggersi su sfondo
   // sia chiaro che scuro.
   function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-  function barChart(data){
+  // on: quali serie disegnare (CHART_ON, dalla legenda cliccabile) — la
+  // scala dell'asse si ricalcola solo sui valori delle serie ancora
+  // visibili, così nascondere "Acquisti" fa anche ringrandire le barre di
+  // "Fatturato" invece di lasciarle piccole per uno spazio tarato su una
+  // serie che non si vede più.
+  function barChart(data, on){
+    on = on || { vend:true, acq:true, margin:true };
     if(!data.length) return '<div class="chart-empty">Nessuna fattura registrata. Il grafico si popola man mano che emetti fatture cliente e registri fatture fornitore.</div>';
     const gridColor = cssVar('--chart-grid'), axisColor = cssVar('--chart-axis'), labelColor = cssVar('--chart-label'), dotColor = cssVar('--chart-dot');
     const W = 760, H = 280, padL = 60, padR = 18, padT = 16, padB = 34;
     const plotW = W - padL - padR, plotH = H - padT - padB, base = padT + plotH;
-    const max = niceMax(Math.max(...data.flatMap(d => [d.vend, d.acq]), 1));
+    const scaleVals = [];
+    data.forEach(d => {
+      if(on.vend) scaleVals.push(d.vend);
+      if(on.acq) scaleVals.push(d.acq);
+      if(on.margin) scaleVals.push(Math.abs(d.vend - d.acq));
+    });
+    const max = niceMax(Math.max(...scaleVals, 1));
     const n = data.length, gw = plotW / n, bw = Math.min(36, gw * 0.30), gap = 6;
     const y = v => base - (v / max) * plotH;
     const fmt = val => val >= 1000 ? (val / 1000).toFixed(val % 1000 ? 1 : 0) + 'k' : Math.round(val);
@@ -253,23 +269,42 @@
     for(let i = 0; i <= 4; i++){ const val = max * i / 4, yy = base - (plotH * i / 4); g += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="${gridColor}"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end" fill="${axisColor}" font-size="10" font-family="monospace">${fmt(val)}</text>`; }
     data.forEach((d, i) => {
       const cx = padL + gw * i + gw / 2, x1 = cx - bw - gap / 2, x2 = cx + gap / 2;
-      g += `<rect class="cbar" style="animation-delay:${i * 30}ms" x="${x1}" y="${y(d.vend)}" width="${bw}" height="${base - y(d.vend)}" rx="3" fill="#0ea371"/>`;
-      g += `<rect class="cbar" style="animation-delay:${i * 30 + 15}ms" x="${x2}" y="${y(d.acq)}" width="${bw}" height="${base - y(d.acq)}" rx="3" fill="#7c5cd6"/>`;
+      if(on.vend) g += `<rect class="cbar" style="animation-delay:${i * 30}ms" x="${x1}" y="${y(d.vend)}" width="${bw}" height="${base - y(d.vend)}" rx="3" fill="#0ea371"/>`;
+      if(on.acq) g += `<rect class="cbar" style="animation-delay:${i * 30 + 15}ms" x="${x2}" y="${y(d.acq)}" width="${bw}" height="${base - y(d.acq)}" rx="3" fill="#7c5cd6"/>`;
       g += `<text x="${cx}" y="${base + 18}" text-anchor="middle" fill="${labelColor}" font-size="11">${d.label}</text>`;
       hits += `<rect class="hit" id="hit${i}" x="${padL + gw * i}" y="${padT}" width="${gw}" height="${plotH}" data-i="${i}" onmousemove="chartTip(event,${i})" onmouseleave="chartHide()" onclick="chartTip(event,${i})"/>`;
     });
-    const mY = i => Math.min(base, Math.max(padT, y(data[i].vend - data[i].acq)));
-    const mpts = data.map((d, i) => (padL + gw * i + gw / 2) + ',' + mY(i)).join(' ');
-    g += `<polyline fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${mpts}"/>`;
-    data.forEach((d, i) => { g += `<circle cx="${padL + gw * i + gw / 2}" cy="${mY(i)}" r="3.6" fill="${dotColor}" stroke="#f59e0b" stroke-width="2"/>`; });
+    if(on.margin){
+      const mY = i => Math.min(base, Math.max(padT, y(data[i].vend - data[i].acq)));
+      const mpts = data.map((d, i) => (padL + gw * i + gw / 2) + ',' + mY(i)).join(' ');
+      g += `<polyline fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${mpts}"/>`;
+      data.forEach((d, i) => { g += `<circle cx="${padL + gw * i + gw / 2}" cy="${mY(i)}" r="3.6" fill="${dotColor}" stroke="#f59e0b" stroke-width="2"/>`; });
+    }
     g += `<line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="${gridColor}"/>` + hits;
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" font-family="system-ui">${g}</svg>`;
   }
   function renderChart(){
     const data = buildMonthly();
     MONTHLY = data;
-    $('chart-wrap').innerHTML = barChart(data) + '<div class="chart-tip" id="chartTip"></div>';
+    $('chart-wrap').innerHTML = barChart(data, CHART_ON) + '<div class="chart-tip" id="chartTip"></div>';
   }
+  // Legenda cliccabile: un tocco su "Fatturato"/"Acquisti"/"Margine"
+  // include o esclude quella serie dal grafico (CHART_ON), invece di
+  // essere solo un'etichetta di colore. I bottoni sono fissi nell'HTML
+  // (non ridisegnati ad ogni renderChart), quindi i listener si agganciano
+  // una volta sola qui; solo lo stato "on"/"off" si aggiorna dopo il click.
+  function renderLegendState(){
+    document.querySelectorAll('#chart-legend .lg').forEach(btn => {
+      btn.classList.toggle('on', !!CHART_ON[btn.dataset.series]);
+    });
+  }
+  document.querySelectorAll('#chart-legend .lg').forEach(btn => {
+    btn.addEventListener('click', () => {
+      CHART_ON[btn.dataset.series] = !CHART_ON[btn.dataset.series];
+      renderLegendState();
+      renderChart();
+    });
+  });
   window.chartTip = function(e, i){
     const wrap = document.getElementById('chart-wrap'), tip = document.getElementById('chartTip'), d = MONTHLY[i];
     if(!wrap || !tip || !d) return;

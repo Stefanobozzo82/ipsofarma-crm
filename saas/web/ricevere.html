@@ -30,7 +30,7 @@
   <aside class="sidebar" id="sidebar"></aside>
   <main class="app-main">
     <div class="page-head">
-      <h2>Prodotti da ricevere dai fornitori</h2>
+      <h2 id="page-h2">Prodotti da ricevere dai fornitori</h2>
       <p class="sub">Elenco dettagliato di tutti i prodotti ordinati ai fornitori e non ancora ricevuti, per fornitore.</p>
       <button type="button" class="ghost" id="lista-ordini-btn" style="margin-top:10px">Lista ordini →</button>
     </div>
@@ -193,8 +193,16 @@
       return;
     }
     const fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
+    // Link "Da ricevere dai fornitori" dalla dashboard (ricevere.html?anno=2025):
+    // limita alle righe dei soli ordini fornitore datati in quell'anno,
+    // invece che a tutto il residuo aperto indipendentemente dall'anno.
+    const urlAnno = new URLSearchParams(location.search).get('anno');
+    if(urlAnno){
+      $('page-h2').innerHTML = `Prodotti da ricevere dai fornitori — ${esc(urlAnno)} <a href="ricevere.html" style="font-size:13px;font-weight:400;color:var(--muted)">(mostra tutti gli anni)</a>`;
+    }
     rows = [];
     ordiniFornitore.forEach(o => {
+      if(urlAnno && !(o.data || '').startsWith(urlAnno)) return;
       if(ordineCompleto(o)) return;
       (o.righe || []).forEach(r => {
         const res = Math.max(0, (r.qty || 0) - (r.qtyEv != null ? r.qtyEv : 0));

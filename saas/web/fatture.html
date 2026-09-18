@@ -1181,6 +1181,12 @@
     $('f-cliente').innerHTML = [...clienti].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
       .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 
+    // Link "Totale fatturato"/"Da incassare dai clienti" dalla dashboard
+    // (fatture.html?anno=2025): apre già filtrato Dal 1° gennaio Al 31
+    // dicembre di quell'anno, invece che su tutti gli anni.
+    const urlAnno = new URLSearchParams(location.search).get('anno');
+    if(urlAnno){ FFILT.from = `${urlAnno}-01-01`; FFILT.to = `${urlAnno}-12-31`; }
+
     await renderList();
 
     // Cascata: apertura diretta da "🧾 Fattura" in ddt.html, con cliente/

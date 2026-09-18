@@ -195,6 +195,12 @@
     }));
   }
 
+  // Porta l'anno selezionato nella pagina di destinazione di uno "stat"
+  // (es. fatture.html?anno=2025 da "Totale fatturato"), invece di aprirla
+  // sempre su tutti i documenti indipendentemente dall'anno scelto qui.
+  // "Tutti" (DASHY vuoto) non aggiunge nulla: la pagina si apre come oggi.
+  function withYear(href){ return DASHY ? `${href}?anno=${DASHY}` : href; }
+
   function renderDashboard(){
     renderAnni();
     const inY = f => !DASHY || (f.data || '').startsWith(DASHY);
@@ -214,14 +220,14 @@
     const of = daEvaderePer(DB.ordiniFornitore);
 
     $('stats-riga1').innerHTML =
-      stat('Totale fatturato', eur0(vendTot), fc.length + ' fatture cliente' + (nc.length ? ' − ' + nc.length + ' note di credito' : '') + ' · IVA incl.', 'var(--accent-d)', 'fatture.html') +
-      stat('Totale acquisti', eur0(acqTot), ff.length + ' fatture fornitore' + (ncf.length ? ' − ' + ncf.length + ' note di credito' : '') + ' · IVA incl.', 'var(--violet)', 'fatture-fornitore.html');
+      stat('Totale fatturato', eur0(vendTot), fc.length + ' fatture cliente' + (nc.length ? ' − ' + nc.length + ' note di credito' : '') + ' · IVA incl.', 'var(--accent-d)', withYear('fatture.html')) +
+      stat('Totale acquisti', eur0(acqTot), ff.length + ' fatture fornitore' + (ncf.length ? ' − ' + ncf.length + ' note di credito' : '') + ' · IVA incl.', 'var(--violet)', withYear('fatture-fornitore.html'));
     $('stats-riga2').innerHTML =
-      stat('Da incassare dai clienti', eur0(daInc), ftOpen.length + ' fatture cliente aperte', 'var(--amber)', 'fatture.html') +
-      stat('Da pagare ai fornitori', eur0(daPag), ftfOpen.length + ' fatture fornitore aperte', 'var(--red)', 'fatture-fornitore.html');
+      stat('Da incassare dai clienti', eur0(daInc), ftOpen.length + ' fatture cliente aperte', 'var(--amber)', withYear('fatture.html')) +
+      stat('Da pagare ai fornitori', eur0(daPag), ftfOpen.length + ' fatture fornitore aperte', 'var(--red)', withYear('fatture-fornitore.html'));
     $('stats-riga3').innerHTML =
-      stat('Prodotti da evadere', eur0(oc.importo), oc.n + ' ordin' + (oc.n === 1 ? 'e' : 'i') + ' aperti o parziali · IVA incl.', 'var(--blue)', 'evadere.html') +
-      stat('Da ricevere dai fornitori', eur0(of.importo), of.n + ' ordin' + (of.n === 1 ? 'e' : 'i') + ' fornitore aperti o parziali · IVA incl.', 'var(--violet)', 'ricevere.html');
+      stat('Prodotti da evadere', eur0(oc.importo), oc.n + ' ordin' + (oc.n === 1 ? 'e' : 'i') + ' aperti o parziali · IVA incl.', 'var(--blue)', withYear('evadere.html')) +
+      stat('Da ricevere dai fornitori', eur0(of.importo), of.n + ' ordin' + (of.n === 1 ? 'e' : 'i') + ' fornitore aperti o parziali · IVA incl.', 'var(--violet)', withYear('ricevere.html'));
 
     $('panel-title').textContent = 'Andamento mensile (IVA inclusa)' + (DASHY ? ' — ' + DASHY : '');
     renderChart();

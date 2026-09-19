@@ -1,13 +1,13 @@
 # AI quota and supplier receipt rollout
 
-Scope: migrations 0023 and 0028, their Edge/browser changes, and regression tests. This document describes implemented behavior, not an assertion that a remote deployment has been completed.
+Scope: migrations 0023, 0028 and 0031, their Edge/browser changes, and regression tests. This document describes implemented behavior, not an assertion that a remote deployment has been completed.
 
 ## Deploy and validate
 
-1. Use an isolated staging database with the full migration sequence through 0028. Run the migrations as their owner; preserve the existing role/RLS configuration. Do not copy production prompts, provider keys, invoices, or customer data into tests.
+1. Use an isolated staging database with the full migration sequence through 0031. Run the migrations as their owner; preserve the existing role/RLS configuration. Do not copy production prompts, provider keys, invoices, or customer data into tests.
 2. Coordinate the frontend and `ai-proxy` release: new requests require a UUID `request_id`. The store creates one per invocation; an explicit retry must reuse its original ID and identical payload. Old cached clients must reload. Deploy migration 0023 before enabling the new Edge code: the old Edge implementation cannot insert directly into the hardened ledger, so avoid a prolonged mixed-version interval.
 3. Set the existing server-only `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, and exact `EDGE_ALLOWED_ORIGINS`. Never expose the service key to the web app. Optional `AI_PROVIDER_TIMEOUT_MS` defaults to 60000 and is clamped to 1000–120000 milliseconds.
-4. Release the supplier store wrappers and supplier DDT page together with 0028. Older linked-DDT writes now fail with an instruction to use the transactional path. Smoke-test as admin, operator and viewer using staging fixtures, including two tenants.
+4. Release the supplier store wrappers and supplier DDT/invoice pages together with 0028 and 0031. Older linked-DDT writes now fail with an instruction to use the transactional path. Smoke-test as admin, operator and viewer using staging fixtures, including two tenants.
 5. Run `node --test --test-concurrency=1 tests/*.test.cjs` on Node 24+. PGlite exercises PostgreSQL permissions and transactions; its serialized connection is not a substitute for multi-connection contention tests in staging. Provider tests use mocks and send no real email or AI request.
 
 ## AI admission and failure policy
@@ -32,8 +32,8 @@ The page preserves source indexes through row reading and residual prefill, reus
 
 ## Remaining boundaries
 
-- New supplier DDTs without an order still use the existing standalone save path. Their optional invoice attachment remains a separate write. If it fails, the page explicitly reports that the DDT was saved and the invoice link needs verification; it does not pretend rollback or silently encourage another DDT. Standalone creation is not idempotent.
+- Since 0031, new supplier DDTs without an order use `create_standalone_supplier_ddt`. Creation, optional existing-invoice attachment and the replay ledger now commit atomically. Failure leaves no half-linked receipt. A repeated request ID returns the original result.
 - The legacy supplier order editor has no stable row identity. Orders with tracked receipts reject structural rewrites, including price/description edits through that old editor, to preserve safe reversal indexes. Existing monotonic manual completion remains supported; a dedicated order-edit RPC is a later step.
-- Cancellation is blocked for known invoiced receipts. The supplier invoice generation backend still needs its own full atomic lifecycle and server-side prohibition on attaching cancelled DDTs; the receipt page disables that action, which is not equivalent to a database constraint.
+- Since 0031, `create_supplier_invoice` atomically creates one full-DDT invoice, updates both links and the real `ordini_fornitore.ftf_ids` column, without changing received quantities. It rejects cancelled or already-invoiced DDTs, stale snapshots, duplicate billing and partial/overbilling. Direct linked-invoice creation/relinking, quantity edits and deletion are blocked. Invoice cancellation/credit-note lifecycle and invoices covering several DDTs remain outside this tranche. New invoices without a DDT retain the standalone save path.
 - Replay responses are the original operation result. They are not a fresh read of later unrelated document changes. After replay, refresh current documents before further edits.
 - No historical fulfillment rebuild, inventory reconciliation, stock allocation, production migration, or provider billing change is performed by this tranche.

@@ -157,10 +157,28 @@ La migrazione `0030` è applicata: cast espliciti e conteggio statico conservano
 
 ### Limiti e lavoro residuo
 
-Restano da completare o collaudare: storni/note di credito e registrazione degli eventi di pagamento; creazione delle fatture fornitore e percorsi autonomi con più scritture; riconciliazione dei documenti storici ambigui; outbox e retry dei messaggi/solleciti. La presenza di una RPC sicura non rende atomici i percorsi non ancora migrati.
+Aggiornamento fase 5: implementati localmente fatturazione fornitore e collegamento DDT autonomi atomici, registro operazioni pagamento, sincronizzazione del saldo con le note di credito e salvataggio ottimistico ordini fornitore (0031–0033). Vedere ACCOUNTING_ROLLOUT.md per contratti, prove e distribuzione da confermare. Restano da completare o collaudare il ciclo completo storni/rimborsi, allocazioni delle note credito legacy multiple, riconciliazione dei documenti storici ambigui e outbox/retry dei messaggi. Le sezioni degli incrementi precedenti riportano evidenze storiche, non lo stato corrente globale.
 
 Per Stripe restano gli eventi con lo stesso secondo temporale, la riconciliazione con lo stato remoto e più checkout con chiavi diverse. Per IA gli esiti incerti restano consumati; una nuova chiave identifica un nuovo tentativo, potenzialmente a pagamento. Le chiavi automatiche client persistono nella pagina, non sono una coda durevole dopo ricaricamento.
 
 Non sono stati completati il collaudo completo browser/mobile, il restore di un backup, le prove reali dei provider, il controllo operativo completo del monitoraggio e la matrice di tutte le gare concorrenti. In particolare, la combinazione dei lock quota/documenti richiede stress test e gestione dei rollback da deadlock; un abort PostgreSQL conserva l'atomicità ma non garantisce la disponibilità di ogni tentativo.
 
 La configurazione pubblica `staging.config.json` e `scripts/staging-preview.cjs` consentono la revisione del frontend sul backend isolato, senza riscrivere gli HTML di produzione. Vedere `STAGING_RUNBOOK.md`. Questo incremento non dichiara conclusa l'intera missione né il sistema pronto alla produzione.
+
+## Evidenze aggiornate — fase 5, 19 settembre 2026
+
+Questo paragrafo sostituisce i precedenti conteggi e i limiti browser degli incrementi storici. Suite locale completa: **413 test superati**, zero fallimenti (`outputs/validation-phase5.txt` nel workspace). In staging sono applicate le migrazioni **0031–0033**, per un totale di **33**; smoke HTTP Auth/PostgREST ed Edge: **44 asserzioni superate** (`outputs/staging-http-phase5.txt`). Successivamente applicata anche **0034**, per un totale corrente di **34 migrazioni**: lint remoto senza errori o avvisi, smoke HTTP ripetuto con 44 asserzioni superate e dry-run aggiornato senza migrazioni pendenti. I 413 test completi sono riferiti allo schema 33; ulteriori 32 test mirati sono superati sullo schema 34 e non vengono sommati al totale, perché ripetono copertura esistente.
+
+Percorso nel browser reale: accesso con account sintetico, selezione azienda, ordine di 10 pezzi, DDT parziale di 3 pezzi al prezzo di 10 euro con IVA 0%, fattura da 30 euro, incasso parziale di 10 euro e saldo del residuo di 20 euro, fino al 100%. Il difetto che sostituiva IVA 0 con l'aliquota predefinita è stato osservato prima della correzione e verificato corretto dopo.
+
+Nel viewport mobile di 390 pixel, le schermate pagamenti e collegamenti documentali risultano leggibili; misura DOM `documentWidth = clientWidth = 375`, senza overflow orizzontale del documento. È una verifica di viewport nel browser, non un collaudo completo su dispositivo mobile o di tutti i percorsi E2E. Le fixture browser sono state rimosse con SQL limitato agli identificativi di prova e la pulizia è stata verificata.
+
+Restano da collaudare provider reali, restore e tutte le gare concorrenti. Restano da completare outbox durevole, riconciliazione dello storico ambiguo e allocazioni delle note credito legacy multiple, ciclo completo storni/rimborsi e integrazioni fiscali. Il saldo manuale non prova un incasso bancario. Queste evidenze non dichiarano il prodotto commercialmente completo o pronto alla produzione.
+
+## Stato corrente — chiusura core contabile, schema 37
+
+Applicate in staging anche le migrazioni **0035–0037**, per **37 migrazioni totali**, con lint remoto senza errori o avvisi. Il ciclo atomico NC/NCF e il completamento manuale ordini con audit sono implementati: non sono più lacune aperte. Il completamento manuale è amministrativo, richiede motivo e snapshot, non prova consegna fisica e non genera movimenti magazzino. La 0037 impedisce rinumerazioni che spezzerebbero riferimenti legacy nelle note di credito.
+
+Validazione finale sullo schema 37: **453/453 test della suite completa superati** in circa 94 secondi; **71/71 asserzioni HTTP superate**, pulizia fixture verificata e lint remoto senza errori o avvisi. I risultati precedenti rimangono evidenze storiche nei paragrafi sopra.
+
+Restano aperti: account/credenziali e collaudo provider (risposta utente ancora mancante), backup e restore provato, stress delle gare concorrenti, copertura mobile/dispositivi estesa, riconciliazione dello storico ambiguo, outbox email durevole e casi Stripe con eventi nello stesso secondo o checkout distinti per lo stesso piano/piani diversi. Non viene dichiarata prontezza commerciale o produzione.

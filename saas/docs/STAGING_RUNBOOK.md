@@ -60,6 +60,24 @@ Le RPC devono annullare insieme documento, quantità, numero e registro in caso 
 
 Per IA un esito ignoto rimane conteggiato e il replay HTTP 409 non ripete la richiesta esterna. Una nuova chiave identifica un nuovo tentativo potenzialmente a pagamento. Per Stripe restano da trattare eventi nello stesso secondo, riconciliazione remota e checkout distinti con chiavi diverse.
 
-Restano incompleti o non collaudati: note di credito/storni ed eventi pagamento; creazione fatture fornitore e percorsi autonomi con più scritture; riconciliazione dello storico ambiguo; browser/mobile completi; provider reali; osservabilità completa e restore. Gli abort da deadlock conservano l'atomicità ma richiedono gestione dei retry e ulteriori prove di contesa.
+La fase 5 implementa localmente fatturazione fornitore atomica, collegamento dei DDT autonomi, movimenti pagamento e sincronizzazione note di credito (migrazioni 0031–0033; vedere ACCOUNTING_ROLLOUT.md). La distribuzione e le relative evidenze vanno registrate prima di considerarle disponibili in staging. Restano incompleti o non collaudati: riconciliazione dello storico ambiguo e allocazione delle note credito legacy multiple; ciclo completo storni/rimborsi; outbox messaggi; browser/mobile completi; provider reali; osservabilità completa e restore. Gli abort da deadlock conservano l'atomicità ma richiedono gestione dei retry e ulteriori prove di contesa.
 
 Il piano Free non dimostra disponibilità di backup automatici o PITR. Prima del rilascio definire backup e ripristino compatibili con il piano, includendo dati, schema, storage e configurazione, e provarli su ambiente separato: **restore non ancora eseguito**. Non adottare downgrade SQL distruttivi come rollback automatico.
+
+## Evidenze aggiornate — fase 5, 19 settembre 2026
+
+Questo paragrafo sostituisce i precedenti conteggi e i limiti browser degli incrementi storici. Suite locale completa: **413 test superati**, zero fallimenti (`outputs/validation-phase5.txt` nel workspace). In staging sono applicate le migrazioni **0031–0033**, per un totale di **33**; smoke HTTP Auth/PostgREST ed Edge: **44 asserzioni superate** (`outputs/staging-http-phase5.txt`). Successivamente applicata anche **0034**, per un totale corrente di **34 migrazioni**: lint remoto senza errori o avvisi, smoke HTTP ripetuto con 44 asserzioni superate e dry-run aggiornato senza migrazioni pendenti. I 413 test completi sono riferiti allo schema 33; ulteriori 32 test mirati sono superati sullo schema 34 e non vengono sommati al totale, perché ripetono copertura esistente.
+
+Percorso nel browser reale: accesso con account sintetico, selezione azienda, ordine di 10 pezzi, DDT parziale di 3 pezzi al prezzo di 10 euro con IVA 0%, fattura da 30 euro, incasso parziale di 10 euro e saldo del residuo di 20 euro, fino al 100%. Il difetto che sostituiva IVA 0 con l'aliquota predefinita è stato osservato prima della correzione e verificato corretto dopo.
+
+Nel viewport mobile di 390 pixel, le schermate pagamenti e collegamenti documentali risultano leggibili; misura DOM `documentWidth = clientWidth = 375`, senza overflow orizzontale del documento. È una verifica di viewport nel browser, non un collaudo completo su dispositivo mobile o di tutti i percorsi E2E. Le fixture browser sono state rimosse con SQL limitato agli identificativi di prova e la pulizia è stata verificata.
+
+Restano da collaudare provider reali, restore e tutte le gare concorrenti. Restano da completare outbox durevole, riconciliazione dello storico ambiguo e allocazioni delle note credito legacy multiple, ciclo completo storni/rimborsi e integrazioni fiscali. Il saldo manuale non prova un incasso bancario. Queste evidenze non dichiarano il prodotto commercialmente completo o pronto alla produzione.
+
+## Stato corrente — chiusura core contabile, schema 37
+
+Applicate in staging anche le migrazioni **0035–0037**, per **37 migrazioni totali**, con lint remoto senza errori o avvisi. Il ciclo atomico NC/NCF e il completamento manuale ordini con audit sono implementati: non sono più lacune aperte. Il completamento manuale è amministrativo, richiede motivo e snapshot, non prova consegna fisica e non genera movimenti magazzino. La 0037 impedisce rinumerazioni che spezzerebbero riferimenti legacy nelle note di credito.
+
+Validazione finale sullo schema 37: **453/453 test della suite completa superati** in circa 94 secondi; **71/71 asserzioni HTTP superate**, pulizia fixture verificata e lint remoto senza errori o avvisi. I risultati precedenti rimangono evidenze storiche nei paragrafi sopra.
+
+Restano aperti: account/credenziali e collaudo provider (risposta utente ancora mancante), backup e restore provato, stress delle gare concorrenti, copertura mobile/dispositivi estesa, riconciliazione dello storico ambiguo, outbox email durevole e casi Stripe con eventi nello stesso secondo o checkout distinti per lo stesso piano/piani diversi. Non viene dichiarata prontezza commerciale o produzione.

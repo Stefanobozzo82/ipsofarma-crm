@@ -1,0 +1,15 @@
+{
+  // Worker Cloudflare dedicato a Fungiaro, separato da "ipsofarma-crm" così
+  // ottiene il proprio sottodominio gratuito: fungiaro.<account>.workers.dev
+  // invece di un percorso dentro il worker del gestionale.
+  "name": "fungiaro",
+  "compatibility_date": "2026-09-02",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "public"
+  }
+}

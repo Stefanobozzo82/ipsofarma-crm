@@ -210,19 +210,16 @@
   // ddt.html per farlo rivedere prima, un'esperienza diversa apposta per
   // un umano). Ritorna {ddt, ordine} o null se non c'è nulla da consegnare.
   async function creaDDTDaResiduo(store, companyId, ordine) {
-    const residuo = residuoRighe(ordine).filter(r => r.residuo > 0);
+    const residuo = residuoRighe(ordine).map((r, source_order_index) => ({ ...r, source_order_index })).filter(r => r.residuo > 0);
     if (!residuo.length) return null;
-    const righeBase = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo, prezzo: r.prezzo, sconto: r.sconto, iva: r.iva }));
+    const righeBase = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo, prezzo: r.prezzo, sconto: r.sconto, iva: r.iva, source_order_index: r.source_order_index }));
     const righe = await righeConLotti(store, companyId, ordine, righeBase);
-    const anno = Number((ordine.data || today()).slice(0, 4)) || Number(today().slice(0, 4));
-    const num = await store.nextNumber(companyId, 'DDT', anno);
     // destId: la destinazione scelta sull'ordine si propaga da sola al DDT
     // — come nel vecchio gestionale (aiGenDDT(): "destId: oc.destId||null"),
     // non va ripetuta a mano ad ogni documento della cascata.
-    const ddt = await store.saveDoc('ddt', { num, data: today(), clienteId: ordine.clienteId, ocId: ordine.id, destId: ordine.destId || null, righe }, companyId);
-    const ordineAgg = applicaConsegna(ordine, righe, ddt.num);
-    await store.saveDoc('ordiniCliente', ordineAgg, companyId);
-    return { ddt, ordine: ordineAgg };
+    return store.createCustomerDdt(companyId, ordine, {
+      data: today(), clienteId: ordine.clienteId, destId: ordine.destId || null, righe,
+    });
   }
 
   // Genera la fattura di OGNI DDT dell'ordine non ancora fatturato — porta

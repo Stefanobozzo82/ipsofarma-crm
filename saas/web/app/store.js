@@ -679,10 +679,32 @@
     if (error) throw error;
   }
 
+  // Keep the identity across a network retry, including a lost successful
+  // response. A changed document/order snapshot is a new operation.
+  const customerDdtRequests = new Map();
+  async function createCustomerDdt(companyId, order, doc, requestId) {
+    const payload = {
+      p_company_id: companyId, p_order_id: order.id,
+      p_expected_rows: order.righe,
+      p_document: { data: doc.data, num: doc.num || null, cliente_id: doc.clienteId,
+        dest_id: doc.destId || null, righe: doc.righe },
+    };
+    if (!requestId) {
+      const key = JSON.stringify(payload);
+      if (!customerDdtRequests.has(key)) customerDdtRequests.set(key, global.crypto.randomUUID());
+      requestId = customerDdtRequests.get(key);
+    }
+    const { data, error } = await client().rpc('create_customer_ddt', {
+      ...payload, p_request_id: requestId,
+    });
+    if (error) throw error;
+    return { ddt: rowToDoc('ddt', data.ddt), ordine: rowToDoc('ordiniCliente', data.ordine) };
+  }
+
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    peekNumber, bumpCounterPast,
+    peekNumber, bumpCounterPast, createCustomerDdt,
     getCompany, loadPlans, startCheckout, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,

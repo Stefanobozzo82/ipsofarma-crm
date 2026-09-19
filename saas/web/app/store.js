@@ -365,8 +365,10 @@
   }
 
   async function listMovimentiRecenti(companyId, limit) {
+    // 0018 adds composite tenant FKs alongside the original relationships.
+    // Explicit original FK hints work both before and after that migration.
     const { data, error } = await client().from('movimenti_magazzino')
-      .select('*, prodotti(cod, descr), depositi(nome)')
+      .select('*, prodotti!movimenti_magazzino_prodotto_id_fkey(cod, descr), depositi!movimenti_magazzino_deposito_id_fkey(nome)')
       .eq('company_id', companyId).order('created_at', { ascending: false }).limit(limit || 20);
     if (error) throw error;
     return data;

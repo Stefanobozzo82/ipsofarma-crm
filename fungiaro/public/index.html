@@ -103,10 +103,28 @@ button, select, input{font-family:inherit; font-size:14px}
 #legend .row{ display:flex; align-items:center; gap:6px; margin:2px 0; }
 #legend .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid rgba(0,0,0,.2); }
 
-/* Avviso legale */
+/* Avviso legale: espanso di default, richiudibile a icona (resta comunque
+   raggiungibile con un tocco: non va tolto del tutto, solo fuori dai piedi) */
 #disclaimer{
   position:absolute; bottom:10px; right:10px; z-index:1000; max-width:340px;
   font-size:11.5px; color:var(--muted); line-height:1.4;
+}
+#disclaimerFull{ position:relative; padding-right:16px; }
+#disclaimerClose{
+  position:absolute; top:-4px; right:-4px; background:none; border:none;
+  font-size:15px; line-height:1; color:var(--muted); cursor:pointer; padding:4px;
+}
+#disclaimerBadge{ display:none; }
+#disclaimer.collapsed{
+  background:none; border:none; box-shadow:none; padding:0;
+  max-width:none; width:auto; left:auto !important; right:10px;
+}
+#disclaimer.collapsed #disclaimerFull{ display:none; }
+#disclaimer.collapsed #disclaimerBadge{
+  display:flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:50%; font-size:16px;
+  background:var(--surface); border:1px solid var(--border);
+  box-shadow:var(--shadow); cursor:pointer; margin-left:auto;
 }
 
 /* Pannello dettaglio (bottom sheet su mobile, laterale su desktop) */
@@ -156,7 +174,8 @@ canvas#chartCanvas{ width:100%; height:150px; background:var(--surface2); border
   }
   #panel.open{ transform:translateY(0); }
   #daySliderBox input[type=range]{ width:80px; }
-  #disclaimer{ max-width:200px; font-size:10.5px; bottom:auto; top:56px; right:6px; left:6px; max-width:none; text-align:right; }
+  #disclaimer{ font-size:10.5px; bottom:auto; top:56px; right:6px; left:6px; max-width:none; text-align:right; }
+  #disclaimer.collapsed{ left:auto; text-align:left; }
   #legend{ bottom:6px; }
 }
 
@@ -201,7 +220,11 @@ canvas#chartCanvas{ width:100%; height:150px; background:var(--surface2); border
   </div>
 
   <div id="disclaimer" class="panel-box">
-    ⚠️ Le stime sono <b>indicative</b> e basate solo su dati meteo. Non consumare mai funghi raccolti senza il controllo dell'Ispettorato Micologico dell'ASL. Rispetta le normative regionali su permessi, quantità e periodi di raccolta.
+    <div id="disclaimerFull">
+      <button id="disclaimerClose" aria-label="Nascondi avviso" title="Nascondi (resta valido: leggi le regole prima di raccogliere)">✕</button>
+      ⚠️ Le stime sono <b>indicative</b> e basate solo su dati meteo. Non consumare mai funghi raccolti senza il controllo dell'Ispettorato Micologico dell'ASL. Rispetta le normative regionali su permessi, quantità e periodi di raccolta.
+    </div>
+    <button id="disclaimerBadge" aria-label="Mostra avviso sicurezza" title="Avviso sicurezza">⚠️</button>
   </div>
 
   <!-- Pannello di dettaglio -->
@@ -1393,7 +1416,28 @@ function geolocalizzaUtente(){
 /* ============================================================================
    EVENTI UI
    ============================================================================ */
+// Avviso legale: richiudibile a icona, con lo stato ricordato tra le
+// sessioni. Non lo si nasconde mai del tutto (resta un tocco per riaprirlo).
+function initDisclaimer(){
+  const box = document.getElementById('disclaimer');
+  const CHIAVE = 'fungiaro_disclaimer_chiuso';
+  let chiuso = false;
+  try{ chiuso = localStorage.getItem(CHIAVE) === '1'; }catch(e){}
+  box.classList.toggle('collapsed', chiuso);
+
+  document.getElementById('disclaimerClose').addEventListener('click', () => {
+    box.classList.add('collapsed');
+    try{ localStorage.setItem(CHIAVE, '1'); }catch(e){}
+  });
+  document.getElementById('disclaimerBadge').addEventListener('click', () => {
+    box.classList.remove('collapsed');
+    try{ localStorage.setItem(CHIAVE, '0'); }catch(e){}
+  });
+}
+
 function initUI(){
+  initDisclaimer();
+
   // Popola filtro specie
   const select = document.getElementById('speciesFilter');
   Object.entries(SPECIE).forEach(([id, s]) => {

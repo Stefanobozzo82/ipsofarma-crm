@@ -404,13 +404,14 @@
   // passa sempre dall'Edge Function send-email — dove la chiave vive come
   // secret del progetto.
   // ---------------------------------------------------------------------------
-  async function sendEmail(payload) {
+  async function sendEmail(payload, companyId) {
+    if (!companyId) throw new Error('companyId mancante per invio email');
     const session = await getSession();
     if (!session) throw new Error('devi essere collegato');
     const res = await fetch(global.SUPABASE_URL + '/functions/v1/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, company_id: companyId }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || ('errore HTTP ' + res.status));

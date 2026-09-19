@@ -229,21 +229,18 @@
   // (un DDT alla volta, con revisione prima di salvare). Ritorna
   // {fatture, ordine} — fatture è un array, può essere vuoto.
   async function creaFattureDaOrdine(store, companyId, ordine, tuttiDdt) {
-    const ddtOrdine = (tuttiDdt || []).filter(d => d.ocId === ordine.id && !d.ftId);
+    const ddtOrdine = (tuttiDdt || []).filter(d => d.ocId === ordine.id && !d.ftId && !d.annullato);
     const fatture = [];
     let ordineCorrente = ordine;
     for (const ddt of ddtOrdine) {
-      const anno = Number((ddt.data || today()).slice(0, 4)) || Number(today().slice(0, 4));
-      const num = await store.nextNumber(companyId, 'FT', anno);
-      const ft = await store.saveDoc('fattureCliente', {
-        num, data: today(), clienteId: ddt.clienteId, ddtId: ddt.id, ocId: ordine.id,
-        destId: ddt.destId || null, righe: ddt.righe, paid: false, paidDate: null, pagamenti: [],
-      }, companyId);
-      await store.saveDoc('ddt', Object.assign({}, ddt, { ftId: ft.num }), companyId);
-      ordineCorrente = applicaFatturazione(ordineCorrente, ft.num);
-      fatture.push(ft);
+      const result = await store.createCustomerInvoice(companyId, ddt, {
+        data: today(), clienteId: ddt.clienteId, ddtId: ddt.id, ocId: ordine.id,
+        destId: ddt.destId || null,
+        righe: (ddt.righe || []).map((r, source_ddt_index) => ({ ...r, source_ddt_index })),
+      });
+      ordineCorrente = result.ordine || ordineCorrente;
+      fatture.push(result.fattura);
     }
-    if (fatture.length) await store.saveDoc('ordiniCliente', ordineCorrente, companyId);
     return { fatture, ordine: ordineCorrente };
   }
 

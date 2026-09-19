@@ -807,16 +807,24 @@
   async function resolveGenerateInvoice(a){
     const ordine = findOrdine(a.order);
     if(!ordine) return { desc: `Ordine non trovato: "${esc(a.order || '?')}".`, apply: null };
-    const daFatturare = (DB.ddt || []).filter(d => d.ocId === ordine.id && !d.ftId);
+    const orderId = ordine.id;
+    const orderNum = ordine.num;
+    const daFatturare = (DB.ddt || []).filter(d => d.ocId === orderId && !d.ftId && !d.annullato);
     const desc = `Genera la fattura dei DDT dell'ordine <b>${esc(ordine.num)}</b> non ancora fatturati` + (daFatturare.length
       ? `<ul class="ai-plan-sub">${daFatturare.map(d => `<li>${esc(d.num)}</li>`).join('')}</ul>`
-      : ' — <span class="ai-plan-warn">nessun DDT da fatturare</span>');
+      : ' — i DDT disponibili saranno verificati dopo le azioni precedenti');
     return {
       desc,
-      apply: daFatturare.length ? async () => {
-        const { fatture } = await window.SaasCascade.creaFattureDaOrdine(store, companyId, ordine, DB.ddt);
-        return fatture.length ? 'Fattura/e ' + fatture.map(f => f.num).join(', ') + ' generata/e' : 'Nessun DDT da fatturare per ' + ordine.num;
-      } : null,
+      apply: async () => {
+        // A preceding action may just have created this order's DDT. Resolve
+        // fresh documents at execution, retaining the exact selected order ID.
+        const currentDdt = await store.loadCollection('ddt', companyId);
+        const eligible = currentDdt.filter(d => d.ocId === orderId && !d.ftId && !d.annullato);
+        if(!eligible.length) throw new Error('Nessun DDT non annullato da fatturare per ' + orderNum);
+        const { fatture } = await window.SaasCascade.creaFattureDaOrdine(store, companyId, { ...ordine, id: orderId }, eligible);
+        if(!fatture.length) throw new Error('Nessuna fattura creata per ' + orderNum);
+        return 'Fattura/e ' + fatture.map(f => f.num).join(', ') + ' generata/e';
+      },
     };
   }
   // Nessuna anteprima dettagliata qui (a differenza di create_order/
@@ -932,13 +940,15 @@ Data odierna: ${today()}.`;
     $('action-confirm').disabled = true;
     $('action-confirm').textContent = '…';
     const results = [];
+    let hasErrors = false;
     for(const r of ACTION_PLAN){
       if(!r.apply) continue;
       try{ results.push(await r.apply()); }
-      catch(e){ results.push('Errore: ' + (e.message || e)); }
+      catch(e){ hasErrors = true; results.push('Errore: ' + (e.message || e)); }
     }
-    await loadDB(); // la chat e la ricerca mirata vedono subito i dati aggiornati
-    actionSetOut(`<div class="ai-plan done"><div class="ai-plan-expl">✓ Operazione completata</div>
+    try{ await loadDB(); } // la chat e la ricerca mirata vedono subito i dati aggiornati
+    catch(e){ hasErrors = true; results.push('Aggiornamento dati non riuscito: ' + (e.message || e)); }
+    actionSetOut(`<div class="ai-plan done"><div class="ai-plan-expl">${hasErrors ? 'Operazioni terminate con errori' : '✓ Operazione completata'}</div>
       <ul class="ai-plan-list">${results.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);
     $('action-q').value = '';
   }

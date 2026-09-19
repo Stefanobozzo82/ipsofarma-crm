@@ -120,3 +120,19 @@ test('quota failure or rejection cannot leave the form disabled or write a DDT',
     assert.equal(f.messages.at(-1)[1],'error');
   }
 });
+
+test('existing DDT uses atomic correction and updates the order cache only on success',async()=>{
+  const f=fixture();
+  f.context.editingId='existing'; f.context.editingDdt={id:'existing',num:'DDT/2026/0001',ftId:null};
+  f.context.store.changeCustomerDdt=async(...args)=>{f.calls.push(['change',clone(args)]);return f.result;};
+  await f.click();
+  assert.deepEqual(f.calls.map(c=>c[0]),['change','renderList','closeForm']);
+  assert.equal(f.calls[0][1][3],'update'); assert.equal(f.context.allOrdiniById.order,f.result.ordine);
+});
+test('failed DDT correction retains cached state with no direct save fallback',async()=>{
+  const f=fixture(); f.context.editingId='existing'; f.context.editingDdt={id:'existing',num:'DDT/2026/0001'};
+  f.context.store.changeCustomerDdt=async()=>{throw Error('DDT modificato: ricaricare');};
+  await f.click(); assert.equal(f.calls.length,0);
+  assert.equal(f.context.allOrdiniById.order,f.originalOrder);
+  assert.match(f.messages.at(-1)[0],/ricaricare/);
+});

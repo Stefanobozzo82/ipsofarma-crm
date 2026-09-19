@@ -150,6 +150,11 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let pendingReceipt = null;
+  function receiptRequest(key){
+    if(!pendingReceipt || pendingReceipt.key !== key) pendingReceipt = { key, id: crypto.randomUUID() };
+    return pendingReceipt.id;
+  }
   let editingDdtf = null; // il DDT fornitore in modifica, per non perdere ftfId (extra) al salvataggio — vedi f-save
   let fornitoriById = {};
   let fornitoriArr = [];
@@ -255,6 +260,7 @@
   }
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
+    if(r && Number.isInteger(r.source_order_index)) $('righe-body').lastElementChild.dataset.sourceOrderIndex = r.source_order_index;
     bindRigaRow($('righe-body').lastElementChild);
   }
   // Riordino righe per trascinamento — vedi la stessa idea in ordini.html.
@@ -295,6 +301,7 @@
   // commento in cima al file.
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      ...(tr.dataset.sourceOrderIndex !== undefined ? { source_order_index: Number(tr.dataset.sourceOrderIndex) } : {}),
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
       lotto: tr.querySelector('.r-lotto').value.trim(),
@@ -356,18 +363,20 @@
   // documento a fare da fonte per tutti gli altri. Niente prezzo/sconto/
   // iva: restano un dato dell'ordine, non di questo documento.
   $('f-ordine').addEventListener('change', () => {
+    $('righe-body').querySelectorAll('tr').forEach(tr => delete tr.dataset.sourceOrderIndex);
     const righeVuote = readRighe().length === 0;
     const ordine = allOrdiniFornitoreById[$('f-ordine').value];
     if(ordine && righeVuote){
       $('righe-body').innerHTML = '';
-      const residuo = window.SaasCascade.residuoRighe(ordine)
+      const residuo = window.SaasCascade.residuoRighe(ordine).map((r,i) => ({...r, source_order_index:i}))
         .filter(r => r.residuo > 0)
-        .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo }));
+        .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo, source_order_index:r.source_order_index }));
       (residuo.length ? residuo : [null]).forEach(addRigaRow);
     }
   });
 
   async function openForm(ddtf){
+    pendingReceipt = null;
     editingId = ddtf ? ddtf.id : null;
     editingDdtf = ddtf;
     $('form-title').textContent = ddtf ? `Modifica ${ddtf.num}` : 'Nuovo DDT fornitore';
@@ -397,7 +406,7 @@
       ftBox.hidden = false;
       const ftBtn = $('ddtf-btn-ft');
       ftBtn.textContent = ddtf.ftfId ? '✓ Fatturato' : '→ Genera fattura fornitore';
-      ftBtn.disabled = !!ddtf.ftfId;
+      ftBtn.disabled = !!ddtf.ftfId || !!ddtf.annullato;
       ftBtn.className = ddtf.ftfId ? 'ghost' : 'primary';
     }else{
       ftBox.hidden = true;
@@ -582,6 +591,7 @@
 
     $('f-save').disabled = true;
     setMsg('', '');
+    let partialLinkWarning = '';
     try{
       // Si parte dal DDT esistente (se in modifica) invece che da un
       // oggetto vuoto: senza questo, salvare una modifica cancellerebbe
@@ -600,28 +610,36 @@
       const fatturaObj = fatturaId ? allFattureFornitoreById[fatturaId] : null;
       const linkingFattura = !!(fatturaObj && (!editingDdtf || !editingDdtf.ftfId));
       if(fatturaObj) doc.ftfId = fatturaObj.num; // stesso campo, stesso formato (NUM) di "→ Genera fattura fornitore"
-      const saved = await store.saveDoc('ddtFornitore', doc, companyId);
-      // Cascata: un DDT fornitore NUOVO collegato a un ordine scala il
-      // residuo dell'ordine (qtyEv) e ne registra il numero — solo alla
-      // creazione (vedi la nota in ordini.html sopra residuoRighe()). Un
-      // errore qui non deve far sembrare fallito il salvataggio del DDT,
-      // già andato a buon fine.
+      let saved;
       if(isNew && ofId){
-        try{
-          const of = allOrdiniFornitoreById[ofId];
-          if(of){
-            const ofAgg = window.SaasCascade.applicaRicezione(of, righe, saved.num);
-            await store.saveDoc('ordiniFornitore', ofAgg, companyId);
-            allOrdiniFornitoreById[ofId] = ofAgg;
-          }
-        }catch(e){ /* il DDT è comunque salvato */ }
+        const order = allOrdiniFornitoreById[ofId];
+        if(!order) throw new Error('Ordine non disponibile: ricarica la pagina.');
+        const receiptDoc = Object.assign({}, doc, { fatturaId });
+        const key = JSON.stringify({ action:'create', order, doc:receiptDoc });
+        const result = await store.createSupplierDdt(companyId, order, receiptDoc, receiptRequest(key));
+        saved = result.ddt;
+        allOrdiniFornitoreById[ofId] = result.ordine;
+        if(result.fattura){
+          allFattureFornitoreById[result.fattura.id] = result.fattura;
+          const list = fattureFornitorePerFornitore[result.fattura.fornitoreId] || [];
+          const at = list.findIndex(f => f.id === result.fattura.id);
+          if(at >= 0) list[at] = result.fattura;
+        }
+      }else if(editingId){
+        if(linkingFattura) throw new Error('Collega la fattura dalla pagina Fatture fornitore.');
+        const key = JSON.stringify({ action:'update', expected:editingDdtf, doc });
+        const result = await store.changeSupplierDdt(companyId, editingDdtf, doc, 'update', '', receiptRequest(key));
+        saved = result.ddt;
+        if(result.ordine) allOrdiniFornitoreById[result.ordine.id] = result.ordine;
+      }else{
+        saved = await store.saveDoc('ddtFornitore', doc, companyId);
       }
       // L'ALTRO lato del collegamento: la fattura scelta sopra deve sapere
       // a sua volta di questo DDT (ddtfId, come sceglierlo a mano da
       // fatture-fornitore.html/f-ddtf) — senza questo passo il DDT
       // risulterebbe "fatturato" ma la fattura non "da DDT", e il box
       // "Documenti collegati" non risalirebbe la filiera.
-      if(linkingFattura){
+      if(linkingFattura && isNew && !ofId){
         try{
           const fatturaAgg = Object.assign({}, fatturaObj, { ddtfId: saved.id });
           await store.saveDoc('fattureFornitore', fatturaAgg, companyId);
@@ -633,7 +651,9 @@
           // torna su questa pagina da capo.
           const arr = fattureFornitorePerFornitore[fatturaObj.fornitoreId];
           if(arr){ const idx = arr.findIndex(f => f.id === fatturaObj.id); if(idx >= 0) arr[idx] = fatturaAgg; }
-        }catch(e){ /* il DDT è comunque salvato, collegabile a mano da fatture-fornitore.html se questo fallisce */ }
+        }catch(e){
+          partialLinkWarning = 'DDT salvato, ma il collegamento alla fattura non è completo. Verificalo in Fatture fornitore prima di proseguire; non creare un secondo DDT.';
+        }
       }
       // Un DDT fornitore appena creato resta aperto (invece di tornare
       // all'elenco) — stessa richiesta reale già risolta in ddt.html:
@@ -646,6 +666,7 @@
       await renderList();
       if(isNew) await openForm(saved);
       else closeForm();
+      if(partialLinkWarning) setMsg(partialLinkWarning, 'error');
     }catch(err){
       const dup = err && err.code === '23505';
       setMsg(dup ? 'Esiste già un DDT fornitore con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
@@ -689,14 +710,14 @@
       </tr></thead><tbody>${elenco.map(d => `
         <tr class="row-click" data-id="${d.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${d.id}" ${PICK.has(d.id) ? 'checked' : ''}></td>
-          <td class="num-col">${esc(d.num)}</td>
+          <td class="num-col">${esc(d.num)}${d.annullato ? ' · Annullato' : ''}</td>
           <td>${d.data ? new Date(d.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((fornitoriById[d.fornitoreId] || {}).nome) || '(fornitore non trovato)'}</td>
           <td>${d.ofId ? `<span class="badge">${esc((allOrdiniFornitoreById[d.ofId] || {}).num || '?')}</span>` : '—'}</td>
           <td class="actions">${PICK.has(d.id) ? `
-            ${!d.ftfId ? `<button data-gen-ft="${d.id}" title="Genera la fattura fornitore da questo DDT">📑 Fattura</button>` : ''}
+            ${!d.ftfId && !d.annullato ? `<button data-gen-ft="${d.id}" title="Genera la fattura fornitore da questo DDT">📑 Fattura</button>` : ''}
             <button data-edit="${d.id}">Modifica</button>
-            <button class="danger" data-del="${d.id}">Elimina</button>` : ''}
+            <button class="danger" data-del="${d.id}">Annulla</button>` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ddt-fornitore-elenco');
@@ -725,9 +746,11 @@
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const d = elenco.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare il DDT fornitore ${d.num}? L'operazione non si può annullare.`)) return;
+      const reason = prompt('Motivo di annullamento del DDT fornitore ' + d.num + ' (almeno 3 caratteri):');
+      if(!reason || reason.trim().length < 3) return;
       try{
-        await store.removeDoc('ddtFornitore', d.id);
+        const result = await store.changeSupplierDdt(companyId, d, {}, 'cancel', reason.trim(), crypto.randomUUID());
+        if(result.ordine) allOrdiniFornitoreById[result.ordine.id] = result.ordine;
         await renderList();
       }catch(err){
         alert('Errore durante l\'eliminazione: ' + err.message);

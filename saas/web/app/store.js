@@ -170,30 +170,19 @@
     return data;
   }
 
-  // Tutte le tabelle che contano come "documento" ai fini del limite
-  // mensile del piano — le stesse 8 di COLLECTIONS meno le anagrafiche
-  // (clienti/fornitori/prodotti non sono documenti).
-  const DOC_TABLES = ['preventivi', 'ordini_cliente', 'ordini_fornitore', 'ddt',
-    'fatture_cliente', 'fatture_fornitore', 'note_credito', 'note_credito_fornitore'];
-
+  // Server usage includes all nine document tables and is not refunded by deletion.
   async function countDocsThisMonth(companyId) {
-    const start = new Date(); start.setDate(1); start.setHours(0, 0, 0, 0);
-    const iso = start.toISOString();
-    const results = await Promise.all(DOC_TABLES.map(t =>
-      client().from(t).select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('created_at', iso)
-    ));
-    results.forEach(({ error }) => { if (error) throw error; });
-    return results.reduce((sum, r) => sum + (r.count || 0), 0);
+    const { data, error } = await client().rpc('count_documents_this_month', { p_company_id: companyId });
+    if (error) throw error;
+    return data;
   }
 
   // ---------------------------------------------------------------------------
   // Team (Fase 6 bis). Un utente entra in un'azienda ALTRUI solo accettando
   // un invito (accept_invite, chiamato da index.html) — mai con un insert
   // diretto: le funzioni server-side sono l'unico varco, stesso principio
-  // di register_company (vedi 0008_inviti.sql). Cambio ruolo e rimozione di
-  // un membro restano invece un update/delete diretto su memberships: la
-  // RLS ("admin gestisce le utenze della propria azienda") già li permette
-  // solo a un admin della stessa azienda.
+  // di register_company. Ruoli, rimozioni e revoche passano dalle RPC della
+  // migration 0025, con protezione della capienza e dell'ultimo amministratore.
   // ---------------------------------------------------------------------------
   async function listMembers(companyId) {
     const { data, error } = await client().rpc('list_members', { p_company_id: companyId });
@@ -215,17 +204,17 @@
   }
 
   async function revokeInvite(inviteId) {
-    const { error } = await client().from('invites').delete().eq('id', inviteId);
+    const { error } = await client().rpc('revoke_invite', { p_invite_id: inviteId });
     if (error) throw error;
   }
 
   async function updateMemberRole(companyId, userId, role) {
-    const { error } = await client().from('memberships').update({ role }).eq('company_id', companyId).eq('user_id', userId);
+    const { error } = await client().rpc('update_member_role', { p_company_id: companyId, p_user_id: userId, p_role: role });
     if (error) throw error;
   }
 
   async function removeMember(companyId, userId) {
-    const { error } = await client().from('memberships').delete().eq('company_id', companyId).eq('user_id', userId);
+    const { error } = await client().rpc('remove_member', { p_company_id: companyId, p_user_id: userId });
     if (error) throw error;
   }
 
@@ -442,6 +431,7 @@
       temperature: opts.temperature != null ? opts.temperature : 0.3,
       max_tokens: opts.maxTokens || 900,
       companyId: opts.companyId,
+      request_id: opts.requestId || global.crypto.randomUUID(),
       messages,
     };
     // reasoning_effort: 'none' — SOLO se chi chiama lo chiede esplicitamente
@@ -484,14 +474,10 @@
   // ---------------------------------------------------------------------------
   async function loadCompany(companyId) {
     const names = Object.keys(COLLECTIONS);
-    const results = await Promise.all(names.map(name =>
-      client().from(COLLECTIONS[name].table).select('*').eq('company_id', companyId)
-    ));
+    const results = await Promise.all(names.map(name => loadCollection(name, companyId)));
     const db = {};
     names.forEach((name, i) => {
-      const { data, error } = results[i];
-      if (error) throw error;
-      db[name] = data.map(row => rowToDoc(name, row));
+      db[name] = results[i];
     });
     return db;
   }
@@ -513,13 +499,19 @@
     if (!def) throw new Error('collection sconosciuta: ' + collName);
     const pageSize = 1000;
     let all = [];
-    let from = 0;
+    let lastId = null;
     while (true) {
-      const { data, error } = await client().from(def.table).select('*').eq('company_id', companyId).range(from, from + pageSize - 1);
+      let query = client().from(def.table).select('*').eq('company_id', companyId).order('id', { ascending: true }).limit(pageSize);
+      if (lastId) query = query.gt('id', lastId);
+      const { data, error } = await query;
       if (error) throw error;
+      if (data.length === 0) break;
+      const nextId = data[data.length - 1].id;
+      if (typeof nextId !== 'string' || !nextId || (lastId !== null && nextId <= lastId)) {
+        throw new Error('Paginazione interrotta: il cursore dei documenti non avanza.');
+      }
       all = all.concat(data);
-      if (data.length < pageSize) break;
-      from += pageSize;
+      lastId = nextId;
     }
     return all.map(row => rowToDoc(collName, row));
   }
@@ -701,10 +693,89 @@
     return { ddt: rowToDoc('ddt', data.ddt), ordine: rowToDoc('ordiniCliente', data.ordine) };
   }
 
+  function documentSnapshot(collName, doc, companyId, fields) {
+    const row = docToRow(collName, doc, companyId);
+    return Object.fromEntries(fields.map(key => [key, row[key] === undefined ? null : row[key]]));
+  }
+  async function saveCustomerOrder(companyId, expectedOrder, doc) {
+    const fields = ['num','data','cliente_id','dest_id','righe','extra'];
+    const { data, error } = await client().rpc('update_customer_order', {
+      p_company_id: companyId, p_order_id: expectedOrder.id,
+      p_expected: documentSnapshot('ordiniCliente', expectedOrder, companyId, fields),
+      p_document: documentSnapshot('ordiniCliente', doc, companyId, fields),
+    });
+    if (error) throw error;
+    return rowToDoc('ordiniCliente', data);
+  }
+  const documentRequests = new Map();
+  function documentRequestId(operation, payload, requestId) {
+    if (requestId) return requestId;
+    const key = operation + ':' + JSON.stringify(payload);
+    if (!documentRequests.has(key)) documentRequests.set(key, global.crypto.randomUUID());
+    return documentRequests.get(key);
+  }
+  async function changeCustomerDdt(companyId, expectedDdt, doc, action, reason, requestId) {
+    const fields = ['num','data','cliente_id','oc_id','dest_id','righe','extra'];
+    const payload = {
+      p_company_id: companyId, p_ddt_id: expectedDdt.id, p_action: action,
+      p_expected: documentSnapshot('ddt', expectedDdt, companyId, fields),
+      p_document: action === 'cancel' ? {} : documentSnapshot('ddt', doc, companyId, fields),
+      p_reason: reason || '',
+    };
+    const { data, error } = await client().rpc('change_customer_ddt', {
+      ...payload, p_request_id: documentRequestId('change-ddt', payload, requestId),
+    });
+    if (error) throw error;
+    return { ddt: rowToDoc('ddt', data.ddt), ordine: data.ordine ? rowToDoc('ordiniCliente', data.ordine) : null };
+  }
+  async function createCustomerInvoice(companyId, ddt, doc, requestId) {
+    const payload = {
+      p_company_id: companyId, p_ddt_id: ddt.id,
+      p_expected_ddt: { cliente_id: ddt.clienteId, oc_id: ddt.ocId || null, righe: ddt.righe,
+        extra: { ftId: ddt.ftId || null, annullato: ddt.annullato === true } },
+      p_document: { data: doc.data, num: doc.num || null, cliente_id: doc.clienteId,
+        oc_id: doc.ocId || null, dest_id: doc.destId || null, righe: doc.righe },
+    };
+    const { data, error } = await client().rpc('create_customer_invoice', {
+      ...payload, p_request_id: documentRequestId('create-invoice', payload, requestId),
+    });
+    if (error) throw error;
+    return { fattura: rowToDoc('fattureCliente', data.fattura), ddt: rowToDoc('ddt', data.ddt),
+      ordine: data.ordine ? rowToDoc('ordiniCliente', data.ordine) : null };
+  }
+
+  function supplierDdtResult(data) {
+    return { ddt: rowToDoc('ddtFornitore', data.ddt),
+      ordine: data.ordine ? rowToDoc('ordiniFornitore', data.ordine) : null,
+      fattura: data.fattura ? rowToDoc('fattureFornitore', data.fattura) : null };
+  }
+  async function createSupplierDdt(companyId, order, doc, requestId) {
+    const payload = { p_company_id: companyId, p_order_id: order.id, p_expected_rows: order.righe,
+      p_document: { num: doc.num || null, data: doc.data, fornitore_id: doc.fornitoreId,
+        righe: doc.righe, fattura_id: doc.fatturaId || null } };
+    const { data, error } = await client().rpc('create_supplier_ddt', {
+      ...payload, p_request_id: documentRequestId('supplier-ddt', payload, requestId),
+    });
+    if (error) throw error;
+    return supplierDdtResult(data);
+  }
+  async function changeSupplierDdt(companyId, expectedDdt, doc, action, reason, requestId) {
+    const fields = ['num','data','fornitore_id','of_id','righe','extra'];
+    const payload = { p_company_id: companyId, p_ddt_id: expectedDdt.id, p_action: action,
+      p_expected: documentSnapshot('ddtFornitore', expectedDdt, companyId, fields),
+      p_document: action === 'cancel' ? {} : documentSnapshot('ddtFornitore', doc, companyId, fields), p_reason: reason || '' };
+    const { data, error } = await client().rpc('change_supplier_ddt', {
+      ...payload, p_request_id: documentRequestId('supplier-ddt-change', payload, requestId),
+    });
+    if (error) throw error;
+    return supplierDdtResult(data);
+  }
+
   global.SaasStore = {
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    peekNumber, bumpCounterPast, createCustomerDdt,
+    peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, changeCustomerDdt, createCustomerInvoice,
+    createSupplierDdt, changeSupplierDdt,
     getCompany, loadPlans, startCheckout, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,

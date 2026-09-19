@@ -136,6 +136,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let numberPreview = '';
   let editingFattura = null; // la fattura in modifica, per non perdere paid/paidDate/pagamenti al salvataggio — vedi f-save
   let clientiById = {};
   let noteCreditoArr = []; // per sottrarle dal "Totale fatturato", vedi renderStats()
@@ -302,7 +303,7 @@
 
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
-    return `<tr ${r._last ? 'data-last="1"' : ''}>
+    return `<tr ${r._last ? 'data-last="1"' : ''} ${Number.isInteger(r.source_ddt_index) ? 'data-source-ddt-index="' + r.source_ddt_index + '"' : ''}>
       <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r._last ? '<span class="lastp">ultimo prezzo</span>' : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
@@ -324,6 +325,7 @@
   // solo la manetta ⠿ è draggable, non l'intera riga.
   let dragSrcRow = null;
   function bindRigaRow(tr){
+    tr.querySelector('.r-cod').addEventListener('input', () => { delete tr.dataset.sourceDdtIndex; });
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
     // Modificare prezzo o sconto a mano toglie il badge "ultimo prezzo" —
@@ -375,6 +377,7 @@
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      ...(tr.dataset.sourceDdtIndex !== undefined ? { source_ddt_index: Number(tr.dataset.sourceDdtIndex) } : {}),
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
       lotto: tr.querySelector('.r-lotto').value.trim(),
@@ -521,6 +524,7 @@
     // sotto) — scegliere un DDT già esistente dal menu deve avere lo
     // stesso effetto, come nel vecchio gestionale (aiGenFT()).
     $('f-dest').value = ddt.destId || '';
+    $('f-ordine').value = ddt.ocId || '';
     if(righeVuote){
       $('righe-body').innerHTML = '';
       // lotto/scad/prezzo/sconto/iva riportati così come sono sul DDT
@@ -528,8 +532,8 @@
       // dalla fattura fornitore corrispondente se tracciata — vedi
       // ddt.html/precompileFromOrdine()): senza questo, prezzo e sconto
       // andrebbero riscritti a mano ad ogni fattura generata da un DDT.
-      (ddt.righe || []).forEach(r => addRigaRow({
-        cod:r.cod, descr:r.descr, qty:r.qty,
+      (ddt.righe || []).forEach((r, source_ddt_index) => addRigaRow({
+        cod:r.cod, descr:r.descr, qty:r.qty, source_ddt_index,
         prezzo: r.prezzo || 0, sconto: r.sconto || '', iva: r.iva || 22,
         lotto:r.lotto || '', scad:r.scad || '',
       }));
@@ -547,20 +551,25 @@
     $('f-ddt').value = fattura ? (fattura.ddtId || '') : '';
     $('f-dest').value = fattura ? (fattura.destId || '') : '';
     $('f-data').value = fattura ? fattura.data : today();
+    numberPreview = '';
     if(fattura){
       $('f-num').value = fattura.num;
     }else{
       $('f-num').value = '';
-      try{ $('f-num').value = await store.peekNumber(companyId, 'FT', Number($('f-data').value.slice(0, 4))); }
+      try{ numberPreview = await store.peekNumber(companyId, 'FT', Number($('f-data').value.slice(0, 4))); $('f-num').value = numberPreview; }
       catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
     }
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
+    const linkedInvoice = !!(fattura && fattura.ddtId);
+    ['f-cliente','f-ordine','f-ddt','f-dest','f-data','f-num','add-riga'].forEach(id => { $(id).disabled = linkedInvoice; });
+    $('righe-body').querySelectorAll('input, button').forEach(el => { el.disabled = linkedInvoice; });
+    $('f-save').hidden = linkedInvoice;
     renderLineage(fattura);
     renderPagamenti(fattura);
     $('f-print-actions').hidden = !fattura;
-    $('f-danger-actions').hidden = !fattura;
-    setMsg('', '');
+    $('f-danger-actions').hidden = !fattura || linkedInvoice;
+    setMsg(linkedInvoice ? 'Fattura collegata a DDT: dati documento protetti. Puoi registrare gli incassi; per rettificare il documento occorre uno storno tracciato.' : '', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
     // "Totale fatturato" (vedi renderStats()) vive fuori da list-card,
@@ -764,6 +773,14 @@
       const doc = editingFattura ? Object.assign({}, editingFattura, { clienteId, ocId, ddtId, destId, data, righe }) : { clienteId, ocId, ddtId, destId, data, righe };
       const isNew = !editingId;
       const numInput = $('f-num').value.trim();
+      if(isNew && ddtId){
+        const ddt = allDdtById[ddtId];
+        if(!ddt) throw new Error('DDT non disponibile: ricarica la pagina.');
+        doc.num = numInput && numInput !== numberPreview ? numInput : null;
+        const result = await store.createCustomerInvoice(companyId, ddt, doc);
+        allDdtById[ddtId] = result.ddt;
+        if(result.ordine) allOrdiniById[result.ordine.id] = result.ordine;
+      }else{
       if(editingId){
         doc.id = editingId;
         if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
@@ -781,21 +798,7 @@
           doc.num = await store.nextNumber(companyId, 'FT', anno);
         }
       }
-      const saved = await store.saveDoc('fattureCliente', doc, companyId);
-      // Cascata: una fattura NUOVA collegata a un DDT lo marca fatturato
-      // (ftId), e se il DDT viene a sua volta da un ordine ne aggiorna
-      // anche l'elenco fatture (best-effort — un errore qui non deve far
-      // sembrare fallito il salvataggio della fattura, già andato a buon
-      // fine, vedi la stessa nota in ddt.html).
-      if(isNew && ddtId){
-        try{
-          const ddt = allDdtById[ddtId];
-          if(ddt) await store.saveDoc('ddt', Object.assign({}, ddt, { ftId: saved.num }), companyId);
-          if(ocId){
-            const ordine = allOrdiniById[ocId];
-            if(ordine) await store.saveDoc('ordiniCliente', window.SaasCascade.applicaFatturazione(ordine, saved.num), companyId);
-          }
-        }catch(e){ /* la fattura è comunque salvata */ }
+      await store.saveDoc('fattureCliente', doc, companyId);
       }
       closeForm();
       await renderList();

@@ -503,13 +503,15 @@
     if(ddt){
       ftBox.hidden = false;
       const ftBtn = $('ddt-btn-ft');
-      ftBtn.textContent = ddt.ftId ? '✓ Fatturato' : '→ Genera fattura';
-      ftBtn.disabled = !!ddt.ftId;
+      ftBtn.textContent = ddt.annullato ? 'DDT annullato' : ddt.ftId ? '✓ Fatturato' : '→ Genera fattura';
+      ftBtn.disabled = !!ddt.ftId || !!ddt.annullato;
       ftBtn.className = ddt.ftId ? 'ghost' : 'primary';
     }else{
       ftBox.hidden = true;
     }
     renderLineage(ddt);
+    $('f-save').disabled = !!(ddt && (ddt.annullato || ddt.ftId));
+    $('f-num').readOnly = !!ddt;
     $('f-print-actions').hidden = !ddt;
     setMsg('', '');
     $('form-card').hidden = false;
@@ -603,15 +605,13 @@
         const result = await store.createCustomerDdt(companyId, ordine, doc);
         saved = result.ddt;
         allOrdiniById[ocId] = result.ordine;
+      }else if(editingId){
+        doc.num = numInput;
+        const result = await store.changeCustomerDdt(companyId, editingDdt, doc, 'update', '');
+        saved = result.ddt;
+        if(result.ordine) allOrdiniById[result.ordine.id] = result.ordine;
       }else{
-        if(editingId){
-          doc.id = editingId;
-          if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
-          if(numInput !== editingDdt.num){
-            await store.bumpCounterPast(companyId, 'DDT', numInput);
-            doc.num = numInput;
-          }
-        } else if(numInput){
+        if(numInput){
           // L'utente ha lasciato o modificato l'anteprima proposta (vedi
           // store.peekNumber() in openForm()): usata direttamente, non
           // tramite nextNumber() — stesso compromesso già discusso in
@@ -692,11 +692,11 @@
           <td class="num-col">${esc(d.num)}</td>
           <td>${d.data ? new Date(d.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[d.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(d)}</td>
-          <td>${d.ocId ? `<span class="badge">${esc((allOrdiniById[d.ocId] || {}).num || '?')}</span>` : '—'}</td>
+          <td>${d.annullato ? '<span class="badge">Annullato</span> ' : ''}${d.ocId ? `<span class="badge">${esc((allOrdiniById[d.ocId] || {}).num || '?')}</span>` : '—'}</td>
           <td class="actions">${PICK.has(d.id) ? `
-            ${!d.ftId ? `<button data-gen-ft="${d.id}" title="Genera la fattura da questo DDT">🧾 Fattura</button>` : ''}
-            <button data-edit="${d.id}">Modifica</button>
-            <button class="danger" data-del="${d.id}">Elimina</button>` : ''}
+            ${!d.ftId && !d.annullato ? `<button data-gen-ft="${d.id}" title="Genera la fattura da questo DDT">🧾 Fattura</button>` : ''}
+            <button data-edit="${d.id}">${d.annullato || d.ftId ? 'Apri' : 'Modifica'}</button>
+            ${!d.annullato && !d.ftId ? `<button class="danger" data-del="${d.id}">Annulla DDT</button>` : ''}` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ddt-elenco');
@@ -725,13 +725,18 @@
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const d = elenco.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare il DDT ${d.num}? L'operazione non si può annullare.`)) return;
+      if(btn.disabled) return;
+      const motivo = prompt(`Motivo dell'annullamento del DDT ${d.num}. Il documento resterà nello storico e le quantità tracciate saranno rettificate.`);
+      if(motivo === null) return;
+      if(motivo.trim().length < 3){ alert('Inserisci un motivo di almeno 3 caratteri.'); return; }
+      btn.disabled = true;
       try{
-        await store.removeDoc('ddt', d.id);
+        const result = await store.changeCustomerDdt(companyId, d, null, 'cancel', motivo.trim());
+        if(result.ordine) allOrdiniById[result.ordine.id] = result.ordine;
         await renderList();
       }catch(err){
-        alert('Errore durante l\'eliminazione: ' + err.message);
-      }
+        alert('Annullamento non eseguito: ' + err.message);
+      }finally{ btn.disabled = false; }
     }));
   }
 

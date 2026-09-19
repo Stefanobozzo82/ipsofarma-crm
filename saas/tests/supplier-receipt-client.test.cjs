@@ -34,19 +34,15 @@ test('linked save uses one transactional creation and stable request on retry',a
 test('existing receipt uses lifecycle RPC with shared wrapper argument order',async()=>{
   const f=form({edit:true});await f.ctx.runSave();assert.equal(f.calls.length,1);assert.equal(f.calls[0][1].id,'d1');assert.equal(f.calls[0][2].ofId,'of1');assert.equal(f.calls[0][3],'update');
 });
-test('standalone partial invoice-link failure opens saved DDT before warning, without creating another document',async()=>{
-  const f=form(),events=[],writes=[];
+test('standalone receipt and invoice attachment use one atomic RPC without partial save',async()=>{
+  const f=form(),events=[],calls=[];
   f.ctx.$('f-ordine').value='';f.ctx.$('f-fattura').value='invoice';
   f.ctx.allFattureFornitoreById.invoice={id:'invoice',num:'INV/1',fornitoreId:'s1'};
-  f.ctx.store.saveDoc=async(collection,document)=>{
-    writes.push(collection);
-    if(collection==='fattureFornitore')throw Error('invoice link unavailable');
-    return {...document,id:'saved-ddt'};
-  };
+  f.ctx.store.createStandaloneSupplierDdt=async(...args)=>{calls.push(args);return {ddt:{...args[1],id:'saved-ddt'},fattura:{id:'invoice',num:'INV/1',fornitoreId:'s1',ddtfId:'saved-ddt'}};};
   f.ctx.openForm=async document=>{events.push('opened:'+document.id);f.ctx.editingId=document.id;f.ctx.editingDdtf=document;};
   f.ctx.setMsg=(message)=>{if(message)events.push(message);};
   await f.ctx.runSave();
-  assert.deepEqual(writes,['ddtFornitore','fattureFornitore']);
-  assert.equal(events[0],'opened:saved-ddt');assert.match(events[1],/DDT salvato.*non è completo/);
+  assert.equal(calls.length,1);assert.equal(calls[0][1].fatturaId,'invoice');
+  assert.deepEqual(events,['opened:saved-ddt']);
   assert.equal(f.ctx.editingId,'saved-ddt');
 });

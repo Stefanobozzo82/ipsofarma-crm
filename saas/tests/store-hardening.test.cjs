@@ -45,6 +45,16 @@ test('customer order wrapper sends exact canonical snapshot and preserves extra 
   assert.equal(saved.clienteId,'customer');assert.equal(saved.custom,'retained');
 });
 
+test('supplier order canonical CAS includes separate invoice links and never falls back on rejection',async()=>{
+  const f=fixture({response:raw});
+  const expected={id:'of',num:'OF-1',data:'2026-09-19',fornitoreId:'supplier',righe:rows,ftfIds:['legacy'],ocId:'OC-1',note:'keep'};
+  const saved=await f.store.saveSupplierOrder('company',expected,{...expected,num:'OF-2'});
+  const snapshot={num:'OF-1',data:'2026-09-19',fornitore_id:'supplier',righe:rows,ftf_ids:['legacy'],extra:{ocId:'OC-1',note:'keep'}};
+  assert.deepEqual(f.calls,[['update_supplier_order',{p_company_id:'company',p_order_id:'of',p_expected:snapshot,p_document:{...snapshot,num:'OF-2'}}]]);
+  assert.equal(saved.fornitoreId,'supplier');assert.equal(saved.custom,'retained');
+  f.fail(Error('ordine modificato'));await assert.rejects(f.store.saveSupplierOrder('company',expected,expected),/ordine modificato/);
+});
+
 test('customer lifecycle retry retains ID, changed reason gets new ID, cancellation has empty document and nullable order',async()=>{
   const f=fixture({response:{...result,ordine:null}});f.fail(Error('lost response'));
   await assert.rejects(f.store.changeCustomerDdt('company',ddt,ddt,'update','Correction'),/lost response/);
@@ -108,6 +118,40 @@ test('AI requests forward explicit retry identity and allocate fresh identities 
 });
 
 function many(n,company='company'){return Array.from({length:n},(_,i)=>({id:String(i+1).padStart(8,'0'),company_id:company,num:'D-'+i,extra:{kept:i}}));}
+
+test('supplier invoice wrapper sends guarded snapshot and maps invoice result',async()=>{
+  const f=fixture({response:result});const saved=await f.store.createSupplierInvoice('company',supplierDdt,supplierDdt,'invoice-id');
+  assert.equal(f.calls[0][0],'create_supplier_invoice');
+  assert.deepEqual(f.calls[0][1].p_expected_ddt,{fornitore_id:'supplier',of_id:'of',righe:rows,extra:{ftfId:null,annullato:false}});
+  assert.equal(f.calls[0][1].p_request_id,'invoice-id');assert.equal(saved.fattura.ddtfId,'ddtf');
+});
+
+test('manual completion sends exact rows and preserves retry identity without CRUD fallback',async()=>{
+  const f=fixture({response:raw});f.fail(Error('response lost'));
+  await assert.rejects(f.store.completeOrderManually('company','customer',order,'Manual fixture'),/response lost/);
+  f.fail(null);const saved=await f.store.completeOrderManually('company','customer',order,'Manual fixture');
+  assert.equal(f.calls[1][0],'complete_order_manually');assert.deepEqual(f.calls[1][1].p_expected_rows,rows);
+  assert.equal(f.calls[1][1].p_reason,'Manual fixture');assert.equal(f.calls[0][1].p_request_id,f.calls[1][1].p_request_id);
+  assert.equal(saved.clienteId,'customer');
+});
+
+test('payment retries preserve identity; completed equal payments are separate operations',async()=>{
+  const f=fixture({response:raw});f.fail(Error('response lost'));
+  await assert.rejects(f.store.mutateInvoicePayment('c','customer',raw,'add',{data:'2026-09-19',importo:10}),/response lost/);
+  f.fail(null);
+  const saved=await f.store.mutateInvoicePayment('c','customer',raw,'add',{data:'2026-09-19',importo:10});
+  assert.equal(saved.clienteId,'customer');assert.equal(f.calls[0][1].p_request_id,f.calls[1][1].p_request_id);
+  await f.store.mutateInvoicePayment('c','customer',raw,'add',{data:'2026-09-19',importo:10});
+  assert.notEqual(f.calls[1][1].p_request_id,f.calls[2][1].p_request_id);
+});
+
+test('simultaneous identical payment calls share one RPC and invalid kind fails closed',async()=>{
+  const f=fixture({response:raw});
+  const calls=Array.from({length:3},()=>f.store.mutateInvoicePayment('c','supplier',raw,'settle',{data:'2026-09-19'}));
+  await Promise.all(calls);assert.equal(f.calls.length,1);assert.equal(f.calls[0][0],'mutate_invoice_payment');
+  await assert.rejects(f.store.mutateInvoicePayment('c','bad',raw,'clear',{}),/Tipo fattura/);
+  assert.equal(f.calls.length,1);
+});
 test('collection keyset pagination loads over 1000 rows once each and isolates the tenant',async()=>{
   const f=fixture({tables:{ddt:[...many(2401),...many(17,'foreign')]}});const docs=await f.store.loadCollection('ddt','company');
   assert.equal(docs.length,2401);assert.equal(new Set(docs.map(d=>d.id)).size,2401);assert.equal(docs.at(-1).kept,2400);

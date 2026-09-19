@@ -7,6 +7,7 @@ const REF='ffjzhtzavkuwysmabmds';
 if(config.environment!=='staging'||config.projectRef!==REF||config.supabaseUrl!==`https://${REF}.supabase.co`||!config.publicKey?.startsWith('sb_publishable_'))throw Error('Unexpected staging configuration');
 const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 const runId=randomUUID();const companyA=randomUUID(),companyB=randomUUID(),customer=randomUUID(),order=randomUUID();
+const supplier=randomUUID(),supplierDdt=randomUUID();
 const slugA='http-smoke-a-'+runId,slugB='http-smoke-b-'+runId;
 const users=['a','b','viewer'].map(name=>({id:randomUUID(),email:`http-${name}-${runId}@example.invalid`,password:randomBytes(32).toString('base64url')}));
 const sqlFile=path.join(os.tmpdir(),`ipsofarma-http-smoke-${runId}.sql`);
@@ -32,7 +33,9 @@ insert into auth.identities(provider_id,user_id,identity_data,provider,created_a
 insert into public.companies(id,slug,nome,piano) values(${quote(companyA)},${quote(slugA)},'HTTP fixture A','pro'),(${quote(companyB)},${quote(slugB)},'HTTP fixture B','pro');
 insert into public.memberships(company_id,user_id,role) values(${quote(companyA)},${quote(users[0].id)},'admin'),(${quote(companyB)},${quote(users[1].id)},'admin'),(${quote(companyA)},${quote(users[2].id)},'viewer');
 insert into public.clienti(id,company_id,nome) values(${quote(customer)},${quote(companyA)},'HTTP synthetic customer');
-insert into public.ordini_cliente(id,company_id,num,data,cliente_id,righe) values(${quote(order)},${quote(companyA)},'HTTP-SMOKE',current_date,${quote(customer)},'[{"cod":"A","qty":10}]');commit;`);
+insert into public.ordini_cliente(id,company_id,num,data,cliente_id,righe) values(${quote(order)},${quote(companyA)},'HTTP-SMOKE',current_date,${quote(customer)},'[{"cod":"A","qty":10}]');
+insert into public.fornitori(id,company_id,nome) values(${quote(supplier)},${quote(companyA)},'HTTP synthetic supplier');
+insert into public.ddt_fornitore(id,company_id,num,data,fornitore_id,righe) values(${quote(supplierDdt)},${quote(companyA)},'HTTP-SUPPLIER-DDT',current_date,${quote(supplier)},'[{"cod":"S","qty":2,"prezzo":50,"iva":0}]');commit;`);
   for(const u of users){const result=await http('/auth/v1/token?grant_type=password',null,{email:u.email,password:u.password});check(result.ok&&typeof result.data?.access_token==='string','Password login failed');u.token=result.data.access_token;}
   for(const [i,expected] of [[0,companyA],[1,companyB],[2,companyA]]){
    const r=await http(`/rest/v1/companies?select=id&id=in.(${companyA},${companyB})`,users[i].token);
@@ -47,6 +50,50 @@ insert into public.ordini_cliente(id,company_id,num,data,cliente_id,righe) value
   const visible=await http(`/rest/v1/ddt?select=id&oc_id=eq.${order}`,users[0].token);check(visible.ok&&visible.data.length===1,'Expected exactly one persisted DDT');
   const hidden=await http(`/rest/v1/ddt?select=id&oc_id=eq.${order}`,users[1].token);check(hidden.ok&&hidden.data.length===0,'DDT leaked across tenants');
   const deniedPlan=await http(`/rest/v1/companies?id=eq.${companyA}`,users[0].token,{piano:'base'},'PATCH');check(!deniedPlan.ok,'Subscription column write accepted');
+  const customerInvoiceReq={p_company_id:companyA,p_ddt_id:first.data.ddt.id,p_request_id:randomUUID(),p_expected_ddt:{cliente_id:customer,oc_id:order,righe:first.data.ddt.righe,extra:{ftId:null,annullato:false}},p_document:{cliente_id:customer,oc_id:order,data:new Date().toISOString().slice(0,10),righe:[{cod:'A',qty:3,prezzo:10,iva:0,source_ddt_index:0}]}};
+  const customerInvoice=await http('/rest/v1/rpc/create_customer_invoice',users[0].token,customerInvoiceReq);check(customerInvoice.ok&&customerInvoice.data?.fattura?.id,'Customer invoice RPC failed');
+  const supplierRows=[{cod:'S',qty:2,prezzo:50,iva:0}];
+  const supplierInvoiceReq={p_company_id:companyA,p_ddt_id:supplierDdt,p_request_id:randomUUID(),p_expected_ddt:{fornitore_id:supplier,of_id:null,righe:supplierRows,extra:{ftfId:null,annullato:false}},p_document:{fornitore_id:supplier,of_id:null,data:new Date().toISOString().slice(0,10),righe:[{...supplierRows[0],source_ddt_index:0}]}};
+  for(const u of [users[1],users[2]]){const denied=await http('/rest/v1/rpc/create_supplier_invoice',u.token,supplierInvoiceReq);check(!denied.ok&&[400,403].includes(denied.status),'Unauthorized supplier invoice accepted');}
+  const supplierInvoice=await http('/rest/v1/rpc/create_supplier_invoice',users[0].token,supplierInvoiceReq);check(supplierInvoice.ok&&supplierInvoice.data?.fattura?.id,'Supplier invoice RPC failed');
+  const supplierReplay=await http('/rest/v1/rpc/create_supplier_invoice',users[0].token,supplierInvoiceReq);check(supplierReplay.ok&&supplierReplay.data.replayed===true&&supplierReplay.data.fattura.id===supplierInvoice.data.fattura.id,'Supplier invoice retry failed');
+  for(const [kind,invoice,table] of [['customer',customerInvoice.data.fattura,'fatture_cliente'],['supplier',supplierInvoice.data.fattura,'fatture_fornitore']]){
+   const payment={p_company_id:companyA,p_kind:kind,p_invoice_id:invoice.id,p_request_id:randomUUID(),p_action:'add',p_payload:{data:new Date().toISOString().slice(0,10),importo:5}};
+   for(const u of [users[1],users[2]]){const denied=await http('/rest/v1/rpc/mutate_invoice_payment',u.token,payment);check(!denied.ok&&[400,403].includes(denied.status),'Unauthorized payment accepted');}
+   const secondPayment={...payment,p_request_id:randomUUID(),p_payload:{...payment.p_payload,importo:7}};
+   const results=await Promise.all([http('/rest/v1/rpc/mutate_invoice_payment',users[0].token,payment),http('/rest/v1/rpc/mutate_invoice_payment',users[0].token,secondPayment)]);
+   check(results.every(r=>r.ok),'Parallel HTTP payment addition failed');
+   const paymentRetry=await http('/rest/v1/rpc/mutate_invoice_payment',users[0].token,payment);check(paymentRetry.ok,'Payment HTTP retry failed');
+   const persisted=await http(`/rest/v1/${table}?select=pagamenti,paid&id=eq.${invoice.id}`,users[0].token);
+   check(persisted.ok&&persisted.data[0].pagamenti.length===2&&persisted.data[0].pagamenti.reduce((s,p)=>s+p.importo,0)===12,'Parallel payments lost or duplicated money');
+   const direct=await http(`/rest/v1/${table}?id=eq.${invoice.id}`,users[0].token,{pagamenti:[],paid:false},'PATCH');check(!direct.ok,'Direct payment array overwrite accepted');
+   const settled=await http('/rest/v1/rpc/mutate_invoice_payment',users[0].token,{...payment,p_request_id:randomUUID(),p_action:'settle',p_payload:{data:payment.p_payload.data}});
+   check(settled.ok&&settled.data.paid===true&&settled.data.pagamenti.length===3,'Residual settlement failed');
+  }
+  const manual={p_company_id:companyA,p_kind:'customer',p_order_id:order,p_request_id:randomUUID(),p_expected_rows:first.data.ordine.righe,p_reason:'Synthetic manual fulfillment'};
+  for(const u of [users[1],users[2]])check(!(await http('/rest/v1/rpc/complete_order_manually',u.token,manual)).ok,'Unauthorized manual completion accepted');
+  const completed=await http('/rest/v1/rpc/complete_order_manually',users[0].token,manual);check(completed.ok&&completed.data.righe[0].qtyEv===10,'Manual completion failed');
+  check((await http('/rest/v1/rpc/complete_order_manually',users[0].token,manual)).ok,'Manual replay failed');
+  check(!(await http('/rest/v1/rpc/complete_order_manually',users[0].token,{...manual,p_request_id:randomUUID()})).ok,'Stale manual completion accepted');
+  check(!(await http('/rest/v1/ordini_cliente?id=eq.'+order,users[0].token,{righe:[{cod:'A',qty:10,qtyEv:11}]},'PATCH')).ok,'Direct fulfillment overwrite accepted');
+  const supplierOrder=await http('/rest/v1/ordini_fornitore',users[0].token,{company_id:companyA,num:'HTTP-MANUAL-SUPPLIER',data:new Date().toISOString().slice(0,10),fornitore_id:supplier,righe:[{cod:'S',qty:4}]},'POST',{Prefer:'return=representation'});
+  check(supplierOrder.ok&&supplierOrder.data?.[0]?.id,'Supplier manual fixture failed');
+  const manualSupplier={...manual,p_kind:'supplier',p_order_id:supplierOrder.data[0].id,p_request_id:randomUUID(),p_expected_rows:supplierOrder.data[0].righe};
+  for(const u of [users[1],users[2]])check(!(await http('/rest/v1/rpc/complete_order_manually',u.token,manualSupplier)).ok,'Unauthorized supplier completion accepted');
+  const received=await http('/rest/v1/rpc/complete_order_manually',users[0].token,manualSupplier);check(received.ok&&received.data.righe[0].qtyEv===4,'Supplier completion failed');
+  check((await http('/rest/v1/rpc/complete_order_manually',users[0].token,manualSupplier)).ok,'Supplier completion replay failed');
+  check(!(await http('/rest/v1/rpc/complete_order_manually',users[0].token,{...manualSupplier,p_request_id:randomUUID()})).ok,'Stale supplier completion accepted');
+  check(!(await http('/rest/v1/ordini_fornitore?id=eq.'+manualSupplier.p_order_id,users[0].token,{righe:[{cod:'S',qty:4,qtyEv:5}]},'PATCH')).ok,'Direct supplier fulfillment accepted');
+  for(const [kind,invoice,party,partyKey,table] of [['customer',customerInvoice.data.fattura,customer,'cliente_id','note_credito'],['supplier',supplierInvoice.data.fattura,supplier,'fornitore_id','note_credito_fornitore']]){
+   const credit={p_company_id:companyA,p_kind:kind,p_request_id:randomUUID(),p_expected:null,p_document:{[partyKey]:party,fattura_id:invoice.id,num:'HTTP-CREDIT-'+kind,data:new Date().toISOString().slice(0,10),righe:[{cod:'C',qty:1,prezzo:1,iva:0}],extra:{}}};
+   for(const u of [users[1],users[2]])check(!(await http('/rest/v1/rpc/save_credit_note',u.token,credit)).ok,'Unauthorized credit accepted');
+   const saved=await http('/rest/v1/rpc/save_credit_note',users[0].token,credit);check(saved.ok&&saved.data.id,'Credit save failed');
+   const replay=await http('/rest/v1/rpc/save_credit_note',users[0].token,credit);check(replay.ok&&replay.data.id===saved.data.id,'Credit replay failed');
+   check(!(await http('/rest/v1/'+table+'?id=eq.'+saved.data.id,users[0].token,{righe:[]},'PATCH')).ok,'Direct credit overwrite accepted');
+   const expected=Object.fromEntries(['id','num','data',partyKey,'fattura_id','righe','extra'].map(k=>[k,saved.data[k]]));
+   const canceled=await http('/rest/v1/rpc/cancel_credit_note',users[0].token,{p_company_id:companyA,p_kind:kind,p_request_id:randomUUID(),p_expected:expected,p_reason:'Synthetic cancellation'});check(canceled.ok&&canceled.data.extra.annullato===true,'Credit cancellation failed');
+   check(!(await http('/rest/v1/rpc/save_credit_note',users[0].token,{...credit,p_request_id:randomUUID(),p_expected:expected})).ok,'Stale credit save accepted');
+  }
   // Provider secrets are intentionally absent on this staging deployment.
   // These payloads must stop at configuration checks; never configure keys for this test.
   const origin='http://127.0.0.1:8080';

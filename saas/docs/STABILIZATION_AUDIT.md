@@ -116,3 +116,13 @@ Validazione locale complessiva: **108 test superati**, Node 24.19.0, PostgreSQL 
 STOCK-02 rimane aperto: le cancellazioni a cascata dei prodotti continuano a cancellare movimenti, comportamento storico qui mantenuto e testato. La protezione del ledger richiede una modifica separata e una decisione sul flusso di cancellazione. Restano inoltre da risolvere quote concorrenti, membership/inviti, pagamenti e transazioni documentali.
 
 
+
+## Terzo incremento: creazione atomica DDT cliente
+
+La migration `0019_atomic_customer_ddt.sql` introduce una RPC autorizzata per admin/operatore che blocca l'ordine, verifica lo snapshot atteso e salva insieme numero, DDT, quantità evase, collegamenti e registro privato dei retry. Il riuso della stessa richiesta restituisce il risultato originario senza nuovi effetti; un contenuto diverso con la stessa chiave viene respinto. Le righe duplicate sono distinte tramite posizione nello snapshot, con somma delle quantità suddivise per lotto. Il fallback per codice è ammesso soltanto quando non ambiguo.
+
+Il modulo manuale per nuovi DDT collegati e la creazione dal residuo usano la RPC senza fallback alle scritture separate. Il pulsante viene bloccato prima del controllo quota asincrono. La numerazione condivisa conserva tutte le cifre oltre 9999. I collegamenti legacy dell'ordine e le quantità pregresse vengono preservati.
+
+Validazione complessiva: **144 test superati**, zero fallimenti. I 36 casi aggiunti comprendono 23 test SQL, 5 test wrapper/generazione e 8 test del modulo manuale con adattatore DOM. Errori iniettati su inserimento DDT, aggiornamento ordine e registro operazioni annullano anche il contatore; verificati retry, autorizzazioni, payload non validi, snapshot obsoleti e numeri manuali. Controllo sintattico superato per i moduli modificati e gli script inline del modulo.
+
+DOC-01/DOC-02 sono mitigati soltanto per questa creazione tramite RPC; non sono chiusi globalmente. Modifica/cancellazione DDT, fatture, salvataggi legacy degli ordini, annullamenti, quote server e stock restano da affrontare. Gli indici non sono identificatori persistenti di riga. Le chiavi automatiche dei retry vivono nella pagina e il replay restituisce lo snapshot originario. Concorrenza su connessioni separate e API Supabase/PostgREST richiedono staging. Vedere `ATOMIC_DDT_ROLLOUT.md` per sequenza di rilascio e limiti. Nessuna migrazione remota o distribuzione eseguita.

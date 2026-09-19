@@ -262,9 +262,29 @@
       const tutti = await store.loadCollection('ordiniFornitore', companyId);
       existingOFs = tutti.filter(of => ofNums.includes(of.num));
     }
-    const covered = new Set();
-    existingOFs.forEach(of => (of.righe || []).forEach(r => covered.add(r.cod)));
-    const missing = (ordine.righe || []).filter(r => r.cod && !covered.has(r.cod));
+    // I collegamenti storici restano numeri documento. La copertura è
+    // quantitativa: ogni quantità ordinata può coprire una sola volta
+    // anche quando il codice compare su più righe dell'ordine cliente.
+    const positiveQty = value => {
+      const qty = Number(value);
+      return Number.isFinite(qty) && qty > 0 ? qty : 0;
+    };
+    const covered = new Map();
+    existingOFs.forEach(of => (of.righe || []).forEach(r => {
+      if (r.cod) covered.set(r.cod, (covered.get(r.cod) || 0) + positiveQty(r.qty));
+    }));
+    const missing = [];
+    (ordine.righe || []).forEach(r => {
+      if (!r.cod) return;
+      const required = positiveQty(r.qty);
+      const available = covered.get(r.cod) || 0;
+      const allocated = Math.min(required, available);
+      covered.set(r.cod, available - allocated);
+      // Evita residui fantasma dovuti alla rappresentazione binaria dei
+      // decimali (es. 0,3 - 0,1), senza arrotondare quantità legittime.
+      const tolerance = Number.EPSILON * Math.max(required, allocated) * 4;
+      if (required - allocated > tolerance) missing.push(Object.assign({}, r, { qty: required - allocated }));
+    });
     return { ofNums, existingOFs, missing };
   }
 

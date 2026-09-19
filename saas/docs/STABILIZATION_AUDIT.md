@@ -103,6 +103,16 @@ Verifica indipendente del primo incremento: `node --test tests/*.test.cjs` dalla
 
 ## Verifiche ancora mancanti
 
-Non eseguiti in questo audit: test RLS contro Postgres reale; test SQL di concorrenza; controllo dei GRANT/schema effettivamente distribuiti; test Stripe test-mode; invii email di prova; integrazione provider IA; E2E browser/mobile; audit dipendenze completo; restore di backup; verifica monitoraggio e configurazione domini. Queste attività sono criteri di avanzamento, non risultati già acquisiti.
+Non eseguiti: test contro il servizio Supabase/PostgREST di staging; test SQL di concorrenza multi-sessione; controllo dei GRANT/schema effettivamente distribuiti; test Stripe test-mode; invii email di prova; integrazione provider IA; E2E browser/mobile; audit dipendenze completo; restore di backup; verifica monitoraggio e configurazione domini. Queste attività sono criteri di avanzamento, non risultati già acquisiti.
+
+## Secondo incremento: autorizzazioni e vincoli SQL
+
+La migration `0017_company_write_permissions.sql` chiude SEC-01 nello schema di test: revoca scritture di tabella/colonna al client, concede soltanto otto campi aziendali e mantiene la scrittura server `service_role`. La suite riproduce prima l'aggiornamento del piano nella baseline e poi verifica il rifiuto, anche con GRANT espliciti precedenti e privilegi ereditati inattesi. RLS, registrazione SECURITY DEFINER e aggiornamento timestamp restano operativi.
+
+La migration `0018_tenant_foreign_keys.sql` aggiunge 22 FK composite. SEC-02 è protetto per nuove chiavi; lo storico richiede preflight, correzione esplicita e validazione. Nessun record è riscritto dalla migration. Conservare le FK originali mantiene compatibilità ma rende ambigua una query PostgREST: `listMovimentiRecenti` ora usa hint con i nomi dei vincoli originali, da distribuire prima dello schema. Vedere `TENANT_FK_ROLLOUT.md`.
+
+Validazione locale complessiva: **108 test superati**, Node 24.19.0, PostgreSQL 18.3 tramite PGlite 0.5.8. Il SQL versionato viene eseguito in memoria; solo lo schema Auth e i ruoli iniziali sono fixture. Coperti due tenant, admin/operatore/viewer, 14 tabelle per isolamento RLS, tutte le 22 relazioni, transazioni di rollback dei privilegi, conservazione di una riga legacy incoerente e successiva validazione dopo correzione sintetica. I test non sono una certificazione della configurazione remota.
+
+STOCK-02 rimane aperto: le cancellazioni a cascata dei prodotti continuano a cancellare movimenti, comportamento storico qui mantenuto e testato. La protezione del ledger richiede una modifica separata e una decisione sul flusso di cancellazione. Restano inoltre da risolvere quote concorrenti, membership/inviti, pagamenti e transazioni documentali.
 
 

@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mappa Fruttificazione Funghi</title>
+
+<!-- Leaflet CSS (CDN) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+/* ==========================================================================
+   TEMA: chiaro/scuro automatico (prefers-color-scheme)
+   ========================================================================== */
+:root{
+  --bg:#f4f6f8; --surface:#ffffff; --surface2:#eef1f4; --border:#dfe4e9;
+  --txt:#1b2531; --muted:#5f6b7a; --faint:#9aa5b2;
+  --accent:#2f7d46; --accent-d:#256237;
+  --red:#d64541; --yellow:#e0a721; --green:#2f9e44;
+  --shadow:0 2px 10px rgba(0,0,0,.12);
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#12161c; --surface:#1b212a; --surface2:#232a34; --border:#2c3542;
+    --txt:#e7ecf2; --muted:#9aa7b6; --faint:#6b7686;
+    --accent:#4caf6f; --accent-d:#3d8e5a;
+    --red:#e5726d; --yellow:#e8b84b; --green:#4caf6f;
+    --shadow:0 2px 14px rgba(0,0,0,.5);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--txt);
+  font-size:14px; line-height:1.45; overflow:hidden;
+}
+button, select, input{font-family:inherit; font-size:14px}
+
+/* ==========================================================================
+   LAYOUT GENERALE
+   ========================================================================== */
+#app{ position:relative; width:100vw; height:100vh; }
+#map{ position:absolute; inset:0; z-index:1; }
+
+/* Barra superiore */
+#topbar{
+  position:absolute; top:10px; left:10px; right:10px; z-index:1000;
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  pointer-events:none;
+}
+#topbar > *{ pointer-events:auto; }
+.panel-box{
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  box-shadow:var(--shadow); padding:8px 10px;
+}
+#searchBox{ display:flex; gap:6px; align-items:center; flex:1; min-width:180px; max-width:320px; }
+#searchInput{ border:1px solid var(--border); border-radius:6px; padding:6px 8px; background:var(--surface2); color:var(--txt); flex:1; min-width:0; }
+.btn{
+  background:var(--accent); color:#fff; border:none; border-radius:6px;
+  padding:7px 12px; font-weight:600; cursor:pointer; white-space:nowrap;
+}
+.btn:hover{ background:var(--accent-d); }
+.btn.secondary{ background:var(--surface2); color:var(--txt); border:1px solid var(--border); }
+.btn:disabled{ opacity:.55; cursor:not-allowed; }
+.icon-btn{
+  background:var(--surface); border:1px solid var(--border); border-radius:6px;
+  width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:16px;
+}
+
+#speciesFilter{ border:1px solid var(--border); border-radius:6px; padding:6px 8px; background:var(--surface2); color:var(--txt); }
+
+/* Slider giorni */
+#daySliderBox{ display:flex; align-items:center; gap:8px; }
+#daySliderBox input[type=range]{ width:120px; }
+
+/* Stato / avviso rete */
+#statusLine{
+  position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  z-index:1000; font-size:12px; color:var(--muted); background:var(--surface);
+  border:1px solid var(--border); border-radius:20px; padding:4px 12px;
+  box-shadow:var(--shadow); display:none; pointer-events:none;
+}
+#statusLine.show{ display:block; }
+
+/* Legenda */
+#legend{
+  position:absolute; bottom:10px; left:10px; z-index:1000;
+  font-size:12px; max-width:180px;
+}
+#legend .row{ display:flex; align-items:center; gap:6px; margin:2px 0; }
+#legend .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid rgba(0,0,0,.2); }
+
+/* Avviso legale */
+#disclaimer{
+  position:absolute; bottom:10px; right:10px; z-index:1000; max-width:340px;
+  font-size:11.5px; color:var(--muted); line-height:1.4;
+}
+
+/* Pannello dettaglio (bottom sheet su mobile, laterale su desktop) */
+#panel{
+  position:absolute; z-index:1500; background:var(--surface); box-shadow:var(--shadow);
+  overflow-y:auto; transition:transform .25s ease;
+  top:0; right:0; height:100%; width:380px; border-left:1px solid var(--border);
+  transform:translateX(100%);
+}
+#panel.open{ transform:translateX(0); }
+#panelHeader{
+  position:sticky; top:0; background:var(--surface); z-index:2;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  padding:14px 14px 8px; border-bottom:1px solid var(--border);
+}
+#panelBody{ padding:12px 14px 30px; }
+#panelClose{ background:none; border:none; font-size:20px; color:var(--muted); cursor:pointer; line-height:1; }
+
+.meteoGrid{ display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; margin:8px 0 14px; }
+.meteoGrid div{ font-size:12.5px; }
+.meteoGrid b{ display:block; font-size:15px; }
+
+.specieRow{
+  border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:8px;
+  cursor:pointer; background:var(--surface2);
+}
+.specieRow .head{ display:flex; justify-content:space-between; align-items:center; font-weight:600; }
+.specieRow .score{ font-weight:700; }
+.specieRow .crit{ margin-top:6px; font-size:12px; color:var(--muted); display:none; }
+.specieRow.expanded .crit{ display:block; }
+.crit div{ margin:2px 0; }
+
+canvas#chartCanvas{ width:100%; height:150px; background:var(--surface2); border-radius:6px; margin-top:6px; }
+
+.sectionTitle{ font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin:14px 0 6px; font-weight:700; }
+
+/* Marker personalizzati */
+.mushroom-marker{ display:flex; align-items:center; justify-content:center; font-size:18px; border-radius:50%; box-shadow:0 1px 4px rgba(0,0,0,.4); border:2px solid #fff; }
+
+/* Mobile: pannello come bottom sheet */
+@media (max-width:760px){
+  #panel{
+    top:auto; left:0; right:0; bottom:0; width:100%; height:75%;
+    border-left:none; border-top:1px solid var(--border);
+    border-radius:14px 14px 0 0;
+    transform:translateY(100%);
+  }
+  #panel.open{ transform:translateY(0); }
+  #daySliderBox input[type=range]{ width:80px; }
+  #disclaimer{ max-width:200px; font-size:10.5px; bottom:auto; top:56px; right:6px; left:6px; max-width:none; text-align:right; }
+  #legend{ bottom:6px; }
+}
+
+.leaflet-popup-content{ font-size:12.5px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="map"></div>
+
+  <!-- Barra superiore: ricerca, geolocalizzazione, filtro specie, slider giorni, aggiorna -->
+  <div id="topbar">
+    <div class="panel-box" id="searchBox">
+      <input id="searchInput" type="text" placeholder="Cerca località…" />
+      <button class="icon-btn" id="btnSearch" title="Cerca">🔍</button>
+    </div>
+    <button class="icon-btn panel-box" id="btnGeo" title="La mia posizione">📍</button>
+
+    <div class="panel-box">
+      <select id="speciesFilter">
+        <option value="">Migliore specie per punto</option>
+      </select>
+    </div>
+
+    <div class="panel-box" id="daySliderBox">
+      <span>Giorno: <b id="dayLabel">Oggi</b></span>
+      <input type="range" id="daySlider" min="0" max="3" value="0" step="1" />
+    </div>
+
+    <button class="btn" id="btnRefresh">🔄 Aggiorna</button>
+  </div>
+
+  <div id="statusLine"></div>
+
+  <div id="legend" class="panel-box">
+    <div style="font-weight:700; margin-bottom:4px;">Probabilità fruttificazione</div>
+    <div class="row"><span class="dot" style="background:#d64541"></span> Bassa (&lt;30)</div>
+    <div class="row"><span class="dot" style="background:#e0a721"></span> Media (30–60)</div>
+    <div class="row"><span class="dot" style="background:#2f9e44"></span> Alta (&gt;60)</div>
+    <div id="lastUpdate" style="margin-top:6px; color:var(--muted); font-size:11px;"></div>
+  </div>
+
+  <div id="disclaimer" class="panel-box">
+    ⚠️ Le stime sono <b>indicative</b> e basate solo su dati meteo. Non consumare mai funghi raccolti senza il controllo dell'Ispettorato Micologico dell'ASL. Rispetta le normative regionali su permessi, quantità e periodi di raccolta.
+  </div>
+
+  <!-- Pannello di dettaglio -->
+  <div id="panel">
+    <div id="panelHeader">
+      <div>
+        <div id="panelTitle" style="font-weight:700; font-size:15px;">Dettaglio punto</div>
+        <div id="panelSub" style="font-size:12px; color:var(--muted);"></div>
+      </div>
+      <button id="panelClose">✕</button>
+    </div>
+    <div id="panelBody"></div>
+  </div>
+</div>
+
+<!-- Leaflet JS (CDN) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+'use strict';
+
+/* ============================================================================
+   CONFIG — pesi, soglie e parametri modificabili del modello di punteggio
+   ============================================================================ */
+const CONFIG = {
+  // Pesi dei sotto-punteggi (devono sommare a 1)
+  PESI: {
+    pioggia: 0.30,
+    tempSuolo: 0.20,
+    tempAria: 0.20,
+    umidita: 0.10,
+    quota: 0.10,
+    stagione: 0.10
+  },
+  // Penalità
+  PENALITA: {
+    geloRecente: 0.5,       // moltiplicatore se gelo (<0°C) nelle ultime 72h
+    ventoForte: 0.85,       // moltiplicatore se vento medio >30km/h prolungato (>=2 giorni negli ultimi 3)
+    ventoSogliaKmh: 30,
+    periodoSeccoGiorni: 7,  // giorni consecutivi senza pioggia significativa prima di oggi
+    periodoSeccoMoltiplicatore: 0.6,
+    pioggiaSignificativaMm: 1.0, // soglia mm per considerare "giorno di pioggia"
+    fuoriStagioneMax: 20    // punteggio massimo se il mese è fuori stagione
+  },
+  GRIGLIA: { righe: 8, colonne: 8 }, // griglia di punti sull'area visibile
+  CACHE_TTL_MS: 3 * 60 * 60 * 1000,  // 3 ore
+  PAST_DAYS: 21,
+  FORECAST_DAYS: 3,
+  // Colori soglie marker
+  SOGLIE_COLORE: { bassa: 30, media: 60 }
+};
+
+/* ============================================================================
+   DATABASE SPECIE
+   Ogni specie definisce range ecologici realistici (fonti: letteratura
+   micologica generalista italiana). Valori indicativi, pensati per un
+   modello semplificato basato solo su meteo.
+   ============================================================================ */
+const SPECIE = {
+  boletus_edulis: {
+    nome: "Porcino (B. edulis)", scientifico: "Boletus edulis", emoji: "🍄",
+    tempAria: { min: 10, max: 22, tolMin: 4, tolMax: 27 },
+    tempSuolo: { min: 12, max: 18, tolMin: 8, tolMax: 22 },
+    pioggia7: 25, pioggia14: 40, ritardoGiorni: 10,
+    umiditaMin: 65,
+    altitudine: { min: 300, max: 1600 },
+    mesi: [6,7,8,9,10],
+    habitat: "Faggio, abete rosso, castagno, quercia",
+    note: "Predilige notti fresche dopo piogge estive/autunnali."
+  },
+  boletus_aereus: {
+    nome: "Porcino nero (B. aereus)", scientifico: "Boletus aereus", emoji: "🍄",
+    tempAria: { min: 14, max: 26, tolMin: 8, tolMax: 30 },
+    tempSuolo: { min: 15, max: 21, tolMin: 10, tolMax: 24 },
+    pioggia7: 20, pioggia14: 35, ritardoGiorni: 9,
+    umiditaMin: 60,
+    altitudine: { min: 0, max: 900 },
+    mesi: [6,7,8,9,10],
+    habitat: "Querceti caldi (leccio, roverella), castagno",
+    note: "Più termofilo del porcino comune, tipico del centro-sud."
+  },
+  boletus_reticulatus: {
+    nome: "Porcino estatino (B. reticulatus)", scientifico: "Boletus reticulatus", emoji: "🍄",
+    tempAria: { min: 15, max: 28, tolMin: 10, tolMax: 32 },
+    tempSuolo: { min: 16, max: 22, tolMin: 11, tolMax: 25 },
+    pioggia7: 18, pioggia14: 30, ritardoGiorni: 7,
+    umiditaMin: 55,
+    altitudine: { min: 0, max: 1200 },
+    mesi: [5,6,7,8,9],
+    habitat: "Querce, castagno, faggio (fruttifica prima degli altri porcini)",
+    note: "Tollera meglio il caldo estivo; sensibile a siccità prolungata."
+  },
+  boletus_pinophilus: {
+    nome: "Porcino di pino (B. pinophilus)", scientifico: "Boletus pinophilus", emoji: "🍄",
+    tempAria: { min: 8, max: 20, tolMin: 2, tolMax: 25 },
+    tempSuolo: { min: 10, max: 16, tolMin: 6, tolMax: 20 },
+    pioggia7: 22, pioggia14: 38, ritardoGiorni: 11,
+    umiditaMin: 60,
+    altitudine: { min: 200, max: 1800 },
+    mesi: [4,5,6,9,10,11],
+    habitat: "Pino, abete, boschi montani",
+    note: "Doppia stagione: primaverile e autunnale; ama terreni sabbiosi."
+  },
+  cantharellus_cibarius: {
+    nome: "Finferlo/Gallinaccio", scientifico: "Cantharellus cibarius", emoji: "🟡",
+    tempAria: { min: 12, max: 22, tolMin: 6, tolMax: 27 },
+    tempSuolo: { min: 12, max: 18, tolMin: 8, tolMax: 22 },
+    pioggia7: 20, pioggia14: 35, ritardoGiorni: 12,
+    umiditaMin: 70,
+    altitudine: { min: 100, max: 1500 },
+    mesi: [5,6,7,8,9,10],
+    habitat: "Faggio, castagno, querce, conifere",
+    note: "Fruttificazione prolungata se l'umidità resta costante; sensibile a vento secco."
+  },
+  craterellus_cornucopioides: {
+    nome: "Trombetta dei morti", scientifico: "Craterellus cornucopioides", emoji: "⚫",
+    tempAria: { min: 8, max: 18, tolMin: 3, tolMax: 22 },
+    tempSuolo: { min: 9, max: 15, tolMin: 5, tolMax: 18 },
+    pioggia7: 25, pioggia14: 45, ritardoGiorni: 14,
+    umiditaMin: 75,
+    altitudine: { min: 200, max: 1400 },
+    mesi: [9,10,11],
+    habitat: "Faggio, querce, humus profondo in ombra",
+    note: "Predilige zone ombreggiate e umide, autunno inoltrato."
+  },
+  hydnum_repandum: {
+    nome: "Steccherino dorato", scientifico: "Hydnum repandum", emoji: "🟠",
+    tempAria: { min: 10, max: 20, tolMin: 4, tolMax: 25 },
+    tempSuolo: { min: 10, max: 16, tolMin: 6, tolMax: 20 },
+    pioggia7: 20, pioggia14: 35, ritardoGiorni: 10,
+    umiditaMin: 65,
+    altitudine: { min: 200, max: 1500 },
+    mesi: [8,9,10,11],
+    habitat: "Faggio, conifere, querce",
+    note: "Meno esigente di altri boleti riguardo al tipo di suolo."
+  },
+  amanita_caesarea: {
+    nome: "Ovulo buono", scientifico: "Amanita caesarea", emoji: "🟧",
+    tempAria: { min: 16, max: 28, tolMin: 10, tolMax: 32 },
+    tempSuolo: { min: 16, max: 22, tolMin: 12, tolMax: 25 },
+    pioggia7: 18, pioggia14: 30, ritardoGiorni: 8,
+    umiditaMin: 55,
+    altitudine: { min: 0, max: 1000 },
+    mesi: [6,7,8,9,10],
+    habitat: "Querceti caldi, castagno (centro-sud Italia)",
+    note: "Molto termofilo, richiede estati calde con temporali."
+  },
+  lactarius_deliciosus: {
+    nome: "Sanguinello", scientifico: "Lactarius deliciosus", emoji: "🟠",
+    tempAria: { min: 10, max: 20, tolMin: 4, tolMax: 25 },
+    tempSuolo: { min: 10, max: 16, tolMin: 6, tolMax: 20 },
+    pioggia7: 18, pioggia14: 30, ritardoGiorni: 9,
+    umiditaMin: 60,
+    altitudine: { min: 200, max: 1600 },
+    mesi: [9,10,11],
+    habitat: "Pino (simbionte obbligato)",
+    note: "Legato esclusivamente a pinete; tollera terreni più asciutti."
+  },
+  macrolepiota_procera: {
+    nome: "Mazza di tamburo", scientifico: "Macrolepiota procera", emoji: "🥁",
+    tempAria: { min: 12, max: 24, tolMin: 6, tolMax: 28 },
+    tempSuolo: { min: 12, max: 18, tolMin: 7, tolMax: 22 },
+    pioggia7: 15, pioggia14: 25, ritardoGiorni: 8,
+    umiditaMin: 55,
+    altitudine: { min: 0, max: 1500 },
+    mesi: [6,7,8,9,10],
+    habitat: "Prati, radure, margini di bosco",
+    note: "Non simbionte: cresce anche in prati aperti e pascoli."
+  },
+  armillaria_mellea: {
+    nome: "Chiodino", scientifico: "Armillaria mellea", emoji: "🟤",
+    tempAria: { min: 8, max: 18, tolMin: 2, tolMax: 22 },
+    tempSuolo: { min: 8, max: 14, tolMin: 4, tolMax: 18 },
+    pioggia7: 20, pioggia14: 35, ritardoGiorni: 10,
+    umiditaMin: 70,
+    altitudine: { min: 0, max: 1400 },
+    mesi: [9,10,11,12],
+    habitat: "Latifoglie e conifere, ceppi e radici (parassita/saprofita)",
+    note: "Fruttifica tardi in autunno, tollera temperature più basse."
+  },
+  pleurotus_eryngii: {
+    nome: "Cardoncello", scientifico: "Pleurotus eryngii", emoji: "🍄‍🟫",
+    tempAria: { min: 10, max: 22, tolMin: 4, tolMax: 27 },
+    tempSuolo: { min: 10, max: 18, tolMin: 5, tolMax: 22 },
+    pioggia7: 15, pioggia14: 25, ritardoGiorni: 7,
+    umiditaMin: 55,
+    altitudine: { min: 0, max: 1200 },
+    mesi: [4,5,9,10,11],
+    habitat: "Radici di ombrellifere (cardo, finocchio selvatico), zone aride/steppose",
+    note: "Doppia stagione; più tollerante alla siccità di altre specie."
+  },
+  pleurotus_ostreatus: {
+    nome: "Orecchione/Gelone", scientifico: "Pleurotus ostreatus", emoji: "🐚",
+    tempAria: { min: 5, max: 18, tolMin: 0, tolMax: 22 },
+    tempSuolo: { min: 6, max: 14, tolMin: 2, tolMax: 18 },
+    pioggia7: 15, pioggia14: 25, ritardoGiorni: 6,
+    umiditaMin: 65,
+    altitudine: { min: 0, max: 1200 },
+    mesi: [10,11,12,1,2,3],
+    habitat: "Tronchi e ceppi di latifoglie (pioppo, salice, olmo)",
+    note: "Lignicolo, tollera bene il freddo; attivo anche in inverno mite."
+  },
+  marasmius_oreades: {
+    nome: "Gambesecche", scientifico: "Marasmius oreades", emoji: "🌾",
+    tempAria: { min: 12, max: 24, tolMin: 5, tolMax: 30 },
+    tempSuolo: { min: 12, max: 20, tolMin: 6, tolMax: 24 },
+    pioggia7: 10, pioggia14: 18, ritardoGiorni: 4,
+    umiditaMin: 50,
+    altitudine: { min: 0, max: 1500 },
+    mesi: [5,6,7,8,9,10],
+    habitat: "Prati, giardini, cerchi delle streghe",
+    note: "Reagisce rapidamente a piogge brevi anche in estate."
+  },
+  morchella_esculenta: {
+    nome: "Spugnola", scientifico: "Morchella esculenta", emoji: "🟫",
+    tempAria: { min: 8, max: 18, tolMin: 2, tolMax: 22 },
+    tempSuolo: { min: 8, max: 14, tolMin: 4, tolMax: 18 },
+    pioggia7: 15, pioggia14: 25, ritardoGiorni: 12,
+    umiditaMin: 60,
+    altitudine: { min: 0, max: 1200 },
+    mesi: [3,4,5],
+    habitat: "Olmo, frassino, pioppo, ex-boschi bruciati/alluvionati",
+    note: "Primaverile, legata al disgelo e a terreni ricchi di sostanza organica."
+  },
+  calocybe_gambosa: {
+    nome: "Prugnolo", scientifico: "Calocybe gambosa", emoji: "🤍",
+    tempAria: { min: 10, max: 20, tolMin: 4, tolMax: 24 },
+    tempSuolo: { min: 10, max: 16, tolMin: 5, tolMax: 20 },
+    pioggia7: 12, pioggia14: 20, ritardoGiorni: 10,
+    umiditaMin: 55,
+    altitudine: { min: 0, max: 1400 },
+    mesi: [4,5,6],
+    habitat: "Prati, siepi, margini boschivi (biancospino, rosa canina)",
+    note: "Tipico dei 'cerchi delle streghe' primaverili."
+  },
+  agaricus_campestris: {
+    nome: "Prataiolo", scientifico: "Agaricus campestris", emoji: "🍄‍⬜",
+    tempAria: { min: 10, max: 22, tolMin: 4, tolMax: 27 },
+    tempSuolo: { min: 10, max: 18, tolMin: 5, tolMax: 22 },
+    pioggia7: 15, pioggia14: 25, ritardoGiorni: 6,
+    umiditaMin: 55,
+    altitudine: { min: 0, max: 1500 },
+    mesi: [5,6,9,10,11],
+    habitat: "Prati concimati, pascoli",
+    note: "Non simbionte, legato a suoli ricchi di sostanza organica animale."
+  }
+};
+
+/* ============================================================================
+   STATO GLOBALE
+   ============================================================================ */
+let map, gridLayer, dettaglioPunto = null;
+let ultimoAggiornamento = null;
+let giornoOffset = 0; // 0 = oggi, 1..3 = previsione
+let filtroSpecie = "";
+let cacheMeteo = {}; // in-memory, sincronizzata con localStorage
+
+/* ============================================================================
+   UTILITÀ
+   ============================================================================ */
+
+// Funzione trapezoidale: 1 nel range ottimale [min,max], decresce
+// linearmente a 0 fuori dal range tollerabile [tolMin,tolMax]
+function punteggioTrapezoidale(valore, min, max, tolMin, tolMax){
+  if (valore >= min && valore <= max) return 1;
+  if (valore < min){
+    if (valore <= tolMin) return 0;
+    return (valore - tolMin) / (min - tolMin);
+  } else {
+    if (valore >= tolMax) return 0;
+    return (tolMax - valore) / (tolMax - max);
+  }
+}
+
+// Punteggio "a soglia" (0 sotto la soglia, cresce linearmente fino a 1 al doppio della soglia)
+function punteggioSoglia(valore, soglia){
+  if (soglia <= 0) return 1;
+  return Math.max(0, Math.min(1, valore / soglia));
+}
+
+function round1(n){ return Math.round(n*10)/10; }
+
+function coloreDaPunteggio(p){
+  if (p < CONFIG.SOGLIE_COLORE.bassa) return getVar('--red');
+  if (p < CONFIG.SOGLIE_COLORE.media) return getVar('--yellow');
+  return getVar('--green');
+}
+function getVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888';
+}
+
+function chiaveCache(lat, lon){
+  // Arrotonda per aumentare probabilità di cache-hit tra punti vicini
+  return `funghi_meteo_${lat.toFixed(2)}_${lon.toFixed(2)}`;
+}
+
+function leggiCache(lat, lon){
+  try{
+    const raw = localStorage.getItem(chiaveCache(lat, lon));
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (Date.now() - obj.ts > CONFIG.CACHE_TTL_MS) return null;
+    return obj.dati;
+  }catch(e){ return null; }
+}
+function scriviCache(lat, lon, dati){
+  try{
+    localStorage.setItem(chiaveCache(lat, lon), JSON.stringify({ ts: Date.now(), dati }));
+  }catch(e){ /* quota localStorage superata: ignora silenziosamente */ }
+}
+
+function mostraStato(msg, autoHideMs){
+  const el = document.getElementById('statusLine');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (autoHideMs){
+    clearTimeout(mostraStato._t);
+    mostraStato._t = setTimeout(()=> el.classList.remove('show'), autoHideMs);
+  }
+}
+function nascondiStato(){ document.getElementById('statusLine').classList.remove('show'); }
+
+/* ============================================================================
+   FETCH METEO (Open-Meteo) — con batching e cache localStorage
+   ============================================================================ */
+
+// Scarica meteo per una lista di punti {lat,lon}. Usa richieste batch
+// (Open-Meteo accetta liste di coordinate separate da virgola) e cache.
+async function fetchMeteo(punti){
+  const daScaricare = [];
+  const risultati = new Array(punti.length);
+
+  punti.forEach((p, i) => {
+    const cached = leggiCache(p.lat, p.lon);
+    if (cached){
+      risultati[i] = cached;
+    } else {
+      daScaricare.push({ idx: i, ...p });
+    }
+  });
+
+  if (daScaricare.length === 0) return risultati;
+
+  // Batch in gruppi (limite prudenziale per URL non troppo lunghi)
+  const BATCH_SIZE = 20;
+  for (let i = 0; i < daScaricare.length; i += BATCH_SIZE){
+    const batch = daScaricare.slice(i, i + BATCH_SIZE);
+    const lats = batch.map(p => p.lat.toFixed(4)).join(',');
+    const lons = batch.map(p => p.lon.toFixed(4)).join(',');
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}`
+      + `&daily=temperature_2m_mean,precipitation_sum,relative_humidity_2m_mean`
+      + `&hourly=temperature_2m,relative_humidity_2m,precipitation,soil_temperature_6cm,soil_moisture_3_9cm,wind_speed_10m,et0_fao_evapotranspiration`
+      + `&past_days=${CONFIG.PAST_DAYS}&forecast_days=${CONFIG.FORECAST_DAYS}`
+      + `&timezone=auto`;
+
+    try{
+      mostraStato(`Scaricamento meteo (${i+batch.length}/${daScaricare.length})…`);
+      const resp = await fetch(url);
+      if (!resp.ok){
+        if (resp.status === 429) throw new Error('Limite di richieste Open-Meteo superato. Riprova tra qualche minuto.');
+        throw new Error(`Errore rete meteo (HTTP ${resp.status})`);
+      }
+      const data = await resp.json();
+      // Con multi-coordinate Open-Meteo restituisce un array se >1 punto, oggetto singolo se 1
+      const arr = Array.isArray(data) ? data : [data];
+      arr.forEach((datiPunto, j) => {
+        const p = batch[j];
+        risultati[p.idx] = datiPunto;
+        scriviCache(p.lat, p.lon, datiPunto);
+      });
+    }catch(err){
+      console.error('Errore fetchMeteo:', err);
+      mostraStato('⚠️ ' + err.message, 5000);
+      // I punti falliti restano undefined: verranno saltati nel rendering
+    }
+  }
+  nascondiStato();
+  return risultati;
+}
+
+// Quota (Open-Meteo Elevation API), con cache separata e batching
+async function fetchQuote(punti){
+  const daScaricare = [];
+  const risultati = new Array(punti.length);
+  punti.forEach((p,i) => {
+    const key = `funghi_elev_${p.lat.toFixed(3)}_${p.lon.toFixed(3)}`;
+    try{
+      const raw = localStorage.getItem(key);
+      if (raw){ risultati[i] = JSON.parse(raw).v; return; }
+    }catch(e){}
+    daScaricare.push({ idx:i, ...p });
+  });
+  if (daScaricare.length === 0) return risultati;
+
+  const BATCH_SIZE = 90; // Open-Meteo Elevation consente fino a 100 punti per richiesta
+  for (let i = 0; i < daScaricare.length; i += BATCH_SIZE){
+    const batch = daScaricare.slice(i, i + BATCH_SIZE);
+    const lats = batch.map(p=>p.lat.toFixed(4)).join(',');
+    const lons = batch.map(p=>p.lon.toFixed(4)).join(',');
+    try{
+      const resp = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`);
+      if (!resp.ok) throw new Error('Errore quota');
+      const data = await resp.json();
+      data.elevation.forEach((e, j) => {
+        const p = batch[j];
+        risultati[p.idx] = e;
+        try{ localStorage.setItem(`funghi_elev_${p.lat.toFixed(3)}_${p.lon.toFixed(3)}`, JSON.stringify({v:e})); }catch(err){}
+      });
+    }catch(err){
+      console.error('Errore fetchQuote:', err);
+    }
+  }
+  return risultati;
+}
+
+/* ============================================================================
+   ELABORAZIONE DATI METEO — estrazione indicatori dal JSON Open-Meteo
+   ============================================================================ */
+
+// Restituisce un oggetto con gli indicatori aggregati necessari al modello,
+// calcolati rispetto a un "giorno di riferimento" (oggi + offset in giorni,
+// che può essere negativo se si guarda indietro, o fino a +3 se previsione)
+function estraiIndicatori(datiPunto, offsetGiorni){
+  if (!datiPunto || !datiPunto.daily || !datiPunto.hourly) return null;
+
+  const daily = datiPunto.daily;
+  const hourly = datiPunto.hourly;
+
+  // Indice del "giorno di riferimento" nell'array daily.time
+  // daily.time copre [oggi - PAST_DAYS ... oggi + FORECAST_DAYS]
+  const idxOggi = CONFIG.PAST_DAYS; // per definizione di past_days/forecast_days
+  const idxRif = idxOggi + offsetGiorni;
+  if (idxRif < 0 || idxRif >= daily.time.length) return null;
+
+  // Pioggia cumulata negli ultimi N giorni fino al giorno di riferimento incluso
+  function pioggiaCumulata(nGiorni){
+    let somma = 0;
+    for (let k = Math.max(0, idxRif - nGiorni + 1); k <= idxRif; k++){
+      somma += daily.precipitation_sum[k] || 0;
+    }
+    return somma;
+  }
+
+  // Pioggia "finestra di innesco": pioggia significativa avvenuta tra
+  // ritardoMin e ritardoMax giorni prima del giorno di riferimento
+  function pioggiaFinestra(centroGiorni, ampiezza){
+    let somma = 0;
+    const da = idxRif - centroGiorni - ampiezza;
+    const a = idxRif - centroGiorni + ampiezza;
+    for (let k = Math.max(0, da); k <= Math.min(idxRif, a); k++){
+      somma += daily.precipitation_sum[k] || 0;
+    }
+    return somma;
+  }
+
+  // Temperatura aria media ultimi 7 giorni
+  function tempAriaMedia(nGiorni){
+    let somma = 0, cont = 0;
+    for (let k = Math.max(0, idxRif - nGiorni + 1); k <= idxRif; k++){
+      if (daily.temperature_2m_mean[k] != null){ somma += daily.temperature_2m_mean[k]; cont++; }
+    }
+    return cont ? somma / cont : null;
+  }
+
+  function umiditaMedia(nGiorni){
+    let somma = 0, cont = 0;
+    for (let k = Math.max(0, idxRif - nGiorni + 1); k <= idxRif; k++){
+      if (daily.relative_humidity_2m_mean && daily.relative_humidity_2m_mean[k] != null){ somma += daily.relative_humidity_2m_mean[k]; cont++; }
+    }
+    return cont ? somma / cont : null;
+  }
+
+  // Temperatura suolo media (da orario, media delle 24h del giorno di riferimento e giorno prima)
+  function mediaOraria(campo, giorni){
+    const oreGiorno = 24;
+    const idxOraFine = (idxRif + 1) * oreGiorno; // fine giorno rif
+    const idxOraInizio = Math.max(0, idxOraFine - oreGiorno * giorni);
+    let somma = 0, cont = 0;
+    const arr = hourly[campo];
+    if (!arr) return null;
+    for (let k = idxOraInizio; k < Math.min(idxOraFine, arr.length); k++){
+      if (arr[k] != null){ somma += arr[k]; cont++; }
+    }
+    return cont ? somma / cont : null;
+  }
+
+  // Gelo nelle ultime 72h (rispetto al giorno di riferimento)
+  function geloRecente(){
+    const oreGiorno = 24;
+    const idxOraFine = (idxRif + 1) * oreGiorno;
+    const idxOraInizio = Math.max(0, idxOraFine - oreGiorno * 3);
+    const arr = hourly.temperature_2m;
+    if (!arr) return false;
+    for (let k = idxOraInizio; k < Math.min(idxOraFine, arr.length); k++){
+      if (arr[k] != null && arr[k] < 0) return true;
+    }
+    return false;
+  }
+
+  // Vento forte prolungato: media giornaliera vento >soglia per almeno 2 degli ultimi 3 giorni
+  function ventoForteProlungato(){
+    const arr = hourly.wind_speed_10m;
+    if (!arr) return false;
+    let giorniForti = 0;
+    for (let g = 0; g < 3; g++){
+      const gi = idxRif - g;
+      if (gi < 0) continue;
+      let somma = 0, cont = 0;
+      for (let h = 0; h < 24; h++){
+        const idx = gi*24 + h;
+        if (arr[idx] != null){ somma += arr[idx]; cont++; }
+      }
+      if (cont && (somma/cont) > CONFIG.PENALITA.ventoSogliaKmh) giorniForti++;
+    }
+    return giorniForti >= 2;
+  }
+
+  // Periodo secco: giorni consecutivi (immediatamente prima del rif, rif escluso) senza pioggia significativa
+  function periodoSeccoConsecutivo(){
+    let giorni = 0;
+    for (let k = idxRif; k >= 0; k--){
+      if ((daily.precipitation_sum[k] || 0) < CONFIG.PENALITA.pioggiaSignificativaMm){
+        giorni++;
+      } else break;
+    }
+    return giorni;
+  }
+
+  const mese = new Date(daily.time[idxRif]).getMonth() + 1;
+
+  return {
+    dataRif: daily.time[idxRif],
+    mese,
+    pioggia7: round1(pioggiaCumulata(7)),
+    pioggia14: round1(pioggiaCumulata(14)),
+    pioggia21: round1(pioggiaCumulata(21)),
+    pioggiaFinestraInnesco: (ritardo) => round1(pioggiaFinestra(ritardo, 5)),
+    tempAriaMedia7: tempAriaMedia(7) != null ? round1(tempAriaMedia(7)) : null,
+    tempAriaOggi: daily.temperature_2m_mean[idxRif] != null ? round1(daily.temperature_2m_mean[idxRif]) : null,
+    umiditaMedia7: umiditaMedia(7) != null ? round1(umiditaMedia(7)) : null,
+    tempSuoloMedia: mediaOraria('soil_temperature_6cm', 2) != null ? round1(mediaOraria('soil_temperature_6cm', 2)) : null,
+    umiditaSuoloMedia: mediaOraria('soil_moisture_3_9cm', 2),
+    geloRecente: geloRecente(),
+    ventoForteProlungato: ventoForteProlungato(),
+    periodoSeccoGiorni: periodoSeccoConsecutivo()
+  };
+}
+
+/* ============================================================================
+   MODELLO DI PUNTEGGIO
+   ============================================================================ */
+
+// Calcola il punteggio 0-100 per una specie dato l'insieme di indicatori
+// meteo del punto e la quota. Restituisce { punteggio, dettagli } dove
+// dettagli è un array di criteri con esito ✅/❌ per il pannello.
+function calcolaPunteggio(specie, indicatori, quota){
+  if (!indicatori) return { punteggio: 0, dettagli: [{ ok:false, testo:'Dati meteo non disponibili' }] };
+
+  const dettagli = [];
+  const P = CONFIG.PESI;
+
+  // --- Pioggia (30%): combina cumulata 7/14gg + finestra di innesco al ritardo tipico
+  const pRitardo = indicatori.pioggiaFinestraInnesco(specie.ritardoGiorni);
+  const scorePioggia7 = punteggioSoglia(indicatori.pioggia7, specie.pioggia7);
+  const scorePioggia14 = punteggioSoglia(indicatori.pioggia14, specie.pioggia14);
+  const scoreFinestra = punteggioSoglia(pRitardo, specie.pioggia7 * 0.5);
+  const scorePioggia = (scorePioggia7 * 0.4 + scorePioggia14 * 0.35 + scoreFinestra * 0.25);
+  dettagli.push({
+    ok: indicatori.pioggia7 >= specie.pioggia7,
+    testo: `Pioggia 7gg: ${indicatori.pioggia7}mm (richiesti ≥${specie.pioggia7}mm)`
+  });
+  dettagli.push({
+    ok: indicatori.pioggia14 >= specie.pioggia14,
+    testo: `Pioggia 14gg: ${indicatori.pioggia14}mm (richiesti ≥${specie.pioggia14}mm)`
+  });
+  dettagli.push({
+    ok: scoreFinestra > 0.5,
+    testo: `Pioggia innesco ~${specie.ritardoGiorni}gg fa: ${pRitardo}mm`
+  });
+
+  // --- Temperatura suolo (20%)
+  const ts = specie.tempSuolo;
+  let scoreTempSuolo = 0.5;
+  if (indicatori.tempSuoloMedia != null){
+    scoreTempSuolo = punteggioTrapezoidale(indicatori.tempSuoloMedia, ts.min, ts.max, ts.tolMin, ts.tolMax);
+    dettagli.push({
+      ok: scoreTempSuolo > 0.6,
+      testo: `Temp. suolo: ${indicatori.tempSuoloMedia}°C (ottimale ${ts.min}-${ts.max}°C)`
+    });
+  } else {
+    dettagli.push({ ok:false, testo:'Temp. suolo non disponibile' });
+  }
+
+  // --- Temperatura aria media 7gg (20%)
+  const ta = specie.tempAria;
+  let scoreTempAria = 0.5;
+  if (indicatori.tempAriaMedia7 != null){
+    scoreTempAria = punteggioTrapezoidale(indicatori.tempAriaMedia7, ta.min, ta.max, ta.tolMin, ta.tolMax);
+    dettagli.push({
+      ok: scoreTempAria > 0.6,
+      testo: `Temp. aria media 7gg: ${indicatori.tempAriaMedia7}°C (ottimale ${ta.min}-${ta.max}°C)`
+    });
+  } else {
+    dettagli.push({ ok:false, testo:'Temp. aria non disponibile' });
+  }
+
+  // --- Umidità (10%)
+  let scoreUmidita = 0.5;
+  if (indicatori.umiditaMedia7 != null){
+    scoreUmidita = punteggioSoglia(indicatori.umiditaMedia7, specie.umiditaMin);
+    dettagli.push({
+      ok: indicatori.umiditaMedia7 >= specie.umiditaMin,
+      testo: `Umidità media 7gg: ${indicatori.umiditaMedia7}% (richiesta ≥${specie.umiditaMin}%)`
+    });
+  } else {
+    dettagli.push({ ok:false, testo:'Umidità non disponibile' });
+  }
+
+  // --- Quota (10%)
+  let scoreQuota = 0.5;
+  if (quota != null){
+    const alt = specie.altitudine;
+    const margine = (alt.max - alt.min) * 0.25 || 200;
+    scoreQuota = punteggioTrapezoidale(quota, alt.min, alt.max, alt.min - margine, alt.max + margine);
+    dettagli.push({
+      ok: quota >= alt.min && quota <= alt.max,
+      testo: `Quota: ${Math.round(quota)}m (range ${alt.min}-${alt.max}m)`
+    });
+  } else {
+    dettagli.push({ ok:false, testo:'Quota non disponibile' });
+  }
+
+  // --- Stagione (10%)
+  const inStagione = specie.mesi.includes(indicatori.mese);
+  const scoreStagione = inStagione ? 1 : 0;
+  dettagli.push({
+    ok: inStagione,
+    testo: inStagione ? `Mese in stagione (${indicatori.mese})` : `Fuori stagione (mese ${indicatori.mese})`
+  });
+
+  // --- Combinazione pesata
+  let punteggio = (
+    scorePioggia * P.pioggia +
+    scoreTempSuolo * P.tempSuolo +
+    scoreTempAria * P.tempAria +
+    scoreUmidita * P.umidita +
+    scoreQuota * P.quota +
+    scoreStagione * P.stagione
+  ) * 100;
+
+  // --- Penalità
+  if (indicatori.geloRecente){
+    punteggio *= CONFIG.PENALITA.geloRecente;
+    dettagli.push({ ok:false, testo:'⚠️ Gelo recente nelle ultime 72h' });
+  }
+  if (indicatori.ventoForteProlungato){
+    punteggio *= CONFIG.PENALITA.ventoForte;
+    dettagli.push({ ok:false, testo:'⚠️ Vento forte prolungato' });
+  }
+  if (indicatori.periodoSeccoGiorni > CONFIG.PENALITA.periodoSeccoGiorni){
+    punteggio *= CONFIG.PENALITA.periodoSeccoMoltiplicatore;
+    dettagli.push({ ok:false, testo:`⚠️ Periodo secco di ${indicatori.periodoSeccoGiorni} giorni` });
+  }
+
+  // --- Fuori stagione: tetto massimo
+  if (!inStagione){
+    punteggio = Math.min(punteggio, CONFIG.PENALITA.fuoriStagioneMax);
+  }
+
+  punteggio = Math.max(0, Math.min(100, punteggio));
+
+  return { punteggio: Math.round(punteggio), dettagli };
+}
+
+// Calcola il punteggio di tutte le specie per un punto e restituisce la classifica
+function classificaSpecie(indicatori, quota){
+  const risultati = Object.entries(SPECIE).map(([id, specie]) => {
+    const { punteggio, dettagli } = calcolaPunteggio(specie, indicatori, quota);
+    return { id, specie, punteggio, dettagli };
+  });
+  risultati.sort((a,b) => b.punteggio - a.punteggio);
+  return risultati;
+}
+
+/* ============================================================================
+   INIZIALIZZAZIONE MAPPA
+   ============================================================================ */
+function initMappa(){
+  map = L.map('map', { zoomControl: false }).setView([42.5, 12.5], 6); // Centro Italia
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  gridLayer = L.layerGroup().addTo(map);
+
+  map.on('moveend', () => aggiornaGriglia());
+  map.on('click', (e) => apriPannelloPuntoLibero(e.latlng));
+}
+
+/* ============================================================================
+   GRIGLIA DI PUNTI SULL'AREA VISIBILE
+   ============================================================================ */
+function generaGriglia(){
+  const bounds = map.getBounds();
+  const nord = bounds.getNorth(), sud = bounds.getSouth();
+  const est = bounds.getEast(), ovest = bounds.getWest();
+
+  // Adatta il numero di righe/colonne in base allo zoom (più punti se zoom alto)
+  const zoom = map.getZoom();
+  let righe = CONFIG.GRIGLIA.righe, colonne = CONFIG.GRIGLIA.colonne;
+  if (zoom < 6){ righe = 5; colonne = 5; }
+  else if (zoom > 11){ righe = 10; colonne = 10; }
+
+  const punti = [];
+  for (let i = 0; i < righe; i++){
+    for (let j = 0; j < colonne; j++){
+      const lat = sud + (nord - sud) * (i + 0.5) / righe;
+      const lon = ovest + (est - ovest) * (j + 0.5) / colonne;
+      punti.push({ lat, lon });
+    }
+  }
+  return punti;
+}
+
+let ultimaRichiestaId = 0;
+
+async function aggiornaGriglia(){
+  const richiestaId = ++ultimaRichiestaId;
+  const punti = generaGriglia();
+
+  mostraStato('Caricamento dati meteo…');
+  const [datiMeteo, quote] = await Promise.all([
+    fetchMeteo(punti),
+    fetchQuote(punti)
+  ]);
+
+  if (richiestaId !== ultimaRichiestaId) return; // richiesta obsoleta (mappa mossa nel frattempo)
+
+  gridLayer.clearLayers();
+
+  punti.forEach((p, i) => {
+    const dati = datiMeteo[i];
+    const quota = quote[i];
+    const indicatori = estraiIndicatori(dati, giornoOffset);
+    if (!indicatori) return;
+
+    const classifica = classificaSpecie(indicatori, quota);
+
+    let marker;
+    if (filtroSpecie){
+      // Modalità heatmap/filtro: cerchio colorato in base al punteggio della specie scelta
+      const risultato = classifica.find(r => r.id === filtroSpecie);
+      const punteggio = risultato ? risultato.punteggio : 0;
+      marker = L.circleMarker([p.lat, p.lon], {
+        radius: 16,
+        color: '#0006',
+        weight: 1,
+        fillColor: coloreDaPunteggio(punteggio),
+        fillOpacity: 0.55
+      }).bindTooltip(`${risultato.specie.emoji} ${punteggio}%`, { permanent:false, direction:'top' });
+    } else {
+      // Modalità default: mostra la specie con punteggio migliore
+      const top = classifica[0];
+      const colore = coloreDaPunteggio(top.punteggio);
+      const icon = L.divIcon({
+        className: '',
+        html: `<div class="mushroom-marker" style="width:30px;height:30px;background:${colore}">${top.specie.emoji}</div>`,
+        iconSize: [30,30], iconAnchor:[15,15]
+      });
+      marker = L.marker([p.lat, p.lon], { icon })
+        .bindTooltip(`${top.specie.nome}: ${top.punteggio}%`, { direction:'top' });
+    }
+
+    marker.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      mostraPannello(p.lat, p.lon, dati, quota, classifica, indicatori);
+    });
+    marker.addTo(gridLayer);
+  });
+
+  ultimoAggiornamento = new Date();
+  aggiornaLabelUltimoAggiornamento();
+  nascondiStato();
+}
+
+function aggiornaLabelUltimoAggiornamento(){
+  const el = document.getElementById('lastUpdate');
+  if (ultimoAggiornamento){
+    el.textContent = 'Aggiornato: ' + ultimoAggiornamento.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  }
+}
+
+/* Click su un punto libero della mappa (non su un marker della griglia):
+   scarica il meteo puntuale e apre comunque il pannello */
+async function apriPannelloPuntoLibero(latlng){
+  mostraStato('Caricamento dati punto…');
+  const [dati] = await fetchMeteo([{ lat: latlng.lat, lon: latlng.lng }]);
+  const [quota] = await fetchQuote([{ lat: latlng.lat, lon: latlng.lng }]);
+  nascondiStato();
+  const indicatori = estraiIndicatori(dati, giornoOffset);
+  if (!indicatori){ mostraStato('⚠️ Dati non disponibili per questo punto', 3000); return; }
+  const classifica = classificaSpecie(indicatori, quota);
+  mostraPannello(latlng.lat, latlng.lng, dati, quota, classifica, indicatori);
+}
+
+/* ============================================================================
+   PANNELLO DI DETTAGLIO
+   ============================================================================ */
+function mostraPannello(lat, lon, datiMeteo, quota, classifica, indicatori){
+  dettaglioPunto = { lat, lon, datiMeteo, quota, classifica, indicatori };
+  renderPannello();
+  document.getElementById('panel').classList.add('open');
+}
+
+function renderPannello(){
+  if (!dettaglioPunto) return;
+  const { lat, lon, datiMeteo, quota, classifica, indicatori } = dettaglioPunto;
+
+  document.getElementById('panelTitle').textContent = 'Dettaglio punto';
+  document.getElementById('panelSub').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)} — ${indicatori.dataRif}`;
+
+  const body = document.getElementById('panelBody');
+  body.innerHTML = '';
+
+  // --- Dati meteo attuali/cumulati
+  const meteoDiv = document.createElement('div');
+  meteoDiv.className = 'sectionTitle';
+  meteoDiv.textContent = 'Dati meteo';
+  body.appendChild(meteoDiv);
+
+  const grid = document.createElement('div');
+  grid.className = 'meteoGrid';
+  grid.innerHTML = `
+    <div>Pioggia 7gg<b>${indicatori.pioggia7} mm</b></div>
+    <div>Pioggia 14gg<b>${indicatori.pioggia14} mm</b></div>
+    <div>Pioggia 21gg<b>${indicatori.pioggia21} mm</b></div>
+    <div>Temp. aria media 7gg<b>${indicatori.tempAriaMedia7 ?? '—'} °C</b></div>
+    <div>Temp. suolo<b>${indicatori.tempSuoloMedia ?? '—'} °C</b></div>
+    <div>Umidità media 7gg<b>${indicatori.umiditaMedia7 ?? '—'} %</b></div>
+    <div>Quota<b>${quota != null ? Math.round(quota)+' m' : '—'}</b></div>
+    <div>Periodo secco<b>${indicatori.periodoSeccoGiorni} giorni</b></div>
+  `;
+  body.appendChild(grid);
+
+  // --- Classifica top 5 specie
+  const rankTitle = document.createElement('div');
+  rankTitle.className = 'sectionTitle';
+  rankTitle.textContent = 'Classifica specie (top 5)';
+  body.appendChild(rankTitle);
+
+  classifica.slice(0,5).forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'specieRow';
+    const colore = coloreDaPunteggio(r.punteggio);
+    row.innerHTML = `
+      <div class="head">
+        <span>${r.specie.emoji} ${r.specie.nome}</span>
+        <span class="score" style="color:${colore}">${r.punteggio}%</span>
+      </div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">${r.specie.habitat}</div>
+      <div class="crit">
+        ${r.dettagli.map(d => `<div>${d.ok ? '✅' : '❌'} ${d.testo}</div>`).join('')}
+        <div style="margin-top:4px;font-style:italic;">${r.specie.note}</div>
+      </div>
+    `;
+    row.addEventListener('click', () => row.classList.toggle('expanded'));
+    body.appendChild(row);
+  });
+
+  // --- Grafico pioggia/temperatura ultimi 21 giorni
+  const chartTitle = document.createElement('div');
+  chartTitle.className = 'sectionTitle';
+  chartTitle.textContent = 'Andamento ultimi 21 giorni';
+  body.appendChild(chartTitle);
+
+  const canvas = document.createElement('canvas');
+  canvas.id = 'chartCanvas';
+  canvas.width = 340; canvas.height = 150;
+  body.appendChild(canvas);
+
+  disegnaGrafico(canvas, datiMeteo);
+}
+
+// Disegna un semplice grafico a barre (pioggia) + linea (temperatura) su canvas
+function disegnaGrafico(canvas, datiMeteo){
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  const daily = datiMeteo.daily;
+  const n = CONFIG.PAST_DAYS; // ultimi 21 giorni (esclude previsione)
+  const pioggia = daily.precipitation_sum.slice(0, n+1); // include oggi
+  const temp = daily.temperature_2m_mean.slice(0, n+1);
+
+  const maxPioggia = Math.max(1, ...pioggia.map(v=>v||0));
+  const minTemp = Math.min(...temp.filter(v=>v!=null));
+  const maxTemp = Math.max(...temp.filter(v=>v!=null));
+
+  const padding = { top:10, bottom:16, left:4, right:4 };
+  const plotW = w - padding.left - padding.right;
+  const plotH = h - padding.top - padding.bottom;
+  const barW = plotW / pioggia.length;
+
+  const styleTxt = getComputedStyle(document.documentElement);
+  const colBarra = styleTxt.getPropertyValue('--accent').trim() || '#2f7d46';
+  const colLinea = styleTxt.getPropertyValue('--red').trim() || '#d64541';
+  const colTxt = styleTxt.getPropertyValue('--muted').trim() || '#888';
+
+  // Barre pioggia
+  ctx.fillStyle = colBarra;
+  pioggia.forEach((v, i) => {
+    const val = v || 0;
+    const bh = (val / maxPioggia) * plotH;
+    ctx.fillRect(padding.left + i*barW + 1, padding.top + (plotH - bh), barW - 2, bh);
+  });
+
+  // Linea temperatura
+  ctx.strokeStyle = colLinea;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  temp.forEach((v, i) => {
+    if (v == null) return;
+    const x = padding.left + i*barW + barW/2;
+    const norm = maxTemp > minTemp ? (v - minTemp)/(maxTemp - minTemp) : 0.5;
+    const y = padding.top + (1 - norm) * plotH;
+    if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Etichette semplici
+  ctx.fillStyle = colTxt;
+  ctx.font = '10px sans-serif';
+  ctx.fillText('Barre: pioggia (mm)  •  Linea: temp. media (°C)', padding.left, h - 3);
+}
+
+/* ============================================================================
+   RICERCA LOCALITÀ (Nominatim - OpenStreetMap) e GEOLOCALIZZAZIONE
+   ============================================================================ */
+async function cercaLocalita(query){
+  if (!query.trim()) return;
+  mostraStato('Ricerca località…');
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&q=${encodeURIComponent(query)}`;
+    const resp = await fetch(url, { headers: { 'Accept-Language': 'it' } });
+    if (!resp.ok) throw new Error('Errore ricerca località');
+    const data = await resp.json();
+    if (data.length === 0){ mostraStato('Nessun risultato trovato', 3000); return; }
+    const { lat, lon } = data[0];
+    map.setView([parseFloat(lat), parseFloat(lon)], 11);
+  }catch(err){
+    console.error(err);
+    mostraStato('⚠️ ' + err.message, 4000);
+  }
+  nascondiStato();
+}
+
+function geolocalizzaUtente(){
+  if (!navigator.geolocation){ mostraStato('Geolocalizzazione non supportata', 3000); return; }
+  mostraStato('Localizzazione in corso…');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      map.setView([pos.coords.latitude, pos.coords.longitude], 12);
+      nascondiStato();
+    },
+    (err) => {
+      console.error(err);
+      mostraStato('⚠️ Impossibile ottenere la posizione', 4000);
+    },
+    { timeout: 8000 }
+  );
+}
+
+/* ============================================================================
+   EVENTI UI
+   ============================================================================ */
+function initUI(){
+  // Popola filtro specie
+  const select = document.getElementById('speciesFilter');
+  Object.entries(SPECIE).forEach(([id, s]) => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `${s.emoji} ${s.nome}`;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', () => {
+    filtroSpecie = select.value;
+    aggiornaGriglia();
+  });
+
+  document.getElementById('btnSearch').addEventListener('click', () => {
+    cercaLocalita(document.getElementById('searchInput').value);
+  });
+  document.getElementById('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') cercaLocalita(e.target.value);
+  });
+  document.getElementById('btnGeo').addEventListener('click', geolocalizzaUtente);
+  document.getElementById('btnRefresh').addEventListener('click', () => {
+    // Forza il refresh ignorando la cache per l'area corrente
+    generaGriglia().forEach(p => {
+      try{ localStorage.removeItem(chiaveCache(p.lat, p.lon)); }catch(e){}
+    });
+    aggiornaGriglia();
+  });
+
+  document.getElementById('panelClose').addEventListener('click', () => {
+    document.getElementById('panel').classList.remove('open');
+  });
+
+  const daySlider = document.getElementById('daySlider');
+  daySlider.addEventListener('input', () => {
+    giornoOffset = parseInt(daySlider.value, 10);
+    const labels = ['Oggi', '+1 giorno', '+2 giorni', '+3 giorni'];
+    document.getElementById('dayLabel').textContent = labels[giornoOffset] || `+${giornoOffset}`;
+    aggiornaGriglia();
+    if (dettaglioPunto){
+      // Ricalcola il pannello aperto con il nuovo giorno selezionato
+      const indicatori = estraiIndicatori(dettaglioPunto.datiMeteo, giornoOffset);
+      if (indicatori){
+        dettaglioPunto.indicatori = indicatori;
+        dettaglioPunto.classifica = classificaSpecie(indicatori, dettaglioPunto.quota);
+        renderPannello();
+      }
+    }
+  });
+}
+
+/* ============================================================================
+   FUNZIONE DI DEBUG (accessibile da console)
+   Esempio: debugPunteggio(45.46, 9.19, 'boletus_edulis')
+   ============================================================================ */
+window.debugPunteggio = async function(lat, lon, idSpecie){
+  const [dati] = await fetchMeteo([{ lat, lon }]);
+  const [quota] = await fetchQuote([{ lat, lon }]);
+  const indicatori = estraiIndicatori(dati, giornoOffset);
+  const specie = SPECIE[idSpecie];
+  if (!specie){ console.error('Specie non trovata. Disponibili:', Object.keys(SPECIE)); return; }
+  const risultato = calcolaPunteggio(specie, indicatori, quota);
+  console.log(`Punteggio ${specie.nome} @ (${lat},${lon}):`, risultato.punteggio);
+  console.table(risultato.dettagli);
+  return risultato;
+};
+
+/* ============================================================================
+   AVVIO APPLICAZIONE
+   ============================================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  initMappa();
+  initUI();
+  aggiornaGriglia();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "environment": "staging",
+  "projectRef": "ffjzhtzavkuwysmabmds",
+  "supabaseUrl": "https://ffjzhtzavkuwysmabmds.supabase.co",
+  "publicKey": "sb_publishable_ecVGZjtSvvQ69Pf-Ju5AQQ_cfNFbRBW",
+  "productionProjectRef": "rixvgmzedwdzgavjewbm",
+  "port": 8080
+}

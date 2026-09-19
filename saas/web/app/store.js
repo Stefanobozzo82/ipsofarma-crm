@@ -170,30 +170,19 @@
     return data;
   }
 
-  // Tutte le tabelle che contano come "documento" ai fini del limite
-  // mensile del piano — le stesse 8 di COLLECTIONS meno le anagrafiche
-  // (clienti/fornitori/prodotti non sono documenti).
-  const DOC_TABLES = ['preventivi', 'ordini_cliente', 'ordini_fornitore', 'ddt',
-    'fatture_cliente', 'fatture_fornitore', 'note_credito', 'note_credito_fornitore'];
-
+  // Server usage includes all nine document tables and is not refunded by deletion.
   async function countDocsThisMonth(companyId) {
-    const start = new Date(); start.setDate(1); start.setHours(0, 0, 0, 0);
-    const iso = start.toISOString();
-    const results = await Promise.all(DOC_TABLES.map(t =>
-      client().from(t).select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('created_at', iso)
-    ));
-    results.forEach(({ error }) => { if (error) throw error; });
-    return results.reduce((sum, r) => sum + (r.count || 0), 0);
+    const { data, error } = await client().rpc('count_documents_this_month', { p_company_id: companyId });
+    if (error) throw error;
+    return data;
   }
 
   // ---------------------------------------------------------------------------
   // Team (Fase 6 bis). Un utente entra in un'azienda ALTRUI solo accettando
   // un invito (accept_invite, chiamato da index.html) — mai con un insert
   // diretto: le funzioni server-side sono l'unico varco, stesso principio
-  // di register_company (vedi 0008_inviti.sql). Cambio ruolo e rimozione di
-  // un membro restano invece un update/delete diretto su memberships: la
-  // RLS ("admin gestisce le utenze della propria azienda") già li permette
-  // solo a un admin della stessa azienda.
+  // di register_company. Ruoli, rimozioni e revoche passano dalle RPC della
+  // migration 0025, con protezione della capienza e dell'ultimo amministratore.
   // ---------------------------------------------------------------------------
   async function listMembers(companyId) {
     const { data, error } = await client().rpc('list_members', { p_company_id: companyId });
@@ -215,17 +204,17 @@
   }
 
   async function revokeInvite(inviteId) {
-    const { error } = await client().from('invites').delete().eq('id', inviteId);
+    const { error } = await client().rpc('revoke_invite', { p_invite_id: inviteId });
     if (error) throw error;
   }
 
   async function updateMemberRole(companyId, userId, role) {
-    const { error } = await client().from('memberships').update({ role }).eq('company_id', companyId).eq('user_id', userId);
+    const { error } = await client().rpc('update_member_role', { p_company_id: companyId, p_user_id: userId, p_role: role });
     if (error) throw error;
   }
 
   async function removeMember(companyId, userId) {
-    const { error } = await client().from('memberships').delete().eq('company_id', companyId).eq('user_id', userId);
+    const { error } = await client().rpc('remove_member', { p_company_id: companyId, p_user_id: userId });
     if (error) throw error;
   }
 
@@ -365,8 +354,10 @@
   }
 
   async function listMovimentiRecenti(companyId, limit) {
+    // 0018 adds composite tenant FKs alongside the original relationships.
+    // Explicit original FK hints work both before and after that migration.
     const { data, error } = await client().from('movimenti_magazzino')
-      .select('*, prodotti(cod, descr), depositi(nome)')
+      .select('*, prodotti!movimenti_magazzino_prodotto_id_fkey(cod, descr), depositi!movimenti_magazzino_deposito_id_fkey(nome)')
       .eq('company_id', companyId).order('created_at', { ascending: false }).limit(limit || 20);
     if (error) throw error;
     return data;
@@ -404,13 +395,14 @@
   // passa sempre dall'Edge Function send-email — dove la chiave vive come
   // secret del progetto.
   // ---------------------------------------------------------------------------
-  async function sendEmail(payload) {
+  async function sendEmail(payload, companyId) {
+    if (!companyId) throw new Error('companyId mancante per invio email');
     const session = await getSession();
     if (!session) throw new Error('devi essere collegato');
     const res = await fetch(global.SUPABASE_URL + '/functions/v1/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, company_id: companyId }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || ('errore HTTP ' + res.status));
@@ -439,6 +431,7 @@
       temperature: opts.temperature != null ? opts.temperature : 0.3,
       max_tokens: opts.maxTokens || 900,
       companyId: opts.companyId,
+      request_id: opts.requestId || global.crypto.randomUUID(),
       messages,
     };
     // reasoning_effort: 'none' — SOLO se chi chiama lo chiede esplicitamente
@@ -481,14 +474,10 @@
   // ---------------------------------------------------------------------------
   async function loadCompany(companyId) {
     const names = Object.keys(COLLECTIONS);
-    const results = await Promise.all(names.map(name =>
-      client().from(COLLECTIONS[name].table).select('*').eq('company_id', companyId)
-    ));
+    const results = await Promise.all(names.map(name => loadCollection(name, companyId)));
     const db = {};
     names.forEach((name, i) => {
-      const { data, error } = results[i];
-      if (error) throw error;
-      db[name] = data.map(row => rowToDoc(name, row));
+      db[name] = results[i];
     });
     return db;
   }
@@ -510,13 +499,19 @@
     if (!def) throw new Error('collection sconosciuta: ' + collName);
     const pageSize = 1000;
     let all = [];
-    let from = 0;
+    let lastId = null;
     while (true) {
-      const { data, error } = await client().from(def.table).select('*').eq('company_id', companyId).range(from, from + pageSize - 1);
+      let query = client().from(def.table).select('*').eq('company_id', companyId).order('id', { ascending: true }).limit(pageSize);
+      if (lastId) query = query.gt('id', lastId);
+      const { data, error } = await query;
       if (error) throw error;
+      if (data.length === 0) break;
+      const nextId = data[data.length - 1].id;
+      if (typeof nextId !== 'string' || !nextId || (lastId !== null && nextId <= lastId)) {
+        throw new Error('Paginazione interrotta: il cursore dei documenti non avanza.');
+      }
       all = all.concat(data);
-      if (data.length < pageSize) break;
-      from += pageSize;
+      lastId = nextId;
     }
     return all.map(row => rowToDoc(collName, row));
   }
@@ -676,10 +671,201 @@
     if (error) throw error;
   }
 
+  // Keep the identity across a network retry, including a lost successful
+  // response. A changed document/order snapshot is a new operation.
+  const customerDdtRequests = new Map();
+  async function createCustomerDdt(companyId, order, doc, requestId) {
+    const payload = {
+      p_company_id: companyId, p_order_id: order.id,
+      p_expected_rows: order.righe,
+      p_document: { data: doc.data, num: doc.num || null, cliente_id: doc.clienteId,
+        dest_id: doc.destId || null, righe: doc.righe },
+    };
+    if (!requestId) {
+      const key = JSON.stringify(payload);
+      if (!customerDdtRequests.has(key)) customerDdtRequests.set(key, global.crypto.randomUUID());
+      requestId = customerDdtRequests.get(key);
+    }
+    const { data, error } = await client().rpc('create_customer_ddt', {
+      ...payload, p_request_id: requestId,
+    });
+    if (error) throw error;
+    return { ddt: rowToDoc('ddt', data.ddt), ordine: rowToDoc('ordiniCliente', data.ordine) };
+  }
+
+  function documentSnapshot(collName, doc, companyId, fields) {
+    const row = docToRow(collName, doc, companyId);
+    return Object.fromEntries(fields.map(key => [key, row[key] === undefined ? null : row[key]]));
+  }
+  async function saveCustomerOrder(companyId, expectedOrder, doc) {
+    const fields = ['num','data','cliente_id','dest_id','righe','extra'];
+    const { data, error } = await client().rpc('update_customer_order', {
+      p_company_id: companyId, p_order_id: expectedOrder.id,
+      p_expected: documentSnapshot('ordiniCliente', expectedOrder, companyId, fields),
+      p_document: documentSnapshot('ordiniCliente', doc, companyId, fields),
+    });
+    if (error) throw error;
+    return rowToDoc('ordiniCliente', data);
+  }
+  async function saveSupplierOrder(companyId, expectedOrder, doc) {
+    const fields = ['num','data','fornitore_id','righe','ftf_ids','extra'];
+    const { data, error } = await client().rpc('update_supplier_order', {
+      p_company_id: companyId, p_order_id: expectedOrder.id,
+      p_expected: documentSnapshot('ordiniFornitore', expectedOrder, companyId, fields),
+      p_document: documentSnapshot('ordiniFornitore', doc, companyId, fields),
+    });
+    if (error) throw error;
+    return rowToDoc('ordiniFornitore', data);
+  }
+  const documentRequests = new Map();
+  function documentRequestId(operation, payload, requestId) {
+    if (requestId) return requestId;
+    const key = operation + ':' + JSON.stringify(payload);
+    if (!documentRequests.has(key)) documentRequests.set(key, global.crypto.randomUUID());
+    return documentRequests.get(key);
+  }
+  async function changeCustomerDdt(companyId, expectedDdt, doc, action, reason, requestId) {
+    const fields = ['num','data','cliente_id','oc_id','dest_id','righe','extra'];
+    const payload = {
+      p_company_id: companyId, p_ddt_id: expectedDdt.id, p_action: action,
+      p_expected: documentSnapshot('ddt', expectedDdt, companyId, fields),
+      p_document: action === 'cancel' ? {} : documentSnapshot('ddt', doc, companyId, fields),
+      p_reason: reason || '',
+    };
+    const { data, error } = await client().rpc('change_customer_ddt', {
+      ...payload, p_request_id: documentRequestId('change-ddt', payload, requestId),
+    });
+    if (error) throw error;
+    return { ddt: rowToDoc('ddt', data.ddt), ordine: data.ordine ? rowToDoc('ordiniCliente', data.ordine) : null };
+  }
+  async function createCustomerInvoice(companyId, ddt, doc, requestId) {
+    const payload = {
+      p_company_id: companyId, p_ddt_id: ddt.id,
+      p_expected_ddt: { cliente_id: ddt.clienteId, oc_id: ddt.ocId || null, righe: ddt.righe,
+        extra: { ftId: ddt.ftId || null, annullato: ddt.annullato === true } },
+      p_document: { data: doc.data, num: doc.num || null, cliente_id: doc.clienteId,
+        oc_id: doc.ocId || null, dest_id: doc.destId || null, righe: doc.righe },
+    };
+    const { data, error } = await client().rpc('create_customer_invoice', {
+      ...payload, p_request_id: documentRequestId('create-invoice', payload, requestId),
+    });
+    if (error) throw error;
+    return { fattura: rowToDoc('fattureCliente', data.fattura), ddt: rowToDoc('ddt', data.ddt),
+      ordine: data.ordine ? rowToDoc('ordiniCliente', data.ordine) : null };
+  }
+
+  async function createSupplierInvoice(companyId, ddt, doc, requestId) {
+    const payload = { p_company_id: companyId, p_ddt_id: ddt.id,
+      p_expected_ddt: { fornitore_id: ddt.fornitoreId, of_id: ddt.ofId || null, righe: ddt.righe,
+        extra: { ftfId: ddt.ftfId || null, annullato: ddt.annullato === true } },
+      p_document: { num: doc.num || null, data: doc.data, fornitore_id: doc.fornitoreId,
+        of_id: doc.ofId || null, righe: doc.righe } };
+    const { data, error } = await client().rpc('create_supplier_invoice', {
+      ...payload, p_request_id: documentRequestId('supplier-invoice', payload, requestId) });
+    if (error) throw error;
+    return supplierDdtResult(data);
+  }
+  async function completeOrderManually(companyId, kind, order, reason, requestId) {
+    if (!['customer','supplier'].includes(kind)) throw new Error('Tipo ordine non valido.');
+    const payload = { p_company_id: companyId, p_kind: kind, p_order_id: order.id,
+      p_expected_rows: order.righe, p_reason: reason };
+    const { data, error } = await client().rpc('complete_order_manually', {
+      ...payload, p_request_id: documentRequestId('manual-order', payload, requestId) });
+    if (error) throw error;
+    return rowToDoc(kind === 'customer' ? 'ordiniCliente' : 'ordiniFornitore', data);
+  }
+
+  // Keep a failed operation's identity for retry, but allow a later, distinct
+  // payment with the same amount/date after successful completion.
+  const paymentRequests = new Map();
+  async function mutateInvoicePayment(companyId, kind, invoice, action, payload, requestId) {
+    if (!['customer', 'supplier'].includes(kind)) throw new Error('Tipo fattura non valido.');
+    const args = { p_company_id: companyId, p_kind: kind, p_invoice_id: invoice.id,
+      p_action: action, p_payload: payload };
+    const key = JSON.stringify(args);
+    let pending = paymentRequests.get(key);
+    if (!pending || (requestId && pending.id !== requestId)) {
+      pending = { id: requestId || global.crypto.randomUUID(), promise: null };
+      paymentRequests.set(key, pending);
+    }
+    if (pending.promise) return pending.promise;
+    pending.promise = (async () => {
+      try {
+        const { data, error } = await client().rpc('mutate_invoice_payment', {
+          ...args, p_request_id: pending.id });
+        if (error) throw error;
+        if (paymentRequests.get(key) === pending) paymentRequests.delete(key);
+        return rowToDoc(kind === 'customer' ? 'fattureCliente' : 'fattureFornitore', data);
+      } finally { pending.promise = null; }
+    })();
+    return pending.promise;
+  }
+
+  function supplierDdtResult(data) {
+    return { ddt: rowToDoc('ddtFornitore', data.ddt),
+      ordine: data.ordine ? rowToDoc('ordiniFornitore', data.ordine) : null,
+      fattura: data.fattura ? rowToDoc('fattureFornitore', data.fattura) : null };
+  }
+  async function createSupplierDdt(companyId, order, doc, requestId) {
+    const payload = { p_company_id: companyId, p_order_id: order.id, p_expected_rows: order.righe,
+      p_document: { num: doc.num || null, data: doc.data, fornitore_id: doc.fornitoreId,
+        righe: doc.righe, fattura_id: doc.fatturaId || null } };
+    const { data, error } = await client().rpc('create_supplier_ddt', {
+      ...payload, p_request_id: documentRequestId('supplier-ddt', payload, requestId),
+    });
+    if (error) throw error;
+    return supplierDdtResult(data);
+  }
+  async function createStandaloneSupplierDdt(companyId, doc, requestId) {
+    const payload = { p_company_id: companyId, p_document: { num: doc.num, data: doc.data,
+      fornitore_id: doc.fornitoreId, righe: doc.righe, fattura_id: doc.fatturaId || null } };
+    const { data, error } = await client().rpc('create_standalone_supplier_ddt', {
+      ...payload, p_request_id: documentRequestId('supplier-standalone-ddt', payload, requestId),
+    });
+    if (error) throw error;
+    return supplierDdtResult(data);
+  }
+  async function changeSupplierDdt(companyId, expectedDdt, doc, action, reason, requestId) {
+    const fields = ['num','data','fornitore_id','of_id','righe','extra'];
+    const payload = { p_company_id: companyId, p_ddt_id: expectedDdt.id, p_action: action,
+      p_expected: documentSnapshot('ddtFornitore', expectedDdt, companyId, fields),
+      p_document: action === 'cancel' ? {} : documentSnapshot('ddtFornitore', doc, companyId, fields), p_reason: reason || '' };
+    const { data, error } = await client().rpc('change_supplier_ddt', {
+      ...payload, p_request_id: documentRequestId('supplier-ddt-change', payload, requestId),
+    });
+    if (error) throw error;
+    return supplierDdtResult(data);
+  }
+
+  function creditNoteSnapshot(companyId, kind, doc) {
+    const coll = kind === 'customer' ? 'noteCredito' : 'noteCreditoFornitore';
+    return documentSnapshot(coll, doc, companyId,
+      ['id','num','data',kind === 'customer' ? 'cliente_id' : 'fornitore_id','fattura_id','righe','extra']);
+  }
+  async function saveCreditNote(companyId, kind, expected, doc, requestId) {
+    const payload = {p_company_id:companyId,p_kind:kind,
+      p_expected:expected ? creditNoteSnapshot(companyId,kind,expected) : null,
+      p_document:creditNoteSnapshot(companyId,kind,doc)};
+    const {data,error} = await client().rpc('save_credit_note', {...payload,
+      p_request_id:documentRequestId('credit-note-save',payload,requestId)});
+    if(error) throw error;
+    return rowToDoc(kind === 'customer' ? 'noteCredito' : 'noteCreditoFornitore',data);
+  }
+  async function cancelCreditNote(companyId, kind, expected, reason, requestId) {
+    const payload = {p_company_id:companyId,p_kind:kind,
+      p_expected:creditNoteSnapshot(companyId,kind,expected),p_reason:reason};
+    const {data,error} = await client().rpc('cancel_credit_note', {...payload,
+      p_request_id:documentRequestId('credit-note-cancel',payload,requestId)});
+    if(error) throw error;
+    return rowToDoc(kind === 'customer' ? 'noteCredito' : 'noteCreditoFornitore',data);
+  }
+
   global.SaasStore = {
+    completeOrderManually,
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    peekNumber, bumpCounterPast,
+    peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, createCustomerInvoice,
+    createSupplierDdt, createStandaloneSupplierDdt, changeSupplierDdt, createSupplierInvoice, mutateInvoicePayment, saveCreditNote, cancelCreditNote,
     getCompany, loadPlans, startCheckout, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,

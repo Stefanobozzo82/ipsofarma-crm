@@ -453,13 +453,15 @@
   // conferma esplicita, diversa dal resto della cascata (vedi il
   // commento di applicaEvasioneManuale() in app/cascade.js).
   $('oc-btn-chiudi').addEventListener('click', async () => {
-    if(!editingOrder) return;
+    if(!editingOrder || $('oc-btn-chiudi').disabled) return;
     if(!confirm(`Segnare l'ordine ${editingOrder.num} come evaso SENZA generare un DDT?\n\nUsalo solo per ordini che non prevedono una vera consegna a un cliente esterno (es. un ordine per caricare merce nel proprio magazzino) — a differenza di "Genera DDT" non resta nessun documento di trasporto collegato.`)) return;
     const btn = $('oc-btn-chiudi');
+    const reason = prompt('Motivo della chiusura manuale (registrato nello storico):');
+    if(reason === null) return;
+    if(reason.trim().length < 3){ alert('Inserisci un motivo di almeno 3 caratteri.'); return; }
     btn.disabled = true;
     try{
-      const ordineAgg = window.SaasCascade.applicaEvasioneManuale(editingOrder);
-      await store.saveDoc('ordiniCliente', ordineAgg, companyId);
+      const ordineAgg = await store.completeOrderManually(companyId, 'customer', editingOrder, reason.trim());
       await openForm(ordineAgg);
     }catch(err){
       alert('Errore durante il salvataggio: ' + (err.message || err));
@@ -585,7 +587,9 @@
   }
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
-    bindRigaRow($('righe-body').lastElementChild);
+    const tr = $('righe-body').lastElementChild;
+    if(r && Number.isInteger(r._editorSourceIndex)) tr.dataset.sourceOrderIndex = String(r._editorSourceIndex);
+    bindRigaRow(tr);
     updateTotale();
   }
   // Riordino righe per trascinamento (come nel vecchio gestionale): solo
@@ -632,7 +636,7 @@
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoVen || 0);
         tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
@@ -650,6 +654,7 @@
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      ...(tr.dataset.sourceOrderIndex !== undefined ? { source_order_index: Number(tr.dataset.sourceOrderIndex) } : {}),
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
       qty: Number(tr.querySelector('.r-qty').value) || 0,
@@ -657,6 +662,31 @@
       sconto: tr.querySelector('.r-sconto').value.trim(),
       iva: Number(tr.querySelector('.r-iva').value) || 0,
     })).filter(r => r.descr || r.cod);
+  }
+  // L'indice identifica la riga nello snapshot aperto, non il codice prodotto.
+  // Segue il nodo DOM anche dopo un drag. Il server ricontrolla lo snapshot
+  // e ricava i valori di evasione, senza fidarsi di quelli inviati dal form.
+  function prepareOrderRows(rows, original){
+    const previous = (original && original.righe) || [];
+    const used = new Set();
+    const result = rows.map(row => {
+      if(row.source_order_index === undefined) return { ...row };
+      const index = row.source_order_index;
+      if(!Number.isInteger(index) || index < 0 || index >= previous.length || used.has(index)){
+        throw new Error('Identità delle righe non valida. Riapri l’ordine prima di salvare.');
+      }
+      used.add(index);
+      const old = previous[index];
+      const delivered = Number(old.qtyEv || 0);
+      if(!Number.isFinite(delivered) || delivered < 0) throw new Error('Quantità consegnata non valida: verificare lo storico dell’ordine.');
+      if(delivered > 0 && row.cod !== old.cod) throw new Error('Non puoi cambiare il codice di una riga già consegnata.');
+      if(row.qty < delivered) throw new Error('La quantità ordinata non può essere inferiore a quella già consegnata.');
+      return { ...old, ...row };
+    });
+    previous.forEach((old, index) => {
+      if(Number(old.qtyEv || 0) > 0 && !used.has(index)) throw new Error('Non puoi eliminare una riga già consegnata.');
+    });
+    return result;
   }
   // Stessa aritmetica dello sconto del gestionale originale, cascata
   // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
@@ -709,7 +739,7 @@
     // arricchisce ogni riga con {consegnato, residuo} da r.qtyEv, la
     // stessa funzione già usata per i pulsanti Genera DDT più sopra —
     // nessun calcolo duplicato.
-    (ordine ? window.SaasCascade.residuoRighe(ordine) : [null]).forEach(addRigaRow);
+    (ordine ? window.SaasCascade.residuoRighe(ordine).map((r, _editorSourceIndex) => ({ ...r, _editorSourceIndex })) : [null]).forEach(addRigaRow);
     $('oc-righe-table').classList.toggle('has-evasione', !!ordine);
     renderEvasioneSummary(ordine);
     renderLineage(ordine);
@@ -812,6 +842,7 @@
   });
 
   $('f-save').addEventListener('click', async () => {
+    if($('f-save').disabled) return;
     const clienteId = $('f-cliente').value;
     const destId = $('f-dest').value || null;
     const data = $('f-data').value;
@@ -822,30 +853,14 @@
     // Rete di sicurezza: il limite è già controllato aprendo il form con
     // "+ Nuovo ordine", ma tra l'apertura e il salvataggio può essere
     // cambiato qualcosa (un altro documento creato in un'altra scheda).
-    if(!editingId){
-      const lim = await store.checkDocLimit(companyId);
-      if(!lim.ok){ setMsg(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`, 'error'); return; }
-    }
-
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      // L'editor delle righe non conosce qtyEv (quanto già consegnato via
-      // la cascata, vedi residuoRighe() sopra): senza questo passaggio,
-      // salvare una modifica a un ordine parzialmente evaso lo
-      // resetterebbe silenziosamente a "niente consegnato", con il
-      // rischio concreto di generare un DDT doppio sulla stessa merce.
-      // Abbinamento per codice (in coda, se un codice compare più volte)
-      // invece che per indice: resiste a righe riordinate o aggiunte.
-      let righeFinal = righe;
-      if(editingOrder){
-        const qtyEvByCod = {};
-        (editingOrder.righe || []).forEach(r => { if(r.qtyEv) (qtyEvByCod[r.cod] = qtyEvByCod[r.cod] || []).push(r.qtyEv); });
-        righeFinal = righe.map(r => {
-          const queue = qtyEvByCod[r.cod];
-          return (queue && queue.length) ? Object.assign({}, r, { qtyEv: Math.min(r.qty, queue.shift()) }) : r;
-        });
+      if(!editingId){
+        const lim = await store.checkDocLimit(companyId);
+        if(!lim.ok){ setMsg(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`, 'error'); return; }
       }
+      const righeFinal = prepareOrderRows(righe, editingOrder);
       // Idem per ddtIds/ftIds/ofIds/ddtId/ftId/ofId (extra, non nel form):
       // si parte dall'ordine esistente invece che da un oggetto vuoto, o
       // il salvataggio li azzererebbe allo stesso modo.
@@ -854,15 +869,7 @@
       if(editingId){
         doc.id = editingId;
         if(!numInput){ setMsg('Il numero ordine non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
-        if(numInput !== editingOrder.num){
-          // Numero cambiato a mano: se rispetta il formato OC/ANNO/NNNN
-          // sposta in avanti (mai indietro) il contatore, così i futuri
-          // numeri automatici non lo ripetano — un testo libero (es.
-          // importato dal vecchio gestionale) viene comunque accettato
-          // così com'è, senza toccare il contatore.
-          await store.bumpCounterPast(companyId, 'OC', numInput);
-          doc.num = numInput;
-        } // altrimenti resta il numero già ereditato da editingOrder più sopra
+        doc.num = numInput;
       } else if(numInput){
         // L'utente ha lasciato o modificato il numero proposto nel form
         // (openForm() lo precompila con un'ANTEPRIMA, non una vera
@@ -882,7 +889,8 @@
         const anno = Number(data.slice(0, 4));
         doc.num = await store.nextNumber(companyId, 'OC', anno);
       }
-      await store.saveDoc('ordiniCliente', doc, companyId);
+      if(editingId) await store.saveCustomerOrder(companyId, editingOrder, doc);
+      else await store.saveDoc('ordiniCliente', doc, companyId);
       closeForm();
       await renderList();
     }catch(err){

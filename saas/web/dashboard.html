@@ -122,28 +122,37 @@
   // divideva l'importo in parti uguali tra tutte le fatture collegate,
   // invece di seguire questa cascata — corretto perché produceva un
   // residuo sbagliato sulle (rare) note di credito multi-fattura.
-  function ncCreditoFor(nc, ftNum){
-    const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
-    if(!ids.includes(ftNum)) return 0;
-    if(ids.length <= 1) return tot(nc.righe);
+  function ncCreditoFor(nc, invoice){
+    if(nc.annullato) return 0;
+    // Il collegamento UUID corrente prevale sui numeri legacy, senza doppio credito.
+    if(nc.fatturaId) return nc.fatturaId === invoice.id ? tot(nc.righe) : 0;
+    const ids = [...new Set((nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []))];
+    if(!ids.includes(invoice.num)) return 0;
     let remaining = tot(nc.righe);
-    const ordered = ids.map(n => DB.fattureCliente.find(f => f.num === n)).filter(Boolean).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const ordered = ids.map(n => DB.fattureCliente.find(f => f.num === n)).filter(Boolean).sort((a,b) => (a.data || '').localeCompare(b.data || ''));
+    if(ids.length <= 1) return tot(nc.righe);
     for(const f of ordered){
       if(remaining <= 0) break;
       const alloc = Math.min(remaining, tot(f.righe));
-      if(f.num === ftNum) return alloc;
+      if(f.id === invoice.id) return alloc;
       remaining -= alloc;
     }
     return 0;
   }
+  function supplierCreditFor(nc, invoice){
+    if(nc.annullato) return 0;
+    const linked = nc.fatturaId ? nc.fatturaId === invoice.id : nc.ftfId === invoice.num;
+    return linked ? tot(nc.righe) : 0;
+  }
+
   function payState(it, noteCredito, noteCreditoFornitore, isFornitore){
     const totaleRaw = tot(it.righe);
     const sign = totaleRaw < 0 ? -1 : 1;
     const totale = totaleRaw * sign;
     const creditato = it.num
       ? (isFornitore
-          ? (noteCreditoFornitore || []).filter(ncf => ncf.ftfId === it.num).reduce((s, ncf) => s + tot(ncf.righe), 0)
-          : (noteCredito || []).reduce((s, nc) => s + ncCreditoFor(nc, it.num), 0))
+          ? (noteCreditoFornitore || []).reduce((s, ncf) => s + supplierCreditFor(ncf, it), 0)
+          : (noteCredito || []).reduce((s, nc) => s + ncCreditoFor(nc, it), 0))
       : 0;
     const pagato = (payTot(it) + creditato) * sign;
     const state = pagato <= 0.004 ? 'aperto' : pagato >= totale - 0.01 ? 'completo' : 'parziale';
@@ -386,3 +395,4 @@
 </script>
 </body>
 </html>
+

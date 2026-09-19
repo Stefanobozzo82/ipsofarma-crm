@@ -210,19 +210,16 @@
   // ddt.html per farlo rivedere prima, un'esperienza diversa apposta per
   // un umano). Ritorna {ddt, ordine} o null se non c'è nulla da consegnare.
   async function creaDDTDaResiduo(store, companyId, ordine) {
-    const residuo = residuoRighe(ordine).filter(r => r.residuo > 0);
+    const residuo = residuoRighe(ordine).map((r, source_order_index) => ({ ...r, source_order_index })).filter(r => r.residuo > 0);
     if (!residuo.length) return null;
-    const righeBase = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo, prezzo: r.prezzo, sconto: r.sconto, iva: r.iva }));
+    const righeBase = residuo.map(r => ({ cod: r.cod, descr: r.descr, qty: r.residuo, prezzo: r.prezzo, sconto: r.sconto, iva: r.iva, source_order_index: r.source_order_index }));
     const righe = await righeConLotti(store, companyId, ordine, righeBase);
-    const anno = Number((ordine.data || today()).slice(0, 4)) || Number(today().slice(0, 4));
-    const num = await store.nextNumber(companyId, 'DDT', anno);
     // destId: la destinazione scelta sull'ordine si propaga da sola al DDT
     // — come nel vecchio gestionale (aiGenDDT(): "destId: oc.destId||null"),
     // non va ripetuta a mano ad ogni documento della cascata.
-    const ddt = await store.saveDoc('ddt', { num, data: today(), clienteId: ordine.clienteId, ocId: ordine.id, destId: ordine.destId || null, righe }, companyId);
-    const ordineAgg = applicaConsegna(ordine, righe, ddt.num);
-    await store.saveDoc('ordiniCliente', ordineAgg, companyId);
-    return { ddt, ordine: ordineAgg };
+    return store.createCustomerDdt(companyId, ordine, {
+      data: today(), clienteId: ordine.clienteId, destId: ordine.destId || null, righe,
+    });
   }
 
   // Genera la fattura di OGNI DDT dell'ordine non ancora fatturato — porta
@@ -232,21 +229,18 @@
   // (un DDT alla volta, con revisione prima di salvare). Ritorna
   // {fatture, ordine} — fatture è un array, può essere vuoto.
   async function creaFattureDaOrdine(store, companyId, ordine, tuttiDdt) {
-    const ddtOrdine = (tuttiDdt || []).filter(d => d.ocId === ordine.id && !d.ftId);
+    const ddtOrdine = (tuttiDdt || []).filter(d => d.ocId === ordine.id && !d.ftId && !d.annullato);
     const fatture = [];
     let ordineCorrente = ordine;
     for (const ddt of ddtOrdine) {
-      const anno = Number((ddt.data || today()).slice(0, 4)) || Number(today().slice(0, 4));
-      const num = await store.nextNumber(companyId, 'FT', anno);
-      const ft = await store.saveDoc('fattureCliente', {
-        num, data: today(), clienteId: ddt.clienteId, ddtId: ddt.id, ocId: ordine.id,
-        destId: ddt.destId || null, righe: ddt.righe, paid: false, paidDate: null, pagamenti: [],
-      }, companyId);
-      await store.saveDoc('ddt', Object.assign({}, ddt, { ftId: ft.num }), companyId);
-      ordineCorrente = applicaFatturazione(ordineCorrente, ft.num);
-      fatture.push(ft);
+      const result = await store.createCustomerInvoice(companyId, ddt, {
+        data: today(), clienteId: ddt.clienteId, ddtId: ddt.id, ocId: ordine.id,
+        destId: ddt.destId || null,
+        righe: (ddt.righe || []).map((r, source_ddt_index) => ({ ...r, source_ddt_index })),
+      });
+      ordineCorrente = result.ordine || ordineCorrente;
+      fatture.push(result.fattura);
     }
-    if (fatture.length) await store.saveDoc('ordiniCliente', ordineCorrente, companyId);
     return { fatture, ordine: ordineCorrente };
   }
 
@@ -262,9 +256,29 @@
       const tutti = await store.loadCollection('ordiniFornitore', companyId);
       existingOFs = tutti.filter(of => ofNums.includes(of.num));
     }
-    const covered = new Set();
-    existingOFs.forEach(of => (of.righe || []).forEach(r => covered.add(r.cod)));
-    const missing = (ordine.righe || []).filter(r => r.cod && !covered.has(r.cod));
+    // I collegamenti storici restano numeri documento. La copertura è
+    // quantitativa: ogni quantità ordinata può coprire una sola volta
+    // anche quando il codice compare su più righe dell'ordine cliente.
+    const positiveQty = value => {
+      const qty = Number(value);
+      return Number.isFinite(qty) && qty > 0 ? qty : 0;
+    };
+    const covered = new Map();
+    existingOFs.forEach(of => (of.righe || []).forEach(r => {
+      if (r.cod) covered.set(r.cod, (covered.get(r.cod) || 0) + positiveQty(r.qty));
+    }));
+    const missing = [];
+    (ordine.righe || []).forEach(r => {
+      if (!r.cod) return;
+      const required = positiveQty(r.qty);
+      const available = covered.get(r.cod) || 0;
+      const allocated = Math.min(required, available);
+      covered.set(r.cod, available - allocated);
+      // Evita residui fantasma dovuti alla rappresentazione binaria dei
+      // decimali (es. 0,3 - 0,1), senza arrotondare quantità legittime.
+      const tolerance = Number.EPSILON * Math.max(required, allocated) * 4;
+      if (required - allocated > tolerance) missing.push(Object.assign({}, r, { qty: required - allocated }));
+    });
     return { ofNums, existingOFs, missing };
   }
 
@@ -300,7 +314,7 @@
       const prod = (trovati[i] || []).find(p => (p.cod || '').toLowerCase() === r.cod.toLowerCase());
       const fid = prod && prod.fornitoreId;
       if (!fid) { senzaFornitore.push(r.cod); return; } // prodotto senza fornitore assegnato nel catalogo: non possiamo indovinare a chi ordinarlo
-      const line = { cod: r.cod, descr: r.descr, qty: r.qty, prezzo: prod.listinoAcq || 0, sconto: '', iva: prod.iva || r.iva || 22 };
+      const line = { cod: r.cod, descr: r.descr, qty: r.qty, prezzo: prod.listinoAcq || 0, sconto: '', iva: prod.iva ?? r.iva ?? 22 };
       if (!groups.has(fid)) groups.set(fid, []);
       groups.get(fid).push(line);
     });

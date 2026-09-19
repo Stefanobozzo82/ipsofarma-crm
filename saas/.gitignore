@@ -1,3 +1,4 @@
 .env.local
 .env
 supabase/.temp/
+node_modules/

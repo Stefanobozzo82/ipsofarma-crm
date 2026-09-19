@@ -105,6 +105,7 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let pendingCredit = null;
   let editingNc = null; // la nota di credito in modifica — vedi f-save
   let clientiById = {};
   let fatturePerCliente = {};
@@ -211,6 +212,7 @@
   }
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
+    $('righe-body').lastElementChild._original = {...(r || {})};
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
   }
@@ -245,7 +247,7 @@
         tr.querySelector('.r-cod').value = p.cod;
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = p.listinoVen || 0;
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         updateTotale();
@@ -255,6 +257,7 @@
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      ...tr._original,
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
       lotto: tr.querySelector('.r-lotto').value.trim(),
@@ -294,11 +297,12 @@
     const fattura = (fatturePerCliente[$('f-cliente').value] || []).find(f => f.id === $('f-fattura').value);
     if(fattura && righeVuote){
       $('righe-body').innerHTML = '';
-      (fattura.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, sconto:r.sconto || '', iva:r.iva || 22 }));
+      (fattura.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, sconto:r.sconto || '', iva:r.iva ?? 22 }));
     }
   });
 
   async function openForm(nc){
+    pendingCredit = null;
     editingId = nc ? nc.id : null;
     editingNc = nc;
     $('form-title').textContent = nc ? `Modifica ${nc.num}` : 'Nuova nota di credito';
@@ -310,8 +314,6 @@
       $('f-num').value = nc.num;
     }else{
       $('f-num').value = '';
-      try{ $('f-num').value = await store.peekNumber(companyId, 'NC', Number($('f-data').value.slice(0, 4))); }
-      catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
     }
     $('righe-body').innerHTML = '';
     (nc ? nc.righe : [null]).forEach(addRigaRow);
@@ -320,6 +322,11 @@
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
+    const cancelled = !!(nc && nc.annullato);
+    $('form-card').querySelectorAll('input, select, textarea, #f-save, #add-riga, .rm-riga').forEach(el => { el.disabled = cancelled; });
+    $('form-card').querySelectorAll('.drag-handle').forEach(el => { el.draggable = !cancelled; });
+    if(cancelled){ $('form-title').textContent = 'Nota annullata — ' + nc.num; setMsg('Documento annullato: consultazione e stampa disponibili.', ''); }
+
   }
   // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
   // cliccabili con l'intera filiera della nota di credito, come nel
@@ -373,46 +380,20 @@
   });
 
   $('f-save').addEventListener('click', async () => {
-    const clienteId = $('f-cliente').value;
-    const fatturaId = $('f-fattura').value || null;
-    const data = $('f-data').value;
-    const righe = readRighe();
-    if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
-    if(!data){ setMsg('Inserisci una data.', 'error'); return; }
-    if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
-    if(!editingId){
-      const lim = await store.checkDocLimit(companyId);
-      if(!lim.ok){ setMsg(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`, 'error'); return; }
-    }
-
+    if($('f-save').disabled || editingNc?.annullato) return;
+    const clienteId = $('f-cliente').value, fatturaId = $('f-fattura').value || null;
+    const num = $('f-num').value.trim(), data = $('f-data').value, righe = readRighe();
+    if(!clienteId || !data || !righe.length){ setMsg('Completa soggetto, data e righe.', 'error'); return; }
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      const doc = editingNc ? Object.assign({}, editingNc, { clienteId, fatturaId, data, righe }) : { clienteId, fatturaId, data, righe };
-      const numInput = $('f-num').value.trim();
-      if(editingId){
-        doc.id = editingId;
-        if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
-        if(numInput !== editingNc.num){
-          await store.bumpCounterPast(companyId, 'NC', numInput);
-          doc.num = numInput;
-        }
-      } else if(numInput){
-        await store.bumpCounterPast(companyId, 'NC', numInput);
-        doc.num = numInput;
-      } else {
-        const anno = Number(data.slice(0, 4));
-        doc.num = await store.nextNumber(companyId, 'NC', anno);
-      }
-      await store.saveDoc('noteCredito', doc, companyId);
-      closeForm();
-      await renderList();
-    }catch(err){
-      const dup = err && err.code === '23505';
-      setMsg(dup ? 'Esiste già una nota di credito con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
-    }finally{
-      $('f-save').disabled = false;
-    }
+      const doc = {...(editingNc || {}), clienteId, fatturaId, num: num || null, data, righe};
+      const requestKey = JSON.stringify({expected:editingNc || null,doc});
+      if(!pendingCredit || pendingCredit.key !== requestKey) pendingCredit = {key:requestKey,id:crypto.randomUUID()};
+      await store.saveCreditNote(companyId, 'customer', editingNc || null, doc, pendingCredit.id);
+      closeForm(); await renderList();
+    }catch(err){ setMsg(err.message || 'Errore durante il salvataggio.', 'error'); }
+    finally{ $('f-save').disabled = false; }
   });
 
   // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
@@ -456,7 +437,7 @@
       </tr></thead><tbody>${elenco.map(n => `
         <tr class="row-click" data-id="${n.id}">
           <td class="check-col"><input type="checkbox" class="row-check" data-id="${n.id}" ${PICK.has(n.id) ? 'checked' : ''}></td>
-          <td class="num-col">${esc(n.num)}</td>
+          <td class="num-col">${esc(n.num)}${n.annullato ? ' — Annullata' : ''}</td>
           <td>${n.data ? new Date(n.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[n.clienteId] || {}).nome) || '(cliente non trovato)'}</td>
           <td>${n.fatturaId ? esc(fatturaNumById(n.clienteId, n.fatturaId)) : '—'}</td>
@@ -464,8 +445,8 @@
           <td class="num-col">${eur(ivaTot(n.righe))}</td>
           <td class="num-col">${eur(docTotale(n.righe))}</td>
           <td class="actions">${PICK.has(n.id) ? `
-            <button data-edit="${n.id}">Modifica</button>
-            <button class="danger" data-del="${n.id}">Elimina</button>` : ''}
+            <button data-edit="${n.id}">${n.annullato ? 'Visualizza' : 'Modifica'}</button>
+            ${!n.annullato ? `<button class="danger" data-del="${n.id}">Annulla nota</button>` : ''}` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'note-credito-elenco');
@@ -490,12 +471,16 @@
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const n = elenco.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare la nota di credito ${n.num}? L'operazione non si può annullare.`)) return;
+      if(n.annullato) return;
+      const reason = prompt('Motivo annullamento della nota ' + n.num + ':');
+      if(!reason || !reason.trim()) return;
+      btn.disabled = true;
       try{
-        await store.removeDoc('noteCredito', n.id);
+        await store.cancelCreditNote(companyId, 'customer', n, reason.trim());
         await renderList();
       }catch(err){
-        alert('Errore durante l\'eliminazione: ' + err.message);
+        alert('Errore durante annullamento: ' + err.message);
+        btn.disabled = false;
       }
     }));
   }
@@ -550,3 +535,4 @@
 </script>
 </body>
 </html>
+

@@ -218,12 +218,13 @@ canvas#chartCanvas{ width:100%; height:150px; background:var(--surface2); border
 const CONFIG = {
   // Pesi dei sotto-punteggi (devono sommare a 1)
   PESI: {
-    pioggia: 0.30,
-    tempSuolo: 0.20,
-    tempAria: 0.20,
-    umidita: 0.10,
-    quota: 0.10,
-    stagione: 0.10
+    pioggia: 0.28,
+    tempSuolo: 0.18,
+    tempAria: 0.18,
+    umidita: 0.08,
+    quota: 0.08,
+    stagione: 0.10,
+    habitat: 0.10   // fase 3: match con il bosco/prato reale letto da Overpass
   },
   // Penalità
   PENALITA: {
@@ -239,6 +240,13 @@ const CONFIG = {
   CACHE_TTL_MS: 3 * 60 * 60 * 1000,  // 3 ore
   PAST_DAYS: 21,
   FORECAST_DAYS: 3,
+  // Fase 3: lettura habitat reale (tipo di bosco) da Overpass API
+  OVERPASS: {
+    endpoint: 'https://overpass-api.de/api/interpreter',
+    raggioMetri: 400,               // raggio di ricerca attorno al punto
+    cacheTtlMs: 30 * 24 * 60 * 60 * 1000, // 30 giorni: l'habitat cambia lentamente
+    ritardoTraRichiesteMs: 350      // per rispettare i limiti d'uso di Overpass
+  },
   // Colori soglie marker
   SOGLIE_COLORE: { bassa: 30, media: 60 }
 };
@@ -259,6 +267,8 @@ const SPECIE = {
     altitudine: { min: 300, max: 1600 },
     mesi: [6,7,8,9,10],
     habitat: "Faggio, abete rosso, castagno, quercia",
+    tipoHabitat: "bosco",
+    alberiGenus: ["fagus","picea","castanea","quercus","abies"],
     note: "Predilige notti fresche dopo piogge estive/autunnali."
   },
   boletus_aereus: {
@@ -270,6 +280,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 900 },
     mesi: [6,7,8,9,10],
     habitat: "Querceti caldi (leccio, roverella), castagno",
+    tipoHabitat: "bosco",
+    alberiGenus: ["quercus","castanea"],
     note: "Più termofilo del porcino comune, tipico del centro-sud."
   },
   boletus_reticulatus: {
@@ -281,6 +293,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1200 },
     mesi: [5,6,7,8,9],
     habitat: "Querce, castagno, faggio (fruttifica prima degli altri porcini)",
+    tipoHabitat: "bosco",
+    alberiGenus: ["quercus","castanea","fagus"],
     note: "Tollera meglio il caldo estivo; sensibile a siccità prolungata."
   },
   boletus_pinophilus: {
@@ -292,6 +306,8 @@ const SPECIE = {
     altitudine: { min: 200, max: 1800 },
     mesi: [4,5,6,9,10,11],
     habitat: "Pino, abete, boschi montani",
+    tipoHabitat: "bosco",
+    alberiGenus: ["pinus","abies","picea"],
     note: "Doppia stagione: primaverile e autunnale; ama terreni sabbiosi."
   },
   cantharellus_cibarius: {
@@ -303,6 +319,8 @@ const SPECIE = {
     altitudine: { min: 100, max: 1500 },
     mesi: [5,6,7,8,9,10],
     habitat: "Faggio, castagno, querce, conifere",
+    tipoHabitat: "bosco",
+    alberiGenus: ["fagus","castanea","quercus","pinus","abies","picea"],
     note: "Fruttificazione prolungata se l'umidità resta costante; sensibile a vento secco."
   },
   craterellus_cornucopioides: {
@@ -314,6 +332,8 @@ const SPECIE = {
     altitudine: { min: 200, max: 1400 },
     mesi: [9,10,11],
     habitat: "Faggio, querce, humus profondo in ombra",
+    tipoHabitat: "bosco",
+    alberiGenus: ["fagus","quercus"],
     note: "Predilige zone ombreggiate e umide, autunno inoltrato."
   },
   hydnum_repandum: {
@@ -325,6 +345,8 @@ const SPECIE = {
     altitudine: { min: 200, max: 1500 },
     mesi: [8,9,10,11],
     habitat: "Faggio, conifere, querce",
+    tipoHabitat: "bosco",
+    alberiGenus: ["fagus","pinus","abies","picea","quercus"],
     note: "Meno esigente di altri boleti riguardo al tipo di suolo."
   },
   amanita_caesarea: {
@@ -336,6 +358,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1000 },
     mesi: [6,7,8,9,10],
     habitat: "Querceti caldi, castagno (centro-sud Italia)",
+    tipoHabitat: "bosco",
+    alberiGenus: ["quercus","castanea"],
     note: "Molto termofilo, richiede estati calde con temporali."
   },
   lactarius_deliciosus: {
@@ -347,6 +371,8 @@ const SPECIE = {
     altitudine: { min: 200, max: 1600 },
     mesi: [9,10,11],
     habitat: "Pino (simbionte obbligato)",
+    tipoHabitat: "bosco",
+    alberiGenus: ["pinus"],
     note: "Legato esclusivamente a pinete; tollera terreni più asciutti."
   },
   macrolepiota_procera: {
@@ -358,6 +384,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1500 },
     mesi: [6,7,8,9,10],
     habitat: "Prati, radure, margini di bosco",
+    tipoHabitat: "prato",
+    alberiGenus: [],
     note: "Non simbionte: cresce anche in prati aperti e pascoli."
   },
   armillaria_mellea: {
@@ -369,6 +397,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1400 },
     mesi: [9,10,11,12],
     habitat: "Latifoglie e conifere, ceppi e radici (parassita/saprofita)",
+    tipoHabitat: "bosco",
+    alberiGenus: ["quercus","fagus","castanea","pinus","picea","abies","populus"],
     note: "Fruttifica tardi in autunno, tollera temperature più basse."
   },
   pleurotus_eryngii: {
@@ -380,6 +410,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1200 },
     mesi: [4,5,9,10,11],
     habitat: "Radici di ombrellifere (cardo, finocchio selvatico), zone aride/steppose",
+    tipoHabitat: "prato",
+    alberiGenus: [],
     note: "Doppia stagione; più tollerante alla siccità di altre specie."
   },
   pleurotus_ostreatus: {
@@ -391,6 +423,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1200 },
     mesi: [10,11,12,1,2,3],
     habitat: "Tronchi e ceppi di latifoglie (pioppo, salice, olmo)",
+    tipoHabitat: "lignicolo",
+    alberiGenus: ["populus","salix","ulmus"],
     note: "Lignicolo, tollera bene il freddo; attivo anche in inverno mite."
   },
   marasmius_oreades: {
@@ -402,6 +436,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1500 },
     mesi: [5,6,7,8,9,10],
     habitat: "Prati, giardini, cerchi delle streghe",
+    tipoHabitat: "prato",
+    alberiGenus: [],
     note: "Reagisce rapidamente a piogge brevi anche in estate."
   },
   morchella_esculenta: {
@@ -413,6 +449,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1200 },
     mesi: [3,4,5],
     habitat: "Olmo, frassino, pioppo, ex-boschi bruciati/alluvionati",
+    tipoHabitat: "bosco",
+    alberiGenus: ["ulmus","fraxinus","populus"],
     note: "Primaverile, legata al disgelo e a terreni ricchi di sostanza organica."
   },
   calocybe_gambosa: {
@@ -424,6 +462,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1400 },
     mesi: [4,5,6],
     habitat: "Prati, siepi, margini boschivi (biancospino, rosa canina)",
+    tipoHabitat: "prato",
+    alberiGenus: ["crataegus","rosa"],
     note: "Tipico dei 'cerchi delle streghe' primaverili."
   },
   agaricus_campestris: {
@@ -435,6 +475,8 @@ const SPECIE = {
     altitudine: { min: 0, max: 1500 },
     mesi: [5,6,9,10,11],
     habitat: "Prati concimati, pascoli",
+    tipoHabitat: "prato",
+    alberiGenus: [],
     note: "Non simbionte, legato a suoli ricchi di sostanza organica animale."
   }
 };
@@ -608,6 +650,112 @@ async function fetchQuote(punti){
 }
 
 /* ============================================================================
+   FASE 3 — HABITAT REALE (Overpass API)
+   Legge dal database OpenStreetMap il tipo di bosco/prato attorno a un
+   punto (natural=wood, landuse=forest/meadow, leaf_type, genus/species
+   degli alberi) per affinare il punteggio con il vero habitat, non solo
+   con le esigenze climatiche. Overpass è un servizio pubblico con limiti
+   di frequenza: per questo le richieste vengono fatte una alla volta, con
+   una piccola pausa tra l'una e l'altra, e il risultato viene tenuto in
+   cache per 30 giorni (l'habitat cambia molto più lentamente del meteo).
+   ============================================================================ */
+
+function chiaveCacheHabitat(lat, lon){
+  return `funghi_habitat_${lat.toFixed(3)}_${lon.toFixed(3)}`;
+}
+
+function leggiCacheHabitat(lat, lon){
+  try{
+    const raw = localStorage.getItem(chiaveCacheHabitat(lat, lon));
+    if (!raw) return undefined; // non ancora richiesto
+    const obj = JSON.parse(raw);
+    if (Date.now() - obj.ts > CONFIG.OVERPASS.cacheTtlMs) return undefined;
+    return obj.dati; // può essere null se Overpass non ha trovato nulla
+  }catch(e){ return undefined; }
+}
+function scriviCacheHabitat(lat, lon, dati){
+  try{
+    localStorage.setItem(chiaveCacheHabitat(lat, lon), JSON.stringify({ ts: Date.now(), dati }));
+  }catch(e){ /* quota localStorage superata: ignora */ }
+}
+
+// Interpreta gli elementi OSM restituiti da Overpass in un riassunto
+// sintetico dell'habitat: bosco/prato, tipo di foglia, generi di alberi.
+function interpretaHabitat(elements){
+  if (!elements || elements.length === 0){
+    return { bosco:false, prato:false, leafType:null, generi:[] };
+  }
+  const generi = new Set();
+  let bosco = false, prato = false, leafType = null;
+  elements.forEach(el => {
+    const tags = el.tags || {};
+    if (tags.natural === 'wood' || tags.landuse === 'forest') bosco = true;
+    if (tags.landuse === 'meadow' || tags.landuse === 'grass' || tags.natural === 'grassland') prato = true;
+    if (tags.leaf_type) leafType = tags.leaf_type; // broadleaved | needleleaved | mixed
+    if (tags.genus) generi.add(tags.genus.trim().toLowerCase());
+    if (tags.species){
+      const gen = tags.species.trim().toLowerCase().split(' ')[0];
+      if (gen) generi.add(gen);
+    }
+  });
+  return { bosco, prato, leafType, generi: [...generi] };
+}
+
+// Interroga Overpass per un singolo punto (query Overpass QL con "around")
+async function fetchHabitatPunto(lat, lon){
+  const cache = leggiCacheHabitat(lat, lon);
+  if (cache !== undefined) return cache;
+
+  const r = CONFIG.OVERPASS.raggioMetri;
+  const query = `[out:json][timeout:15];(
+    way(around:${r},${lat},${lon})["natural"="wood"];
+    way(around:${r},${lat},${lon})["landuse"="forest"];
+    relation(around:${r},${lat},${lon})["natural"="wood"];
+    way(around:${r},${lat},${lon})["landuse"="meadow"];
+    way(around:${r},${lat},${lon})["landuse"="grass"];
+    node(around:${r},${lat},${lon})["natural"="tree"];
+  );out tags center;`;
+
+  try{
+    const resp = await fetch(CONFIG.OVERPASS.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=' + encodeURIComponent(query)
+    });
+    if (!resp.ok) throw new Error(`Overpass HTTP ${resp.status}`);
+    const data = await resp.json();
+    const habitat = interpretaHabitat(data.elements);
+    scriviCacheHabitat(lat, lon, habitat);
+    return habitat;
+  }catch(err){
+    console.warn('Habitat non disponibile per', lat, lon, '-', err.message);
+    return null; // errore/rate-limit: il punteggio userà un valore neutro
+  }
+}
+
+// Confronta l'habitat reale con le esigenze della specie: 1 = match pieno,
+// 0.5 = dato non disponibile (neutro, non penalizza), valori intermedi
+// per bosco generico senza l'albero simbionte specifico, ecc.
+function punteggioHabitat(specie, habitat){
+  if (!habitat) return 0.5; // Overpass non ha risposto o non è ancora stato interrogato
+
+  if (specie.tipoHabitat === 'prato'){
+    if (habitat.prato) return 1;
+    if (habitat.bosco) return 0.25; // specie di prato in area boscata: poco probabile
+    return 0.6; // area non censita chiaramente: neutro-positivo
+  }
+
+  // Specie di bosco o lignicole: cerca il genere di albero simbionte/ospite
+  if (specie.alberiGenus && specie.alberiGenus.length > 0){
+    const trovato = specie.alberiGenus.some(g => habitat.generi.includes(g));
+    if (trovato) return 1;
+    if (habitat.bosco) return 0.55; // bosco presente ma senza conferma dell'albero giusto
+    return 0.3; // nessun bosco rilevato nelle vicinanze
+  }
+  return habitat.bosco ? 0.7 : 0.5;
+}
+
+/* ============================================================================
    ELABORAZIONE DATI METEO — estrazione indicatori dal JSON Open-Meteo
    ============================================================================ */
 
@@ -747,13 +895,13 @@ function estraiIndicatori(datiPunto, offsetGiorni){
 // Calcola il punteggio 0-100 per una specie dato l'insieme di indicatori
 // meteo del punto e la quota. Restituisce { punteggio, dettagli } dove
 // dettagli è un array di criteri con esito ✅/❌ per il pannello.
-function calcolaPunteggio(specie, indicatori, quota){
+function calcolaPunteggio(specie, indicatori, quota, habitat){
   if (!indicatori) return { punteggio: 0, dettagli: [{ ok:false, testo:'Dati meteo non disponibili' }] };
 
   const dettagli = [];
   const P = CONFIG.PESI;
 
-  // --- Pioggia (30%): combina cumulata 7/14gg + finestra di innesco al ritardo tipico
+  // --- Pioggia: combina cumulata 7/14gg + finestra di innesco al ritardo tipico
   const pRitardo = indicatori.pioggiaFinestraInnesco(specie.ritardoGiorni);
   const scorePioggia7 = punteggioSoglia(indicatori.pioggia7, specie.pioggia7);
   const scorePioggia14 = punteggioSoglia(indicatori.pioggia14, specie.pioggia14);
@@ -832,6 +980,17 @@ function calcolaPunteggio(specie, indicatori, quota){
     testo: inStagione ? `Mese in stagione (${indicatori.mese})` : `Fuori stagione (mese ${indicatori.mese})`
   });
 
+  // --- Habitat reale da Overpass (fase 3): confronta bosco/prato e alberi
+  // simbionti trovati vicino al punto con quelli richiesti dalla specie
+  const scoreHabitat = punteggioHabitat(specie, habitat);
+  if (habitat){
+    const habitatTesto = habitat.bosco ? `bosco (${habitat.generi.join(', ') || 'generi non censiti'})`
+      : habitat.prato ? 'prato/radura' : 'nessun bosco/prato rilevato nei dintorni';
+    dettagli.push({ ok: scoreHabitat >= 0.7, testo: `Habitat OSM: ${habitatTesto}` });
+  } else {
+    dettagli.push({ ok:false, testo:'Habitat OSM non ancora disponibile' });
+  }
+
   // --- Combinazione pesata
   let punteggio = (
     scorePioggia * P.pioggia +
@@ -839,7 +998,8 @@ function calcolaPunteggio(specie, indicatori, quota){
     scoreTempAria * P.tempAria +
     scoreUmidita * P.umidita +
     scoreQuota * P.quota +
-    scoreStagione * P.stagione
+    scoreStagione * P.stagione +
+    scoreHabitat * P.habitat
   ) * 100;
 
   // --- Penalità
@@ -867,9 +1027,9 @@ function calcolaPunteggio(specie, indicatori, quota){
 }
 
 // Calcola il punteggio di tutte le specie per un punto e restituisce la classifica
-function classificaSpecie(indicatori, quota){
+function classificaSpecie(indicatori, quota, habitat){
   const risultati = Object.entries(SPECIE).map(([id, specie]) => {
-    const { punteggio, dettagli } = calcolaPunteggio(specie, indicatori, quota);
+    const { punteggio, dettagli } = calcolaPunteggio(specie, indicatori, quota, habitat);
     return { id, specie, punteggio, dettagli };
   });
   risultati.sort((a,b) => b.punteggio - a.punteggio);
@@ -920,6 +1080,46 @@ function generaGriglia(){
 }
 
 let ultimaRichiestaId = 0;
+let contestoGriglia = []; // { p, dati, quota, habitat, indicatori, marker } per punto corrente
+
+// Disegna (o ridisegna) il marker di un punto della griglia in base alla
+// classifica corrente (che può includere o meno l'habitat da Overpass)
+function disegnaMarkerPunto(ctx){
+  const { p, dati, quota, indicatori, classifica } = ctx;
+  if (ctx.marker) gridLayer.removeLayer(ctx.marker);
+
+  let marker;
+  if (filtroSpecie){
+    // Modalità heatmap/filtro: cerchio colorato in base al punteggio della specie scelta
+    const risultato = classifica.find(r => r.id === filtroSpecie);
+    const punteggio = risultato ? risultato.punteggio : 0;
+    marker = L.circleMarker([p.lat, p.lon], {
+      radius: 16,
+      color: '#0006',
+      weight: 1,
+      fillColor: coloreDaPunteggio(punteggio),
+      fillOpacity: 0.55
+    }).bindTooltip(`${risultato.specie.emoji} ${punteggio}%`, { permanent:false, direction:'top' });
+  } else {
+    // Modalità default: mostra la specie con punteggio migliore
+    const top = classifica[0];
+    const colore = coloreDaPunteggio(top.punteggio);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="mushroom-marker" style="width:30px;height:30px;background:${colore}">${top.specie.emoji}</div>`,
+      iconSize: [30,30], iconAnchor:[15,15]
+    });
+    marker = L.marker([p.lat, p.lon], { icon })
+      .bindTooltip(`${top.specie.nome}: ${top.punteggio}%`, { direction:'top' });
+  }
+
+  marker.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    mostraPannello(p.lat, p.lon, dati, quota, ctx.classifica, ctx.indicatori, ctx.habitat);
+  });
+  marker.addTo(gridLayer);
+  ctx.marker = marker;
+}
 
 async function aggiornaGriglia(){
   const richiestaId = ++ultimaRichiestaId;
@@ -934,6 +1134,7 @@ async function aggiornaGriglia(){
   if (richiestaId !== ultimaRichiestaId) return; // richiesta obsoleta (mappa mossa nel frattempo)
 
   gridLayer.clearLayers();
+  contestoGriglia = [];
 
   punti.forEach((p, i) => {
     const dati = datiMeteo[i];
@@ -941,43 +1142,39 @@ async function aggiornaGriglia(){
     const indicatori = estraiIndicatori(dati, giornoOffset);
     if (!indicatori) return;
 
-    const classifica = classificaSpecie(indicatori, quota);
-
-    let marker;
-    if (filtroSpecie){
-      // Modalità heatmap/filtro: cerchio colorato in base al punteggio della specie scelta
-      const risultato = classifica.find(r => r.id === filtroSpecie);
-      const punteggio = risultato ? risultato.punteggio : 0;
-      marker = L.circleMarker([p.lat, p.lon], {
-        radius: 16,
-        color: '#0006',
-        weight: 1,
-        fillColor: coloreDaPunteggio(punteggio),
-        fillOpacity: 0.55
-      }).bindTooltip(`${risultato.specie.emoji} ${punteggio}%`, { permanent:false, direction:'top' });
-    } else {
-      // Modalità default: mostra la specie con punteggio migliore
-      const top = classifica[0];
-      const colore = coloreDaPunteggio(top.punteggio);
-      const icon = L.divIcon({
-        className: '',
-        html: `<div class="mushroom-marker" style="width:30px;height:30px;background:${colore}">${top.specie.emoji}</div>`,
-        iconSize: [30,30], iconAnchor:[15,15]
-      });
-      marker = L.marker([p.lat, p.lon], { icon })
-        .bindTooltip(`${top.specie.nome}: ${top.punteggio}%`, { direction:'top' });
-    }
-
-    marker.on('click', (e) => {
-      L.DomEvent.stopPropagation(e);
-      mostraPannello(p.lat, p.lon, dati, quota, classifica, indicatori);
-    });
-    marker.addTo(gridLayer);
+    // Primo rendering: habitat non ancora interrogato (Overpass è lento e
+    // va rispettato), il punteggio usa un valore neutro (0.5) per quel criterio
+    const classifica = classificaSpecie(indicatori, quota, null);
+    const ctx = { p, dati, quota, indicatori, classifica, habitat: null, marker: null };
+    disegnaMarkerPunto(ctx);
+    contestoGriglia.push(ctx);
   });
 
   ultimoAggiornamento = new Date();
   aggiornaLabelUltimoAggiornamento();
   nascondiStato();
+
+  // Fase 3: arricchisce in background con l'habitat reale da Overpass,
+  // un punto alla volta per rispettare i limiti d'uso del servizio
+  arricchisciHabitatGriglia(richiestaId);
+}
+
+async function arricchisciHabitatGriglia(richiestaId){
+  for (const ctx of contestoGriglia){
+    if (richiestaId !== ultimaRichiestaId) return; // la griglia è cambiata: interrompi
+    const habitat = await fetchHabitatPunto(ctx.p.lat, ctx.p.lon);
+    if (richiestaId !== ultimaRichiestaId) return;
+    ctx.habitat = habitat;
+    ctx.classifica = classificaSpecie(ctx.indicatori, ctx.quota, habitat);
+    disegnaMarkerPunto(ctx);
+    // Se il pannello aperto si riferisce a questo punto, aggiornalo
+    if (dettaglioPunto && dettaglioPunto.lat === ctx.p.lat && dettaglioPunto.lon === ctx.p.lon){
+      dettaglioPunto.habitat = habitat;
+      dettaglioPunto.classifica = ctx.classifica;
+      renderPannello();
+    }
+    await new Promise(r => setTimeout(r, CONFIG.OVERPASS.ritardoTraRichiesteMs));
+  }
 }
 
 function aggiornaLabelUltimoAggiornamento(){
@@ -993,25 +1190,26 @@ async function apriPannelloPuntoLibero(latlng){
   mostraStato('Caricamento dati punto…');
   const [dati] = await fetchMeteo([{ lat: latlng.lat, lon: latlng.lng }]);
   const [quota] = await fetchQuote([{ lat: latlng.lat, lon: latlng.lng }]);
+  const habitat = await fetchHabitatPunto(latlng.lat, latlng.lng); // un solo punto: ok in diretta
   nascondiStato();
   const indicatori = estraiIndicatori(dati, giornoOffset);
   if (!indicatori){ mostraStato('⚠️ Dati non disponibili per questo punto', 3000); return; }
-  const classifica = classificaSpecie(indicatori, quota);
-  mostraPannello(latlng.lat, latlng.lng, dati, quota, classifica, indicatori);
+  const classifica = classificaSpecie(indicatori, quota, habitat);
+  mostraPannello(latlng.lat, latlng.lng, dati, quota, classifica, indicatori, habitat);
 }
 
 /* ============================================================================
    PANNELLO DI DETTAGLIO
    ============================================================================ */
-function mostraPannello(lat, lon, datiMeteo, quota, classifica, indicatori){
-  dettaglioPunto = { lat, lon, datiMeteo, quota, classifica, indicatori };
+function mostraPannello(lat, lon, datiMeteo, quota, classifica, indicatori, habitat){
+  dettaglioPunto = { lat, lon, datiMeteo, quota, classifica, indicatori, habitat };
   renderPannello();
   document.getElementById('panel').classList.add('open');
 }
 
 function renderPannello(){
   if (!dettaglioPunto) return;
-  const { lat, lon, datiMeteo, quota, classifica, indicatori } = dettaglioPunto;
+  const { lat, lon, datiMeteo, quota, classifica, indicatori, habitat } = dettaglioPunto;
 
   document.getElementById('panelTitle').textContent = 'Dettaglio punto';
   document.getElementById('panelSub').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)} — ${indicatori.dataRif}`;
@@ -1038,6 +1236,20 @@ function renderPannello(){
     <div>Periodo secco<b>${indicatori.periodoSeccoGiorni} giorni</b></div>
   `;
   body.appendChild(grid);
+
+  // --- Habitat reale (Overpass/OSM)
+  const habDiv = document.createElement('div');
+  habDiv.style.cssText = 'font-size:12.5px;color:var(--muted);margin-bottom:10px;';
+  if (habitat === null || habitat === undefined){
+    habDiv.textContent = '🌍 Habitat: in caricamento da OpenStreetMap…';
+  } else if (habitat.bosco){
+    habDiv.textContent = `🌳 Habitat: bosco${habitat.leafType ? ' ('+habitat.leafType+')' : ''}${habitat.generi.length ? ' — alberi: '+habitat.generi.join(', ') : ' — genere non censito su OSM'}`;
+  } else if (habitat.prato){
+    habDiv.textContent = '🌾 Habitat: prato/radura';
+  } else {
+    habDiv.textContent = '❓ Habitat: nessun bosco/prato censito su OSM nel raggio di ricerca';
+  }
+  body.appendChild(habDiv);
 
   // --- Classifica top 5 specie
   const rankTitle = document.createElement('div');
@@ -1214,7 +1426,7 @@ function initUI(){
       const indicatori = estraiIndicatori(dettaglioPunto.datiMeteo, giornoOffset);
       if (indicatori){
         dettaglioPunto.indicatori = indicatori;
-        dettaglioPunto.classifica = classificaSpecie(indicatori, dettaglioPunto.quota);
+        dettaglioPunto.classifica = classificaSpecie(indicatori, dettaglioPunto.quota, dettaglioPunto.habitat);
         renderPannello();
       }
     }
@@ -1228,11 +1440,12 @@ function initUI(){
 window.debugPunteggio = async function(lat, lon, idSpecie){
   const [dati] = await fetchMeteo([{ lat, lon }]);
   const [quota] = await fetchQuote([{ lat, lon }]);
+  const habitat = await fetchHabitatPunto(lat, lon);
   const indicatori = estraiIndicatori(dati, giornoOffset);
   const specie = SPECIE[idSpecie];
   if (!specie){ console.error('Specie non trovata. Disponibili:', Object.keys(SPECIE)); return; }
-  const risultato = calcolaPunteggio(specie, indicatori, quota);
-  console.log(`Punteggio ${specie.nome} @ (${lat},${lon}):`, risultato.punteggio);
+  const risultato = calcolaPunteggio(specie, indicatori, quota, habitat);
+  console.log(`Punteggio ${specie.nome} @ (${lat},${lon}):`, risultato.punteggio, '— habitat:', habitat);
   console.table(risultato.dettagli);
   return risultato;
 };

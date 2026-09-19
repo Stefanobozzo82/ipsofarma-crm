@@ -2,6 +2,8 @@
 
 Data: 19 settembre 2026. Baseline esaminata: `7cc2b0ef0e6c2c8862b44b57758d82b65635dca0`.
 
+Le sezioni iniziali e i primi tre incrementi sono il registro storico delle verifiche: le loro dichiarazioni «non eseguito» si riferiscono a quel momento. Lo stato aggiornato è nel **quarto incremento** in fondo al documento; non interpretare i risultati intermedi come copertura della versione finale.
+
 ## Perimetro e livello di evidenza
 
 Questo documento descrive la baseline prima delle correzioni del branch di stabilizzazione. Le eventuali modifiche successive devono essere valutate tramite diff e test: la presenza di una voce qui non dimostra che il problema persista nella versione corrente.
@@ -126,3 +128,39 @@ Il modulo manuale per nuovi DDT collegati e la creazione dal residuo usano la RP
 Validazione complessiva: **144 test superati**, zero fallimenti. I 36 casi aggiunti comprendono 23 test SQL, 5 test wrapper/generazione e 8 test del modulo manuale con adattatore DOM. Errori iniettati su inserimento DDT, aggiornamento ordine e registro operazioni annullano anche il contatore; verificati retry, autorizzazioni, payload non validi, snapshot obsoleti e numeri manuali. Controllo sintattico superato per i moduli modificati e gli script inline del modulo.
 
 DOC-01/DOC-02 sono mitigati soltanto per questa creazione tramite RPC; non sono chiusi globalmente. Modifica/cancellazione DDT, fatture, salvataggi legacy degli ordini, annullamenti, quote server e stock restano da affrontare. Gli indici non sono identificatori persistenti di riga. Le chiavi automatiche dei retry vivono nella pagina e il replay restituisce lo snapshot originario. Concorrenza su connessioni separate e API Supabase/PostgREST richiedono staging. Vedere `ATOMIC_DDT_ROLLOUT.md` per sequenza di rilascio e limiti. Nessuna migrazione remota o distribuzione eseguita.
+
+## Quarto incremento: transazioni, quote e staging isolato
+
+Aggiornamento del 19 settembre 2026. **321 test locali superati**, zero fallimenti, su Node 24 e PostgreSQL 18.3 tramite PGlite. Il totale comprende test SQL, handler con provider simulati, wrapper e logica dei form in VM: non equivale a 321 collaudi browser o richieste reali ai provider. Il comando ripetibile e il perimetro delle suite sono in `../tests/README.md`.
+
+Le migrazioni `0020`–`0030` completano questo incremento:
+
+- Salvataggio ordini cliente con snapshot atteso e identità delle righe preservata anche tra codici duplicati. Le quantità già consegnate non vengono redistribuite tramite code per codice. Le strutture di righe già referenziate da operazioni tracciate restano protette.
+- Rettifica e annullamento dei DDT cliente tracciati, con compensazione delle sole quantità dimostrabili, audit e retry. DDT autonomi possono essere rettificati senza compensare ordini; collegamenti storici ambigui richiedono riconciliazione e vengono respinti.
+- Fatturazione cliente da DDT tramite RPC atomica, controllo snapshot e idempotenza; blocco delle scritture dirette che aggirerebbero il percorso. Ricezione fornitore tracciata con creazione/rettifica/annullamento del DDT e aggiornamento coerente delle quantità dell'ordine.
+- Prenotazione atomica quota IA, richiesta identificata e stato del tentativo; limiti payload/risposta/token e timeout del provider. Un esito ignoto rimane conteggiato e il replay restituisce conflitto HTTP 409 senza ripetere automaticamente la chiamata esterna.
+- Registro eventi Stripe con applicazione transazionale, firma webhook e gestione degli errori; idempotenza checkout e validazione degli URL di ritorno. Non è ancora una riconciliazione completa degli abbonamenti.
+- Inviti e membership serializzati per azienda, capienza del piano corrente, inviti con scadenza, email confermata e protezione dell'ultimo amministratore. Scritture dirette negate e wrapper aggiornati alle RPC.
+- Protezione dello storico magazzino, autore gestito dal server e rimozione della cancellazione a cascata del prodotto sui movimenti. Nessuno scarico automatico aggiunto implicitamente.
+- Quota documenti server sulle nove tabelle, incluso DDT fornitore, mese UTC, timestamp server e contatore senza rimborsi per cancellazione/annullamento. Addebito solo per inserimenti effettivi: upsert e `DO NOTHING` non consumano una nuova quota. Il bootstrap antecedente all'inserimento evita il doppio conteggio dei batch. Manutenzione privilegiata senza `auth.uid()` è un bypass intenzionale, da usare soltanto in procedure amministrative controllate.
+- Privilegi API espliciti e paginazione per chiave sulle letture delle collection e dell'azienda intera, fino alla pagina vuota anche con limite server inferiore a 1000. Un cursore che non avanza produce errore. La paginazione non promette uno snapshot immutabile mentre altri utenti inseriscono righe.
+
+### Evidenza remota acquisita
+
+È stato predisposto e verificato vuoto il progetto **staging** `ffjzhtzavkuwysmabmds`, piano Free, regione Irlanda, PostgreSQL **17.6**. Sono state applicate **30 migrazioni**; il target è separato dalla produzione. Sono state distribuite quattro Edge Function: `ai-proxy`, `send-email`, `stripe-checkout`, `stripe-webhook`. Le credenziali dei provider non sono configurate: il deploy non dimostra invio email, risposta IA o pagamento funzionante. Le origini CORS consentite sono soltanto quelle locali sulla porta 8080.
+
+Lo smoke SQL remoto con rollback è passato. Sono passate inoltre prove con invocazioni CLI e connessioni indipendenti, avviate in sovrapposizione: ultimo residuo DDT conteso, ultima quota IA contesa e ultimo posto invito conteso. Le verifiche delle invarianti e la pulizia delle fixture sintetiche sono terminate con successo. Questi risultati dimostrano quei tre scenari, non tutte le possibili combinazioni di lock. Gli script ripetibili sono in `../tests/staging/`.
+
+Il successivo smoke HTTP Auth/PostgREST ed Edge ha completato **25 asserzioni**, con pulizia sintetica riuscita. In assenza dei provider sono stati verificati gli esiti attesi: IA 503, email 500, checkout 400 per prezzo non configurato e webhook 503 per secret mancante. Questi esiti provano il comportamento di errore configurazione, non la funzionalità reale dei provider. Il server di anteprima risponde via HTTP; due tentativi di collegamento al browser dell'app sono terminati in timeout dello strumento, quindi nessun E2E browser completo è acquisito. La mancanza di Docker locale ha prodotto un avviso relativo alla cache, senza impedire le verifiche remote; non è una prova di disponibilità dello stack Supabase locale.
+
+La migrazione `0030` è applicata: cast espliciti e conteggio statico conservano il comportamento, verificato da quattro nuovi test. Il lint remoto risulta privo di errori e avvisi; smoke SQL e HTTP ripetuti con successo.
+
+### Limiti e lavoro residuo
+
+Restano da completare o collaudare: storni/note di credito e registrazione degli eventi di pagamento; creazione delle fatture fornitore e percorsi autonomi con più scritture; riconciliazione dei documenti storici ambigui; outbox e retry dei messaggi/solleciti. La presenza di una RPC sicura non rende atomici i percorsi non ancora migrati.
+
+Per Stripe restano gli eventi con lo stesso secondo temporale, la riconciliazione con lo stato remoto e più checkout con chiavi diverse. Per IA gli esiti incerti restano consumati; una nuova chiave identifica un nuovo tentativo, potenzialmente a pagamento. Le chiavi automatiche client persistono nella pagina, non sono una coda durevole dopo ricaricamento.
+
+Non sono stati completati il collaudo completo browser/mobile, il restore di un backup, le prove reali dei provider, il controllo operativo completo del monitoraggio e la matrice di tutte le gare concorrenti. In particolare, la combinazione dei lock quota/documenti richiede stress test e gestione dei rollback da deadlock; un abort PostgreSQL conserva l'atomicità ma non garantisce la disponibilità di ogni tentativo.
+
+La configurazione pubblica `staging.config.json` e `scripts/staging-preview.cjs` consentono la revisione del frontend sul backend isolato, senza riscrivere gli HTML di produzione. Vedere `STAGING_RUNBOOK.md`. Questo incremento non dichiara conclusa l'intera missione né il sistema pronto alla produzione.

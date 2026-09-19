@@ -62,3 +62,7 @@ L'azione AI composta «genera DDT e fattura» richiede collaudo separato: il pia
 - Verifica esplicita del comportamento ancora legacy su modifica/eliminazione DDT e salvataggio ordine obsoleto, senza dichiarare tali limiti risolti.
 
 Le prove locali con PostgreSQL embedded verificano SQL e transazioni, ma non sostituiscono Supabase/PostgREST, autenticazione reale, cache browser e concorrenza di rete. Riportare separatamente questi livelli nel risultato del collaudo.
+
+## Aggiornamento successivo alla fase 0019
+
+Le istruzioni sopra descrivono il primo rilascio della sola creazione atomica e restano un registro storico. Nel branch corrente `0020` protegge il salvataggio degli ordini da snapshot obsoleti; `0021` introduce rettifica e annullamento dei DDT tracciati, con compensazioni quantitative e audit, e `0022` gestisce la fatturazione da DDT. La precedente dichiarazione che ogni modifica/eliminazione DDT rimane legacy non descrive quindi l'intero stato attuale. Lo storico ambiguo senza evidenza di creazione continua a richiedere riconciliazione e non viene ricostruito automaticamente. Il rollout aggiornato, i risultati di staging e i limiti ancora aperti sono in [`STAGING_RUNBOOK.md`](STAGING_RUNBOOK.md) e nel quarto incremento di [`STABILIZATION_AUDIT.md`](STABILIZATION_AUDIT.md). Nessuna di queste estensioni equivale a un collaudo completo browser/mobile o provider reali.

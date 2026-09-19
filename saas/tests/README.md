@@ -1,5 +1,7 @@
 # Test di stabilizzazione
 
+**Stato corrente, 19 settembre 2026: 321 test locali superati**, zero fallimenti, Node 24 / PGlite PostgreSQL 18.3. I conteggi dei primi incrementi riportati sotto sono storici. La suite corrente comprende le migrazioni fino a `0030`, con versioni di partenza diverse secondo il comportamento isolato dal test.
+
 Requisito: Node.js 24 o superiore. Installare le dipendenze di sviluppo bloccate nel lockfile; l'esecuzione successiva non richiede credenziali o rete.
 
 Da `saas/`:
@@ -30,3 +32,17 @@ I test SQL eseguono invece le migration originali sul motore PostgreSQL di [PGli
 Il runner usa il supporto TypeScript di Node e, per caricare gli handler Deno con dipendenze simulate, `stripTypeScriptTypes`, che può emettere un avviso sperimentale. Non sostituisce `deno check`, il bundling Supabase o un collaudo su staging.
 
 Validazione locale: 144 test superati. La copertura transazionale documentale riguarda soltanto la creazione di DDT cliente collegato a ordine. Questa suite non attesta concorrenza multi-sessione, API PostgREST reale, consegna email, pagamenti o flussi E2E. I criteri per estenderla sono in `../docs/STABILIZATION_AUDIT.md`. Non sono stati aggiunti workflow alla radice del repository: il perimetro autorizzato è `saas/`.
+
+## Suite aggiunte e prove attuali
+
+Il paragrafo precedente fotografa il terzo incremento; il quarto amplia la copertura:
+
+- SQL: `customer-order-concurrency`, `customer-ddt-lifecycle`, `atomic-invoice`, `supplier-receipt`, `ai-quota`, `stripe-events`, `membership-capacity`, `stock-history`, `document-quota`, `api-permissions`.
+- Client e form: `customer-order-form`, `invoice-form`, `invoice-cascade`, `ai-invoice-plan`, `supplier-receipt-client`, `store-hardening`, `staging-preview`.
+- Handler con provider simulati: `ai-proxy`, `stripe-checkout`, `stripe-webhook`, oltre alle suite email e CORS già presenti.
+
+I nomi sono i prefissi dei file `*.test.cjs`; leggere i singoli casi per le invarianti. Comprendono rettifica/annullamento tracciati, snapshot obsoleti, identità righe, fallimenti iniettati, quote, ultimo amministratore e paginazione completa anche quando il limite del server è inferiore a 1000. I test form eseguono funzioni reali con DOM simulato e non equivalgono a E2E browser.
+
+**Prove remote separate dal totale 321:** staging `ffjzhtzavkuwysmabmds`, PostgreSQL 17.6, 30 migrazioni applicate; smoke SQL con rollback superato; tre gare reali su connessioni CLI indipendenti (ultimo residuo DDT, ultima quota IA, ultimo posto invito) superate; smoke HTTP Auth/PostgREST ed Edge con **25 asserzioni superate**. Verifiche delle invarianti e cleanup sintetico completati con successo. Gli script SQL ripetibili sono in [`staging/README.md`](staging/README.md). La migrazione 0030 è inclusa: lint remoto senza errori o avvisi e quattro test locali aggiuntivi.
+
+Queste prove non certificano tutte le combinazioni di lock né provider reali, flussi browser/mobile completi o restore. Due tentativi di collegare l'anteprima al browser dell'app sono terminati in timeout dello strumento; il server di anteprima risponde via HTTP, ma non è stato completato un E2E browser. Vedere [`../docs/STAGING_RUNBOOK.md`](../docs/STAGING_RUNBOOK.md). Le quattro Edge Function distribuite non hanno ancora credenziali provider configurate.

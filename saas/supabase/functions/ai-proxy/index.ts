@@ -23,31 +23,16 @@
 // ============================================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsForRequest } from '../_shared/cors.ts';
 
 const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
-// Chiamata dal browser (fatture-fornitore.html, fatture.html,
-// assistente-ai.html) verso un'origine diversa (*.github.io qui,
-// *.supabase.co la funzione): il POST con Content-Type: application/json e
-// un header Authorization personalizzato non è una "simple request" CORS,
-// quindi il browser manda prima un preflight OPTIONS. Senza questi header
-// il preflight riceveva 405 (vedi il controllo "solo POST" più sotto) e il
-// browser bloccava la richiesta vera e propria PRIMA che arrivasse qui —
-// il bug reale dietro "l'importazione da PDF restituisce un errore".
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders },
-  });
-}
-
 Deno.serve(async (req: Request) => {
+  const { headers: corsHeaders, allowed } = corsForRequest(req);
+  const json = (body: unknown, status = 200): Response => new Response(JSON.stringify(body), {
+    status, headers: { 'Content-Type': 'application/json', ...corsHeaders },
+  });
+  if (!allowed) return json({ error: 'origine non consentita' }, 403);
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -200,3 +185,4 @@ Deno.serve(async (req: Request) => {
     headers: { 'Content-Type': 'application/json', ...corsHeaders },
   });
 });
+

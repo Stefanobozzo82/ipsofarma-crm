@@ -591,7 +591,6 @@
 
     $('f-save').disabled = true;
     setMsg('', '');
-    let partialLinkWarning = '';
     try{
       // Si parte dal DDT esistente (se in modifica) invece che da un
       // oggetto vuoto: senza questo, salvare una modifica cancellerebbe
@@ -632,27 +631,15 @@
         saved = result.ddt;
         if(result.ordine) allOrdiniFornitoreById[result.ordine.id] = result.ordine;
       }else{
-        saved = await store.saveDoc('ddtFornitore', doc, companyId);
-      }
-      // L'ALTRO lato del collegamento: la fattura scelta sopra deve sapere
-      // a sua volta di questo DDT (ddtfId, come sceglierlo a mano da
-      // fatture-fornitore.html/f-ddtf) — senza questo passo il DDT
-      // risulterebbe "fatturato" ma la fattura non "da DDT", e il box
-      // "Documenti collegati" non risalirebbe la filiera.
-      if(linkingFattura && isNew && !ofId){
-        try{
-          const fatturaAgg = Object.assign({}, fatturaObj, { ddtfId: saved.id });
-          await store.saveDoc('fattureFornitore', fatturaAgg, companyId);
-          allFattureFornitoreById[fatturaObj.id] = fatturaAgg;
-          // Anche nell'elenco per fornitore (guida "Fattura collegata" di
-          // OGNI prossimo DDT aperto in questa sessione, senza ricaricare
-          // la pagina): senza questo, la stessa fattura resterebbe
-          // proponibile — e quindi collegabile due volte — finché non si
-          // torna su questa pagina da capo.
-          const arr = fattureFornitorePerFornitore[fatturaObj.fornitoreId];
-          if(arr){ const idx = arr.findIndex(f => f.id === fatturaObj.id); if(idx >= 0) arr[idx] = fatturaAgg; }
-        }catch(e){
-          partialLinkWarning = 'DDT salvato, ma il collegamento alla fattura non è completo. Verificalo in Fatture fornitore prima di proseguire; non creare un secondo DDT.';
+        const receiptDoc = Object.assign({}, doc, {fatturaId});
+        const key = JSON.stringify({action:'standalone-create',doc:receiptDoc});
+        const result = await store.createStandaloneSupplierDdt(companyId, receiptDoc, receiptRequest(key));
+        saved = result.ddt;
+        if(result.fattura){
+          allFattureFornitoreById[result.fattura.id] = result.fattura;
+          const list = fattureFornitorePerFornitore[result.fattura.fornitoreId] || [];
+          const at = list.findIndex(f => f.id === result.fattura.id);
+          if(at >= 0) list[at] = result.fattura;
         }
       }
       // Un DDT fornitore appena creato resta aperto (invece di tornare
@@ -666,7 +653,6 @@
       await renderList();
       if(isNew) await openForm(saved);
       else closeForm();
-      if(partialLinkWarning) setMsg(partialLinkWarning, 'error');
     }catch(err){
       const dup = err && err.code === '23505';
       setMsg(dup ? 'Esiste già un DDT fornitore con questo numero: scegline un altro.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');

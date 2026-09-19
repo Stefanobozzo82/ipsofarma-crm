@@ -314,7 +314,7 @@
       const prod = (trovati[i] || []).find(p => (p.cod || '').toLowerCase() === r.cod.toLowerCase());
       const fid = prod && prod.fornitoreId;
       if (!fid) { senzaFornitore.push(r.cod); return; } // prodotto senza fornitore assegnato nel catalogo: non possiamo indovinare a chi ordinarlo
-      const line = { cod: r.cod, descr: r.descr, qty: r.qty, prezzo: prod.listinoAcq || 0, sconto: '', iva: prod.iva || r.iva || 22 };
+      const line = { cod: r.cod, descr: r.descr, qty: r.qty, prezzo: prod.listinoAcq || 0, sconto: '', iva: prod.iva ?? r.iva ?? 22 };
       if (!groups.has(fid)) groups.set(fid, []);
       groups.get(fid).push(line);
     });

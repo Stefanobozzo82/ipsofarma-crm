@@ -136,25 +136,31 @@
   // porta diretta di ncCreditoFor() in index.html: se copre più fatture
   // (ftIds con più di un elemento) l'importo si distribuisce a cascata
   // partendo dalla più vecchia, non in parti uguali.
-  function ncCreditoFor(nc, ftNum, fattureColl){
-    const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
-    if(!ids.includes(ftNum)) return 0;
-    if(ids.length <= 1) return tot(nc.righe);
+  function ncCreditoFor(nc, invoice, fattureColl){
+    if(nc.annullato) return 0;
+    // Il collegamento UUID corrente prevale sui numeri legacy, senza doppio credito.
+    if(nc.fatturaId) return nc.fatturaId === invoice.id ? tot(nc.righe) : 0;
+    const ids = [...new Set((nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []))];
+    if(!ids.includes(invoice.num)) return 0;
     let remaining = tot(nc.righe);
-    const ordered = ids.map(n => fattureColl.find(f => f.num === n)).filter(Boolean).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const ordered = ids.map(n => fattureColl.find(f => f.num === n)).filter(Boolean).sort((a,b) => (a.data || '').localeCompare(b.data || ''));
+    if(ids.length <= 1) return tot(nc.righe);
     for(const f of ordered){
       if(remaining <= 0) break;
       const alloc = Math.min(remaining, tot(f.righe));
-      if(f.num === ftNum) return alloc;
+      if(f.id === invoice.id) return alloc;
       remaining -= alloc;
     }
     return 0;
   }
-  // Residuo che tiene conto anche delle note di credito collegate, non
-  // solo dei pagamenti registrati — stessa aritmetica di payState()
-  // nell'originale e nel resto del SaaS (dashboard.html/scadenziario.html).
+  function supplierCreditFor(nc, invoice){
+    if(nc.annullato) return 0;
+    const linked = nc.fatturaId ? nc.fatturaId === invoice.id : nc.ftfId === invoice.num;
+    return linked ? tot(nc.righe) : 0;
+  }
+
   function residuo(it, noteCreditoColl, fattureColl){
-    const creditato = it.num ? (noteCreditoColl || []).reduce((s, nc) => s + ncCreditoFor(nc, it.num, fattureColl), 0) : 0;
+    const creditato = it.num ? (noteCreditoColl || []).reduce((s, nc) => s + ncCreditoFor(nc, it, fattureColl), 0) : 0;
     return Math.max(0, tot(it.righe) - payTot(it) - creditato);
   }
   // Stessa formula di scadenziario.html: data documento + termini di
@@ -262,7 +268,7 @@
       // fattura fornitore), non via ftId/ftIds come quelle cliente — non
       // hanno bisogno della cascata multi-fattura (caso non osservato nei
       // dati reali finora), un residuo diretto basta.
-      const creditato = f.num ? (noteCreditoFornitore || []).filter(ncf => ncf.ftfId === f.num).reduce((s, ncf) => s + tot(ncf.righe), 0) : 0;
+      const creditato = f.num ? (noteCreditoFornitore || []).reduce((s, ncf) => s + supplierCreditFor(ncf, f), 0) : 0;
       const r = Math.max(0, tot(f.righe) - payTot(f) - creditato);
       if(r <= 0.01) return;
       const party = fornitoriById[f.fornitoreId];
@@ -709,10 +715,11 @@
       desc,
       apply: targets.length ? async () => {
         for(const f of targets){
-          f.paid = paid;
-          f.paidDate = paid ? today() : null;
-          f.pagamenti = paid ? [{ data: today(), importo: tot(f.righe) }] : [];
-          await store.saveDoc(coll, f, companyId);
+          const updated = await store.mutateInvoicePayment(companyId, isForn ? 'supplier' : 'customer', f,
+            paid ? 'settle' : 'clear', paid ? { data: today() }
+              : { expected_payments: f.pagamenti || [], expected_paid: !!f.paid,
+                  expected_paid_date: f.paidDate || null });
+          Object.assign(f, updated);
         }
         return targets.length + ' fatture aggiornate';
       } : null,
@@ -755,7 +762,7 @@
           cod: l.found.cod, descr: l.found.descr, qty: l.qty,
           prezzo: (l.price != null && l.price !== '') ? parseFloat(l.price) || 0 : (l.found.listinoVen || 0),
           sconto: (l.sconto != null && l.sconto !== '') ? String(l.sconto) : '',
-          iva: l.found.iva || 22,
+          iva: l.found.iva ?? 22,
         }));
         const anno = today().slice(0, 4);
         const num = await store.nextNumber(companyId, prefix, anno);

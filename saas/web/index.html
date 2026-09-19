@@ -69,7 +69,7 @@
     <label for="email">Email</label>
     <input id="email" type="email" autocomplete="email" placeholder="tu@azienda.it">
     <label for="password">Password</label>
-    <input id="password" type="password" autocomplete="current-password" placeholder="almeno 8 caratteri">
+    <input id="password" type="password" autocomplete="current-password" placeholder="La tua password">
     <button id="auth-submit">Accedi</button>
     <div class="switch">
       <span id="switch-text">Non hai un account?</span> <a id="switch-link">Registrati</a>
@@ -86,6 +86,7 @@
     <input id="company-slug" type="text" placeholder="farmacia-rossi">
     <p class="hint">Solo lettere minuscole, numeri e trattini — sarà l'identificatore univoco dell'azienda.</p>
     <button id="register-submit">Crea azienda</button>
+    <button id="register-logout" class="secondary">Esci</button>
     <div class="msg" id="register-msg" hidden></div>
   </div>
 
@@ -187,7 +188,7 @@
     }
   });
 
-  $('logout').addEventListener('click', async () => {
+  async function doLogout(){
     await sb.auth.signOut();
     mode = 'signin'; // dopo il logout ci si aspetta di dover accedere, non registrarsi di nuovo
     $('page-title').textContent = 'Accesso';
@@ -195,7 +196,9 @@
     $('switch-text').textContent = 'Non hai un account?';
     $('switch-link').textContent = 'Registrati';
     await refresh();
-  });
+  }
+  $('logout').addEventListener('click', doLogout);
+  $('register-logout').addEventListener('click', doLogout);
 
   // Mostra "sei stato invitato da X" PRIMA del login — invite_preview() è
   // concessa anche ad anon apposta, non serve una sessione per vederla.
@@ -209,7 +212,7 @@
       if(error) throw error;
       const preview = data && data[0];
       if(!preview){ $('invite-text').textContent = 'Questo link di invito non è più valido.'; $('invite-box').hidden = false; return; }
-      $('invite-text').innerHTML = `Sei stato invitato a entrare in <b>${preview.company_nome.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</b> come ${preview.role}. Accedi o registrati con <b>${preview.email}</b> per accettare.`;
+      $('invite-text').textContent = `Sei stato invitato a entrare in ${preview.company_nome} come ${preview.role}. Accedi o registrati con ${preview.email} per accettare.`;
       $('invite-box').hidden = false;
       $('email').value = preview.email;
       $('email').readOnly = true;
@@ -260,10 +263,12 @@
     }
     $('page-title').textContent = 'Le tue aziende';
     $('dashboard-email').textContent = session.user.email;
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,
+      c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     $('company-list').innerHTML = memberships.map(m =>
       `<div class="company">
-         <span>${m.company_nome} <span class="role">${m.role}</span></span>
-         <button class="company-open" data-company-id="${m.company_id}" data-company-nome="${m.company_nome}">Apri gestionale →</button>
+         <span>${escapeHtml(m.company_nome)} <span class="role">${escapeHtml(m.role)}</span></span>
+         <button class="company-open" data-company-id="${escapeHtml(m.company_id)}" data-company-nome="${escapeHtml(m.company_nome)}">Apri gestionale →</button>
        </div>`
     ).join('');
     show('dashboard-box');

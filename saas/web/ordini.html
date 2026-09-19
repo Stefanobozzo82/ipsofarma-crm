@@ -453,13 +453,15 @@
   // conferma esplicita, diversa dal resto della cascata (vedi il
   // commento di applicaEvasioneManuale() in app/cascade.js).
   $('oc-btn-chiudi').addEventListener('click', async () => {
-    if(!editingOrder) return;
+    if(!editingOrder || $('oc-btn-chiudi').disabled) return;
     if(!confirm(`Segnare l'ordine ${editingOrder.num} come evaso SENZA generare un DDT?\n\nUsalo solo per ordini che non prevedono una vera consegna a un cliente esterno (es. un ordine per caricare merce nel proprio magazzino) — a differenza di "Genera DDT" non resta nessun documento di trasporto collegato.`)) return;
     const btn = $('oc-btn-chiudi');
+    const reason = prompt('Motivo della chiusura manuale (registrato nello storico):');
+    if(reason === null) return;
+    if(reason.trim().length < 3){ alert('Inserisci un motivo di almeno 3 caratteri.'); return; }
     btn.disabled = true;
     try{
-      const ordineAgg = window.SaasCascade.applicaEvasioneManuale(editingOrder);
-      await store.saveDoc('ordiniCliente', ordineAgg, companyId);
+      const ordineAgg = await store.completeOrderManually(companyId, 'customer', editingOrder, reason.trim());
       await openForm(ordineAgg);
     }catch(err){
       alert('Errore durante il salvataggio: ' + (err.message || err));
@@ -634,7 +636,7 @@
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoVen || 0);
         tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste

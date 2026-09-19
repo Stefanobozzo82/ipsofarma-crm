@@ -281,7 +281,7 @@
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoVen || 0);
         tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste

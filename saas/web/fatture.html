@@ -265,7 +265,7 @@
   // Corretto riportando la stessa logica.
   function renderStats(elencoFiltrato){
     const totFatture = elencoFiltrato.reduce((s, f) => s + docTotale(f.righe), 0);
-    const ncFiltrate = noteCreditoArr.filter(matchesQueryNC).filter(matchesFilterNC);
+    const ncFiltrate = noteCreditoArr.filter(nc => !nc.annullato).filter(matchesQueryNC).filter(matchesFilterNC);
     const totNC = ncFiltrate.reduce((s, n) => s + docTotale(n.righe), 0);
     const cliente = FFILT.cliente ? (clientiById[FFILT.cliente] || {}).nome : '';
     const periodo = FFILT.from || FFILT.to
@@ -359,7 +359,7 @@
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoVen || 0);
         tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
@@ -534,7 +534,7 @@
       // andrebbero riscritti a mano ad ogni fattura generata da un DDT.
       (ddt.righe || []).forEach((r, source_ddt_index) => addRigaRow({
         cod:r.cod, descr:r.descr, qty:r.qty, source_ddt_index,
-        prezzo: r.prezzo || 0, sconto: r.sconto || '', iva: r.iva || 22,
+        prezzo: r.prezzo || 0, sconto: r.sconto || '', iva: r.iva ?? 22,
         lotto:r.lotto || '', scad:r.scad || '',
       }));
     }
@@ -603,7 +603,7 @@
   // conteggio a sé, mostrato ma non sommato allo storico dei pagamenti.
   function creditoNotaCredito(fattura){
     if(!fattura || !fattura.id) return 0;
-    return noteCreditoArr.filter(nc => nc.fatturaId === fattura.id).reduce((s, nc) => s + docTotale(nc.righe), 0);
+    return noteCreditoArr.filter(nc => !nc.annullato && nc.fatturaId === fattura.id).reduce((s, nc) => s + docTotale(nc.righe), 0);
   }
   function payState(fattura){
     const totale = docTotale(fattura.righe);
@@ -639,7 +639,7 @@
         </div>` : ''}`;
     if(p.state !== 'completo'){
       $('pay-add').addEventListener('click', () => addPagamento($('pay-importo').value, $('pay-data').value));
-      $('pay-salda').addEventListener('click', () => addPagamento(p.residuo, today()));
+      $('pay-salda').addEventListener('click', () => addPagamento(p.residuo, today(), true));
     }
     $('f-pagamenti').querySelectorAll('[data-rm-pagamento]').forEach(btn => {
       btn.addEventListener('click', () => delPagamento(Number(btn.dataset.rmPagamento)));
@@ -650,17 +650,14 @@
   // l'upsert sulle colonne "not null". Il form resta aperto dopo un
   // incasso (a differenza di "Salva"): si può registrare più di un
   // versamento di seguito senza uscire e rientrare nel documento.
-  async function addPagamento(importoRaw, data){
+  async function addPagamento(importoRaw, data, settle = false){
     if(!editingFattura) return;
     const importo = parseFloat(importoRaw);
     if(!importo || isNaN(importo) || importo <= 0){ alert('Importo non valido.'); return; }
-    const pagamenti = (editingFattura.pagamenti || []).concat([{ data: data || today(), importo: Math.round(importo * 100) / 100 }]);
-    const doc = Object.assign({}, editingFattura, { pagamenti });
-    const p = payState(doc);
-    doc.paid = p.state === 'completo';
-    doc.paidDate = doc.paid ? pagamenti[pagamenti.length - 1].data : null;
     try{
-      editingFattura = await store.saveDoc('fattureCliente', doc, companyId);
+      editingFattura = await store.mutateInvoicePayment(companyId, 'customer', editingFattura,
+        settle ? 'settle' : 'add', settle ? { data: data || today() }
+          : { data: data || today(), importo: Math.round(importo * 100) / 100 });
     }catch(err){
       alert('Errore durante la registrazione dell\'incasso: ' + (err.message || err));
       return;
@@ -670,14 +667,12 @@
   }
   async function delPagamento(idx){
     if(!editingFattura || !editingFattura.pagamenti) return;
-    const pagamenti = editingFattura.pagamenti.slice();
-    pagamenti.splice(idx, 1);
-    const doc = Object.assign({}, editingFattura, { pagamenti });
-    const p = payState(doc);
-    doc.paid = p.state === 'completo';
-    if(!doc.paid) doc.paidDate = null;
+    const payment = editingFattura.pagamenti[idx];
+    if(!payment) return;
     try{
-      editingFattura = await store.saveDoc('fattureCliente', doc, companyId);
+      editingFattura = await store.mutateInvoicePayment(companyId, 'customer', editingFattura, 'remove',
+        payment.payment_id ? { payment_id: payment.payment_id }
+          : { index: idx, expected_payments: editingFattura.pagamenti });
     }catch(err){
       alert('Errore durante la rimozione dell\'incasso: ' + (err.message || err));
       return;
@@ -824,12 +819,9 @@
   // ha mai funzionato, falliva silenziosamente ogni volta.
   async function togglePaid(fattura){
     const paid = !fattura.paid;
-    const doc = Object.assign({}, fattura, {
-      paid,
-      paidDate: paid ? today() : null,
-      pagamenti: paid ? [{ data: today(), importo: docTotale(fattura.righe) }] : [],
-    });
-    await store.saveDoc('fattureCliente', doc, companyId);
+    await store.mutateInvoicePayment(companyId, 'customer', fattura, paid ? 'settle' : 'clear',
+      paid ? { data: today() } : { expected_payments: fattura.pagamenti || [],
+        expected_paid: !!fattura.paid, expected_paid_date: fattura.paidDate || null });
     await renderList();
   }
 
@@ -839,18 +831,17 @@
   // incasso odierna (una data diversa per ognuna richiederebbe un modulo
   // di dettaglio che l'originale non ha in questo passaggio collettivo).
   async function bulkMarkPaid(paid, docsPerId){
-    const patch = paid
-      ? { paid: true, paidDate: today() }
-      : { paid: false, paidDate: null, pagamenti: [] };
-    await Promise.all([...PICK].map(id => {
+    const results = await Promise.allSettled([...PICK].map(async id => {
       const base = docsPerId[id];
       if(!base) return Promise.resolve();
-      const doc = Object.assign({}, base, patch,
-        paid ? { pagamenti: [{ data: today(), importo: docTotale(base.righe || []) }] } : {});
-      return store.saveDoc('fattureCliente', doc, companyId);
+      await store.mutateInvoicePayment(companyId, 'customer', base, paid ? 'settle' : 'clear',
+        paid ? { data: today() } : { expected_payments: base.pagamenti || [],
+          expected_paid: !!base.paid, expected_paid_date: base.paidDate || null });
+      PICK.delete(id);
     }));
-    PICK.clear();
     await renderList();
+    const failed = results.filter(r => r.status === 'rejected');
+    if(failed.length) alert(`${failed.length} fatture non aggiornate: ` + failed.map(r => r.reason.message || r.reason).join('; '));
   }
   function deselectAll(){ PICK.clear(); renderResults(); }
 
@@ -1063,7 +1054,7 @@
     // pagamento (matchesFilterNC le esclude già quando quel filtro è
     // attivo — una nota di credito non ha uno stato "incassata/da
     // incassare").
-    const ncRows = noteCreditoArr.filter(matchesQueryNC).filter(matchesFilterNC);
+    const ncRows = noteCreditoArr.filter(nc => !nc.annullato).filter(matchesQueryNC).filter(matchesFilterNC);
     if(elenco.length === 0 && ncRows.length === 0){
       area.innerHTML = '<p class="empty">Nessuna fattura trovata con questi criteri.</p>';
       return;

@@ -808,6 +808,57 @@
         "totale": 100.03999999999999
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-21T06:51:48.911Z",
+      "msgId": "1a0c2780fa05646e",
+      "file": "5718113826.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113826",
+        "date": "2026-09-18",
+        "order_ref": "Rif.cliente Vs.ord. 216",
+        "lines": [
+          {
+            "cod": "C0069451",
+            "descr": "NOVOSYN INCOLORE 0 (3,5) 70CM",
+            "qty": 36,
+            "prezzo": 1.7,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726212",
+            "scad": "2031-05-19"
+          },
+          {
+            "cod": "C0069296",
+            "descr": "NOVOSYN INCOLORE 1 (4) 90CM HS",
+            "qty": 36,
+            "prezzo": 1.92333,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726043",
+            "scad": "2031-01-21"
+          },
+          {
+            "cod": "C0935344",
+            "descr": "DAFILON BLU 4/0 (1.5) 75CM DS2",
+            "qty": 36,
+            "prezzo": 1.02,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626172",
+            "scad": "2031-04-21"
+          }
+        ],
+        "totale": 203.9350536
+      },
+      "src": "Gmail"
     }
   ]
 }

@@ -10,12 +10,14 @@ Stato registrato il 19 settembre 2026. Ambiente dedicato ai dati sintetici del b
 | Schema | 30 migrazioni applicate, dopo verifica iniziale di ambiente vuoto |
 | Edge Function distribuite | `ai-proxy`, `send-email`, `stripe-checkout`, `stripe-webhook` |
 | Secret provider | Non configurati |
-| CORS | Soltanto origini locali sulla porta 8080 |
+| CORS | Origini locali sulla porta 8080 e origine esatta del sito online |
 | Test locali | 321 superati, Node 24 / PGlite PostgreSQL 18.3 |
 | SQL remoto | Smoke con rollback e gare DDT/IA/inviti superati |
 | HTTP remoto | Auth/PostgREST ed Edge: 25 asserzioni superate, cleanup completato |
 
 ## Anteprima del frontend
+
+Dal 22 settembre è disponibile anche la [versione online riservata](https://ipsofarma-crm-staging.stefanobozzo82.chatgpt.site). Provenienza, configurazione e limiti sono descritti in [ONLINE_RELEASE.md](ONLINE_RELEASE.md).
 
 Da `saas/`, con Node 24:
 
@@ -35,7 +37,7 @@ Il server è stato verificato via HTTP. Due tentativi di collegamento al browser
 
 Impostare i secret soltanto sul progetto staging, senza riportarli in repository, comandi versionati o output di test. Le variabili Supabase server sono `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`; quest'ultima non deve mai essere servita al browser.
 
-- `EDGE_ALLOWED_ORIGINS`: origini esatte `http://127.0.0.1:8080` e `http://localhost:8080`. Una porta diversa richiede un aggiornamento esplicito della allowlist. CORS non sostituisce autenticazione e membership.
+- `EDGE_ALLOWED_ORIGINS`: origini esatte `http://127.0.0.1:8080`, `http://localhost:8080` e `https://ipsofarma-crm-staging.stefanobozzo82.chatgpt.site`. Una porta o un dominio diverso richiede un aggiornamento esplicito della allowlist. CORS non sostituisce autenticazione e membership.
 - `GEMINI_API_KEY`: chiave provider IA separata. `AI_PROVIDER_TIMEOUT_MS`: default **60000 ms**, limitato dal codice a **1000–120000 ms**. Payload massimo 20 MiB e risposta upstream massima 2 MiB. I test SQL delle quote non richiedono chiamate al provider.
 - `RESEND_API_KEY`, `RESEND_FROM`, eventuale `PLATFORM_NAME`: usare mittente verificato e destinatari di prova autorizzati. Un indirizzo aziendale letto dal database non ne certifica la proprietà.
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`: esclusivamente modalità test. Configurare anche prezzi di test e URL ammessi prima del collaudo dei pagamenti.

@@ -22,8 +22,8 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://127.0.0.1:8080"
-additional_redirect_urls = ["http://127.0.0.1:8080", "http://localhost:8080"]
+site_url = "https://ipsofarma-crm-staging.stefanobozzo82.chatgpt.site"
+additional_redirect_urls = ["http://127.0.0.1:8080", "http://localhost:8080", "https://ipsofarma-crm-staging.stefanobozzo82.chatgpt.site", "https://ipsofarma-crm-staging.stefanobozzo82.chatgpt.site/index.html"]
 jwt_expiry = 3600
 enable_signup = true
 enable_anonymous_sign_ins = false

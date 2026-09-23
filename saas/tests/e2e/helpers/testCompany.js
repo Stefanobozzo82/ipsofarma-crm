@@ -38,6 +38,20 @@ function randomSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Supabase Auth rifiuta le email di prova su domini inventati o riservati
+// ("Email address ... is invalid": controlla che il dominio esista davvero,
+// e example.com è bloccato apposta). L'unico indirizzo sicuro è quindi un
+// alias di una casella VERA di chi lancia i test — tag "+qa-..." su
+// utente@dominio: le eventuali email di conferma arrivano lì e a nessun
+// altro. Vedi "Indirizzi email di prova" in tests/e2e/README.md.
+function testEmail(tag) {
+  const user = process.env.E2E_EMAIL_USER, domain = process.env.E2E_EMAIL_DOMAIN;
+  if (!user || !domain) {
+    throw new Error('Servono E2E_EMAIL_USER e E2E_EMAIL_DOMAIN (es. mario e gmail.com) per creare gli account di prova: vedi tests/e2e/README.md, "Indirizzi email di prova".');
+  }
+  return `${user}+qa-${tag}@${domain}`;
+}
+
 // esposta a parte (non solo dentro la fixture) perché cleanup-orphans.js
 // e i test stessi possono volerla richiamare a metà di uno scenario, non
 // solo alla fine.
@@ -60,7 +74,7 @@ async function cleanupCompanyData(page, companyId) {
 const test = base.test.extend({
   // { page, email, password, companyId, companyName } — vedi sopra.
   company: async ({ page }, use, testInfo) => {
-    const email = `qa-${randomSuffix()}@example.com`;
+    const email = testEmail(randomSuffix());
     const password = 'TestPass1234!QA';
     // Nome riconoscibile da cleanup-orphans.js (prefisso "QA Test") e dal
     // titolo del test che l'ha creata, utile leggendo l'elenco aziende a
@@ -93,4 +107,4 @@ const test = base.test.extend({
   },
 });
 
-module.exports = { test, expect: base.expect, cleanupCompanyData, CLEANUP_ORDER };
+module.exports = { test, expect: base.expect, cleanupCompanyData, CLEANUP_ORDER, testEmail };

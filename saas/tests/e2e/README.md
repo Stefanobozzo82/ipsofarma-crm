@@ -51,6 +51,25 @@ configurabile (non 30 copie identiche in altrettanti file HTML) e usare
 esecuzione — le migration in `saas/supabase/migrations/` sono già pronte
 per quello, non richiederebbe di riscriverle.
 
+## Indirizzi email di prova
+
+Supabase Auth non accetta email inventate: controlla che il dominio esista
+davvero e blocca apposta `example.com` e simili ("Email address ... is
+invalid"). Gli account di prova usano quindi un **alias della casella vera
+di chi lancia i test**, con il tag `+qa-…` (Gmail e la maggior parte dei
+provider lo supportano): `mario+qa-abc123@gmail.com` arriva nella casella
+di `mario@gmail.com`, e a nessun altro.
+
+```
+E2E_EMAIL_USER=mario E2E_EMAIL_DOMAIN=gmail.com npx playwright test
+```
+
+Senza queste due variabili la suite si ferma subito con un messaggio
+chiaro invece di provare a registrare account che Supabase rifiuterebbe.
+Se il progetto richiede la conferma dell'email alla registrazione, i test
+non possono superarla da soli: va disattivata sul progetto usato per i
+test (Authentication → Providers → Email → "Confirm email").
+
 ## Pulizia dei dati di prova
 
 Ogni test, alla fine, cancella tutto ciò che l'account admin dell'azienda
@@ -66,8 +85,11 @@ documento, nessuna anagrafica — solo il guscio) con un nome che inizia
 sempre per **"QA Test"**. Per spazzarle via periodicamente:
 
 ```
-SUPABASE_SERVICE_ROLE_KEY=<la service_role key vera> node cleanup-orphans.js
+SUPABASE_SERVICE_ROLE_KEY=<la service_role key vera> E2E_EMAIL_USER=mario E2E_EMAIL_DOMAIN=gmail.com node cleanup-orphans.js
 ```
+
+(Le due variabili email servono a riconoscere gli utenti Auth di prova —
+gli alias `+qa-…` — senza toccare nessun altro utente.)
 
 Va lanciato a mano (o da una pipeline separata, mai dalla suite stessa),
 di tanto in tanto. Riconosce le aziende di prova SOLO dal prefisso "QA

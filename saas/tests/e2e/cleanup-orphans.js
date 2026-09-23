@@ -77,10 +77,17 @@ async function main() {
 
   // Gli utenti Auth restano finché non li si cancella esplicitamente (non
   // sono legati da una FK cancellabile a cascata): via l'endpoint admin,
-  // solo per le email col prefisso di prova usato da testCompany.js/
-  // permessi.spec.js — mai per altre email.
+  // solo per gli alias "+qa-..." della casella di prova (gli stessi che
+  // crea testEmail() in helpers/testCompany.js) — mai per altre email.
+  const user = process.env.E2E_EMAIL_USER, domain = process.env.E2E_EMAIL_DOMAIN;
+  if(!user || !domain){
+    console.log('\nUtenti Auth non toccati: servono E2E_EMAIL_USER e E2E_EMAIL_DOMAIN per riconoscere gli alias di prova.');
+    return;
+  }
+  const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const testUserRe = new RegExp(`^${escapeRe(user)}\\+qa-[a-z0-9-]+@${escapeRe(domain)}$`, 'i');
   const users = await sb('/auth/v1/admin/users?per_page=1000');
-  const testUsers = (users.users || []).filter(u => /^qa-(op-)?[a-z0-9]+@example\.com$/.test(u.email));
+  const testUsers = (users.users || []).filter(u => testUserRe.test(u.email || ''));
   for (const u of testUsers) {
     await sb(`/auth/v1/admin/users/${u.id}`, { method: 'DELETE', prefer: 'return=minimal' });
     console.log(`  utente di prova cancellato: ${u.email}`);

@@ -1,0 +1,15 @@
+{
+  "name": "ipsofarma-crm-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Suite di test end-to-end (Playwright) per saas/web — vedi tests/README.md",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "cleanup-orphans": "node cleanup-orphans.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

@@ -110,6 +110,7 @@
   }
 
   function parseRiga(linea) {
+    const aliquota = parseFloat(firstText(linea, 'AliquotaIVA'));
     const lottoNode = altriDatoIncludes(linea, 'LOTTO') || altriDatoIncludes(linea, 'PARTITA');
     const scadNode = altriDatoIncludes(linea, 'SCAD');
     // RiferimentoData è il campo "giusto" per una data, ma un fornitore che
@@ -122,7 +123,7 @@
       qty: parseFloat(firstText(linea, 'Quantita')) || 1,
       prezzo: parseFloat(firstText(linea, 'PrezzoUnitario')) || 0,
       sconto: scontoFromLinea(linea),
-      iva: parseFloat(firstText(linea, 'AliquotaIVA')) || 22,
+      iva: Number.isFinite(aliquota) ? aliquota : 22,
       lotto: lottoNode ? firstText(lottoNode, 'RiferimentoTesto') : '',
       scad: /^\d{4}-\d{2}-\d{2}/.test(scadRaw) ? scadRaw.slice(0, 10) : '',
     };
@@ -191,3 +192,4 @@
 
   global.SaasFatturaPA = { parseFatturaPAFile, looksLikeXmlFile };
 })(window);
+

@@ -1,4 +1,4 @@
-// Configurazione della suite — vedi tests/README.md per come eseguirla e
+// Configurazione della suite — vedi tests/e2e/README.md per come eseguirla e
 // per cosa NON verifica ancora (Supabase resta quello vero, non uno
 // locale: i motivi sono spiegati nel README, punto "Un limite onesto").
 const { defineConfig, devices } = require('@playwright/test');
@@ -33,7 +33,7 @@ module.exports = defineConfig({
     screenshot: 'only-on-failure',
     launchOptions: {
       executablePath,
-      // Vedi la nota in tests/README.md ("TLS nell'ambiente di sviluppo"):
+      // Vedi la nota in tests/e2e/README.md ("TLS nell'ambiente di sviluppo"):
       // l'ambiente instrada l'HTTPS in uscita attraverso un proxy con una
       // CA propria che Chromium non ha nel suo trust store di default —
       // senza questo flag ogni chiamata a Supabase (un dominio esterno
@@ -56,7 +56,7 @@ module.exports = defineConfig({
   // momento, prima ancora che venga pubblicato.
   webServer: {
     command: `python3 -m http.server ${PORT}`,
-    cwd: path.join(__dirname, '..', 'web'),
+    cwd: path.join(__dirname, '..', '..', 'web'),
     url: BASE_URL + '/index.html',
     reuseExistingServer: !process.env.CI,
     timeout: 15_000,

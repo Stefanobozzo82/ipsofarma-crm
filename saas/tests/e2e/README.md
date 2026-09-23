@@ -1,4 +1,4 @@
-# Test end-to-end di saas/web
+# Test end-to-end nel browser di saas/web
 
 Suite Playwright per il gestionale: copre i percorsi più importanti e più
 fragili del prodotto — quelli dove sono già stati trovati bug reali passati
@@ -6,10 +6,17 @@ inosservati per mesi, prima che una sessione di collaudo manuale li
 scoprisse. Lo scopo di questi test è non dover più ripetere quella scoperta
 a mano.
 
+È **complementare**, non alternativa, alla suite in `saas/tests/` (vedi
+[`../README.md`](../README.md)): quella esegue funzioni e migration SQL
+in locale, senza rete né browser (PGlite, DOM simulato); questa apre le
+pagine vere in un Chromium vero e clicca come farebbe un utente. Coprono
+strati diversi: un bug di layout su telefono o un pulsante che resta
+disabilitato per sempre si vedono solo qui; una race condition SQL solo lì.
+
 ## Come si esegue
 
 ```
-cd saas/tests
+cd saas/tests/e2e
 npm install
 npx playwright test
 ```

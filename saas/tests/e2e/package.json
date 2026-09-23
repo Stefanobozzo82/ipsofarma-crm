@@ -1,8 +1,8 @@
 {
-  "name": "ipsofarma-crm-tests",
+  "name": "ipsofarma-crm-tests-e2e",
   "private": true,
   "version": "1.0.0",
-  "description": "Suite di test end-to-end (Playwright) per saas/web — vedi tests/README.md",
+  "description": "Suite di test end-to-end nel browser (Playwright) per saas/web — vedi tests/e2e/README.md",
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",

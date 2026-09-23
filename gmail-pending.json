@@ -900,6 +900,47 @@
         "totale": 11.3155
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-23T10:07:21.635Z",
+      "msgId": "1a0cd84387af6952",
+      "file": "5718114440.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718114440",
+        "date": "2026-09-22",
+        "order_ref": "Rif.cliente Vs.ord. 219",
+        "lines": [
+          {
+            "cod": "B0068463",
+            "descr": "NOVOSYN VIOLA 2 (5) 90CM",
+            "qty": 10,
+            "prezzo": 59.04,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726116",
+            "scad": "2031-03-14"
+          },
+          {
+            "cod": "C0935247",
+            "descr": "DAFILON BLU 2/0 (3) 90CM",
+            "qty": 5,
+            "prezzo": 46.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626226",
+            "scad": "2031-05-30"
+          }
+        ],
+        "totale": 1005.768
+      },
+      "src": "Gmail"
     }
   ]
 }

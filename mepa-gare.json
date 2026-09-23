@@ -480,6 +480,33 @@
       "dataPubblicazione": "",
       "dataScadenza": "",
       "dataChiarimenti": ""
+    },
+    {
+      "addedAt": "2026-09-18T13:52:45.075Z",
+      "msgId": "1a0aeb466ea3cc70",
+      "source": "acquistinretepa",
+      "subject": "Richiesta di offerta per la Procedura di II livello 6581526 - Confronto preventivi per la fornitura di lampade scialitiche",
+      "idGara": "",
+      "nomeGara": "*Confronto preventivi per la fornitura di lampade scialitiche",
+      "categoria": "*",
+      "ente": "AZIENDA OSPEDALIERA DEI COLLI",
+      "dataPubblicazione": "",
+      "dataScadenza": "",
+      "dataChiarimenti": ""
+    },
+    {
+      "addedAt": "2026-09-23T10:07:24.446Z",
+      "msgId": "1a0c90e9484b0b15",
+      "source": "pec",
+      "subject": "POSTA CERTIFICATA: Richiesta di Offerta",
+      "oggettoReale": "",
+      "mittente": "",
+      "allegati": [
+        "Disciplinare di Gara.pdf",
+        "G02825_eDGUE-IT_request.xml",
+        "PG22942_comunicazione.pdf"
+      ],
+      "data": "2026-09-22"
     }
   ]
 }

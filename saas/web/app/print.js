@@ -132,7 +132,7 @@
     const righe = it.righe || [];
     const hasSc = !isDDT && righe.some(r => scEff(r.sconto) > 0);
     const hasLot = ['ddt', 'ddtFornitore', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
-    const rows = righe.map(r => `<tr><td>${esc(r.cod)}</td><td>${esc(r.descr)}</td>${hasLot ? `<td>${esc(r.lotto) || '—'}</td><td class="r">${r.scad ? fdate(r.scad) : '—'}</td>` : ''}<td class="r">${r.qty}</td>${isDDT ? '' : `<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc ? `<td class="r">${scLabel(r.sconto)}</td>` : ''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r) * (1 + (r.iva || 22) / 100))}</td>`}</tr>`).join('');
+    const rows = righe.map(r => `<tr><td>${esc(r.cod)}</td><td>${esc(r.descr)}</td>${hasLot ? `<td>${esc(r.lotto) || '—'}</td><td class="r">${r.scad ? fdate(r.scad) : '—'}</td>` : ''}<td class="r">${r.qty}</td>${isDDT ? '' : `<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc ? `<td class="r">${scLabel(r.sconto)}</td>` : ''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r) * (1 + (r.iva ?? 22) / 100))}</td>`}</tr>`).join('');
     // Solo per il DDT cliente: "Vendita"/"Mittente" ha senso dal nostro
     // punto di vista di chi spedisce — su un DDT fornitore (ricevuto, non
     // emesso da noi) sarebbe fuorviante, per questo resta fuori da isDDT
@@ -333,7 +333,7 @@
       if (!isDDT) {
         row.push(+(r.prezzo || 0).toFixed(4), +lineNet(r).toFixed(2));
         if (hasSc) row.push(scEff(r.sconto));
-        row.push(r.iva || 0, +(lineNet(r) * (1 + (r.iva || 22) / 100)).toFixed(2));
+        row.push(r.iva || 0, +(lineNet(r) * (1 + (r.iva ?? 22) / 100)).toFixed(2));
       }
       aoa.push(row);
     });
@@ -393,3 +393,4 @@
 
   global.SaasPrint = { buildPrintHTML, openPrintWindow, downloadPDF, pdfBase64, downloadExcel, bindDownloadMenu };
 })(window);
+

@@ -135,6 +135,11 @@
   let companyId = null;
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
+  let pendingInvoice = null;
+  function invoiceRequestId(key){
+    if(!pendingInvoice || pendingInvoice.key !== key) pendingInvoice = {key, id:crypto.randomUUID()};
+    return pendingInvoice.id;
+  }
   let editingFattura = null; // la fattura in modifica — solo per Stampa/Scarica dal form, vedi f-btn-print/f-btn-download
   let fornitoriById = {};
   let fornitoriArr = [];
@@ -154,7 +159,11 @@
   // (filterbar sui moduli documento) — qui applicata a fatture fornitore,
   // dove filtrare per fornitore/stato/intervallo di date è particolarmente
   // utile (è il modulo con più righe, e con più fornitori diversi).
-  let FFILT = { forn: '', paid: '', from: '', to: '' };
+  // Apertura sull'anno corrente; i link con anno esplicito conservano lo storico.
+  const requestedDocumentYear = new URLSearchParams(location.search).get('anno');
+  const initialDocumentYear = /^[1-9]\d{3}$/.test(requestedDocumentYear || '')
+    ? requestedDocumentYear : String(new Date().getFullYear());
+  let FFILT = { forn: '', paid: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` };
   let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
   // Ultimo elenco scaricato da renderList() — usato da renderResults() per
   // ridisegnare senza rifare la query di rete quando cambia solo COME viene
@@ -250,7 +259,7 @@
   // s+tot(f.righe),0)-ncfTot"). Corretto riportando la stessa logica.
   function renderStats(elencoFiltrato){
     const totFatture = elencoFiltrato.reduce((s, f) => s + docTotale(f.righe), 0);
-    const ncFiltrate = noteCreditoFornitoreArr.filter(matchesQueryNC).filter(matchesFilterNC);
+    const ncFiltrate = noteCreditoFornitoreArr.filter(nc => !nc.annullato).filter(matchesQueryNC).filter(matchesFilterNC);
     const totNC = ncFiltrate.reduce((s, n) => s + docTotale(n.righe), 0);
     const forn = FFILT.forn ? (fornitoriById[FFILT.forn] || {}).nome : '';
     const periodo = FFILT.from || FFILT.to
@@ -308,6 +317,7 @@
   }
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
+    if(r && Number.isInteger(r.source_ddt_index)) $('righe-body').lastElementChild.dataset.sourceDdtIndex = r.source_ddt_index;
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
     refreshCmpOrdine();
@@ -343,7 +353,7 @@
         tr.querySelector('.r-cod').value = p.cod;
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = p.listinoAcq || 0;
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         updateTotale();
@@ -354,6 +364,7 @@
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      ...(tr.dataset.sourceDdtIndex !== undefined ? {source_ddt_index:Number(tr.dataset.sourceDdtIndex)} : {}),
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
       lotto: tr.querySelector('.r-lotto').value.trim(),
@@ -435,7 +446,7 @@
     const ordini = ordiniPerFornitore[fornitoreId] || [];
     $('f-ordine').innerHTML = '<option value="">— nessuno —</option>' +
       ordini.map(o => `<option value="${o.id}">${esc(o.num)}</option>`).join('');
-    const ddtf = ddtfPerFornitore[fornitoreId] || [];
+    const ddtf = (ddtfPerFornitore[fornitoreId] || []).filter(d => !d.annullato && (!d.ftfId || (editingFattura && editingFattura.ddtfId === d.id)));
     $('f-ddtf').innerHTML = '<option value="">— nessuno —</option>' +
       ddtf.map(d => `<option value="${d.id}">${esc(d.num)}</option>`).join('');
   }
@@ -445,7 +456,7 @@
     const ordine = (ordiniPerFornitore[$('f-fornitore').value] || []).find(o => o.id === $('f-ordine').value);
     if(ordine && righeVuote){
       $('righe-body').innerHTML = '';
-      (ordine.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, sconto:r.sconto || '', iva:r.iva || 22 }));
+      (ordine.righe || []).forEach(r => addRigaRow({ cod:r.cod, descr:r.descr, qty:r.qty, prezzo:r.prezzo || 0, sconto:r.sconto || '', iva:r.iva ?? 22 }));
     }
     // Righe già presenti (es. lette dall'AI/XML) e non appena riempite
     // dall'ordine qui sopra: il ramo if non le tocca, ma il confronto va
@@ -459,6 +470,7 @@
   // il box "Documenti collegati" (app/lineage.js) non risalirebbe la
   // filiera fino all'ordine cliente radice.
   $('f-ddtf').addEventListener('change', () => {
+    $('righe-body').querySelectorAll('tr').forEach(tr => delete tr.dataset.sourceDdtIndex);
     const righeVuote = readRighe().length === 0;
     const ddtf = allDdtfById[$('f-ddtf').value];
     if(!ddtf) return;
@@ -473,13 +485,16 @@
       // (merce non ordinata, o ordine non collegato) resta a 0, da
       // inserire a mano.
       const ordine = (ordiniPerFornitore[$('f-fornitore').value] || []).find(o => o.id === ddtf.ofId);
-      (ddtf.righe || []).forEach(r => {
-        const ordineRiga = ordine ? (ordine.righe || []).find(x => x.cod === r.cod) : null;
+      (ddtf.righe || []).forEach((r,sourceIndex) => {
+        const candidates = ordine ? (ordine.righe || []).filter(x => x.cod === r.cod) : [];
+        const indexed = ordine && Number.isInteger(r.source_order_index) ? ordine.righe[r.source_order_index] : null;
+        const ordineRiga = indexed && indexed.cod === r.cod ? indexed : candidates.length === 1 ? candidates[0] : null;
         addRigaRow({
+          source_ddt_index:sourceIndex,
           cod:r.cod, descr:r.descr, qty:r.qty,
           prezzo: ordineRiga ? (ordineRiga.prezzo || 0) : 0,
           sconto: ordineRiga ? (ordineRiga.sconto || '') : '',
-          iva: ordineRiga ? (ordineRiga.iva || 22) : 22,
+          iva: ordineRiga ? (ordineRiga.iva ?? 22) : 22,
           lotto: r.lotto || '', scad: r.scad || '',
         });
       });
@@ -488,6 +503,7 @@
   });
 
   function openForm(fattura){
+    pendingInvoice = null;
     editingId = fattura ? fattura.id : null;
     editingFattura = fattura;
     $('form-title').textContent = fattura ? `Modifica ${fattura.num}` : 'Nuova fattura';
@@ -733,47 +749,25 @@
       } else {
         doc.paid = false; doc.paidDate = null; doc.pagamenti = [];
       }
-      const saved = await store.saveDoc('fattureFornitore', doc, companyId);
-      // Cascata sull'ordine fornitore collegato, solo alla creazione (un
-      // errore qui non deve far sembrare fallito il salvataggio della
-      // fattura, già andato a buon fine — stessa nota di ddt.html/
-      // fatture.html).
-      //
-      // Richiesta reale, dopo l'arrivo del DDT fornitore (0016_ddt_fornitore.sql):
-      // "ora che abbiamo messo i DDT voglio che i prossimi ordini
-      // fornitori vengano segnati come ricevuti solo quando segno un DDT
-      // e non come adesso alla registrazione della fattura" — REGISTRARE
-      // una fattura non segna più da sola nessuna quantità come ricevuta,
-      // nemmeno quando è collegata a un ordine senza passare da un DDT: le
-      // quantità arrivate si segnano SOLO registrando un DDT fornitore
-      // (applicaRicezione, in ddt-fornitore.html) o a mano col pulsante
-      // "✓ Segna evaso (senza fattura)" sull'ordine (applicaEvasioneManuale,
-      // per un fornitore che non manda mai un DDT). Prima, una fattura
-      // SENZA un DDT collegato valeva anche come "arrivo" (comportamento
-      // del vecchio gestionale, portato qui identico) — tolto di proposito
-      // ora che c'è un modo più preciso di segnare l'arrivo davvero.
-      //
-      // Resta invece la cascata CON un DDT già collegato: qui si aggiorna
-      // solo lo stato "fatturato" del DDT e dell'ordine
-      // (applicaFatturazioneFornitore, mai applicaRicezione — le quantità
-      // sono già state segnate arrivate quando il DDT è stato registrato,
-      // contarle di nuovo raddoppierebbe l'arrivo).
-      let cascadeWarning = '';
+      let saved;
       if(isNew && ddtfId){
-        try{
-          const ddtf = allDdtfById[ddtfId];
-          if(ddtf){
-            await store.saveDoc('ddtFornitore', Object.assign({}, ddtf, { ftfId: saved.num }), companyId);
-            if(ofId){
-              const of = (ordiniPerFornitore[fornitoreId] || []).find(x => x.id === ofId);
-              if(of) await store.saveDoc('ordiniFornitore', window.SaasCascade.applicaFatturazioneFornitore(of, saved.num), companyId);
-            }
-          }else cascadeWarning = ' (il DDT collegato non è stato trovato: il suo stato "fatturato" non è stato aggiornato — verifica a mano.)';
-        }catch(e){ cascadeWarning = ' (la fattura è salvata, ma l\'aggiornamento dello stato del DDT collegato non è riuscito: ' + (e.message || e) + ' — verifica a mano.)'; }
+        const ddtf = allDdtfById[ddtfId];
+        if(!ddtf) throw new Error('DDT non disponibile: ricarica la pagina.');
+        if(ddtf.annullato) throw new Error('Il DDT è annullato.');
+        const key = JSON.stringify({ddtf,doc});
+        const result = await store.createSupplierInvoice(companyId, ddtf, doc, invoiceRequestId(key));
+        saved = result.fattura;
+        allDdtfById[ddtfId] = result.ddt;
+        if(result.ordine){
+          const orders = ordiniPerFornitore[fornitoreId] || [];
+          const index = orders.findIndex(o => o.id === result.ordine.id);
+          if(index >= 0) orders[index] = result.ordine;
+        }
+      }else{
+        saved = await store.saveDoc('fattureFornitore', editingFattura ? Object.assign({}, editingFattura, doc) : doc, companyId);
       }
       closeForm();
       await renderList();
-      if(cascadeWarning) alert('Fattura salvata.' + cascadeWarning);
     }catch(err){
       const dup = err && err.code === '23505';
       setMsg(dup ? 'Esiste già una fattura fornitore con questo numero.' : (err.message || 'Errore imprevisto durante il salvataggio.'), 'error');
@@ -792,31 +786,21 @@
   // limitarsi ad aggiornare i campi indicati. Bug reale, verificato in
   // produzione: "segna pagata" non ha mai funzionato, stesso identico
   // problema di fatture.html/togglePaid().
+  async function setSupplierPaid(fattura, paid){
+    const action = paid ? 'settle' : 'clear';
+    const payload = paid ? {data:today()} : {
+      expected_payments:fattura.pagamenti || [], expected_paid:!!fattura.paid,
+      expected_paid_date:fattura.paidDate || null,
+    };
+    return store.mutateInvoicePayment(companyId, 'supplier', fattura, action, payload);
+  }
   async function togglePaid(fattura){
-    const paid = !fattura.paid;
-    const doc = Object.assign({}, fattura, {
-      paid,
-      paidDate: paid ? today() : null,
-      pagamenti: paid ? [{ data: today(), importo: docTotale(fattura.righe) }] : [],
-    });
-    await store.saveDoc('fattureFornitore', doc, companyId);
+    await setSupplierPaid(fattura, !fattura.paid);
     await renderList();
   }
 
-  // Azione collettiva: segna pagate/da pagare tutte le fatture selezionate
-  // in un colpo solo — stesso schema di bulkPaid() nel gestionale
-  // originale, con la data odierna per ognuna.
   async function bulkMarkPaid(paid, docsPerId){
-    const patch = paid
-      ? { paid: true, paidDate: today() }
-      : { paid: false, paidDate: null, pagamenti: [] };
-    await Promise.all([...PICK].map(id => {
-      const base = docsPerId[id];
-      if(!base) return Promise.resolve();
-      const doc = Object.assign({}, base, patch,
-        paid ? { pagamenti: [{ data: today(), importo: docTotale(base.righe || []) }] } : {});
-      return store.saveDoc('fattureFornitore', doc, companyId);
-    }));
+    await Promise.all([...PICK].map(id => docsPerId[id] ? setSupplierPaid(docsPerId[id], paid) : Promise.resolve()));
     PICK.clear();
     await renderList();
   }
@@ -870,7 +854,7 @@
     // NON lo stato di pagamento (matchesFilterNC le esclude già quando
     // quel filtro è attivo — una nota di credito non ha uno stato
     // "pagata/da pagare").
-    const ncRows = noteCreditoFornitoreArr.filter(matchesQueryNC).filter(matchesFilterNC);
+    const ncRows = noteCreditoFornitoreArr.filter(nc => !nc.annullato).filter(matchesQueryNC).filter(matchesFilterNC);
     if(elenco.length === 0 && ncRows.length === 0){
       area.innerHTML = '<p class="empty">Nessuna fattura trovata con questi criteri.</p>';
       return;
@@ -1008,8 +992,7 @@
     // Link "Totale acquisti"/"Da pagare ai fornitori" dalla dashboard
     // (fatture-fornitore.html?anno=2025): apre già filtrato Dal 1° gennaio
     // Al 31 dicembre di quell'anno, invece che su tutti gli anni.
-    const urlAnno = new URLSearchParams(location.search).get('anno');
-    if(urlAnno){ FFILT.from = `${urlAnno}-01-01`; FFILT.to = `${urlAnno}-12-31`; }
+    // L'intervallo iniziale è impostato prima del primo caricamento.
 
     await renderList();
 

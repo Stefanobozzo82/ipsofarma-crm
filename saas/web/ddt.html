@@ -120,6 +120,7 @@
   let company = {}; // dati azienda (companies), per l'intestazione di stampa/PDF
   let editingId = null;
   let editingDdt = null; // il DDT in modifica, per non perdere ftId (extra) al salvataggio — vedi f-save
+  let numberPreview = ''; // unchanged preview means automatic number inside the transaction
   let clientiById = {};
   let ordiniPerCliente = {}; // clienteId -> [ordini]
   let allOrdiniById = {};
@@ -133,7 +134,11 @@
   // ridisegnare senza rifare la query di rete quando cambia solo COME viene
   // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene.
   let DDT_ALL = [];
-  let FFILT = { cliente: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
+  // Apertura sull'anno corrente; i link con anno esplicito conservano lo storico.
+  const requestedDocumentYear = new URLSearchParams(location.search).get('anno');
+  const initialDocumentYear = /^[1-9]\d{3}$/.test(requestedDocumentYear || '')
+    ? requestedDocumentYear : String(new Date().getFullYear());
+  let FFILT = { cliente: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -244,6 +249,8 @@
   function addRigaRow(r){
     $('righe-body').insertAdjacentHTML('beforeend', rigaRowHtml(r));
     const tr = $('righe-body').lastElementChild;
+    if(r && Number.isInteger(r.source_order_index)) tr.dataset.sourceOrderIndex = String(r.source_order_index);
+    tr.querySelector('.r-cod').addEventListener('input', () => { delete tr.dataset.sourceOrderIndex; });
     tr.querySelector('.rm-riga').addEventListener('click', function(){ this.closest('tr').remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
     // Modificare prezzo o sconto a mano toglie il badge "ultimo prezzo" —
@@ -272,12 +279,13 @@
     window.SaasProdPicker.attach(tr.querySelector('.r-cod'), tr.querySelector('.prod-sugg'), {
       companyId, priceField: 'listinoVen', clearOnPick: false, priceHistory: priceHistoryForForm,
       onPick: p => {
+        delete tr.dataset.sourceOrderIndex;
         const last = lastClientPrice($('f-cliente').value, p.cod);
         tr.querySelector('.r-cod').value = p.cod;
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoVen || 0);
         tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
@@ -296,6 +304,7 @@
   }
   function readRighe(){
     return [...$('righe-body').querySelectorAll('tr')].map(tr => ({
+      ...(tr.dataset.sourceOrderIndex !== undefined ? { source_order_index: Number(tr.dataset.sourceOrderIndex) } : {}),
       cod: tr.querySelector('.r-cod').value.trim(),
       descr: tr.querySelector('.r-descr').value.trim(),
       lotto: tr.querySelector('.r-lotto').value.trim(),
@@ -434,8 +443,9 @@
     // conserva già, spreadando {...r}): senza riportarli qui, il DDT (e la
     // fattura generata da esso) partiva sempre da prezzo 0.
     const residuo = window.SaasCascade.residuoRighe(ordine)
+      .map((r, source_order_index) => ({ ...r, source_order_index }))
       .filter(r => r.residuo > 0)
-      .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo, prezzo:r.prezzo, sconto:r.sconto, iva:r.iva }));
+      .map(r => ({ cod:r.cod, descr:r.descr, qty:r.residuo, prezzo:r.prezzo, sconto:r.sconto, iva:r.iva, source_order_index:r.source_order_index }));
     // Lotto/scadenza VERI, dalle fatture fornitore che hanno portato la
     // merce (se l'ordine ha ordini fornitore collegati) — come nel
     // vecchio gestionale, invece di lasciarli sempre vuoti da scrivere a
@@ -447,11 +457,13 @@
     (righe.length ? righe : [null]).forEach(addRigaRow);
   }
   $('f-cliente').addEventListener('change', () => {
+    $('righe-body').querySelectorAll('tr').forEach(tr => { delete tr.dataset.sourceOrderIndex; });
     refreshOrdineOptions($('f-cliente').value);
     refreshDestOptions($('f-cliente').value);
     repriceForClient($('f-cliente').value);
   });
   $('f-ordine').addEventListener('change', async () => {
+    $('righe-body').querySelectorAll('tr').forEach(tr => { delete tr.dataset.sourceOrderIndex; });
     // comodità: se non sono ancora state scritte righe, precompila dal
     // residuo dell'ordine selezionato (l'utente può comunque modificarle o svuotarle)
     const righeVuote = readRighe().length === 0;
@@ -465,6 +477,7 @@
   });
 
   async function openForm(ddt){
+    numberPreview = '';
     editingId = ddt ? ddt.id : null;
     editingDdt = ddt;
     $('form-title').textContent = ddt ? `Modifica ${ddt.num}` : 'Nuovo DDT';
@@ -480,7 +493,7 @@
       // Anteprima del prossimo numero, non un numero già assegnato: resta
       // modificabile — vedi la stessa idea in ordini.html.
       $('f-num').value = '';
-      try{ $('f-num').value = await store.peekNumber(companyId, 'DDT', Number($('f-data').value.slice(0, 4))); }
+      try{ numberPreview = await store.peekNumber(companyId, 'DDT', Number($('f-data').value.slice(0, 4))); $('f-num').value = numberPreview; }
       catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
     }
     $('righe-body').innerHTML = '';
@@ -494,13 +507,15 @@
     if(ddt){
       ftBox.hidden = false;
       const ftBtn = $('ddt-btn-ft');
-      ftBtn.textContent = ddt.ftId ? '✓ Fatturato' : '→ Genera fattura';
-      ftBtn.disabled = !!ddt.ftId;
+      ftBtn.textContent = ddt.annullato ? 'DDT annullato' : ddt.ftId ? '✓ Fatturato' : '→ Genera fattura';
+      ftBtn.disabled = !!ddt.ftId || !!ddt.annullato;
       ftBtn.className = ddt.ftId ? 'ghost' : 'primary';
     }else{
       ftBox.hidden = true;
     }
     renderLineage(ddt);
+    $('f-save').disabled = !!(ddt && (ddt.annullato || ddt.ftId));
+    $('f-num').readOnly = !!ddt;
     $('f-print-actions').hidden = !ddt;
     setMsg('', '');
     $('form-card').hidden = false;
@@ -562,6 +577,7 @@
   });
 
   $('f-save').addEventListener('click', async () => {
+    if($('f-save').disabled) return;
     const clienteId = $('f-cliente').value;
     const ocId = $('f-ordine').value || null;
     const destId = $('f-dest').value || null;
@@ -570,14 +586,13 @@
     if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
     if(!data){ setMsg('Inserisci una data.', 'error'); return; }
     if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
-    if(!editingId){
-      const lim = await store.checkDocLimit(companyId);
-      if(!lim.ok){ setMsg(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`, 'error'); return; }
-    }
-
     $('f-save').disabled = true;
     setMsg('', '');
     try{
+      if(!editingId){
+        const lim = await store.checkDocLimit(companyId);
+        if(!lim.ok){ setMsg(`Hai raggiunto il limite di ${lim.limite} documenti/mese del piano "${lim.piano}". Passa a un piano superiore in Impostazioni → Abbonamento per continuare.`, 'error'); return; }
+      }
       // Si parte dal DDT esistente (se in modifica) invece che da un
       // oggetto vuoto: senza questo, salvare una modifica a un DDT già
       // fatturato ne cancellerebbe silenziosamente ftId (vive in "extra",
@@ -586,39 +601,32 @@
       const doc = editingDdt ? Object.assign({}, editingDdt, { clienteId, ocId, destId, data, righe }) : { clienteId, ocId, destId, data, righe };
       const isNew = !editingId;
       const numInput = $('f-num').value.trim();
-      if(editingId){
-        doc.id = editingId;
-        if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
-        if(numInput !== editingDdt.num){
+      let saved;
+      if(isNew && ocId){
+        const ordine = allOrdiniById[ocId];
+        if(!ordine) throw new Error('Ordine non disponibile. Ricarica la pagina prima di creare il DDT.');
+        doc.num = numInput && numInput !== numberPreview ? numInput : null;
+        const result = await store.createCustomerDdt(companyId, ordine, doc);
+        saved = result.ddt;
+        allOrdiniById[ocId] = result.ordine;
+      }else if(editingId){
+        doc.num = numInput;
+        const result = await store.changeCustomerDdt(companyId, editingDdt, doc, 'update', '');
+        saved = result.ddt;
+        if(result.ordine) allOrdiniById[result.ordine.id] = result.ordine;
+      }else{
+        if(numInput){
+          // L'utente ha lasciato o modificato l'anteprima proposta (vedi
+          // store.peekNumber() in openForm()): usata direttamente, non
+          // tramite nextNumber() — stesso compromesso già discusso in
+          // ordini.html (un duplicato è raro e comunque intercettato sotto).
           await store.bumpCounterPast(companyId, 'DDT', numInput);
           doc.num = numInput;
+        } else {
+          const anno = Number(data.slice(0, 4));
+          doc.num = await store.nextNumber(companyId, 'DDT', anno);
         }
-      } else if(numInput){
-        // L'utente ha lasciato o modificato l'anteprima proposta (vedi
-        // store.peekNumber() in openForm()): usata direttamente, non
-        // tramite nextNumber() — stesso compromesso già discusso in
-        // ordini.html (un duplicato è raro e comunque intercettato sotto).
-        await store.bumpCounterPast(companyId, 'DDT', numInput);
-        doc.num = numInput;
-      } else {
-        const anno = Number(data.slice(0, 4));
-        doc.num = await store.nextNumber(companyId, 'DDT', anno);
-      }
-      const saved = await store.saveDoc('ddt', doc, companyId);
-      // Cascata: un DDT NUOVO collegato a un ordine scala il residuo
-      // dell'ordine (qtyEv) e ne registra il numero — solo alla
-      // creazione (vedi la nota in ordini.html sopra residuoRighe()).
-      // Un errore qui non deve far sembrare fallito il salvataggio del
-      // DDT, già andato a buon fine: al più l'ordine resta com'era.
-      if(isNew && ocId){
-        try{
-          const ordine = allOrdiniById[ocId];
-          if(ordine){
-            const ordineAgg = window.SaasCascade.applicaConsegna(ordine, righe, saved.num);
-            await store.saveDoc('ordiniCliente', ordineAgg, companyId);
-            allOrdiniById[ocId] = ordineAgg;
-          }
-        }catch(e){ /* il DDT è comunque salvato */ }
+        saved = await store.saveDoc('ddt', doc, companyId);
       }
       // Un DDT appena creato resta aperto (invece di tornare all'elenco)
       // — richiesta reale: "quando premo genera ddt voglio che mi apra
@@ -688,11 +696,11 @@
           <td class="num-col">${esc(d.num)}</td>
           <td>${d.data ? new Date(d.data).toLocaleDateString('it-IT') : '—'}</td>
           <td>${esc((clientiById[d.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(d)}</td>
-          <td>${d.ocId ? `<span class="badge">${esc((allOrdiniById[d.ocId] || {}).num || '?')}</span>` : '—'}</td>
+          <td>${d.annullato ? '<span class="badge">Annullato</span> ' : ''}${d.ocId ? `<span class="badge">${esc((allOrdiniById[d.ocId] || {}).num || '?')}</span>` : '—'}</td>
           <td class="actions">${PICK.has(d.id) ? `
-            ${!d.ftId ? `<button data-gen-ft="${d.id}" title="Genera la fattura da questo DDT">🧾 Fattura</button>` : ''}
-            <button data-edit="${d.id}">Modifica</button>
-            <button class="danger" data-del="${d.id}">Elimina</button>` : ''}
+            ${!d.ftId && !d.annullato ? `<button data-gen-ft="${d.id}" title="Genera la fattura da questo DDT">🧾 Fattura</button>` : ''}
+            <button data-edit="${d.id}">${d.annullato || d.ftId ? 'Apri' : 'Modifica'}</button>
+            ${!d.annullato && !d.ftId ? `<button class="danger" data-del="${d.id}">Annulla DDT</button>` : ''}` : ''}
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ddt-elenco');
@@ -721,13 +729,18 @@
     }));
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const d = elenco.find(x => x.id === btn.dataset.del);
-      if(!confirm(`Eliminare il DDT ${d.num}? L'operazione non si può annullare.`)) return;
+      if(btn.disabled) return;
+      const motivo = prompt(`Motivo dell'annullamento del DDT ${d.num}. Il documento resterà nello storico e le quantità tracciate saranno rettificate.`);
+      if(motivo === null) return;
+      if(motivo.trim().length < 3){ alert('Inserisci un motivo di almeno 3 caratteri.'); return; }
+      btn.disabled = true;
       try{
-        await store.removeDoc('ddt', d.id);
+        const result = await store.changeCustomerDdt(companyId, d, null, 'cancel', motivo.trim());
+        if(result.ordine) allOrdiniById[result.ordine.id] = result.ordine;
         await renderList();
       }catch(err){
-        alert('Errore durante l\'eliminazione: ' + err.message);
-      }
+        alert('Annullamento non eseguito: ' + err.message);
+      }finally{ btn.disabled = false; }
     }));
   }
 

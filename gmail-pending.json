@@ -1,3 +1,946 @@
 {
-  "items": []
+  "items": [
+    {
+      "addedAt": "2026-09-03T06:06:38.947Z",
+      "msgId": "1a065bc956bf2d50",
+      "file": "5718111084.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111084",
+        "date": "2026-09-02",
+        "order_ref": "Rif.cliente Vs.ord. 201",
+        "lines": [
+          {
+            "cod": "C0935344",
+            "descr": "DAFILON BLU 4/0 (1.5) 75CM DS2",
+            "qty": 1,
+            "prezzo": 36.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626172",
+            "scad": "2031-04-21"
+          },
+          {
+            "cod": "C0932124",
+            "descr": "DAFILON BLU 5/0 (1) 45CM DS16",
+            "qty": 1,
+            "prezzo": 36.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626267",
+            "scad": "2031-06-28"
+          },
+          {
+            "cod": "C3046271",
+            "descr": "NOVOSYN QUICK INC 4/0 (1,5)70CM",
+            "qty": 1,
+            "prezzo": 60.12,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "125072",
+            "scad": "2030-02-11"
+          },
+          {
+            "cod": "C3046213",
+            "descr": "NOVOSYN QUICK INC 4/0 (1,5)70CM",
+            "qty": 1,
+            "prezzo": 94.68,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126175",
+            "scad": "2031-04-24"
+          }
+        ],
+        "totale": 278.4528
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-07T13:09:19.846Z",
+      "msgId": "1a07bf2ec23c2d1b",
+      "file": "5718111502.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111502",
+        "date": "2026-09-04",
+        "order_ref": "203",
+        "lines": [
+          {
+            "cod": "C0027822",
+            "descr": "PREMICRON BIANCO 5/0 (1) 45CM",
+            "qty": 1,
+            "prezzo": 167.04,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626154",
+            "scad": "2031-04-09"
+          }
+        ],
+        "totale": 203.78879999999998
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-07T13:21:29.944Z",
+      "msgId": "1a07bf30ec28e01a",
+      "file": "5718111503.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111503",
+        "date": "2026-09-04",
+        "order_ref": "Rif.cliente Vs.ord. 202",
+        "lines": [
+          {
+            "cod": "C0069420N1",
+            "descr": "NOVOSYN INCOLORE 4/0(1,5) 70CM",
+            "qty": 1,
+            "prezzo": 53.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3629XN",
+            "scad": "2031-07-15"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 1,
+            "prezzo": 52.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624KH",
+            "scad": "2031-06-09"
+          }
+        ],
+        "totale": 129.4176
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-08T08:36:51.249Z",
+      "msgId": "1a07ffcc55a5cec9",
+      "file": "5718111733.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111733",
+        "date": "2026-09-07",
+        "order_ref": "Rif.cliente Vs.ord. 206",
+        "lines": [
+          {
+            "cod": "4269110S-01",
+            "descr": "VASOFIX SAFETY PUR 20G 33MM",
+            "qty": 2,
+            "prezzo": 130,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F09G8A04",
+            "scad": "2031-06-01"
+          }
+        ],
+        "totale": 317.2
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-08T08:36:51.250Z",
+      "msgId": "1a07ffc9dc917e43",
+      "file": "5718111732.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111732",
+        "date": "2026-09-07",
+        "order_ref": "Rif.cliente Vs.ord. 204",
+        "lines": [
+          {
+            "cod": "C0068553N1",
+            "descr": "NOVOSYN VIOLA 1 (4) 90CM HR37",
+            "qty": 10,
+            "prezzo": 69.84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3626T7",
+            "scad": "2031-06-26"
+          },
+          {
+            "cod": "C0935220",
+            "descr": "DAFILON BLU 4/0 (1.5) 90CM DS1",
+            "qty": 4,
+            "prezzo": 36.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626235",
+            "scad": "2031-06-05"
+          }
+        ],
+        "totale": 1031.2416
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-09T10:21:32.152Z",
+      "msgId": "1a0856bd8c1c74dc",
+      "file": "5718111919.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718111919",
+        "date": "2026-09-08",
+        "order_ref": "Rif.cliente Vs.ord. 209",
+        "lines": [
+          {
+            "cod": "4892108",
+            "descr": "STIMUPLEX D SH, 15°, 22GX80MM",
+            "qty": 1,
+            "prezzo": 180,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F05H8B02",
+            "scad": "2031-06-01"
+          },
+          {
+            "cod": "4166159-07",
+            "descr": "CERTOFIX DUO V 715",
+            "qty": 2,
+            "prezzo": 182,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26D29A8551",
+            "scad": "2031-04-01"
+          }
+        ],
+        "totale": 663.68
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4edb5de89c0",
+      "file": "5718112113.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112113",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 211",
+        "lines": [
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 4,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26E18H8B02",
+            "scad": "2031-05-01"
+          }
+        ],
+        "totale": 414.8
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4ea8062892f",
+      "file": "5718112112.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112112",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 208",
+        "lines": [
+          {
+            "cod": "C0068052N1",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 70CM HR3",
+            "qty": 1,
+            "prezzo": 59.4,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3625PZ",
+            "scad": "2031-06-19"
+          }
+        ],
+        "totale": 72.468
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4e7d04f8759",
+      "file": "5718112111.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112111",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 207",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 1,
+            "prezzo": 101.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126195",
+            "scad": "2031-05-08"
+          }
+        ],
+        "totale": 124.2936
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4e4fa0ee1a7",
+      "file": "5718112110.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112110",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 209",
+        "lines": [
+          {
+            "cod": "FH415",
+            "descr": "SEGA ACCIAIO GIGLI D1,4MM 500M",
+            "qty": 1,
+            "prezzo": 67.06,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "FH480R",
+            "descr": "IMPUGNATURA UNCINO SEGA IN ACC",
+            "qty": 2,
+            "prezzo": 28.96,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 152.4756
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4e21f32baaa",
+      "file": "5718112109.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112109",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 205",
+        "lines": [
+          {
+            "cod": "LX189R",
+            "descr": "PINZA PIATTA 185 MM",
+            "qty": 4,
+            "prezzo": 267.1,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 1303.448
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4df9a8c05c5",
+      "file": "5718112108.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112108",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 208",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 2,
+            "prezzo": 2.83,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126205",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 6.9052
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-10T08:07:32.621Z",
+      "msgId": "1a08a4dcec85e049",
+      "file": "5718112107.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112107",
+        "date": "2026-09-09",
+        "order_ref": "Rif.cliente Vs.ord. 207",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 4,
+            "prezzo": 101.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126205",
+            "scad": "2031-05-15"
+          },
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 1,
+            "prezzo": 101.88,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "126205",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 621.468
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-14T09:22:14.388Z",
+      "msgId": "1a09ef7b90b802df",
+      "file": "5718112601.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112601",
+        "date": "2026-09-11",
+        "order_ref": "212",
+        "lines": [
+          {
+            "cod": "783100",
+            "descr": "MANIPLER AZ - 35W SKINSTAPLER",
+            "qty": 20,
+            "prezzo": 28.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "U269007900",
+            "scad": "2031-02-28"
+          }
+        ],
+        "totale": 702.72
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-14T09:22:14.389Z",
+      "msgId": "1a09ef777cd23201",
+      "file": "5718112600.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112600",
+        "date": "2026-09-11",
+        "order_ref": "212",
+        "lines": [
+          {
+            "cod": "C0932078",
+            "descr": "DAFILON BLU 5/0 (1) 45CM",
+            "qty": 36,
+            "prezzo": 1.25,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626236",
+            "scad": "2031-06-06"
+          },
+          {
+            "cod": "C0935107",
+            "descr": "DAFILON BLU 3/0 (2) 75CM",
+            "qty": 36,
+            "prezzo": 5.64722,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "626166",
+            "scad": "2031-04-18"
+          },
+          {
+            "cod": "C0932060",
+            "descr": "DAFILON BLU 6/0 (0.7) 45CM",
+            "qty": 36,
+            "prezzo": 1.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626254",
+            "scad": "2031-06-18"
+          },
+          {
+            "cod": "C0935131",
+            "descr": "DAFILON BLU 4/0 (1.5) 75CM",
+            "qty": 36,
+            "prezzo": 1.19,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626264",
+            "scad": "2031-06-25"
+          },
+          {
+            "cod": "C2023404",
+            "descr": "MONOSYN INC 4/0(1,5)70CM",
+            "qty": 36,
+            "prezzo": 2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3625RP",
+            "scad": "2031-06-20"
+          },
+          {
+            "cod": "C2023425",
+            "descr": "MONOSYN INC 3/0 (2) 70CM",
+            "qty": 36,
+            "prezzo": 2.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "1622U6",
+            "scad": "2031-05-26"
+          },
+          {
+            "cod": "C2023423",
+            "descr": "MONOSYN UNDYED 5/0 (1) 70CM",
+            "qty": 36,
+            "prezzo": 2.7,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "1623X8",
+            "scad": "2031-06-06"
+          },
+          {
+            "cod": "C0762369",
+            "descr": "SILKAM NERO 2/0 (3) 75CM",
+            "qty": 72,
+            "prezzo": 0.89,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626261",
+            "scad": "2031-06-22"
+          },
+          {
+            "cod": "C0762148",
+            "descr": "SILKAM NERO 3/0 (2) 45CM",
+            "qty": 36,
+            "prezzo": 3.11944,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "626261",
+            "scad": "2031-06-22"
+          },
+          {
+            "cod": "C0068063",
+            "descr": "NOVOSYN VIOLA 2 (5) 70CM",
+            "qty": 72,
+            "prezzo": 2.21,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726096",
+            "scad": "2031-02-28"
+          },
+          {
+            "cod": "C3046597",
+            "descr": "NOVOSYN QUICK INC 1 (4)90CM",
+            "qty": 144,
+            "prezzo": 2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126172",
+            "scad": "2031-04-21"
+          },
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM",
+            "qty": 180,
+            "prezzo": 2.83,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126205",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 2119.4325072
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-14T09:22:14.389Z",
+      "msgId": "1a09ef7380d785e0",
+      "file": "5718112599.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718112599",
+        "date": "2026-09-11",
+        "order_ref": "Rif.cliente Vs.ord. 213",
+        "lines": [
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 8,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26E18H8B02",
+            "scad": "2031-05-01"
+          }
+        ],
+        "totale": 829.6
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-16T09:07:00.210Z",
+      "msgId": "1a0a94af164be972",
+      "file": "5718113138.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113138",
+        "date": "2026-09-15",
+        "order_ref": "Rif.cliente Vs.ord. 214",
+        "lines": [
+          {
+            "cod": "C3046235",
+            "descr": "NOVOSYN QUICK INC 3/0 (2) 70CM D",
+            "qty": 6,
+            "prezzo": 101.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126183",
+            "scad": "2031-04-29"
+          },
+          {
+            "cod": "C3090235",
+            "descr": "OPTILENE 3/0 (2) 75CM DS24 (M)",
+            "qty": 1,
+            "prezzo": 46.99,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626096",
+            "scad": "2031-02-28"
+          }
+        ],
+        "totale": 803.0894
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-18T13:52:41.423Z",
+      "msgId": "1a0b4b7fd3e881dc",
+      "file": "5718113593.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113593",
+        "date": "2026-09-17",
+        "order_ref": "Rif.cliente Vs.ord. 215",
+        "lines": [
+          {
+            "cod": "G0058716",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 250CM AR",
+            "qty": 6,
+            "prezzo": 23.76,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126252",
+            "scad": "2031-06-16"
+          },
+          {
+            "cod": "C0068553N1",
+            "descr": "NOVOSYN VIOLA 1 (4) 90CM HR37",
+            "qty": 6,
+            "prezzo": 69.84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3626T7",
+            "scad": "2031-06-26"
+          },
+          {
+            "cod": "C0762610",
+            "descr": "SILKAM NERO 1 (4) 75CM D$39",
+            "qty": 6,
+            "prezzo": 33.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626212",
+            "scad": "2031-05-19"
+          }
+        ],
+        "totale": 930.2256
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-18T13:52:41.423Z",
+      "msgId": "1a0b4b7d2fd756f1",
+      "file": "5718113592.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113592",
+        "date": "2026-09-17",
+        "order_ref": "Rif.cliente Vs.ord. 215",
+        "lines": [
+          {
+            "cod": "8722960",
+            "descr": "SET PERFUSOR PVC 150 CM",
+            "qty": 1,
+            "prezzo": 82,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26G02E8SB4",
+            "scad": "2031-07-01"
+          }
+        ],
+        "totale": 100.03999999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-21T06:51:48.911Z",
+      "msgId": "1a0c2780fa05646e",
+      "file": "5718113826.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718113826",
+        "date": "2026-09-18",
+        "order_ref": "Rif.cliente Vs.ord. 216",
+        "lines": [
+          {
+            "cod": "C0069451",
+            "descr": "NOVOSYN INCOLORE 0 (3,5) 70CM",
+            "qty": 36,
+            "prezzo": 1.7,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726212",
+            "scad": "2031-05-19"
+          },
+          {
+            "cod": "C0069296",
+            "descr": "NOVOSYN INCOLORE 1 (4) 90CM HS",
+            "qty": 36,
+            "prezzo": 1.92333,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726043",
+            "scad": "2031-01-21"
+          },
+          {
+            "cod": "C0935344",
+            "descr": "DAFILON BLU 4/0 (1.5) 75CM DS2",
+            "qty": 36,
+            "prezzo": 1.02,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626172",
+            "scad": "2031-04-21"
+          }
+        ],
+        "totale": 203.9350536
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-22T06:36:42.376Z",
+      "msgId": "1a0c790aa5d73587",
+      "file": "5718114092.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718114092",
+        "date": "2026-09-21",
+        "order_ref": "Rif.cliente Vs.ord. 218",
+        "lines": [
+          {
+            "cod": "C0069363",
+            "descr": "NOVOSYN INCOLORE 1 (4) 90CM HS",
+            "qty": 1,
+            "prezzo": 7.825,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "726084",
+            "scad": "2031-02-19"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 1,
+            "prezzo": 1.45,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624KE",
+            "scad": "2031-06-09"
+          }
+        ],
+        "totale": 11.3155
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-23T10:07:21.635Z",
+      "msgId": "1a0cd84387af6952",
+      "file": "5718114440.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718114440",
+        "date": "2026-09-22",
+        "order_ref": "Rif.cliente Vs.ord. 219",
+        "lines": [
+          {
+            "cod": "B0068463",
+            "descr": "NOVOSYN VIOLA 2 (5) 90CM",
+            "qty": 10,
+            "prezzo": 59.04,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726116",
+            "scad": "2031-03-14"
+          },
+          {
+            "cod": "C0935247",
+            "descr": "DAFILON BLU 2/0 (3) 90CM",
+            "qty": 5,
+            "prezzo": 46.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626226",
+            "scad": "2031-05-30"
+          }
+        ],
+        "totale": 1005.768
+      },
+      "src": "Gmail"
+    }
+  ]
 }

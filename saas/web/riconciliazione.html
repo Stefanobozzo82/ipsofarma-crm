@@ -158,28 +158,37 @@
     if(it.pagamenti == null || it.pagamenti.length === 0) return it.paid ? tot(it.righe) : 0;
     return it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0);
   }
-  function ncCreditoFor(nc, ftNum){
-    const ids = (nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []);
-    if(!ids.includes(ftNum)) return 0;
-    if(ids.length <= 1) return tot(nc.righe);
+  function ncCreditoFor(nc, invoice){
+    if(nc.annullato) return 0;
+    // Il collegamento UUID corrente prevale sui numeri legacy, senza doppio credito.
+    if(nc.fatturaId) return nc.fatturaId === invoice.id ? tot(nc.righe) : 0;
+    const ids = [...new Set((nc.ftIds && nc.ftIds.length) ? nc.ftIds : (nc.ftId ? [nc.ftId] : []))];
+    if(!ids.includes(invoice.num)) return 0;
     let remaining = tot(nc.righe);
-    const ordered = ids.map(n => fattureCliente.find(f => f.num === n)).filter(Boolean).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const ordered = ids.map(n => fattureCliente.find(f => f.num === n)).filter(Boolean).sort((a,b) => (a.data || '').localeCompare(b.data || ''));
+    if(ids.length <= 1) return tot(nc.righe);
     for(const f of ordered){
       if(remaining <= 0) break;
       const alloc = Math.min(remaining, tot(f.righe));
-      if(f.num === ftNum) return alloc;
+      if(f.id === invoice.id) return alloc;
       remaining -= alloc;
     }
     return 0;
   }
+  function supplierCreditFor(nc, invoice){
+    if(nc.annullato) return 0;
+    const linked = nc.fatturaId ? nc.fatturaId === invoice.id : nc.ftfId === invoice.num;
+    return linked ? tot(nc.righe) : 0;
+  }
+
   function payState(it, isFornitore){
     const totaleRaw = tot(it.righe);
     const sign = totaleRaw < 0 ? -1 : 1;
     const totale = totaleRaw * sign;
     const creditato = it.num
       ? (isFornitore
-          ? noteCreditoFornitore.filter(ncf => ncf.ftfId === it.num).reduce((s, ncf) => s + tot(ncf.righe), 0)
-          : noteCredito.reduce((s, nc) => s + ncCreditoFor(nc, it.num), 0))
+          ? noteCreditoFornitore.reduce((s, ncf) => s + supplierCreditFor(ncf, it), 0)
+          : noteCredito.reduce((s, nc) => s + ncCreditoFor(nc, it), 0))
       : 0;
     const pagato = (payTot(it) + creditato) * sign;
     const state = pagato <= 0.004 ? 'aperto' : pagato >= totale - 0.01 ? 'completo' : 'parziale';
@@ -445,7 +454,8 @@
   // ... violates not-null constraint". Stesso bug reale già trovato e
   // corretto in fatture.html/fatture-fornitore.html (togglePaid/bulkMarkPaid).
   $('registra-sel').addEventListener('click', async () => {
-    const daRegistrare = matches.filter(m => m.selezionata && m.scelta);
+    if($('registra-sel').disabled) return;
+    const daRegistrare = matches.filter(m => m.selezionata && m.scelta && !m.registrata);
     if(daRegistrare.length === 0){ setMsg('results-msg', 'Seleziona almeno un abbinamento da registrare.', 'error'); return; }
     $('registra-sel').disabled = true;
     setMsg('results-msg', '', '');
@@ -456,14 +466,15 @@
       const fattura = (isFornitore ? fattureFornitore : fattureCliente).find(f => f.id === m.scelta);
       if(!fattura) continue;
       const importoAbs = Math.abs(m.transazione.importo);
-      const pagamenti = (fattura.pagamenti || []).concat([{ data: m.transazione.data, importo: importoAbs }]);
-      const provaFattura = Object.assign({}, fattura, { pagamenti });
-      const ps = payState(provaFattura, isFornitore);
-      const paid = ps.state === 'completo';
-      const doc = Object.assign({}, fattura, { pagamenti, paid, paidDate: paid ? m.transazione.data : (fattura.paidDate || null) });
       try{
-        await store.saveDoc(coll, doc, companyId);
-        fattura.pagamenti = pagamenti; fattura.paid = paid; // aggiorna la copia locale, per abbinamenti successivi sulla stessa fattura
+        // One identity per imported movement and selected invoice; retrying a
+        // partially successful batch must never post its successful rows twice.
+        m.paymentRequests = m.paymentRequests || {};
+        m.paymentRequests[fattura.id] = m.paymentRequests[fattura.id] || crypto.randomUUID();
+        const updated = await store.mutateInvoicePayment(companyId, isFornitore ? 'supplier' : 'customer',
+          fattura, 'add', { data: m.transazione.data, importo: importoAbs }, m.paymentRequests[fattura.id]);
+        Object.assign(fattura, updated);
+        m.registrata = true; m.selezionata = false; m.scelta = '';
         ok++;
       }catch(err){
         errori.push(`${fattura.num}: ${err.message}`);

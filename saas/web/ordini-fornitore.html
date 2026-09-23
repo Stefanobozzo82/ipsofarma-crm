@@ -237,7 +237,11 @@
   // ricevere dai fornitori" della dashboard, vedi dashboard.html): senza,
   // l'elenco apriva sempre su TUTTI gli ordini invece che solo quelli
   // ancora da ricevere.
-  let FFILT = { fornitore: '', stato: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
+  // Apertura sull'anno corrente; i link con anno esplicito conservano lo storico.
+  const requestedDocumentYear = new URLSearchParams(location.search).get('anno');
+  const initialDocumentYear = /^[1-9]\d{3}$/.test(requestedDocumentYear || '')
+    ? requestedDocumentYear : String(new Date().getFullYear());
+  let FFILT = { fornitore: '', stato: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
   function sortCmp(va, vb, dir){
     const mul = dir === 'asc' ? 1 : -1;
     if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
@@ -337,7 +341,7 @@
   }
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
-    return `<tr ${r._last ? 'data-last="1"' : ''}>
+    return `<tr ${Number.isInteger(r._editorSourceIndex) ? `data-source-order-index="${r._editorSourceIndex}"` : ''} ${r._last ? 'data-last="1"' : ''}>
       <td class="drag-col"><span class="drag-handle" draggable="true" title="Trascina per riordinare la riga">⠿</span></td>
       <td><div class="prod-pick"><input class="r-cod" value="${esc(r.cod)}" placeholder="cod." autocomplete="off"><div class="prod-sugg"></div></div>${r.catalogMatch ? window.SaasAiImport.catalogBadgeHtml(r.catalogMatch) : ''}${r._last ? '<span class="lastp">ultimo prezzo</span>' : ''}</td>
       <td><input class="r-descr" value="${esc(r.descr)}" placeholder="descrizione"></td>
@@ -391,7 +395,7 @@
         tr.querySelector('.r-descr').value = p.descr;
         tr.querySelector('.r-prezzo').value = last ? last.prezzo : (p.listinoAcq || 0);
         tr.querySelector('.r-sconto').value = last ? (last.sconto || '') : '';
-        tr.querySelector('.r-iva').value = p.iva || 22;
+        tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
         // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
@@ -415,7 +419,31 @@
       prezzo: Number(tr.querySelector('.r-prezzo').value) || 0,
       sconto: tr.querySelector('.r-sconto').value.trim(),
       iva: Number(tr.querySelector('.r-iva').value) || 0,
+      ...(tr.dataset.sourceOrderIndex !== undefined ? { source_order_index: Number(tr.dataset.sourceOrderIndex) } : {}),
     })).filter(r => r.descr || r.cod);
+  }
+  function prepareOrderRows(rows, original){
+    const previous = (original && original.righe) || [];
+    const used = new Set();
+    const result = rows.map(row => {
+      if(row.source_order_index === undefined) return { ...row };
+      const index = row.source_order_index;
+      if(!Number.isInteger(index) || index < 0 || index >= previous.length || used.has(index)){
+        throw new Error('Identità delle righe non valida. Riapri l’ordine prima di salvare.');
+      }
+      used.add(index);
+      const old = previous[index];
+      const delivered = Number(old.qtyEv || 0);
+      if(!Number.isFinite(delivered) || delivered < 0) throw new Error('Quantità ricevuta non valida: verificare lo storico dell’ordine.');
+      if(delivered > 0 && row.cod !== old.cod) throw new Error('Non puoi cambiare il codice di una riga già ricevuta.');
+      if(row.qty < delivered) throw new Error('La quantità ordinata non può essere inferiore a quella già ricevuta.');
+      const result = { ...old, ...row };
+        return result;
+    });
+    previous.forEach((old, index) => {
+      if(Number(old.qtyEv || 0) > 0 && !used.has(index)) throw new Error('Non puoi eliminare una riga già ricevuta.');
+    });
+    return result;
   }
   // Stessa aritmetica dello sconto del gestionale originale, cascata
   // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
@@ -469,7 +497,7 @@
     $('righe-body').innerHTML = '';
     // Ricevuta/Residuo/Stato per riga — stessa funzione già usata per i
     // pulsanti di cascata qui sotto, nessun calcolo duplicato.
-    (ordine ? window.SaasCascade.residuoRighe(ordine) : [null]).forEach(addRigaRow);
+    (ordine ? window.SaasCascade.residuoRighe(ordine).map((r,index) => ({...r, _editorSourceIndex:index})) : [null]).forEach(addRigaRow);
     $('of-righe-table').classList.toggle('has-evasione', !!ordine);
     renderEvasioneSummary(ordine);
     renderLineage(ordine);
@@ -490,13 +518,15 @@
     $('of-btn-chiudi').hidden = received;
   }
   $('of-btn-chiudi').addEventListener('click', async () => {
-    if(!editingOrder) return;
+    if(!editingOrder || $('of-btn-chiudi').disabled) return;
     if(!confirm(`Segnare l'ordine ${editingOrder.num} come evaso SENZA generare una fattura fornitore?\n\nUsalo solo per ordini che non corrispondono a un vero ricevimento da fatturare — a differenza del normale flusso di ricezione (da fatture-fornitore.html) non resta nessun documento collegato.`)) return;
     const btn = $('of-btn-chiudi');
+    const reason = prompt('Motivo della chiusura manuale (registrato nello storico):');
+    if(reason === null) return;
+    if(reason.trim().length < 3){ alert('Inserisci un motivo di almeno 3 caratteri.'); return; }
     btn.disabled = true;
     try{
-      const ordineAgg = window.SaasCascade.applicaEvasioneManuale(editingOrder);
-      await store.saveDoc('ordiniFornitore', ordineAgg, companyId);
+      const ordineAgg = await store.completeOrderManually(companyId, 'supplier', editingOrder, reason.trim());
       await openForm(ordineAgg);
     }catch(err){
       alert('Errore durante il salvataggio: ' + (err.message || err));
@@ -562,11 +592,18 @@
       // solo account Resend), ma il destinatario vede il nome di QUESTA
       // azienda come mittente e, se risponde, la mail arriva a lei — non
       // alla piattaforma. Vedi la nota in send-email/index.ts.
-      await store.sendEmail({ to, subject: su, html: '<pre style="font:inherit;white-space:pre-wrap">' + esc(bodyText) + '</pre>', attachmentBase64: pdfB64, attachmentFilename: filename, fromName: company.nome, replyTo: (company.settings || {}).email });
+      await store.sendEmail({ to, subject: su, html: '<pre style="font:inherit;white-space:pre-wrap">' + esc(bodyText) + '</pre>', attachmentBase64: pdfB64, attachmentFilename: filename, fromName: company.nome, replyTo: (company.settings || {}).email }, companyId);
       // Traccia l'invio in "extra" (ordiniFornitore ha hasExtra:true, non
       // serve nessuna nuova colonna) — così l'elenco può mostrare "inviato",
       // come emailSent nel gestionale originale.
-      const saved = await store.saveDoc('ordiniFornitore', Object.assign({}, emailingItem, { emailSent: new Date().toISOString() }), companyId);
+      let saved;
+      try {
+        saved = await store.saveSupplierOrder(companyId, emailingItem, { ...emailingItem,
+          righe: (emailingItem.righe || []).map((r,index) => ({...r,source_order_index:index})),
+          emailSent: new Date().toISOString() });
+      } catch (error) {
+        throw new Error('Email inviata, ma stato non aggiornato: ' + (error.message || error) + '. Ricarica l’ordine; non reinviare la mail.');
+      }
       emailingItem = saved;
       setEmailMsg('Ordine inviato a ' + to + '.', 'ok');
     }catch(err){
@@ -679,19 +716,7 @@
     $('f-save').disabled = true;
     setMsg('', '');
     try{
-      // Stessa cautela di ordini.html/generaOF(): l'editor delle righe non
-      // conosce qtyEv (quanto già ricevuto, aggiornato da
-      // fatture-fornitore.html) — senza questo passaggio, salvare una
-      // modifica lo resetterebbe silenziosamente a "niente ricevuto".
-      let righeFinal = righe;
-      if(editingOrder){
-        const qtyEvByCod = {};
-        (editingOrder.righe || []).forEach(r => { if(r.qtyEv) (qtyEvByCod[r.cod] = qtyEvByCod[r.cod] || []).push(r.qtyEv); });
-        righeFinal = righe.map(r => {
-          const queue = qtyEvByCod[r.cod];
-          return (queue && queue.length) ? Object.assign({}, r, { qtyEv: Math.min(r.qty, queue.shift()) }) : r;
-        });
-      }
+      const righeFinal = prepareOrderRows(righe, editingOrder);
       // Idem per ocId/emailSent (extra, non nel form): si parte
       // dall'ordine esistente invece che da un oggetto vuoto.
       const doc = editingOrder ? Object.assign({}, editingOrder, { fornitoreId, data, righe: righeFinal }) : { fornitoreId, data, righe: righeFinal };
@@ -700,7 +725,6 @@
         doc.id = editingId;
         if(!numInput){ setMsg('Il numero non può essere vuoto.', 'error'); $('f-save').disabled = false; return; }
         if(numInput !== editingOrder.num){
-          await store.bumpCounterPast(companyId, 'OF', numInput);
           doc.num = numInput;
         }
       } else if(numInput){
@@ -710,7 +734,8 @@
         const anno = Number(data.slice(0, 4));
         doc.num = await store.nextNumber(companyId, 'OF', anno);
       }
-      await store.saveDoc('ordiniFornitore', doc, companyId);
+      if(editingId) await store.saveSupplierOrder(companyId, editingOrder, doc);
+      else await store.saveDoc('ordiniFornitore', doc, companyId);
       closeForm();
       await renderList();
     }catch(err){
@@ -871,3 +896,4 @@
 </script>
 </body>
 </html>
+

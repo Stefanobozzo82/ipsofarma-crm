@@ -1,0 +1,4 @@
+# Fine riga sempre LF nel repository (evita file misti CRLF/LF a seconda
+# della macchina che li ha toccati): i file già committati con CRLF vengono
+# normalizzati alla prima modifica successiva.
+* text=auto eol=lf

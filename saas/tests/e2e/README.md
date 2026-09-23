@@ -51,45 +51,60 @@ configurabile (non 30 copie identiche in altrettanti file HTML) e usare
 esecuzione — le migration in `saas/supabase/migrations/` sono già pronte
 per quello, non richiederebbe di riscriverle.
 
-## Indirizzi email di prova
+## Account di prova
 
-Supabase Auth non accetta email inventate: controlla che il dominio esista
-davvero e blocca apposta `example.com` e simili ("Email address ... is
-invalid"). Gli account di prova usano quindi un **alias della casella vera
-di chi lancia i test**, con il tag `+qa-…` (Gmail e la maggior parte dei
-provider lo supportano): `mario+qa-abc123@gmail.com` arriva nella casella
-di `mario@gmail.com`, e a nessun altro.
+La suite NON registra utenti: Supabase Auth manda un'email di conferma a
+ogni registrazione e ne consente pochissime all'ora ("email rate limit
+exceeded" già dalla prima, verificato sullo staging), e comunque rifiuta
+gli indirizzi su domini inventati o riservati come `example.com`. Servono
+quindi **due account già registrati e confermati** sul progetto di test,
+creati una volta a mano dalla pagina di accesso (per Gmail bastano due
+alias della propria casella, es. `mario+qa-admin@gmail.com` e
+`mario+qa-operatore@gmail.com`: le email di conferma arrivano a
+`mario@gmail.com`). Ogni test poi si limita a fare login e a creare la
+propria azienda usa-e-getta con `register_company` — nessuna email.
 
 ```
-E2E_EMAIL_USER=mario E2E_EMAIL_DOMAIN=gmail.com npx playwright test
+E2E_EMAIL=mario+qa-admin@gmail.com E2E_PASSWORD=… \
+E2E_OPERATOR_EMAIL=mario+qa-operatore@gmail.com E2E_OPERATOR_PASSWORD=… \
+npx playwright test
 ```
 
-Senza queste due variabili la suite si ferma subito con un messaggio
-chiaro invece di provare a registrare account che Supabase rifiuterebbe.
-Se il progetto richiede la conferma dell'email alla registrazione, i test
-non possono superarla da soli: va disattivata sul progetto usato per i
-test (Authentication → Providers → Email → "Confirm email").
+Il secondo account serve solo a `permessi.spec.js` (un utente non admin
+invitato nell'azienda del primo). Senza le variabili la suite si ferma
+subito con un messaggio chiaro.
+
+### Contro lo staging invece che contro la produzione
+
+`saas/scripts/staging-preview.cjs` serve le stesse pagine riscrivendo
+`SUPABASE_URL`/`SUPABASE_ANON_KEY` verso il progetto di staging
+(`saas/staging.config.json`), sulla porta 8080. Con quello acceso:
+
+```
+TEST_BASE_URL=http://127.0.0.1:8080 E2E_EMAIL=… npx playwright test
+```
+
+Gli account di prova devono esistere sul progetto contro cui si gira.
 
 ## Pulizia dei dati di prova
 
 Ogni test, alla fine, cancella tutto ciò che l'account admin dell'azienda
 di prova PUÒ cancellare via RLS: documenti, clienti, fornitori, prodotti
 (vedi `cleanupCompanyData` in `helpers/testCompany.js`). Quello che NON
-può cancellare da solo è la riga dell'azienda, la sua "membership" e
-l'utente Supabase Auth creato per il test — richiede la `service_role
-key`, che questa suite non usa mai (per non doverla tenere in giro in un
-file di configurazione).
+può cancellare da solo è la riga dell'azienda e la sua "membership" —
+richiede la `service_role key`, che questa suite non usa mai (per non
+doverla tenere in giro in un file di configurazione).
 
 Restano quindi, dopo ogni esecuzione, delle aziende vuote (nessun
 documento, nessuna anagrafica — solo il guscio) con un nome che inizia
 sempre per **"QA Test"**. Per spazzarle via periodicamente:
 
 ```
-SUPABASE_SERVICE_ROLE_KEY=<la service_role key vera> E2E_EMAIL_USER=mario E2E_EMAIL_DOMAIN=gmail.com node cleanup-orphans.js
+SUPABASE_SERVICE_ROLE_KEY=<la service_role key vera> SUPABASE_URL=https://<progetto>.supabase.co node cleanup-orphans.js
 ```
 
-(Le due variabili email servono a riconoscere gli utenti Auth di prova —
-gli alias `+qa-…` — senza toccare nessun altro utente.)
+Gli account di prova (vedi sopra) non vengono toccati: sono creati a mano
+una volta e riusati da ogni esecuzione.
 
 Va lanciato a mano (o da una pipeline separata, mai dalla suite stessa),
 di tanto in tanto. Riconosce le aziende di prova SOLO dal prefisso "QA

@@ -1,19 +1,25 @@
 /* ============================================================================
  * testCompany.js — fixture Playwright: un'azienda usa-e-getta per test.
  *
- * Ogni test che usa la fixture `company` riceve un'azienda vera (creata con
- * lo stesso percorso di registrazione che userebbe un cliente reale — niente
- * scorciatoie SQL dirette) su cui l'account di test è admin, isolata da
- * qualunque altra azienda del progetto (Ipsofarma inclusa): nessun test qui
- * dentro tocca MAI dati diversi da quelli appena creati per lui.
+ * Ogni test che usa la fixture `company` riceve un'azienda vera, creata con
+ * la stessa RPC (register_company) che usa la pagina di registrazione — su
+ * cui l'account di prova è admin, isolata da qualunque altra azienda del
+ * progetto: nessun test qui dentro tocca MAI dati diversi da quelli appena
+ * creati per lui.
  *
- * Pulizia — vedi "Un limite onesto" in tests/README.md: la fixture cancella
- * tutto ciò che l'admin di un'azienda PUÒ cancellare via RLS (documenti,
- * clienti, fornitori, prodotti — vedi cleanupCompanyData sotto). La riga
- * dell'azienda stessa, la membership e l'utente restano: cancellarle
- * richiede la service_role key, che questa suite non usa mai per non
- * doverla tenere in giro. cleanup-orphans.js (privilegiato, va eseguito a
- * parte con una service_role key propria) le spazza via periodicamente
+ * L'ACCOUNT invece è uno solo, creato una volta a mano (vedi "Account di
+ * prova" in tests/e2e/README.md) e passato con E2E_EMAIL/E2E_PASSWORD:
+ * Supabase Auth manda un'email di conferma a ogni registrazione e ne
+ * consente pochissime all'ora — registrare un utente nuovo per ogni test
+ * (com'era in origine) si fermava dopo la prima con "email rate limit
+ * exceeded". Un login non manda nulla.
+ *
+ * Pulizia — vedi "Un limite onesto" in tests/e2e/README.md: la fixture
+ * cancella tutto ciò che l'admin di un'azienda PUÒ cancellare via RLS
+ * (documenti, clienti, fornitori, prodotti — vedi cleanupCompanyData
+ * sotto). La riga dell'azienda e la membership restano: cancellarle
+ * richiede la service_role key, che questa suite non usa mai.
+ * cleanup-orphans.js (privilegiato, a parte) le spazza via periodicamente
  * grazie a ON DELETE CASCADE su company_id.
  * ============================================================================ */
 
@@ -38,18 +44,41 @@ function randomSuffix() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// Supabase Auth rifiuta le email di prova su domini inventati o riservati
-// ("Email address ... is invalid": controlla che il dominio esista davvero,
-// e example.com è bloccato apposta). L'unico indirizzo sicuro è quindi un
-// alias di una casella VERA di chi lancia i test — tag "+qa-..." su
-// utente@dominio: le eventuali email di conferma arrivano lì e a nessun
-// altro. Vedi "Indirizzi email di prova" in tests/e2e/README.md.
-function testEmail(tag) {
-  const user = process.env.E2E_EMAIL_USER, domain = process.env.E2E_EMAIL_DOMAIN;
-  if (!user || !domain) {
-    throw new Error('Servono E2E_EMAIL_USER e E2E_EMAIL_DOMAIN (es. mario e gmail.com) per creare gli account di prova: vedi tests/e2e/README.md, "Indirizzi email di prova".');
+// Credenziali degli account di prova (vedi README, "Account di prova").
+// `operator` serve solo a permessi.spec.js: un secondo utente, non admin.
+function credentials(role = 'admin') {
+  const prefix = role === 'operator' ? 'E2E_OPERATOR' : 'E2E';
+  const email = process.env[`${prefix}_EMAIL`], password = process.env[`${prefix}_PASSWORD`];
+  if (!email || !password) {
+    throw new Error(`Servono ${prefix}_EMAIL e ${prefix}_PASSWORD: un account già registrato e confermato sul progetto di test — vedi tests/e2e/README.md, "Account di prova".`);
   }
-  return `${user}+qa-${tag}@${domain}`;
+  return { email, password };
+}
+
+// Accesso dalla pagina di login vera; torna con la sessione attiva e la
+// pagina index.html aperta. `query` permette di arrivarci con ?invite=…
+async function signIn(page, { email, password }, query = '') {
+  await page.goto('/index.html' + query);
+  await page.waitForSelector('#auth-box:not([hidden])', { timeout: 10_000 });
+  if (!(await page.locator('#email').evaluate(el => el.readOnly))) await page.fill('#email', email);
+  await page.fill('#password', password);
+  await page.click('#auth-submit');
+  await page.waitForFunction(() => {
+    const msg = document.querySelector('#auth-msg');
+    return !document.querySelector('#loading') || document.querySelector('#loading').hidden
+      ? (document.querySelector('#auth-box').hidden || (msg && !msg.hidden && msg.textContent.trim()))
+      : false;
+  }, null, { timeout: 15_000 });
+  if (!(await page.locator('#auth-box').isHidden())) {
+    throw new Error(`Accesso fallito per ${email}: ${await page.locator('#auth-msg').textContent()}`);
+  }
+}
+
+// Il tour guidato al primo accesso (app/tour.js) intercetterebbe i click
+// dei test dietro il suo overlay — saltarlo subito se compare.
+async function skipTour(page) {
+  const skip = page.getByText('Salta il tour');
+  if (await skip.isVisible({ timeout: 2_000 }).catch(() => false)) await skip.click();
 }
 
 // esposta a parte (non solo dentro la fixture) perché cleanup-orphans.js
@@ -74,32 +103,28 @@ async function cleanupCompanyData(page, companyId) {
 const test = base.test.extend({
   // { page, email, password, companyId, companyName } — vedi sopra.
   company: async ({ page }, use, testInfo) => {
-    const email = testEmail(randomSuffix());
-    const password = 'TestPass1234!QA';
+    const { email, password } = credentials();
     // Nome riconoscibile da cleanup-orphans.js (prefisso "QA Test") e dal
     // titolo del test che l'ha creata, utile leggendo l'elenco aziende a
     // mano durante lo sviluppo di un test.
     const companyName = `QA Test — ${testInfo.title}`.slice(0, 60);
+    const slug = `qa-${randomSuffix()}`;
 
-    await page.goto('/index.html');
-    await page.waitForSelector('#auth-box:not([hidden])', { timeout: 10_000 });
-    await page.click('#switch-link'); // "Non hai un account? Registrati"
-    await page.fill('#email', email);
-    await page.fill('#password', password);
-    await page.click('#auth-submit');
-    await page.waitForSelector('#register-box:not([hidden])', { timeout: 10_000 });
-    await page.fill('#company-nome', companyName);
-    await page.click('#register-submit');
-    await page.waitForSelector('#dashboard-box:not([hidden])', { timeout: 10_000 });
-    await page.click('.company-open');
-    await page.waitForURL('**/dashboard.html', { timeout: 10_000 });
-    const companyId = await page.evaluate(() => localStorage.getItem('saas_company_id'));
-    if (!companyId) throw new Error('Azienda di test non creata correttamente: saas_company_id assente.');
-
-    // Il tour guidato al primo accesso (app/tour.js) intercetterebbe i
-    // click dei test dietro il suo overlay — saltarlo subito se compare.
-    const skipTour = page.getByText('Salta il tour');
-    if (await skipTour.isVisible({ timeout: 2_000 }).catch(() => false)) await skipTour.click();
+    await signIn(page, { email, password });
+    const created = await page.evaluate(
+      ({ companyName, slug }) => window.SaasStore.registerCompany(companyName, slug),
+      { companyName, slug }
+    );
+    const companyId = created && created.company_id;
+    if (!companyId) throw new Error('Azienda di test non creata: register_company non ha restituito company_id.');
+    // Stesso effetto del pulsante "Apri gestionale →" in index.html.
+    await page.evaluate(({ companyId, companyName }) => {
+      localStorage.setItem('saas_company_id', companyId);
+      localStorage.setItem('saas_company_nome', companyName);
+    }, { companyId, companyName });
+    await page.goto('/dashboard.html');
+    await page.waitForFunction(() => !!window.SaasStore, null, { timeout: 10_000 });
+    await skipTour(page);
 
     await use({ page, email, password, companyId, companyName });
 
@@ -107,4 +132,4 @@ const test = base.test.extend({
   },
 });
 
-module.exports = { test, expect: base.expect, cleanupCompanyData, CLEANUP_ORDER, testEmail };
+module.exports = { test, expect: base.expect, cleanupCompanyData, CLEANUP_ORDER, credentials, signIn, skipTour };

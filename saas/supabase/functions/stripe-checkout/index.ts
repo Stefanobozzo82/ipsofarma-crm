@@ -61,15 +61,19 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return json({ error: 'sessione non valida o scaduta' }, 401);
 
-  let body: { company_id?: string; plan_id?: string; success_url?: string; cancel_url?: string };
+  let body: { action?: string; company_id?: string; plan_id?: string; success_url?: string; cancel_url?: string; return_url?: string };
   try {
     body = await req.json();
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('invalid body');
   } catch {
     return json({ error: 'corpo della richiesta non valido (JSON atteso)' }, 400);
   }
-  const { company_id, plan_id, success_url, cancel_url } = body;
-  if (typeof company_id !== 'string' || typeof plan_id !== 'string' || !company_id || !plan_id || !allowedReturnUrl(success_url) || !allowedReturnUrl(cancel_url)) {
+  const { company_id, plan_id, success_url, cancel_url, return_url } = body;
+  const action = body.action ?? 'checkout';
+  if (!['checkout', 'portal'].includes(action)) return json({error:'azione non valida'},400);
+  if (typeof company_id !== 'string' || !company_id || (action === 'portal'
+    ? !allowedReturnUrl(return_url)
+    : (typeof plan_id !== 'string' || !plan_id || !allowedReturnUrl(success_url) || !allowedReturnUrl(cancel_url)))) {
     return json({ error: 'company_id, plan_id, success_url e cancel_url sono tutti obbligatori' }, 400);
   }
 
@@ -86,6 +90,23 @@ Deno.serve(async (req: Request) => {
   if (!membership || membership.role !== 'admin') {
     return json({ error: 'solo un amministratore dell\'azienda può gestire l\'abbonamento' }, 403);
   }
+
+  if(action === 'portal'){
+    const secretKey = Deno.env.get('STRIPE_SECRET_KEY');
+    if(!secretKey) return json({error:'gestione abbonamento non disponibile'},503);
+    const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const {data: company, error} = await admin.from('companies').select('stripe_customer_id').eq('id',company_id).maybeSingle();
+    if(error) return json({error:'azienda non disponibile'},503);
+    if(!company?.stripe_customer_id) return json({error:'nessun profilo di fatturazione collegato'},409);
+    try{
+      const session = await stripeRequest('billing_portal/sessions', {customer:company.stripe_customer_id,return_url:return_url!,locale:'it'},secretKey);
+      if(typeof session.url !== 'string' || !session.url.startsWith('https://billing.stripe.com/')) throw Error('invalid portal URL');
+      return json({url:session.url});
+    }catch{ return json({error:'portale di fatturazione non disponibile; riprova più tardi'},502); }
+  }
+
+  // New sales remain closed until seller information, prices and provider checks are approved.
+  if(Deno.env.get('COMMERCIAL_CHECKOUT_ENABLED') !== 'true') return json({error:'Le nuove sottoscrizioni non sono ancora disponibili. I prezzi sono in definizione.'},503);
 
   const { data: plan, error: planError } = await supabase
     .from('plans')

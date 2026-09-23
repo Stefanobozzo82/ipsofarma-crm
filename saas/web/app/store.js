@@ -395,6 +395,20 @@
   // passa sempre dall'Edge Function send-email — dove la chiave vive come
   // secret del progetto.
   // ---------------------------------------------------------------------------
+  async function openBillingPortal(companyId, returnUrl) {
+    const session = await getSession();
+    if(!session) throw new Error('devi essere collegato');
+    const res = await fetch(global.SUPABASE_URL + '/functions/v1/stripe-checkout', {
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},
+      body:JSON.stringify({action:'portal',company_id:companyId,return_url:returnUrl}),
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || 'Gestione abbonamento non disponibile');
+    if(typeof data.url !== 'string' || !data.url.startsWith('https://billing.stripe.com/')) throw new Error('Indirizzo di fatturazione non valido');
+    return data;
+  }
+
   async function sendEmail(payload, companyId) {
     if (!companyId) throw new Error('companyId mancante per invio email');
     const session = await getSession();
@@ -866,7 +880,7 @@
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, createCustomerInvoice,
     createSupplierDdt, createStandaloneSupplierDdt, changeSupplierDdt, createSupplierInvoice, mutateInvoicePayment, saveCreditNote, cancelCreditNote,
-    getCompany, loadPlans, startCheckout, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
+    getCompany, loadPlans, startCheckout, openBillingPortal, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,
     addMovimento, giacenzeForProdotti, listGiacenze, listMovimentiRecenti,

@@ -46,10 +46,13 @@
     <div class="card">
       <h3 style="margin:0 0 12px">Piano attuale</h3>
       <div class="stato" id="stato-attuale"><p class="empty">Carico…</p></div>
+      <button class="primary" id="billing-portal" hidden>Gestisci fatturazione e abbonamento</button>
+      <p class="empty" style="text-align:left">Nel portale puoi consultare le opzioni disponibili per il tuo abbonamento e i dati di pagamento.</p>
     </div>
 
     <div class="card">
-      <h3 style="margin:0 0 4px">Cambia piano</h3>
+      <h3 style="margin:0 0 4px">Piani in preparazione</h3>
+      <p>I prezzi commerciali sono in definizione. Le nuove sottoscrizioni non sono ancora disponibili.</p>
       <p class="empty" style="margin:0;padding:6px 0 0;text-align:left">Solo un amministratore dell'azienda può gestire l'abbonamento.</p>
       <div class="piani" id="piani-area"></div>
       <div class="msg" id="msg" hidden></div>
@@ -106,9 +109,7 @@
   // pulsante davvero cliccabile.
   function pulsantePiano(p, corrente){
     if(corrente) return `<button class="primary" disabled>Piano attuale</button>`;
-    if(!p.stripe_price_id) return `<button class="primary" disabled title="Questo piano non ha ancora un prezzo Stripe configurato">Non disponibile</button>`;
-    if(!isAdmin) return `<button class="primary" disabled title="Solo un amministratore dell'azienda può cambiare piano">Passa a ${esc(p.nome)}</button>`;
-    return `<button class="primary" data-piano="${p.id}">Passa a ${esc(p.nome)}</button>`;
+    return `<button class="primary" disabled>Disponibile al lancio</button>`;
   }
 
   async function renderPiani(plans, company){
@@ -116,7 +117,7 @@
       const corrente = p.id === company.piano;
       return `<div class="piano ${corrente ? 'corrente' : ''}">
         <h4>${esc(p.nome)}</h4>
-        <div class="prezzo">${p.prezzo_mensile > 0 ? eur(p.prezzo_mensile) : 'Gratis'}${p.prezzo_mensile > 0 ? '<small>/mese</small>' : ''}</div>
+        <div class="prezzo">${p.id === 'trial' ? 'Prova' : 'Prezzo da definire'}</div>
         <ul>
           <li>${limiteTesto(p.limite_utenti)} utenti</li>
           <li>${limiteTesto(p.limite_documenti_mese)} documenti/mese</li>
@@ -163,8 +164,8 @@
     });
 
     const params = new URLSearchParams(location.search);
-    if(params.get('abbonamento') === 'ok') setMsg('Pagamento completato: l\'abbonamento si aggiornerà a breve.', 'ok');
-    if(params.get('abbonamento') === 'annullato') setMsg('Operazione annullata, nessun addebito effettuato.', 'error');
+    if(params.get('abbonamento') === 'ok') setMsg('Se hai concluso il pagamento, il piano verrà aggiornato dopo la conferma del servizio di pagamento.', 'ok');
+    if(params.get('abbonamento') === 'annullato') setMsg('Sei tornato dal pagamento. Verifica lo stato del tuo abbonamento qui sotto.', 'error');
 
     const [company, plans, memberships] = await Promise.all([
       store.getCompany(companyId),
@@ -172,11 +173,19 @@
       store.myMemberships(),
     ]);
     isAdmin = memberships.some(m => m.company_id === companyId && m.role === 'admin');
+    $('billing-portal').hidden = !isAdmin || !company.stripe_customer_id;
+    $('billing-portal').addEventListener('click', async () => {
+      $('billing-portal').disabled = true;
+      try{
+        const {url} = await store.openBillingPortal(companyId, location.origin + location.pathname);
+        location.href = url;
+      }catch(err){setMsg(err.message || 'Portale non disponibile.', 'error'); $('billing-portal').disabled = false;}
+    });
 
     await renderStatoAttuale(company);
     await renderPiani(plans, company);
   }
-  init();
+  init().catch(() => { $('stato-attuale').textContent = 'Impossibile caricare l’abbonamento. Ricarica la pagina per riprovare.'; setMsg('Caricamento non riuscito. Nessuna modifica effettuata.', 'error'); });
 </script>
 </body>
 </html>

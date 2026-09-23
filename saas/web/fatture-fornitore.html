@@ -113,6 +113,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/doc-page.js"></script>
 <script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script src="app/biometric-lock.js"></script>
@@ -170,16 +171,8 @@
   // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene.
   let FATTURE_ALL = [];
 
-  function today(){ return new Date().toISOString().slice(0, 10); }
-  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
-  // ---- ordinamento colonne: come nel gestionale originale — un clic
-  // sull'intestazione ordina, un secondo clic inverte la direzione.
-  function sortCmp(va, vb, dir){
-    const mul = dir === 'asc' ? 1 : -1;
-    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
-    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
-  }
+  // Funzioni comuni a tutte le pagine documento — vedi app/doc-page.js.
+  const { today, esc, eur, sortCmp, docTotale, impTot, ivaTot, findOrdineByRiferimento } = window.SaasDocPage;
   function sortVal(key, f){
     if(key === 'num') return f.num || '';
     if(key === 'data') return f.data || '';
@@ -190,28 +183,12 @@
     if(key === 'pagamento') return f.paid ? 1 : 0;
     return '';
   }
-  function th(key, label){
-    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
-    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
-  }
-  function setSort(key){
-    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
-    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderResults();
-  }
+  function th(key, label){ return window.SaasDocPage.thHtml(SORT, key, label); }
+  function setSort(key){ window.SaasDocPage.toggleSort(SORT, key); renderResults(); }
 
-  // Ricerca testuale: come Q nel gestionale originale (num + nome fornitore).
-  function matchesQuery(it){
-    if(!Q) return true;
-    const party = (fornitoriById[it.fornitoreId] || {}).nome || '';
-    return (it.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
-  }
-  let searchTimer = null;
-  $('q').addEventListener('input', () => {
-    Q = $('q').value.trim().toLowerCase();
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);
-  });
+  // Ricerca testuale: numero + nome fornitore.
+  function matchesQuery(it){ return window.SaasDocPage.matchesText(Q, it, (fornitoriById[it.fornitoreId] || {}).nome); }
+  window.SaasDocPage.bindSearch($('q'), q => { Q = q; renderResults(); });
 
   // ---- filtri: fornitore, stato pagamento, intervallo date --------------
   function matchesFilter(f){
@@ -294,11 +271,7 @@
     if(active) $('ff-clear').addEventListener('click', clearFFilt);
   }
 
-  function setMsg(text, kind){
-    const el = $('form-msg');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
-  }
+  function setMsg(text, kind){ window.SaasDocPage.showMsg($('form-msg'), text, kind); }
 
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22, lotto:'', scad:'' };
@@ -322,28 +295,11 @@
     updateTotale();
     refreshCmpOrdine();
   }
-  // Riordino righe per trascinamento (vedi la stessa idea in ordini.html):
-  // solo la manetta ⠿ è draggable, non l'intera riga.
-  let dragSrcRow = null;
+  // Riordino righe per trascinamento: SaasDocPage.bindRowDrag() qui sotto.
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => { updateTotale(); refreshCmpOrdine(); }));
-    const handle = tr.querySelector('.drag-handle');
-    handle.addEventListener('dragstart', e => {
-      dragSrcRow = tr;
-      tr.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', '');
-    });
-    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
-    tr.addEventListener('dragover', e => {
-      if(!dragSrcRow || dragSrcRow === tr) return;
-      e.preventDefault();
-      const rect = tr.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
-    });
-    tr.addEventListener('drop', e => e.preventDefault());
+    window.SaasDocPage.bindRowDrag(tr);
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -375,16 +331,7 @@
       iva: Number(tr.querySelector('.r-iva').value) || 0,
     })).filter(r => r.descr || r.cod);
   }
-  // Stessa aritmetica dello sconto del gestionale originale, cascata
-  // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
-  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
-  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
-  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
-  function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
-  // Imponibile e IVA come colonne a sé nell'elenco, come nel gestionale
-  // originale (non solo il Totale già scontato/con IVA inclusa).
-  function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
-  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
+  // Stessa aritmetica dello sconto per tutte le pagine documento: vedi app/doc-page.js.
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
 
   // Confronto col prezzo dell'ordine fornitore collegato — porta di una
@@ -525,18 +472,8 @@
     // "quando carico una nuova fattura fornitori togli il totale in basso".
     $('stats-riga').hidden = true;
   }
-  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
-  // cliccabili con l'intera filiera della fattura fornitore, come nel
-  // vecchio gestionale.
-  async function renderLineage(fattura){
-    const panel = $('f-lineage-panel');
-    if(!fattura){ panel.hidden = true; return; }
-    try{
-      const docs = await window.SaasLineage.loadAll(store, companyId);
-      const shown = window.SaasLineage.renderInto($('f-lineage'), 'fattureFornitore', fattura, docs);
-      panel.hidden = !shown;
-    }catch(e){ panel.hidden = true; }
-  }
+  // Box "Documenti collegati" (vedi app/lineage.js).
+  function renderLineage(doc){ return window.SaasDocPage.renderLineagePanel(store, companyId, $('f-lineage-panel'), $('f-lineage'), 'fattureFornitore', doc); }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; $('stats-riga').hidden = false; editingId = null; editingFattura = null; }
   $('new-fattura').addEventListener('click', async () => {
     if($('f-fornitore').options.length === 0){ alert('Crea prima almeno un fornitore.'); return; }
@@ -546,35 +483,7 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
-  $('f-btn-print').addEventListener('click', () => {
-    if(!editingFattura) return;
-    window.SaasPrint.openPrintWindow('fattureFornitore', editingFattura, fornitoriById[editingFattura.fornitoreId], company);
-  });
-  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
-  $('f-dl-pdf').addEventListener('click', async () => {
-    if(!editingFattura) return;
-    const btn = $('f-dl-pdf');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadPDF('fattureFornitore', editingFattura, fornitoriById[editingFattura.fornitoreId], company);
-    }catch(err){
-      alert('Errore durante la generazione del PDF: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
-  $('f-dl-excel').addEventListener('click', async () => {
-    if(!editingFattura) return;
-    const btn = $('f-dl-excel');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadExcel('fattureFornitore', editingFattura, fornitoriById[editingFattura.fornitoreId], company);
-    }catch(err){
-      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
+  window.SaasDocPage.bindPrintActions($, 'fattureFornitore', () => editingFattura, d => fornitoriById[d.fornitoreId], () => company);
 
   // ---- importa fattura da PDF/foto con l'AI ------------------------------
   // Porta di pdfExtractSupplierInvoice()/openXmlImport() nel gestionale
@@ -585,11 +494,7 @@
   // quelli restano un possibile giro successivo. Niente ancora lettura
   // diretta di XML/P7M della fattura elettronica (percorso deterministico,
   // separato da questo): qui si legge sempre tramite AI, PDF o foto che sia.
-  function aiImportStatus(text, kind){
-    const el = $('ai-import-status');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
-  }
+  function aiImportStatus(text, kind){ window.SaasDocPage.showMsg($('ai-import-status'), text, kind || 'info'); }
   // riferimentoOrdine: il NOSTRO numero d'ordine così come lo riporta il
   // fornitore in fattura (tipicamente etichettato "Vs. ordine"/"Vs.ord."/
   // "Rif. cliente"/"Ordine cliente"/"PO") — MAI il numero d'ordine INTERNO
@@ -601,24 +506,6 @@
   // in fattura ("Rif.cliente Vs.ord. 201 del 31.08.2026" → il nostro
   // OF/2026/0201, stesse identiche righe).
   const AI_IMPORT_INSTR = "Nel documento allegato c'è una FATTURA di un FORNITORE. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore emittente), numero (numero della fattura), data (formato AAAA-MM-GG), riferimentoOrdine (il NOSTRO numero d'ordine come lo riporta il fornitore, es. dopo un'etichetta \"Vs. ordine\"/\"Vs.ord.\"/\"Rif. cliente\"/\"Ordine cliente\"/\"PO\" — SOLO il numero, niente date o altro testo attorno; MAI il numero d'ordine interno del fornitore né un numero di DDT; stringa vuota se non chiaramente presente), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità fatturata, numero), prezzo (prezzo unitario PIENO prima di eventuali sconti, numero), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", oppure stringa vuota se non c'è sconto), iva (aliquota IVA, numero), lotto (il numero di lotto/partita indicato vicino alla riga articolo, es. \"Partita\" o \"Lotto\"; stringa vuota se assente), scad (la data di scadenza del lotto indicata vicino alla riga articolo, formato AAAA-MM-GG; stringa vuota se assente).";
-  // Confronta il riferimento letto in fattura col numero di un NOSTRO
-  // ordine: prende il primo gruppo di cifre del riferimento (l'AI dovrebbe
-  // già restituire solo il numero, ma un residuo di testo attorno — es.
-  // una data agganciata — non deve far leggere quello per errore) e
-  // l'ULTIMO gruppo di cifre del numero ordine (nel formato PREFISSO/ANNO/
-  // NNNN, vedi next_document_number() in 0004_numerazione.sql, è la parte
-  // sequenziale — l'anno non deve mai essere scambiato per il riferimento).
-  // Funziona anche se l'utente ha rinominato il numero a mano (Numero
-  // ordine modificabile, vedi README): resta comunque l'ultimo gruppo di
-  // cifre presente.
-  function firstDigits(s){ const m = String(s || '').match(/\d+/); return m ? parseInt(m[0], 10) : null; }
-  function lastDigits(s){ const m = String(s || '').match(/\d+/g); return m ? parseInt(m[m.length - 1], 10) : null; }
-  function findOrdineByRiferimento(ordini, riferimento){
-    const rifNum = firstDigits(riferimento);
-    if(rifNum == null) return null;
-    const match = (ordini || []).filter(o => lastDigits(o.num) === rifNum);
-    return match.length === 1 ? match[0] : null; // ambiguo (0 o >1 candidati): meglio non collegare da soli
-  }
     $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
     $('ai-import-file').value = '';
@@ -823,14 +710,9 @@
   // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
   // renderResults() qui sotto, non questa.
   async function renderList(){
-    const area = $('list-area');
-    area.innerHTML = '<p class="empty">Carico…</p>';
-    try{
-      FATTURE_ALL = await store.loadCollection('fattureFornitore', companyId);
-    }catch(err){
-      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
-      return;
-    }
+    const rows = await window.SaasDocPage.loadList(store, 'fattureFornitore', companyId, $('list-area'));
+    if(!rows) return;
+    FATTURE_ALL = rows;
     renderResults();
   }
   // Ridisegna l'elenco dai dati già in FATTURE_ALL, senza rifare la query
@@ -912,15 +794,8 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'fatture-fornitore-elenco');
-    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
-    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      openForm(elenco.find(x => x.id === btn.dataset.edit));
-    }));
-    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
-      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
-      if(tr.dataset.nc === '1'){ openNCInOwnPage(tr.dataset.num); return; }
-      openForm(elenco.find(x => x.id === tr.dataset.id));
-    }));
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      onSpecialRow: tr => { if(tr.dataset.nc !== '1') return false; openNCInOwnPage(tr.dataset.num); return true; } });
     area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
       togglePaid(elenco.find(x => x.id === btn.dataset.toggle));
     }));
@@ -934,41 +809,16 @@
         alert('Errore durante l\'eliminazione: ' + err.message);
       }
     }));
-    $('check-all').addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) elenco.forEach(f => PICK.add(f.id));
-      else elenco.forEach(f => PICK.delete(f.id));
-      renderResults();
-    });
-    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderResults();
-    }));
     const docsPerId = Object.fromEntries(elenco.map(f => [f.id, f]));
     const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, docsPerId));
     const bu = $('bulk-unpaid'); if(bu) bu.addEventListener('click', () => bulkMarkPaid(false, docsPerId));
     const bd = $('bulk-deselect'); if(bd) bd.addEventListener('click', deselectAll);
   }
 
-  async function doLogout(){
-    await store.signOut();
-    localStorage.removeItem('saas_company_id');
-    localStorage.removeItem('saas_company_nome');
-    location.href = 'index.html';
-  }
-
   async function init(){
-    const session = await store.getSession();
-    if(!session){ location.href = 'index.html'; return; }
-    companyId = localStorage.getItem('saas_company_id');
-    if(!companyId){ location.href = 'index.html'; return; }
-    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
-    window.SaasNav.render('fatture-fornitore', {
-      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
-      email: session.user.email,
-      onLogout: doLogout,
-    });
+    const ctx = await window.SaasDocPage.initPage(store, 'fatture-fornitore');
+    if(!ctx) return;
+    companyId = ctx.companyId; company = ctx.company;
 
     const [fornitori, ordini, ddtFornitore, noteCreditoFornitore] = await Promise.all([
       store.loadCollection('fornitori', companyId),
@@ -977,7 +827,7 @@
       store.loadCollection('noteCreditoFornitore', companyId),
     ]);
     fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
-    fornitoriArr = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity: 'base' }));
+    fornitoriArr = window.SaasDocPage.sortByNome(fornitori);
     ordiniPerFornitore = {};
     ordini.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
     allDdtfById = Object.fromEntries(ddtFornitore.map(d => [d.id, d]));
@@ -1015,14 +865,8 @@
       }
     }
 
-    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
-    // in un altro modulo (vedi app/lineage.js).
-    const pendingNum = window.SaasLineage.consumePendingOpenNum('fattureFornitore');
-    if(pendingNum){
-      const all = await store.loadCollection('fattureFornitore', companyId);
-      const found = all.find(x => x.num === pendingNum);
-      if(found) openForm(found);
-    }
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato in un altro modulo (app/lineage.js).
+    await window.SaasDocPage.openPendingFromLineage(store, companyId, 'fattureFornitore', openForm);
   }
   init();
 </script>

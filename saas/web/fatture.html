@@ -118,6 +118,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/doc-page.js"></script>
 <script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script src="app/biometric-lock.js"></script>
@@ -169,29 +170,12 @@
     ? requestedDocumentYear : String(new Date().getFullYear());
   let FFILT = { cliente: '', paid: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
-  function today(){ return new Date().toISOString().slice(0, 10); }
-  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
-  // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco,
-  // quando il documento indica una destinazione diversa dalla sede legale.
-  function destSub(it){
-    const cliente = clientiById[it.clienteId];
-    const dest = (it.destId && cliente && cliente.dest) ? cliente.dest.find(d => d.id === it.destId) : null;
-    return dest ? `<div style="font-size:11px;color:var(--faint);margin-top:1px">📍 ${esc(dest.nome || dest.citta || 'Sede')}</div>` : '';
-  }
-  function setMsg(text, kind){
-    const el = $('form-msg');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
-  }
+  // Funzioni comuni a tutte le pagine documento — vedi app/doc-page.js.
+  const { today, esc, eur, sortCmp, docTotale, impTot, ivaTot, lineNet, scEff } = window.SaasDocPage;
+  // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco.
+  function destSub(it){ return window.SaasDocPage.destSubHtml(clientiById[it.clienteId], it); }
+  function setMsg(text, kind){ window.SaasDocPage.showMsg($('form-msg'), text, kind); }
 
-  // ---- ordinamento colonne: come nel gestionale originale — un clic
-  // sull'intestazione ordina, un secondo clic inverte la direzione.
-  function sortCmp(va, vb, dir){
-    const mul = dir === 'asc' ? 1 : -1;
-    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
-    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
-  }
   function sortVal(key, f){
     if(key === 'num') return f.num || '';
     if(key === 'data') return f.data || '';
@@ -202,28 +186,12 @@
     if(key === 'incasso') return f.paid ? 1 : 0;
     return '';
   }
-  function th(key, label){
-    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
-    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
-  }
-  function setSort(key){
-    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
-    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderResults();
-  }
+  function th(key, label){ return window.SaasDocPage.thHtml(SORT, key, label); }
+  function setSort(key){ window.SaasDocPage.toggleSort(SORT, key); renderResults(); }
 
-  // Ricerca testuale: come Q nel gestionale originale (num + nome cliente).
-  function matchesQuery(it){
-    if(!Q) return true;
-    const party = (clientiById[it.clienteId] || {}).nome || '';
-    return (it.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
-  }
-  let searchTimer = null;
-  $('q').addEventListener('input', () => {
-    Q = $('q').value.trim().toLowerCase();
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);
-  });
+  // Ricerca testuale: numero + nome cliente.
+  function matchesQuery(it){ return window.SaasDocPage.matchesText(Q, it, (clientiById[it.clienteId] || {}).nome); }
+  window.SaasDocPage.bindSearch($('q'), q => { Q = q; renderResults(); });
 
   // ---- filtri: cliente, stato incasso, intervallo date -------------------
   function matchesFilter(f){
@@ -282,7 +250,7 @@
   }
   function renderFilterbar(){
     const active = FFILT.cliente || FFILT.paid || FFILT.from || FFILT.to;
-    const clientiArr = Object.values(clientiById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
+    const clientiArr = window.SaasDocPage.sortByNome(Object.values(clientiById));
     const copts = '<option value="">Tutti i clienti</option>' +
       clientiArr.map(c => `<option value="${c.id}" ${FFILT.cliente === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('');
     $('filter-area').innerHTML = `<div class="filterbar">
@@ -325,9 +293,7 @@
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
   }
-  // Riordino righe per trascinamento (vedi la stessa idea in ordini.html):
-  // solo la manetta ⠿ è draggable, non l'intera riga.
-  let dragSrcRow = null;
+  // Riordino righe per trascinamento: SaasDocPage.bindRowDrag() qui sotto.
   function bindRigaRow(tr){
     tr.querySelector('.r-cod').addEventListener('input', () => { delete tr.dataset.sourceDdtIndex; });
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
@@ -336,22 +302,7 @@
     // vedi clearLastBadge() più sotto.
     tr.querySelector('.r-prezzo').addEventListener('input', () => clearLastBadge(tr));
     tr.querySelector('.r-sconto').addEventListener('input', () => clearLastBadge(tr));
-    const handle = tr.querySelector('.drag-handle');
-    handle.addEventListener('dragstart', e => {
-      dragSrcRow = tr;
-      tr.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', '');
-    });
-    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
-    tr.addEventListener('dragover', e => {
-      if(!dragSrcRow || dragSrcRow === tr) return;
-      e.preventDefault();
-      const rect = tr.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
-    });
-    tr.addEventListener('drop', e => e.preventDefault());
+    window.SaasDocPage.bindRowDrag(tr);
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -366,14 +317,7 @@
         tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
-        // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
-        // già nel DOM, quindi si inserisce a mano invece di ripassare da
-        // rigaRowHtml().
-        clearLastBadge(tr);
-        if(last){
-          tr.dataset.last = '1';
-          tr.querySelector('.r-cod').closest('td').insertAdjacentHTML('beforeend', '<span class="lastp">ultimo prezzo</span>');
-        }
+        if(last) window.SaasDocPage.markLastBadge(tr); else clearLastBadge(tr);
         updateTotale();
         qtyEl.focus(); qtyEl.select();
       },
@@ -392,18 +336,7 @@
       iva: Number(tr.querySelector('.r-iva').value) || 0,
     })).filter(r => r.descr || r.cod);
   }
-  // Stessa aritmetica dello sconto del gestionale originale, cascata
-  // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
-  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
-  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
-  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
-  function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
-  // Imponibile e IVA come colonne a sé nell'elenco, come nel gestionale
-  // originale (non solo il Totale già scontato/con IVA inclusa).
-  function impTot(righe){ return (righe || []).reduce((s, r) => s + lineNet(r), 0); }
-  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + lineNet(r) * (r.iva || 0) / 100, 0); }
-  function scEff(s){ return +(((1 - scFactor(s)) * 100).toFixed(2)); }
-  function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
+  // Stessa aritmetica dello sconto per tutte le pagine documento: vedi app/doc-page.js.
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
   // ordini.html.
@@ -420,58 +353,13 @@
     $('f-ddt').innerHTML = '<option value="">— nessuno —</option>' +
       ddts.map(d => `<option value="${d.id}">${esc(d.num)}</option>`).join('');
   }
-  // Le destinazioni di consegna sono gestite in clienti.html (CDEST): qui
-  // si sceglie solo quale usare per QUESTO documento.
-  function refreshDestOptions(clienteId){
-    const cliente = clientiById[clienteId];
-    const dest = (cliente && cliente.dest) || [];
-    $('f-dest-wrap').hidden = dest.length === 0;
-    // Ordine alfabetico sull'etichetta mostrata (nome, o città se manca) —
-    // richiesto di seguito diretto dopo il fix dei menu cliente/fornitore:
-    // qui il vecchio gestionale non ordinava (le destinazioni restavano
-    // nell'ordine in cui erano state registrate sul cliente), ma per
-    // questo menu è stato chiesto esplicitamente l'ordine alfabetico.
-    const destSorted = [...dest].sort((a, b) => (a.nome || a.citta || '').localeCompare(b.nome || b.citta || '', 'it', { sensitivity:'base' }));
-    $('f-dest').innerHTML = '<option value="">Sede legale</option>' +
-      destSorted.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
-  }
-  // Ultimo prezzo VENDUTO A QUESTO CLIENTE per un prodotto — porta diretta
-  // di lastLinePrice()/lastClientPrice() nel vecchio gestionale, stessa
-  // funzione già portata in ordini.html/ddt.html: "nel vecchio gestionale
-  // [...] metteva in automatico l'ultimo prezzo venduto a quel cliente" —
-  // nell'originale è la stessa identica funzione (addProdToOrder()),
-  // condivisa da ordine/DDT/fattura/preventivo.
-  function lastClientPrice(clienteId, cod){
-    if(!clienteId || !cod) return null;
-    let best = null;
-    ['fattureCliente', 'ddt', 'ordiniCliente'].forEach(coll => {
-      (STORICO_PREZZI[coll] || []).forEach(d => {
-        if(d.clienteId !== clienteId) return;
-        const r = (d.righe || []).find(x => x.cod === cod);
-        if(r && r.prezzo != null && (!best || String(d.data) > String(best.data))){
-          best = { data: d.data, prezzo: r.prezzo, sconto: r.sconto || '' };
-        }
-      });
-    });
-    return best;
-  }
-  // Storico degli ultimi prezzi (fino a 5) venduti a QUESTO cliente per un
-  // prodotto — porta di priceHistory()/clientPriceHistory() nel vecchio
-  // gestionale, stessa fonte di lastClientPrice() qui sopra — per il
-  // tooltip al passaggio del mouse sul codice (vedi app/prodpicker.js).
-  function clientPriceHistory(clienteId, cod, limit){
-    if(!clienteId || !cod) return [];
-    const out = [];
-    ['fattureCliente', 'ddt', 'ordiniCliente'].forEach(coll => {
-      (STORICO_PREZZI[coll] || []).forEach(d => {
-        if(d.clienteId !== clienteId) return;
-        const r = (d.righe || []).find(x => x.cod === cod);
-        if(r && r.prezzo != null) out.push({ data: d.data, prezzo: r.prezzo, sconto: r.sconto || '', num: d.num });
-      });
-    });
-    out.sort((a, b) => String(b.data).localeCompare(String(a.data)));
-    return out.slice(0, limit || 5);
-  }
+  // Destinazione di consegna tra quelle registrate sul cliente (clienti.html).
+  function refreshDestOptions(clienteId){ window.SaasDocPage.fillDestOptions($('f-dest'), $('f-dest-wrap'), clientiById[clienteId]); }
+  // Ultimo prezzo VENDUTO A QUESTO CLIENTE per un prodotto (e lo storico
+  // per il tooltip di app/prodpicker.js) — vedi app/doc-page.js.
+  const STORICO_COLLS = ['fattureCliente', 'ddt', 'ordiniCliente'];
+  function lastClientPrice(clienteId, cod){ return clienteId ? window.SaasDocPage.lastLinePrice(STORICO_PREZZI, STORICO_COLLS, cod, d => d.clienteId === clienteId) : null; }
+  function clientPriceHistory(clienteId, cod, limit){ return clienteId ? window.SaasDocPage.linePriceHistory(STORICO_PREZZI, STORICO_COLLS, cod, d => d.clienteId === clienteId, limit) : []; }
   // priceHistory(cod) per SaasProdPicker.attach() in bindRigaRow() (autocompletamento riga).
   function priceHistoryForForm(cod){
     const cliId = $('f-cliente').value;
@@ -481,37 +369,10 @@
       rows: cliId ? clientPriceHistory(cliId, cod, 5) : [],
     };
   }
-  // Il badge "ultimo prezzo" (vedi rigaRowHtml()) sparisce se l'utente
-  // tocca prezzo o sconto a mano — stesso comportamento di ordini.html/
-  // ddt.html.
-  function clearLastBadge(tr){
-    delete tr.dataset.last;
-    const badge = tr.querySelector('.lastp');
-    if(badge) badge.remove();
-  }
-  // Cambiare cliente A FORM GIÀ APERTO riprezza le righe ancora col badge
-  // (non toccate a mano) per il nuovo cliente — porta di
-  // repriceForClient()/onClientePick() nel vecchio gestionale.
+  const clearLastBadge = window.SaasDocPage.clearLastBadge;
+  // Cambiare cliente a form già aperto riprezza le righe ancora col badge.
   async function repriceForClient(clienteId){
-    const rows = [...$('righe-body').querySelectorAll('tr')].filter(tr => tr.dataset.last === '1' && tr.querySelector('.r-cod').value.trim());
-    for(const tr of rows){
-      const cod = tr.querySelector('.r-cod').value.trim();
-      const last = lastClientPrice(clienteId, cod);
-      if(last){
-        tr.querySelector('.r-prezzo').value = last.prezzo;
-        tr.querySelector('.r-sconto').value = last.sconto || '';
-        continue;
-      }
-      let listino = 0;
-      try{
-        const found = await store.searchProdotti(companyId, cod, 5);
-        const p = found.find(x => x.cod === cod);
-        if(p) listino = p.listinoVen || 0;
-      }catch(e){ /* silenzioso: al più resta il prezzo già in campo */ }
-      tr.querySelector('.r-prezzo').value = listino;
-      tr.querySelector('.r-sconto').value = '';
-      clearLastBadge(tr);
-    }
+    await window.SaasDocPage.repriceRows($('righe-body'), cod => lastClientPrice(clienteId, cod), store, companyId, 'listinoVen');
     updateTotale();
   }
   $('f-cliente').addEventListener('change', () => {
@@ -581,18 +442,8 @@
     // correzione di fatture-fornitore.html ("Totale acquisti").
     $('stats-riga').hidden = true;
   }
-  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
-  // cliccabili con l'intera filiera della fattura, come nel vecchio
-  // gestionale.
-  async function renderLineage(fattura){
-    const panel = $('f-lineage-panel');
-    if(!fattura){ panel.hidden = true; return; }
-    try{
-      const docs = await window.SaasLineage.loadAll(store, companyId);
-      const shown = window.SaasLineage.renderInto($('f-lineage'), 'fattureCliente', fattura, docs);
-      panel.hidden = !shown;
-    }catch(e){ panel.hidden = true; }
-  }
+  // Box "Documenti collegati" (vedi app/lineage.js).
+  function renderLineage(doc){ return window.SaasDocPage.renderLineagePanel(store, companyId, $('f-lineage-panel'), $('f-lineage'), 'fattureCliente', doc); }
 
   // Pannello "Incassi" — stesso principio di pagamentiPanel()/addPagamento()/
   // delPagamento() nel gestionale originale (index.html), riscritto sullo
@@ -694,35 +545,7 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
-  $('f-btn-print').addEventListener('click', () => {
-    if(!editingFattura) return;
-    window.SaasPrint.openPrintWindow('fattureCliente', editingFattura, clientiById[editingFattura.clienteId], company);
-  });
-  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
-  $('f-dl-pdf').addEventListener('click', async () => {
-    if(!editingFattura) return;
-    const btn = $('f-dl-pdf');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadPDF('fattureCliente', editingFattura, clientiById[editingFattura.clienteId], company);
-    }catch(err){
-      alert('Errore durante la generazione del PDF: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
-  $('f-dl-excel').addEventListener('click', async () => {
-    if(!editingFattura) return;
-    const btn = $('f-dl-excel');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadExcel('fattureCliente', editingFattura, clientiById[editingFattura.clienteId], company);
-    }catch(err){
-      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
+  window.SaasDocPage.bindPrintActions($, 'fattureCliente', () => editingFattura, d => clientiById[d.clienteId], () => company);
   $('f-dl-xml').addEventListener('click', () => {
     if(!editingFattura) return;
     downloadFatturaPAXml(editingFattura);
@@ -1027,14 +850,9 @@
   // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
   // renderResults() qui sotto, non questa.
   async function renderList(){
-    const area = $('list-area');
-    area.innerHTML = '<p class="empty">Carico…</p>';
-    try{
-      FATTURE_ALL = await store.loadCollection('fattureCliente', companyId);
-    }catch(err){
-      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
-      return;
-    }
+    const rows = await window.SaasDocPage.loadList(store, 'fattureCliente', companyId, $('list-area'));
+    if(!rows) return;
+    FATTURE_ALL = rows;
     renderResults();
   }
   // Ridisegna l'elenco dai dati già in FATTURE_ALL, senza rifare la query
@@ -1113,25 +931,10 @@
           <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('incassata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da incassare'}</button></td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'fatture-elenco');
-    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
-    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
-      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
-      if(tr.dataset.nc === '1'){ openNCInOwnPage(tr.dataset.num); return; }
-      openForm(elenco.find(x => x.id === tr.dataset.id));
-    }));
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      onSpecialRow: tr => { if(tr.dataset.nc !== '1') return false; openNCInOwnPage(tr.dataset.num); return true; } });
     area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
       togglePaid(elenco.find(x => x.id === btn.dataset.toggle));
-    }));
-    $('check-all').addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) elenco.forEach(f => PICK.add(f.id));
-      else elenco.forEach(f => PICK.delete(f.id));
-      renderResults();
-    });
-    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderResults();
     }));
     const docsPerId = Object.fromEntries(elenco.map(f => [f.id, f]));
     const bp = $('bulk-paid'); if(bp) bp.addEventListener('click', () => bulkMarkPaid(true, docsPerId));
@@ -1139,24 +942,10 @@
     const bd = $('bulk-deselect'); if(bd) bd.addEventListener('click', deselectAll);
   }
 
-  async function doLogout(){
-    await store.signOut();
-    localStorage.removeItem('saas_company_id');
-    localStorage.removeItem('saas_company_nome');
-    location.href = 'index.html';
-  }
-
   async function init(){
-    const session = await store.getSession();
-    if(!session){ location.href = 'index.html'; return; }
-    companyId = localStorage.getItem('saas_company_id');
-    if(!companyId){ location.href = 'index.html'; return; }
-    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
-    window.SaasNav.render('fatture', {
-      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
-      email: session.user.email,
-      onLogout: doLogout,
-    });
+    const ctx = await window.SaasDocPage.initPage(store, 'fatture');
+    if(!ctx) return;
+    companyId = ctx.companyId; company = ctx.company;
 
     const [clienti, ordini, ddts, noteCredito, fattureClienteTutte] = await Promise.all([
       store.loadCollection('clienti', companyId),
@@ -1176,8 +965,7 @@
     STORICO_PREZZI = { fattureCliente: fattureClienteTutte, ddt: ddts, ordiniCliente: ordini };
     // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
     // clienti" della filterbar qui sopra (clientiArr).
-    $('f-cliente').innerHTML = [...clienti].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
-      .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    $('f-cliente').innerHTML = window.SaasDocPage.partyOptionsHtml(clienti);
 
     // Link "Totale fatturato"/"Da incassare dai clienti" dalla dashboard
     // (fatture.html?anno=2025): apre già filtrato Dal 1° gennaio Al 31
@@ -1204,14 +992,8 @@
       }
     }
 
-    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
-    // in un altro modulo (vedi app/lineage.js).
-    const pendingNum = window.SaasLineage.consumePendingOpenNum('fattureCliente');
-    if(pendingNum){
-      const all = await store.loadCollection('fattureCliente', companyId);
-      const found = all.find(x => x.num === pendingNum);
-      if(found) await openForm(found);
-    }
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato in un altro modulo (app/lineage.js).
+    await window.SaasDocPage.openPendingFromLineage(store, companyId, 'fattureCliente', openForm);
   }
   init();
 </script>

@@ -136,6 +136,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/doc-page.js"></script>
 <script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script src="app/biometric-lock.js"></script>
@@ -178,78 +179,17 @@
     ? requestedDocumentYear : String(new Date().getFullYear());
   let FFILT = { cliente: '', stato: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
-  function today(){ return new Date().toISOString().slice(0, 10); }
-  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
-  // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco —
-  // stessa funzione di ddt.html/fatture.html.
-  function destSub(it){
-    const cliente = clientiById[it.clienteId];
-    const dest = (it.destId && cliente && cliente.dest) ? cliente.dest.find(d => d.id === it.destId) : null;
-    return dest ? `<div style="font-size:11px;color:var(--faint);margin-top:1px">📍 ${esc(dest.nome || dest.citta || 'Sede')}</div>` : '';
-  }
-  // Le destinazioni di consegna sono gestite in clienti.html (CDEST): qui
-  // si sceglie solo quale usare per QUESTO ordine, tra quelle già
-  // registrate per il cliente selezionato — richiesta reale: "nel vecchio
-  // gestionale quando inserivo un ordine potevo scegliere anche la sede di
-  // destinazione [...] come era fatto nel vecchio gestionale" (ddt.html/
-  // fatture.html avevano già questo campo, ordini.html no — la stessa
-  // funzione, portata qui). "Sede legale" resta il default se il cliente
-  // non ne ha di aggiuntive.
-  function refreshDestOptions(clienteId){
-    const cliente = clientiById[clienteId];
-    const dest = (cliente && cliente.dest) || [];
-    $('f-dest-wrap').hidden = dest.length === 0;
-    // Ordine alfabetico sull'etichetta mostrata (nome, o città se manca) —
-    // richiesto di seguito diretto dopo il fix dei menu cliente/fornitore:
-    // qui il vecchio gestionale non ordinava (le destinazioni restavano
-    // nell'ordine in cui erano state registrate sul cliente), ma per
-    // questo menu è stato chiesto esplicitamente l'ordine alfabetico.
-    const destSorted = [...dest].sort((a, b) => (a.nome || a.citta || '').localeCompare(b.nome || b.citta || '', 'it', { sensitivity:'base' }));
-    $('f-dest').innerHTML = '<option value="">Sede legale</option>' +
-      destSorted.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
-  }
-  // Ultimo prezzo VENDUTO A QUESTO CLIENTE per un prodotto — porta diretta
-  // di lastLinePrice()/lastClientPrice() nel vecchio gestionale: cerca
-  // nelle fatture cliente, nei DDT e negli altri ordini DI QUEL CLIENTE la
-  // riga più recente con lo stesso codice (per data documento, non per
-  // ordine di caricamento) e ne riusa prezzo/sconto. Richiesta reale: "nel
-  // vecchio gestionale c'era una bella funzione [...] quando inserivo un
-  // ordine cliente metteva in automatico l'ultimo prezzo venduto a quel
-  // cliente" — STORICO_PREZZI è caricato una volta in init(), non ad ogni
-  // ricerca prodotto.
-  function lastClientPrice(clienteId, cod){
-    if(!clienteId || !cod) return null;
-    let best = null;
-    ['fattureCliente', 'ddt', 'ordiniCliente'].forEach(coll => {
-      (STORICO_PREZZI[coll] || []).forEach(d => {
-        if(d.clienteId !== clienteId) return;
-        const r = (d.righe || []).find(x => x.cod === cod);
-        if(r && r.prezzo != null && (!best || String(d.data) > String(best.data))){
-          best = { data: d.data, prezzo: r.prezzo, sconto: r.sconto || '' };
-        }
-      });
-    });
-    return best;
-  }
-  // Storico degli ultimi prezzi (fino a 5) venduti a QUESTO cliente per un
-  // prodotto — porta di priceHistory()/clientPriceHistory() nel vecchio
-  // gestionale: stessa fonte di lastClientPrice() qui sopra, ma l'elenco
-  // intero invece di solo il più recente — per il tooltip al passaggio del
-  // mouse sul codice (vedi app/prodpicker.js).
-  function clientPriceHistory(clienteId, cod, limit){
-    if(!clienteId || !cod) return [];
-    const out = [];
-    ['fattureCliente', 'ddt', 'ordiniCliente'].forEach(coll => {
-      (STORICO_PREZZI[coll] || []).forEach(d => {
-        if(d.clienteId !== clienteId) return;
-        const r = (d.righe || []).find(x => x.cod === cod);
-        if(r && r.prezzo != null) out.push({ data: d.data, prezzo: r.prezzo, sconto: r.sconto || '', num: d.num });
-      });
-    });
-    out.sort((a, b) => String(b.data).localeCompare(String(a.data)));
-    return out.slice(0, limit || 5);
-  }
+  // Funzioni comuni a tutte le pagine documento — vedi app/doc-page.js.
+  const { today, esc, eur, sortCmp, docTotale, impTot, ivaTot, ordineCompleto } = window.SaasDocPage;
+  // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco.
+  function destSub(it){ return window.SaasDocPage.destSubHtml(clientiById[it.clienteId], it); }
+  // Destinazione di consegna tra quelle registrate sul cliente (clienti.html).
+  function refreshDestOptions(clienteId){ window.SaasDocPage.fillDestOptions($('f-dest'), $('f-dest-wrap'), clientiById[clienteId]); }
+  // Ultimo prezzo VENDUTO A QUESTO CLIENTE per un prodotto (e lo storico
+  // per il tooltip di app/prodpicker.js) — vedi app/doc-page.js.
+  const STORICO_COLLS = ['fattureCliente', 'ddt', 'ordiniCliente'];
+  function lastClientPrice(clienteId, cod){ return clienteId ? window.SaasDocPage.lastLinePrice(STORICO_PREZZI, STORICO_COLLS, cod, d => d.clienteId === clienteId) : null; }
+  function clientPriceHistory(clienteId, cod, limit){ return clienteId ? window.SaasDocPage.linePriceHistory(STORICO_PREZZI, STORICO_COLLS, cod, d => d.clienteId === clienteId, limit) : []; }
   // priceHistory(cod) per SaasProdPicker.attach() in
   // bindRigaRow() (autocompletamento riga) — legge il cliente selezionato AL MOMENTO del passaggio
   // del mouse, non quando la pagina si è aperta (può essere cambiato nel
@@ -262,53 +202,17 @@
       rows: cliId ? clientPriceHistory(cliId, cod, 5) : [],
     };
   }
-  // Il badge "ultimo prezzo" (vedi rigaRowHtml()) sparisce se l'utente
-  // tocca prezzo o sconto a mano — segno che sta scegliendo un prezzo
-  // diverso da quello ripreso in automatico, stesso comportamento di
-  // updR() nel vecchio gestionale ("_man=true; _last=false" quando si
-  // modifica prezzo/sconto a mano).
-  function clearLastBadge(tr){
-    delete tr.dataset.last;
-    const badge = tr.querySelector('.lastp');
-    if(badge) badge.remove();
-  }
-  // Cambiare cliente A FORM GIÀ APERTO riprezza le righe ancora col badge
-  // "ultimo prezzo" (non toccate a mano) per il nuovo cliente — porta di
-  // repriceForClient()/onClientePick() nel vecchio gestionale. Senza uno
-  // storico per il nuovo cliente torna al prezzo di listino (una ricerca
-  // per codice esatto, come l'originale: mai lasciare il prezzo pensato
-  // per un ALTRO cliente).
+  const clearLastBadge = window.SaasDocPage.clearLastBadge;
+  // Cambiare cliente a form già aperto riprezza le righe ancora col badge.
   async function repriceForClient(clienteId){
-    const rows = [...$('righe-body').querySelectorAll('tr')].filter(tr => tr.dataset.last === '1' && tr.querySelector('.r-cod').value.trim());
-    for(const tr of rows){
-      const cod = tr.querySelector('.r-cod').value.trim();
-      const last = lastClientPrice(clienteId, cod);
-      if(last){
-        tr.querySelector('.r-prezzo').value = last.prezzo;
-        tr.querySelector('.r-sconto').value = last.sconto || '';
-        continue;
-      }
-      let listino = 0;
-      try{
-        const found = await store.searchProdotti(companyId, cod, 5);
-        const p = found.find(x => x.cod === cod);
-        if(p) listino = p.listinoVen || 0;
-      }catch(e){ /* silenzioso: al più resta il prezzo già in campo */ }
-      tr.querySelector('.r-prezzo').value = listino;
-      tr.querySelector('.r-sconto').value = '';
-      clearLastBadge(tr);
-    }
+    await window.SaasDocPage.repriceRows($('righe-body'), cod => lastClientPrice(clienteId, cod), store, companyId, 'listinoVen');
     updateTotale();
   }
   $('f-cliente').addEventListener('change', () => {
     refreshDestOptions($('f-cliente').value);
     repriceForClient($('f-cliente').value);
   });
-  function setMsg(text, kind){
-    const el = $('form-msg');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
-  }
+  function setMsg(text, kind){ window.SaasDocPage.showMsg($('form-msg'), text, kind); }
 
   // ---------------------------------------------------------------------------
   // Cascata ordine → DDT/fattura/ordine fornitore — logica condivisa in
@@ -329,19 +233,8 @@
     const s = window.SaasCascade.statoEvasione(o.righe, 'Consegnato');
     return s ? `<span class="badge ${s.cls}">${s.label}</span>` : `<span class="badge">Da evadere</span>`;
   }
-  // Box "Documenti collegati" (vedi app/lineage.js): un diagramma a nodi
-  // cliccabili con l'intera filiera dell'ordine, come nel vecchio
-  // gestionale — sostituisce la vecchia riga di testo piatta "DDT: ...
-  // Fatture: ... Ordini fornitore: ...".
-  async function renderLineage(ordine){
-    const panel = $('f-lineage-panel');
-    if(!ordine){ panel.hidden = true; return; }
-    try{
-      const docs = await window.SaasLineage.loadAll(store, companyId);
-      const shown = window.SaasLineage.renderInto($('f-lineage'), 'ordiniCliente', ordine, docs);
-      panel.hidden = !shown;
-    }catch(e){ panel.hidden = true; /* pannello non essenziale: il resto del form resta usabile */ }
-  }
+  // Box "Documenti collegati" (vedi app/lineage.js).
+  function renderLineage(doc){ return window.SaasDocPage.renderLineagePanel(store, companyId, $('f-lineage-panel'), $('f-lineage'), 'ordiniCliente', doc); }
 
   // Genera un DDT dal residuo dell'ordine (tutto quanto non ancora
   // consegnato, in un colpo solo — il caso più comune): apre ddt.html con
@@ -395,23 +288,9 @@
     else await renderList();
   }
 
-  // Barra + percentuale sopra la tabella righe — stesso identico calcolo
-  // delle colonne per riga (residuoRighe), solo aggregato sull'intero
-  // ordine. Nascosta per un ordine nuovo o senza pezzi ordinati (niente
-  // da mostrare).
+  // Barra + percentuale sopra la tabella righe.
   function renderEvasioneSummary(ordine){
-    const box = $('oc-evasione-summary');
-    if(!ordine){ box.hidden = true; return; }
-    const righe = window.SaasCascade.residuoRighe(ordine);
-    const totQ = righe.reduce((s, r) => s + (r.qty || 0), 0);
-    if(totQ === 0){ box.hidden = true; return; }
-    const consegnatoQ = righe.reduce((s, r) => s + Math.min(r.consegnato, r.qty || 0), 0);
-    const pct = Math.round(consegnatoQ / totQ * 100);
-    const col = pct >= 100 ? 'var(--accent)' : pct > 0 ? 'var(--blue)' : 'var(--amber)';
-    box.hidden = false;
-    $('oc-evasione-pct').textContent = `${consegnatoQ}/${totQ} pz · ${pct}%`;
-    $('oc-evasione-fill').style.width = pct + '%';
-    $('oc-evasione-fill').style.background = col;
+    window.SaasDocPage.renderEvasioneSummary(ordine, { box: $('oc-evasione-summary'), pct: $('oc-evasione-pct'), fill: $('oc-evasione-fill') });
   }
 
   // Bottoni "→ Genera DDT" / "→ Genera ordine fornitore" dentro il form di
@@ -474,13 +353,6 @@
     }
   });
 
-  // ---- ordinamento colonne: come nel gestionale originale — un clic
-  // sull'intestazione ordina, un secondo clic inverte la direzione.
-  function sortCmp(va, vb, dir){
-    const mul = dir === 'asc' ? 1 : -1;
-    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
-    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
-  }
   function sortVal(key, o){
     if(key === 'num') return o.num || '';
     if(key === 'data') return o.data || '';
@@ -495,36 +367,13 @@
     }
     return '';
   }
-  function th(key, label){
-    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
-    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
-  }
-  function setSort(key){
-    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
-    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderResults();
-  }
+  function th(key, label){ return window.SaasDocPage.thHtml(SORT, key, label); }
+  function setSort(key){ window.SaasDocPage.toggleSort(SORT, key); renderResults(); }
 
-  // Ricerca testuale: come Q nel gestionale originale (num + nome cliente).
-  function matchesQuery(it){
-    if(!Q) return true;
-    const party = (clientiById[it.clienteId] || {}).nome || '';
-    return (it.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
-  }
-  let searchTimer = null;
-  $('q').addEventListener('input', () => {
-    Q = $('q').value.trim().toLowerCase();
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);
-  });
+  // Ricerca testuale: numero + nome cliente.
+  function matchesQuery(it){ return window.SaasDocPage.matchesText(Q, it, (clientiById[it.clienteId] || {}).nome); }
+  window.SaasDocPage.bindSearch($('q'), q => { Q = q; renderResults(); });
 
-  // Completo = ogni riga interamente consegnata (qtyEv >= qty) — stessa
-  // definizione di evasione() in dashboard.html, così "aperti o parziali"
-  // qui seleziona esattamente gli stessi ordini che la dashboard conta.
-  function ordineCompleto(o){
-    const righe = o.righe || [];
-    return righe.length > 0 && righe.every(r => (r.qtyEv || 0) >= (r.qty || 0));
-  }
 
   // ---- filtri: cliente, stato evasione, intervallo date ------------------
   function matchesFilter(o){
@@ -539,7 +388,7 @@
   function clearFFilt(){ FFILT = { cliente:'', stato:'', from:'', to:'' }; renderResults(); }
   function renderFilterbar(){
     const active = FFILT.cliente || FFILT.stato || FFILT.from || FFILT.to;
-    const clientiArr = Object.values(clientiById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
+    const clientiArr = window.SaasDocPage.sortByNome(Object.values(clientiById));
     const copts = '<option value="">Tutti i clienti</option>' +
       clientiArr.map(c => `<option value="${c.id}" ${FFILT.cliente === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('');
     $('filter-area').innerHTML = `<div class="filterbar">
@@ -562,19 +411,8 @@
     if(active) $('ff-clear').addEventListener('click', clearFFilt);
   }
 
-  // ---- righe: editor dinamico -------------------------------------------
-  // Colonne "Consegnata"/"Residuo"/"Stato" (ev-col, nascoste via CSS per un
-  // ordine nuovo — vedi openForm()): sola lettura, riflettono r.qtyEv già
-  // presente sulla riga (portato da window.SaasCascade.residuoRighe(),
-  // MAI dall'editor stesso — vedi il commento su f-save più sotto sul
-  // perché l'editor non deve conoscere qtyEv).
-  function evasioneCellsHtml(r){
-    const consegnato = r.consegnato || 0;
-    const residuo = r.residuo != null ? r.residuo : Math.max(0, (r.qty || 0) - consegnato);
-    const done = residuo <= 0 && (r.qty || 0) > 0;
-    const stato = done ? '<span class="pill paid">consegnata</span>' : consegnato > 0 ? '<span class="pill partial">parziale</span>' : '<span class="pill unpaid">in attesa</span>';
-    return `<td class="ev-col num-col">${consegnato}</td><td class="ev-col num-col">${residuo}</td><td class="ev-col">${stato}</td>`;
-  }
+  // Colonne "Consegnata"/"Residuo"/"Stato" di sola lettura (ev-col, nascoste per un ordine nuovo).
+  function evasioneCellsHtml(r){ return window.SaasDocPage.evasioneCellsHtml(r, 'consegnata'); }
   function rigaRowHtml(r){
     r = r || { cod:'', descr:'', qty:1, prezzo:0, sconto:'', iva:22 };
     return `<tr ${r._last ? 'data-last="1"' : ''}>
@@ -596,13 +434,7 @@
     bindRigaRow(tr);
     updateTotale();
   }
-  // Riordino righe per trascinamento (come nel vecchio gestionale): solo
-  // la manetta ⠿ è draggable, non l'intera riga — altrimenti trascinare
-  // per selezionare del testo in un campo della riga (es. la descrizione)
-  // verrebbe scambiato per un trascinamento della riga stessa. L'ordine
-  // finale è quello del DOM: readRighe() lo legge già così, nessun indice
-  // esplicito da tenere in sincrono altrove.
-  let dragSrcRow = null;
+  // Riordino righe per trascinamento: SaasDocPage.bindRowDrag() qui sotto.
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
@@ -610,25 +442,7 @@
     // vedi clearLastBadge() più sopra.
     tr.querySelector('.r-prezzo').addEventListener('input', () => clearLastBadge(tr));
     tr.querySelector('.r-sconto').addEventListener('input', () => clearLastBadge(tr));
-    const handle = tr.querySelector('.drag-handle');
-    handle.addEventListener('dragstart', e => {
-      dragSrcRow = tr;
-      tr.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', ''); // alcuni browser esigono un dato qualunque perché il drag parta davvero
-    });
-    handle.addEventListener('dragend', () => {
-      tr.classList.remove('dragging');
-      dragSrcRow = null;
-    });
-    tr.addEventListener('dragover', e => {
-      if(!dragSrcRow || dragSrcRow === tr) return;
-      e.preventDefault(); // di norma un drop non è permesso: va abilitato esplicitamente qui
-      const rect = tr.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
-    });
-    tr.addEventListener('drop', e => e.preventDefault());
+    window.SaasDocPage.bindRowDrag(tr);
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -643,14 +457,7 @@
         tr.querySelector('.r-iva').value = p.iva ?? 22;
         const qtyEl = tr.querySelector('.r-qty');
         if (!Number(qtyEl.value)) qtyEl.value = 1;
-        // Badge "ultimo prezzo" (vedi rigaRowHtml()) — qui la riga esiste
-        // già nel DOM, quindi si inserisce a mano invece di ripassare da
-        // rigaRowHtml().
-        clearLastBadge(tr);
-        if(last){
-          tr.dataset.last = '1';
-          tr.querySelector('.r-cod').closest('td').insertAdjacentHTML('beforeend', '<span class="lastp">ultimo prezzo</span>');
-        }
+        if(last) window.SaasDocPage.markLastBadge(tr); else clearLastBadge(tr);
         updateTotale();
         qtyEl.focus(); qtyEl.select();
       },
@@ -692,16 +499,7 @@
     });
     return result;
   }
-  // Stessa aritmetica dello sconto del gestionale originale, cascata
-  // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
-  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
-  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
-  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
-  function docTotale(righe){ return righe.reduce((s, r) => s + rigaTotale(r), 0); }
-  // Imponibile e IVA come colonne a sé nell'elenco, come nel gestionale
-  // originale (non solo il Totale già scontato/con IVA inclusa).
-  function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
-  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
+  // Stessa aritmetica dello sconto per tutte le pagine documento: vedi app/doc-page.js.
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
 
   // Richiesta reale: "quando inserisco nuove righe vorrei che la pagina
@@ -762,35 +560,7 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
-  $('f-btn-print').addEventListener('click', () => {
-    if(!editingOrder) return;
-    window.SaasPrint.openPrintWindow('ordiniCliente', editingOrder, clientiById[editingOrder.clienteId], company);
-  });
-  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
-  $('f-dl-pdf').addEventListener('click', async () => {
-    if(!editingOrder) return;
-    const btn = $('f-dl-pdf');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadPDF('ordiniCliente', editingOrder, clientiById[editingOrder.clienteId], company);
-    }catch(err){
-      alert('Errore durante la generazione del PDF: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
-  $('f-dl-excel').addEventListener('click', async () => {
-    if(!editingOrder) return;
-    const btn = $('f-dl-excel');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadExcel('ordiniCliente', editingOrder, clientiById[editingOrder.clienteId], company);
-    }catch(err){
-      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
+  window.SaasDocPage.bindPrintActions($, 'ordiniCliente', () => editingOrder, d => clientiById[d.clienteId], () => company);
 
   // ---- importa ordine cliente da PDF/foto con l'AI --------------------------
   // Un cliente (farmacia) manda spesso il proprio ordine per email/WhatsApp
@@ -798,11 +568,7 @@
   // fatture-fornitore.html (vedi app/ai-import.js), qui per riconoscere il
   // CLIENTE che ordina invece del fornitore che fattura. Niente lotto/scad
   // richiesti: questo modulo non li ha (vedi rigaRowHtml sopra).
-  function aiImportStatus(text, kind){
-    const el = $('ai-import-status');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
-  }
+  function aiImportStatus(text, kind){ window.SaasDocPage.showMsg($('ai-import-status'), text, kind || 'info'); }
   const AI_IMPORT_INSTR = "Nel documento allegato c'è un ORDINE ricevuto da un CLIENTE (farmacia o struttura sanitaria che sta ordinando prodotti). Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: cliente (nome del cliente che ordina), data (formato AAAA-MM-GG, oggi se non indicata), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità ordinata, numero), prezzo (prezzo unitario, numero, 0 se non indicato), sconto (percentuali di sconto a cascata unite da '+', es. \"50+15\", stringa vuota se non c'è sconto), iva (aliquota IVA, numero, 22 se non indicata).";
     $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
@@ -913,14 +679,9 @@
   // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
   // renderResults() qui sotto, non questa — vedi il suo commento.
   async function renderList(){
-    const area = $('list-area');
-    area.innerHTML = '<p class="empty">Carico…</p>';
-    try{
-      ORDINI_ALL = await store.loadCollection('ordiniCliente', companyId);
-    }catch(err){
-      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
-      return;
-    }
+    const rows = await window.SaasDocPage.loadList(store, 'ordiniCliente', companyId, $('list-area'));
+    if(!rows) return;
+    ORDINI_ALL = rows;
     renderResults();
   }
   // Ridisegna l'elenco dai dati già in ORDINI_ALL, senza rifare la query di
@@ -966,25 +727,7 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ordini-elenco');
-    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
-    $('check-all').addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) ordini.forEach(o => PICK.add(o.id));
-      else ordini.forEach(o => PICK.delete(o.id));
-      renderResults();
-    });
-    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderResults();
-    }));
-    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      openForm(ordini.find(x => x.id === btn.dataset.edit));
-    }));
-    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
-      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
-      openForm(ordini.find(x => x.id === tr.dataset.id));
-    }));
+    window.SaasDocPage.bindElenco(area, { elenco: ordini, pick: PICK, rerender: renderResults, setSort, openForm });
     area.querySelectorAll('[data-gen-ddt]').forEach(btn => btn.addEventListener('click', () => {
       generaDDT(ordini.find(x => x.id === btn.dataset.genDdt));
     }));
@@ -1006,35 +749,20 @@
     }));
   }
 
-  async function doLogout(){
-    await store.signOut();
-    localStorage.removeItem('saas_company_id');
-    localStorage.removeItem('saas_company_nome');
-    location.href = 'index.html';
-  }
-
   async function init(){
-    const session = await store.getSession();
-    if(!session){ location.href = 'index.html'; return; }
-    companyId = localStorage.getItem('saas_company_id');
-    if(!companyId){ location.href = 'index.html'; return; }
+    const ctx = await window.SaasDocPage.initPage(store, 'ordini');
+    if(!ctx) return;
+    companyId = ctx.companyId; company = ctx.company;
     // Link "Prodotti da evadere" dalla dashboard (ordini.html?stato=aperti):
     // apre già filtrato sui soli ordini aperti/parziali, non su tutti.
     const urlStato = new URLSearchParams(location.search).get('stato');
     if(urlStato === 'aperti' || urlStato === 'evasi') FFILT.stato = urlStato;
-    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
-    window.SaasNav.render('ordini', {
-      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
-      email: session.user.email,
-      onLogout: doLogout,
-    });
 
     const clienti = await store.loadCollection('clienti', companyId);
     clientiById = Object.fromEntries(clienti.map(c => [c.id, c]));
     // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
     // clienti" della filterbar qui sopra (clientiArr).
-    $('f-cliente').innerHTML = [...clienti].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
-      .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    $('f-cliente').innerHTML = window.SaasDocPage.partyOptionsHtml(clienti);
 
     // Per lastClientPrice() qui sopra — caricate una volta, non ad ogni
     // ricerca prodotto. ordiniCliente qui è un elenco a sé apposta (non lo
@@ -1049,15 +777,8 @@
 
     await renderList();
 
-    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
-    // in un altro modulo (vedi app/lineage.js) — stesso meccanismo già
-    // usato per "Genera DDT"/"Genera fattura" qui sotto.
-    const pendingNum = window.SaasLineage.consumePendingOpenNum('ordiniCliente');
-    if(pendingNum){
-      const all = await store.loadCollection('ordiniCliente', companyId);
-      const found = all.find(x => x.num === pendingNum);
-      if(found) await openForm(found);
-    }
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato in un altro modulo (app/lineage.js).
+    await window.SaasDocPage.openPendingFromLineage(store, companyId, 'ordiniCliente', openForm);
   }
   init();
 </script>

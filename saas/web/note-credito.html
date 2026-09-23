@@ -89,6 +89,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/doc-page.js"></script>
 <script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script src="app/biometric-lock.js"></script>
@@ -122,22 +123,10 @@
     ? requestedDocumentYear : String(new Date().getFullYear());
   let FFILT = { cliente: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
-  function today(){ return new Date().toISOString().slice(0, 10); }
-  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function eur(n){ return (Number(n) || 0).toLocaleString('it-IT', { style:'currency', currency:'EUR' }); }
-  function setMsg(text, kind){
-    const el = $('form-msg');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
-  }
+  // Funzioni comuni a tutte le pagine documento — vedi app/doc-page.js.
+  const { today, esc, eur, sortCmp, docTotale, impTot, ivaTot } = window.SaasDocPage;
+  function setMsg(text, kind){ window.SaasDocPage.showMsg($('form-msg'), text, kind); }
 
-  // ---- ordinamento colonne: come nel gestionale originale — un clic
-  // sull'intestazione ordina, un secondo clic inverte la direzione.
-  function sortCmp(va, vb, dir){
-    const mul = dir === 'asc' ? 1 : -1;
-    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
-    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
-  }
   function sortVal(key, n){
     if(key === 'num') return n.num || '';
     if(key === 'data') return n.data || '';
@@ -148,28 +137,12 @@
     if(key === 'importo') return docTotale(n.righe || []);
     return '';
   }
-  function th(key, label){
-    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
-    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
-  }
-  function setSort(key){
-    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
-    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderResults();
-  }
+  function th(key, label){ return window.SaasDocPage.thHtml(SORT, key, label); }
+  function setSort(key){ window.SaasDocPage.toggleSort(SORT, key); renderResults(); }
 
-  // Ricerca testuale: come Q nel gestionale originale (num + nome cliente).
-  function matchesQuery(it){
-    if(!Q) return true;
-    const party = (clientiById[it.clienteId] || {}).nome || '';
-    return (it.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
-  }
-  let searchTimer = null;
-  $('q').addEventListener('input', () => {
-    Q = $('q').value.trim().toLowerCase();
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);
-  });
+  // Ricerca testuale: numero + nome cliente.
+  function matchesQuery(it){ return window.SaasDocPage.matchesText(Q, it, (clientiById[it.clienteId] || {}).nome); }
+  window.SaasDocPage.bindSearch($('q'), q => { Q = q; renderResults(); });
 
   // ---- filtri: cliente, intervallo date ----------------------------------
   function matchesFilter(n){
@@ -182,7 +155,7 @@
   function clearFFilt(){ FFILT = { cliente:'', from:'', to:'' }; renderResults(); }
   function renderFilterbar(){
     const active = FFILT.cliente || FFILT.from || FFILT.to;
-    const clientiArr = Object.values(clientiById).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }));
+    const clientiArr = window.SaasDocPage.sortByNome(Object.values(clientiById));
     const copts = '<option value="">Tutti i clienti</option>' +
       clientiArr.map(c => `<option value="${c.id}" ${FFILT.cliente === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('');
     $('filter-area').innerHTML = `<div class="filterbar">
@@ -220,28 +193,11 @@
     bindRigaRow($('righe-body').lastElementChild);
     updateTotale();
   }
-  // Riordino righe per trascinamento (vedi la stessa idea in ordini.html):
-  // solo la manetta ⠿ è draggable, non l'intera riga.
-  let dragSrcRow = null;
+  // Riordino righe per trascinamento: SaasDocPage.bindRowDrag() qui sotto.
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => { tr.remove(); updateTotale(); });
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateTotale));
-    const handle = tr.querySelector('.drag-handle');
-    handle.addEventListener('dragstart', e => {
-      dragSrcRow = tr;
-      tr.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', '');
-    });
-    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
-    tr.addEventListener('dragover', e => {
-      if(!dragSrcRow || dragSrcRow === tr) return;
-      e.preventDefault();
-      const rect = tr.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
-    });
-    tr.addEventListener('drop', e => e.preventDefault());
+    window.SaasDocPage.bindRowDrag(tr);
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -272,16 +228,7 @@
       iva: Number(tr.querySelector('.r-iva').value) || 0,
     })).filter(r => r.descr || r.cod);
   }
-  // Stessa aritmetica dello sconto del gestionale originale, cascata
-  // "N+M" inclusa (es. "50+15" = 50% e poi un altro 15% sul residuo).
-  function scParts(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0); }
-  function scFactor(s){ return scParts(s).reduce((f, p) => f * (1 - p / 100), 1); }
-  function rigaTotale(r){ const imp = r.qty * r.prezzo * scFactor(r.sconto); return imp + imp * r.iva / 100; }
-  function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
-  // Imponibile e IVA come colonne a sé nell'elenco, come nel gestionale
-  // originale (non solo l'Importo già scontato/con IVA inclusa).
-  function impTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto), 0); }
-  function ivaTot(righe){ return (righe || []).reduce((s, r) => s + r.qty * r.prezzo * scFactor(r.sconto) * (r.iva || 0) / 100, 0); }
+  // Stessa aritmetica dello sconto per tutte le pagine documento: vedi app/doc-page.js.
   function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
   // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
   // ordini.html.
@@ -332,18 +279,8 @@
     if(cancelled){ $('form-title').textContent = 'Nota annullata — ' + nc.num; setMsg('Documento annullato: consultazione e stampa disponibili.', ''); }
 
   }
-  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
-  // cliccabili con l'intera filiera della nota di credito, come nel
-  // vecchio gestionale.
-  async function renderLineage(nc){
-    const panel = $('f-lineage-panel');
-    if(!nc){ panel.hidden = true; return; }
-    try{
-      const docs = await window.SaasLineage.loadAll(store, companyId);
-      const shown = window.SaasLineage.renderInto($('f-lineage'), 'noteCredito', nc, docs);
-      panel.hidden = !shown;
-    }catch(e){ panel.hidden = true; }
-  }
+  // Box "Documenti collegati" (vedi app/lineage.js).
+  function renderLineage(doc){ return window.SaasDocPage.renderLineagePanel(store, companyId, $('f-lineage-panel'), $('f-lineage'), 'noteCredito', doc); }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingNc = null; }
   $('new-nc').addEventListener('click', async () => {
     if(Object.keys(clientiById).length === 0){ alert('Crea prima almeno un cliente.'); return; }
@@ -353,35 +290,7 @@
   });
   $('f-cancel').addEventListener('click', closeForm);
   $('f-back').addEventListener('click', closeForm);
-  $('f-btn-print').addEventListener('click', () => {
-    if(!editingNc) return;
-    window.SaasPrint.openPrintWindow('noteCredito', editingNc, clientiById[editingNc.clienteId], company);
-  });
-  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
-  $('f-dl-pdf').addEventListener('click', async () => {
-    if(!editingNc) return;
-    const btn = $('f-dl-pdf');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadPDF('noteCredito', editingNc, clientiById[editingNc.clienteId], company);
-    }catch(err){
-      alert('Errore durante la generazione del PDF: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
-  $('f-dl-excel').addEventListener('click', async () => {
-    if(!editingNc) return;
-    const btn = $('f-dl-excel');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadExcel('noteCredito', editingNc, clientiById[editingNc.clienteId], company);
-    }catch(err){
-      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
+  window.SaasDocPage.bindPrintActions($, 'noteCredito', () => editingNc, d => clientiById[d.clienteId], () => company);
 
   $('f-save').addEventListener('click', async () => {
     if($('f-save').disabled || editingNc?.annullato) return;
@@ -407,14 +316,9 @@
   // già scaricato (spunta una riga, ordina, filtra, cerca) deve chiamare
   // renderResults() qui sotto, non questa.
   async function renderList(){
-    const area = $('list-area');
-    area.innerHTML = '<p class="empty">Carico…</p>';
-    try{
-      NC_ALL = await store.loadCollection('noteCredito', companyId);
-    }catch(err){
-      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
-      return;
-    }
+    const rows = await window.SaasDocPage.loadList(store, 'noteCredito', companyId, $('list-area'));
+    if(!rows) return;
+    NC_ALL = rows;
     renderResults();
   }
   // Ridisegna l'elenco dai dati già in NC_ALL, senza rifare la query di
@@ -454,25 +358,7 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'note-credito-elenco');
-    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
-    $('check-all').addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) elenco.forEach(n => PICK.add(n.id));
-      else elenco.forEach(n => PICK.delete(n.id));
-      renderResults();
-    });
-    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderResults();
-    }));
-    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      openForm(elenco.find(x => x.id === btn.dataset.edit));
-    }));
-    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
-      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
-      openForm(elenco.find(x => x.id === tr.dataset.id));
-    }));
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm });
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const n = elenco.find(x => x.id === btn.dataset.del);
       if(n.annullato) return;
@@ -493,24 +379,10 @@
     return f ? f.num : '?';
   }
 
-  async function doLogout(){
-    await store.signOut();
-    localStorage.removeItem('saas_company_id');
-    localStorage.removeItem('saas_company_nome');
-    location.href = 'index.html';
-  }
-
   async function init(){
-    const session = await store.getSession();
-    if(!session){ location.href = 'index.html'; return; }
-    companyId = localStorage.getItem('saas_company_id');
-    if(!companyId){ location.href = 'index.html'; return; }
-    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
-    window.SaasNav.render('note-credito', {
-      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
-      email: session.user.email,
-      onLogout: doLogout,
-    });
+    const ctx = await window.SaasDocPage.initPage(store, 'note-credito');
+    if(!ctx) return;
+    companyId = ctx.companyId; company = ctx.company;
 
     const [clienti, fatture] = await Promise.all([
       store.loadCollection('clienti', companyId),
@@ -521,19 +393,12 @@
     fatture.forEach(f => { (fatturePerCliente[f.clienteId] = fatturePerCliente[f.clienteId] || []).push(f); });
     // Ordine alfabetico, non quello di caricamento — come il menu "Tutti i
     // clienti" della filterbar qui sopra (clientiArr).
-    $('f-cliente').innerHTML = [...clienti].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity:'base' }))
-      .map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    $('f-cliente').innerHTML = window.SaasDocPage.partyOptionsHtml(clienti);
 
     await renderList();
 
-    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
-    // in un altro modulo (vedi app/lineage.js).
-    const pendingNum = window.SaasLineage.consumePendingOpenNum('noteCredito');
-    if(pendingNum){
-      const all = await store.loadCollection('noteCredito', companyId);
-      const found = all.find(x => x.num === pendingNum);
-      if(found) await openForm(found);
-    }
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato in un altro modulo (app/lineage.js).
+    await window.SaasDocPage.openPendingFromLineage(store, companyId, 'noteCredito', openForm);
   }
   init();
 </script>

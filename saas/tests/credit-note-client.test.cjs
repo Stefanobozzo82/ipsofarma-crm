@@ -18,7 +18,7 @@ ctx.editingNc={...original,annullato:true};await ctx.save();assert.equal(calls.l
 test(kind+' read rows preserves metadata and zero VAT',()=>{
  const vals={'.r-cod':'X','.r-descr':'x','.r-lotto':'lot','.r-scad':'','.r-qty':'2','.r-prezzo':'3','.r-sconto':'','.r-iva':'0'};
  const tr={_original:{metadata:'keep',iva:22},querySelector:q=>({value:vals[q]})};const ctx={$:()=>({querySelectorAll:()=>[tr]})};
- vm.runInNewContext(html.slice(html.indexOf('  function readRighe(){'),html.indexOf('  function scParts(')),ctx);
+ vm.runInNewContext(html.slice(html.indexOf('  function readRighe(){'),html.indexOf('  // Stessa aritmetica')),ctx);
  const r=ctx.readRighe()[0];assert.equal(r.iva,0);assert.equal(r.metadata,'keep');
 });
 test(kind+' cancel sends reason and expected note, without deleting it',async()=>{

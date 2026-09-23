@@ -167,7 +167,11 @@
   let allFattureFornitoreById = {};
   let SORT = { key: 'data', dir: 'desc' };
   let Q = ''; // ricerca testuale sull'elenco, come Q nel gestionale originale
-  let FFILT = { forn: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
+  // Apertura sull'anno corrente; i link con anno esplicito conservano lo storico.
+  const requestedDocumentYear = new URLSearchParams(location.search).get('anno');
+  const initialDocumentYear = /^[1-9]\d{3}$/.test(requestedDocumentYear || '')
+    ? requestedDocumentYear : String(new Date().getFullYear());
+  let FFILT = { forn: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
   let PICK = new Set(); // id selezionati con la spunta: i pulsanti azione di una riga compaiono solo se è spuntata
   // Ultimo elenco scaricato da renderList() — usato da renderResults() per
   // ridisegnare senza rifare la query di rete quando cambia solo COME viene

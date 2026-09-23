@@ -172,7 +172,11 @@
   // FFILT.stato viene precompilato da ?stato=aperti nell'URL (link "Prodotti
   // da evadere" della dashboard, vedi dashboard.html): senza, l'elenco apriva
   // sempre su TUTTI gli ordini invece che solo quelli ancora da evadere.
-  let FFILT = { cliente: '', stato: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
+  // Apertura sull'anno corrente; i link con anno esplicito conservano lo storico.
+  const requestedDocumentYear = new URLSearchParams(location.search).get('anno');
+  const initialDocumentYear = /^[1-9]\d{3}$/.test(requestedDocumentYear || '')
+    ? requestedDocumentYear : String(new Date().getFullYear());
+  let FFILT = { cliente: '', stato: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
   function today(){ return new Date().toISOString().slice(0, 10); }
   function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }

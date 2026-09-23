@@ -159,7 +159,11 @@
   // (filterbar sui moduli documento) — qui applicata a fatture fornitore,
   // dove filtrare per fornitore/stato/intervallo di date è particolarmente
   // utile (è il modulo con più righe, e con più fornitori diversi).
-  let FFILT = { forn: '', paid: '', from: '', to: '' };
+  // Apertura sull'anno corrente; i link con anno esplicito conservano lo storico.
+  const requestedDocumentYear = new URLSearchParams(location.search).get('anno');
+  const initialDocumentYear = /^[1-9]\d{3}$/.test(requestedDocumentYear || '')
+    ? requestedDocumentYear : String(new Date().getFullYear());
+  let FFILT = { forn: '', paid: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` };
   let PICK = new Set(); // id selezionati per le azioni collettive (bulkbar), come PICK nell'originale
   // Ultimo elenco scaricato da renderList() — usato da renderResults() per
   // ridisegnare senza rifare la query di rete quando cambia solo COME viene
@@ -988,8 +992,7 @@
     // Link "Totale acquisti"/"Da pagare ai fornitori" dalla dashboard
     // (fatture-fornitore.html?anno=2025): apre già filtrato Dal 1° gennaio
     // Al 31 dicembre di quell'anno, invece che su tutti gli anni.
-    const urlAnno = new URLSearchParams(location.search).get('anno');
-    if(urlAnno){ FFILT.from = `${urlAnno}-01-01`; FFILT.to = `${urlAnno}-12-31`; }
+    // L'intervallo iniziale è impostato prima del primo caricamento.
 
     await renderList();
 

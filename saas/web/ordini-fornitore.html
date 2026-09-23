@@ -237,7 +237,11 @@
   // ricevere dai fornitori" della dashboard, vedi dashboard.html): senza,
   // l'elenco apriva sempre su TUTTI gli ordini invece che solo quelli
   // ancora da ricevere.
-  let FFILT = { fornitore: '', stato: '', from: '', to: '' }; // filtri sopra l'elenco, come FFILT nel gestionale originale
+  // Apertura sull'anno corrente; i link con anno esplicito conservano lo storico.
+  const requestedDocumentYear = new URLSearchParams(location.search).get('anno');
+  const initialDocumentYear = /^[1-9]\d{3}$/.test(requestedDocumentYear || '')
+    ? requestedDocumentYear : String(new Date().getFullYear());
+  let FFILT = { fornitore: '', stato: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
   function sortCmp(va, vb, dir){
     const mul = dir === 'asc' ? 1 : -1;
     if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;

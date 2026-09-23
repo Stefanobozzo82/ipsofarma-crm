@@ -6,7 +6,7 @@
  * "Elimina" premuto da un operatore non falliva con un messaggio: non
  * faceva semplicemente nulla, senza alcun avviso.
  * ============================================================================ */
-const { test, expect } = require('../helpers/testCompany');
+const { test, expect, testEmail } = require('../helpers/testCompany');
 const { acceptConfirms, captureDialogs } = require('../helpers/docHelpers');
 
 test('un operatore non può eliminare un ordine cliente (un admin sì)', async ({ company, browser }) => {
@@ -33,8 +33,8 @@ test('un operatore non può eliminare un ordine cliente (un admin sì)', async (
   // il link si costruisce dal token restituito dalla RPC (vedi il commento
   // "niente invio email automatico" in create_invite, 0008_inviti.sql).
   const invite = await page.evaluate(
-    ({ companyId }) => window.SaasStore.createInvite(companyId, `qa-op-${Date.now()}@example.com`, 'operatore'),
-    { companyId }
+    ({ companyId, email }) => window.SaasStore.createInvite(companyId, email, 'operatore'),
+    { companyId, email: testEmail(`op-${Date.now()}`) }
   );
   expect(invite.token).toBeTruthy();
 

@@ -130,6 +130,7 @@
   window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 </script>
 <script src="app/store.js"></script>
+<script src="app/doc-page.js"></script>
 <script src="app/theme-mode.js"></script>
 <script src="app/nav.js"></script>
 <script src="app/biometric-lock.js"></script>
@@ -178,21 +179,10 @@
   // mostrato (spunta, ordinamento, filtri, ricerca), non cosa contiene.
   let DDTF_ALL = [];
 
-  function today(){ return new Date().toISOString().slice(0, 10); }
-  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function setMsg(text, kind){
-    const el = $('form-msg');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
-  }
+  // Funzioni comuni a tutte le pagine documento — vedi app/doc-page.js.
+  const { today, esc, sortCmp, findOrdineByRiferimento } = window.SaasDocPage;
+  function setMsg(text, kind){ window.SaasDocPage.showMsg($('form-msg'), text, kind); }
 
-  // ---- ordinamento colonne: come nel gestionale originale — un clic
-  // sull'intestazione ordina, un secondo clic inverte la direzione.
-  function sortCmp(va, vb, dir){
-    const mul = dir === 'asc' ? 1 : -1;
-    if(typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
-    return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'it', { numeric:true }) * mul;
-  }
   function sortVal(key, d){
     if(key === 'num') return d.num || '';
     if(key === 'data') return d.data || '';
@@ -200,28 +190,12 @@
     if(key === 'ordine') return d.ofId ? ((allOrdiniFornitoreById[d.ofId] || {}).num || '') : '';
     return '';
   }
-  function th(key, label){
-    const on = SORT.key === key, ar = on ? (SORT.dir === 'asc' ? ' ↑' : ' ↓') : '';
-    return `<th class="thsort ${on ? 'on' : ''}" data-sort="${key}">${esc(label)}${ar}</th>`;
-  }
-  function setSort(key){
-    if(SORT.key === key) SORT.dir = SORT.dir === 'asc' ? 'desc' : 'asc';
-    else { SORT.key = key; SORT.dir = key === 'num' || key === 'data' ? 'desc' : 'asc'; }
-    renderResults();
-  }
+  function th(key, label){ return window.SaasDocPage.thHtml(SORT, key, label); }
+  function setSort(key){ window.SaasDocPage.toggleSort(SORT, key); renderResults(); }
 
-  // Ricerca testuale: come Q nel gestionale originale (num + nome fornitore).
-  function matchesQuery(it){
-    if(!Q) return true;
-    const party = (fornitoriById[it.fornitoreId] || {}).nome || '';
-    return (it.num || '').toLowerCase().includes(Q) || party.toLowerCase().includes(Q);
-  }
-  let searchTimer = null;
-  $('q').addEventListener('input', () => {
-    Q = $('q').value.trim().toLowerCase();
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderResults, 200);
-  });
+  // Ricerca testuale: numero + nome fornitore.
+  function matchesQuery(it){ return window.SaasDocPage.matchesText(Q, it, (fornitoriById[it.fornitoreId] || {}).nome); }
+  window.SaasDocPage.bindSearch($('q'), q => { Q = q; renderResults(); });
 
   // ---- filtri: fornitore, intervallo date --------------------------------
   function matchesFilter(d){
@@ -267,26 +241,10 @@
     if(r && Number.isInteger(r.source_order_index)) $('righe-body').lastElementChild.dataset.sourceOrderIndex = r.source_order_index;
     bindRigaRow($('righe-body').lastElementChild);
   }
-  // Riordino righe per trascinamento — vedi la stessa idea in ordini.html.
-  let dragSrcRow = null;
+  // Riordino righe per trascinamento: SaasDocPage.bindRowDrag() qui sotto.
   function bindRigaRow(tr){
     tr.querySelector('.rm-riga').addEventListener('click', () => tr.remove());
-    const handle = tr.querySelector('.drag-handle');
-    handle.addEventListener('dragstart', e => {
-      dragSrcRow = tr;
-      tr.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', '');
-    });
-    handle.addEventListener('dragend', () => { tr.classList.remove('dragging'); dragSrcRow = null; });
-    tr.addEventListener('dragover', e => {
-      if(!dragSrcRow || dragSrcRow === tr) return;
-      e.preventDefault();
-      const rect = tr.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height / 2;
-      tr.parentNode.insertBefore(dragSrcRow, before ? tr : tr.nextSibling);
-    });
-    tr.addEventListener('drop', e => e.preventDefault());
+    window.SaasDocPage.bindRowDrag(tr);
     // Stesso autocompletamento della barra di ricerca sopra la tabella, ma
     // dentro il campo "Codice" della riga stessa: scegliendo un prodotto
     // riempie questa riga invece di aggiungerne una nuova.
@@ -421,17 +379,8 @@
     $('form-card').hidden = false;
     $('list-card').hidden = true;
   }
-  // Box "Documenti collegati" (vedi app/lineage.js) — diagramma a nodi
-  // cliccabili con l'intera filiera del DDT fornitore.
-  async function renderLineage(ddtf){
-    const panel = $('f-lineage-panel');
-    if(!ddtf){ panel.hidden = true; return; }
-    try{
-      const docs = await window.SaasLineage.loadAll(store, companyId);
-      const shown = window.SaasLineage.renderInto($('f-lineage'), 'ddtFornitore', ddtf, docs);
-      panel.hidden = !shown;
-    }catch(e){ panel.hidden = true; }
-  }
+  // Box "Documenti collegati" (vedi app/lineage.js).
+  function renderLineage(doc){ return window.SaasDocPage.renderLineagePanel(store, companyId, $('f-lineage-panel'), $('f-lineage'), 'ddtFornitore', doc); }
   function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingDdtf = null; }
   $('new-ddtf').addEventListener('click', async () => {
     if($('f-fornitore').options.length === 0){ alert('Crea prima almeno un fornitore.'); return; }
@@ -446,35 +395,7 @@
     localStorage.setItem('saas_gen_ftf_from_ddtf', editingDdtf.id);
     location.href = 'fatture-fornitore.html';
   });
-  $('f-btn-print').addEventListener('click', () => {
-    if(!editingDdtf) return;
-    window.SaasPrint.openPrintWindow('ddtFornitore', editingDdtf, fornitoriById[editingDdtf.fornitoreId], company);
-  });
-  window.SaasPrint.bindDownloadMenu($('f-btn-download'), $('f-download-list'));
-  $('f-dl-pdf').addEventListener('click', async () => {
-    if(!editingDdtf) return;
-    const btn = $('f-dl-pdf');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadPDF('ddtFornitore', editingDdtf, fornitoriById[editingDdtf.fornitoreId], company);
-    }catch(err){
-      alert('Errore durante la generazione del PDF: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
-  $('f-dl-excel').addEventListener('click', async () => {
-    if(!editingDdtf) return;
-    const btn = $('f-dl-excel');
-    btn.disabled = true;
-    try{
-      await window.SaasPrint.downloadExcel('ddtFornitore', editingDdtf, fornitoriById[editingDdtf.fornitoreId], company);
-    }catch(err){
-      alert('Errore durante la generazione del file Excel: ' + (err.message || err));
-    }finally{
-      btn.disabled = false;
-    }
-  });
+  window.SaasDocPage.bindPrintActions($, 'ddtFornitore', () => editingDdtf, d => fornitoriById[d.fornitoreId], () => company);
 
   // ---- importa DDT da PDF/foto con l'AI ----------------------------------
   // Stesso schema di fatture-fornitore.html ("Importa"), senza lettura XML
@@ -482,21 +403,7 @@
   // prezzo/sconto/iva: un DDT cartaceo non li riporta MAI (documento di
   // trasporto, non contabile) — restano un dato dell'ordine collegato, non
   // di questo documento.
-  function aiImportStatus(text, kind){
-    const el = $('ai-import-status');
-    if(!text){ el.hidden = true; return; }
-    el.textContent = text; el.className = 'msg ' + (kind || 'info'); el.hidden = false;
-  }
-  // riferimentoOrdine/findOrdineByRiferimento: stessa identica funzione di
-  // fatture-fornitore.html — vedi i commenti lì.
-  function firstDigits(s){ const m = String(s || '').match(/\d+/); return m ? parseInt(m[0], 10) : null; }
-  function lastDigits(s){ const m = String(s || '').match(/\d+/g); return m ? parseInt(m[m.length - 1], 10) : null; }
-  function findOrdineByRiferimento(ordini, riferimento){
-    const rifNum = firstDigits(riferimento);
-    if(rifNum == null) return null;
-    const match = (ordini || []).filter(o => lastDigits(o.num) === rifNum);
-    return match.length === 1 ? match[0] : null; // ambiguo (0 o >1 candidati): meglio non collegare da soli
-  }
+  function aiImportStatus(text, kind){ window.SaasDocPage.showMsg($('ai-import-status'), text, kind || 'info'); }
   const AI_IMPORT_INSTR = "Nel documento allegato c'è un DOCUMENTO DI TRASPORTO (DDT) ricevuto da un FORNITORE insieme alla merce. Restituisci SOLO un oggetto JSON (nient'altro, niente backtick), con questi campi: fornitore (ragione sociale del fornitore mittente), numero (numero del DDT), data (formato AAAA-MM-GG), riferimentoOrdine (il NOSTRO numero d'ordine come lo riporta il fornitore, es. dopo un'etichetta \"Vs. ordine\"/\"Vs.ord.\"/\"Rif. cliente\"/\"Ordine cliente\"/\"PO\" — SOLO il numero, niente date o altro testo attorno; MAI il numero d'ordine interno del fornitore; stringa vuota se non chiaramente presente), righe: un array, per ogni riga cod (codice articolo alfanumerico, se presente altrimenti stringa vuota), descr (descrizione), qty (quantità consegnata, numero), lotto (il numero di lotto/partita indicato vicino alla riga articolo, es. \"Partita\" o \"Lotto\"; stringa vuota se assente), scad (la data di scadenza del lotto indicata vicino alla riga articolo, formato AAAA-MM-GG; stringa vuota se assente). Un documento di trasporto non riporta prezzi: NON leggerli né inventarli, ignora qualunque importo presente nel documento.";
     $('ai-import-file').addEventListener('change', async () => {
     const file = $('ai-import-file').files[0];
@@ -668,14 +575,9 @@
   // Scarica l'elenco da Supabase — SOLO quando i dati potrebbero davvero
   // essere cambiati (apertura pagina, dopo salvataggio/eliminazione...).
   async function renderList(){
-    const area = $('list-area');
-    area.innerHTML = '<p class="empty">Carico…</p>';
-    try{
-      DDTF_ALL = await store.loadCollection('ddtFornitore', companyId);
-    }catch(err){
-      area.innerHTML = `<p class="empty">Errore nel caricamento: ${esc(err.message)}</p>`;
-      return;
-    }
+    const rows = await window.SaasDocPage.loadList(store, 'ddtFornitore', companyId, $('list-area'));
+    if(!rows) return;
+    DDTF_ALL = rows;
     renderResults();
   }
   // Ridisegna l'elenco dai dati già in DDTF_ALL, senza rifare la query di
@@ -711,25 +613,7 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ddt-fornitore-elenco');
-    area.querySelectorAll('[data-sort]').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
-    $('check-all').addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) elenco.forEach(d => PICK.add(d.id));
-      else elenco.forEach(d => PICK.delete(d.id));
-      renderResults();
-    });
-    area.querySelectorAll('.row-check').forEach(ch => ch.addEventListener('click', e => {
-      e.stopPropagation();
-      if(e.target.checked) PICK.add(ch.dataset.id); else PICK.delete(ch.dataset.id);
-      renderResults();
-    }));
-    area.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
-      openForm(elenco.find(x => x.id === btn.dataset.edit));
-    }));
-    area.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
-      if(e.target.closest('button, input, a, select')) return; // non aprire se il clic è su un pulsante/checkbox della riga
-      openForm(elenco.find(x => x.id === tr.dataset.id));
-    }));
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm });
     area.querySelectorAll('[data-gen-ft]').forEach(btn => btn.addEventListener('click', () => {
       localStorage.setItem('saas_gen_ftf_from_ddtf', btn.dataset.genFt);
       location.href = 'fatture-fornitore.html';
@@ -748,24 +632,10 @@
     }));
   }
 
-  async function doLogout(){
-    await store.signOut();
-    localStorage.removeItem('saas_company_id');
-    localStorage.removeItem('saas_company_nome');
-    location.href = 'index.html';
-  }
-
   async function init(){
-    const session = await store.getSession();
-    if(!session){ location.href = 'index.html'; return; }
-    companyId = localStorage.getItem('saas_company_id');
-    if(!companyId){ location.href = 'index.html'; return; }
-    try{ company = await store.getCompany(companyId); }catch(e){ company = {}; } // niente PDF/stampa senza dati azienda? non deve comunque bloccare la pagina
-    window.SaasNav.render('ddt-fornitore', {
-      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
-      email: session.user.email,
-      onLogout: doLogout,
-    });
+    const ctx = await window.SaasDocPage.initPage(store, 'ddt-fornitore');
+    if(!ctx) return;
+    companyId = ctx.companyId; company = ctx.company;
 
     const [fornitori, ordiniFornitore, fattureFornitore] = await Promise.all([
       store.loadCollection('fornitori', companyId),
@@ -773,7 +643,7 @@
       store.loadCollection('fattureFornitore', companyId),
     ]);
     fornitoriById = Object.fromEntries(fornitori.map(f => [f.id, f]));
-    fornitoriArr = [...fornitori].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it', { sensitivity: 'base' }));
+    fornitoriArr = window.SaasDocPage.sortByNome(fornitori);
     allOrdiniFornitoreById = Object.fromEntries(ordiniFornitore.map(o => [o.id, o]));
     ordiniPerFornitore = {};
     ordiniFornitore.forEach(o => { (ordiniPerFornitore[o.fornitoreId] = ordiniPerFornitore[o.fornitoreId] || []).push(o); });
@@ -786,14 +656,8 @@
 
     await renderList();
 
-    // Apertura diretta da un nodo del box "Documenti collegati" cliccato
-    // in un altro modulo (vedi app/lineage.js).
-    const pendingNum = window.SaasLineage.consumePendingOpenNum('ddtFornitore');
-    if(pendingNum){
-      const all = await store.loadCollection('ddtFornitore', companyId);
-      const found = all.find(x => x.num === pendingNum);
-      if(found) await openForm(found);
-    }
+    // Apertura diretta da un nodo del box "Documenti collegati" cliccato in un altro modulo (app/lineage.js).
+    await window.SaasDocPage.openPendingFromLineage(store, companyId, 'ddtFornitore', openForm);
   }
   init();
 </script>

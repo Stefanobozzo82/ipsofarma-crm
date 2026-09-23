@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const html=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
 const functions=html.slice(html.indexOf('  async function showInvitePreview(){'),html.indexOf("  $('company-list').addEventListener"));
 function fixture(session,memberships,preview){
- const nodes={};const ctx={inviteToken:preview?'token':null,mode:'signin',$:id=>nodes[id]??= {textContent:'',innerHTML:''},show:()=>{},setMsg:()=>{},sb:{auth:{getSession:async()=>({data:{session}})},from:()=>({select:async()=>({data:memberships})}),rpc:async()=>({data:[preview]})}};
+ const nodes={};const ctx={accountRecovery:{isActive:()=>false},inviteToken:preview?'token':null,mode:'signin',$:id=>nodes[id]??= {textContent:'',innerHTML:''},show:()=>{},setMsg:()=>{},sb:{auth:{getSession:async()=>({data:{session}})},from:()=>({select:async()=>({data:memberships})}),rpc:async()=>({data:[preview]})}};
  vm.runInNewContext(functions,ctx);return {ctx,nodes};
 }
 test('company list escapes markup and attribute delimiters in every external value',async()=>{

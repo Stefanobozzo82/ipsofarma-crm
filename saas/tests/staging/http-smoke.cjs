@@ -109,8 +109,17 @@ insert into public.ddt_fornitore(id,company_id,num,data,fornitore_id,righe) valu
    const missingConfiguration=[500,503].includes(post.status)&&/configurat/i.test(post.data?.error||'');
    // A plan without a configured Stripe price stops before the secret check.
    const missingPrice=endpoint==='stripe-checkout'&&post.status===400&&/prezzo Stripe configurato/i.test(post.data?.error||'');
-   edgeStatuses.push({endpoint,allowedOptions:allowed.status,deniedOptions:denied.status,authenticatedPost:post.status,invalidJwt:post.status===401&&/invalid jwt/i.test(post.data?.message||post.data?.error||''),configurationRejected:missingConfiguration||missingPrice});
+   const salesClosed=endpoint==='stripe-checkout'&&post.status===503&&/prezzi sono in definizione/i.test(post.data?.error||'');
+   edgeStatuses.push({endpoint,allowedOptions:allowed.status,deniedOptions:denied.status,authenticatedPost:post.status,invalidJwt:post.status===401&&/invalid jwt/i.test(post.data?.message||post.data?.error||''),configurationRejected:missingConfiguration||missingPrice||salesClosed});
   }
+  for(const u of [users[1],users[2]]){
+   const portal=await http('/functions/v1/stripe-checkout',u.token,{action:'portal',company_id:companyA,return_url:origin+'/abbonamento.html'},'POST',{Origin:origin});
+   check(portal.status===403,'Unauthorized billing portal access accepted');
+  }
+  const invalidPortal=await http('/functions/v1/stripe-checkout',users[0].token,{action:'portal',company_id:companyA,return_url:'https://evil.example.invalid'},'POST',{Origin:origin});
+  check(invalidPortal.status===400,'Foreign portal return URL accepted');
+  const portalNoProvider=await http('/functions/v1/stripe-checkout',users[0].token,{action:'portal',company_id:companyA,return_url:origin+'/abbonamento.html'},'POST',{Origin:origin});
+  check(portalNoProvider.status===503,'Portal missing provider must fail closed');
   const webhook=await http('/functions/v1/stripe-webhook',null,{id:'evt_smoke_invalid',type:'test',created:0,data:{object:{}}},'POST',{'Stripe-Signature':'t=0,v1=invalid'});
   edgeStatuses.push({endpoint:'stripe-webhook',invalidSignature:webhook.status});
   for(const item of edgeStatuses){

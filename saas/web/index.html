@@ -71,6 +71,7 @@
     <label for="password">Password</label>
     <input id="password" type="password" autocomplete="current-password" placeholder="La tua password">
     <button id="auth-submit">Accedi</button>
+    <button id="forgot-password" class="ghost" type="button">Password dimenticata?</button>
     <div class="switch">
       <span id="switch-text">Non hai un account?</span> <a id="switch-link">Registrati</a>
     </div>
@@ -78,6 +79,27 @@
   </div>
 
   <!-- stato: collegato, nessuna azienda -->
+  <div class="card" id="reset-box" hidden>
+    <form id="reset-form">
+      <label for="reset-email">Email del tuo account</label>
+      <input id="reset-email" type="email" autocomplete="email" required>
+      <button id="reset-submit" type="submit">Invia link di recupero</button>
+      <button id="reset-back" type="button" class="ghost">Torna all’accesso</button>
+      <div id="reset-msg" class="msg" role="status" hidden></div>
+    </form>
+  </div>
+  <div class="card" id="recovery-box" hidden>
+    <form id="recovery-form">
+      <label for="new-password">Nuova password</label>
+      <input id="new-password" type="password" autocomplete="new-password" minlength="12" required>
+      <p class="hint">Usa almeno 12 caratteri.</p>
+      <label for="confirm-password">Conferma nuova password</label>
+      <input id="confirm-password" type="password" autocomplete="new-password" minlength="12" required>
+      <button id="recovery-submit" type="submit" disabled>Aggiorna password</button>
+      <button id="recovery-back" type="button" class="ghost">Torna all’accesso</button>
+      <div id="recovery-msg" class="msg" role="status" hidden></div>
+    </form>
+  </div>
   <div class="card" id="register-box" hidden>
     <p class="hint" style="margin-top:0">Sei collegato. Non appartieni ancora a nessuna azienda: creane una per iniziare.</p>
     <label for="company-nome">Nome azienda</label>
@@ -100,15 +122,18 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="app/pwa.js"></script>
+<script src="app/account-recovery.js"></script>
 <script>
   // Valori pubblici (protetti dalla Row Level Security, non da tenere segreti):
   const SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
 
+  const recoveryRequested = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const $ = id => document.getElementById(id);
-  const show = (...ids) => { ['loading','auth-box','register-box','dashboard-box'].forEach(i => $(i).hidden = !ids.includes(i)); };
+  const show = (...ids) => { ['loading','auth-box','register-box','dashboard-box','reset-box','recovery-box'].forEach(i => $(i).hidden = !ids.includes(i)); };
+  const accountRecovery = window.SaasAccountRecovery({sb, $, show, setMsg, requested:recoveryRequested});
 
   // Se qualcuno ha aperto questo link con ?invite=<token> (condiviso a mano
   // da un admin — niente invio email automatico, vedi 0008_inviti.sql),
@@ -156,6 +181,7 @@
     setMsg('auth-msg', '', '');
     try{
       if(mode === 'signup'){
+        if(password.length < 12) throw new Error('Per registrarti usa una password di almeno 12 caratteri.');
         const { error } = await sb.auth.signUp({ email, password });
         if(error) throw error;
         setMsg('auth-msg', 'Account creato. Se è richiesta la conferma email, controlla la casella di posta prima di accedere.', 'ok');
@@ -225,6 +251,7 @@
   async function refresh(){
     show('loading');
     const { data: { session } } = await sb.auth.getSession();
+    if(accountRecovery.isActive()){ accountRecovery.showIfRequested(); return; }
     if(!session){
       $('page-title').textContent = mode === 'signin' ? 'Accesso' : 'Registrazione';
       await showInvitePreview();

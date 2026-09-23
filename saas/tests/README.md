@@ -11,6 +11,8 @@ npm ci --ignore-scripts
 npm test
 ```
 
+I test end-to-end nel browser vero (Playwright, con una propria azienda usa-e-getta per ogni test) sono a parte, in [`e2e/`](e2e/README.md): il runner qui sopra (`tests/*.test.cjs`) non li raccoglie.
+
 I test browser/Edge eseguono il codice effettivo con store, Supabase e provider simulati:
 
 - `coverage.test.cjs`: copertura quantitativa ordini fornitore, residui, righe duplicate, più ordini e link legacy. Sulla baseline `7cc2b0e` 7 degli 11 test falliscono; con la correzione passano tutti.

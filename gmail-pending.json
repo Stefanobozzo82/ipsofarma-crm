@@ -941,6 +941,119 @@
         "totale": 1005.768
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-24T08:37:53.290Z",
+      "msgId": "1a0d24bde19b6586",
+      "file": "5718114626.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A.",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718114626",
+        "date": "2026-09-23",
+        "order_ref": "Rif.cliente Vs.ord. 44",
+        "lines": [
+          {
+            "cod": "C3090882",
+            "descr": "OPTILENE 2/0 (3) 75CM 2XGS60",
+            "qty": 1,
+            "prezzo": 81.89,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "624046",
+            "scad": "2029-01-27"
+          },
+          {
+            "cod": "C3090882",
+            "descr": "OPTILENE 2/0 (3) 75CM 2XGS60",
+            "qty": 1,
+            "prezzo": 272.97,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "624144",
+            "scad": "2029-04-04"
+          }
+        ],
+        "totale": 432.92920000000004
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-24T08:37:53.291Z",
+      "msgId": "1a0d24bad8d59285",
+      "file": "5718114625.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718114625",
+        "date": "2026-09-23",
+        "order_ref": "Rif.cliente Vs.ord. 221",
+        "lines": [
+          {
+            "cod": "8722960",
+            "descr": "SET PERFUSOR PVC 150 CM",
+            "qty": 1,
+            "prezzo": 82,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26G05E8SB5",
+            "scad": "2031-07-01"
+          },
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 1,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26E18H8B02",
+            "scad": "2031-05-01"
+          }
+        ],
+        "totale": 203.74
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-24T08:37:53.291Z",
+      "msgId": "1a0d24b82f38ec09",
+      "file": "5718114624.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718114624",
+        "date": "2026-09-23",
+        "order_ref": "Rif.cliente Vs.ord. 220",
+        "lines": [
+          {
+            "cod": "BA712R",
+            "descr": "DERMATOMO BRAITHWAITE 320MM",
+            "qty": 1,
+            "prezzo": 1100.63,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 1342.7686
+      },
+      "src": "Gmail"
     }
   ]
 }

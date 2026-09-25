@@ -1,0 +1,843 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Isola Stellata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap">
+<style>
+:root{--ink:#16213e;--gold:#ffcf3a;--coral:#ff6b5a;--sky:#7ec8f0;--paper:#fff8e6;--mint:#4fd67a;color-scheme:dark}
+html,body{height:100%;margin:0;background:var(--ink);overflow:hidden;font-family:Nunito,system-ui,sans-serif;color:var(--paper);-webkit-user-select:none;user-select:none}
+[hidden]{display:none!important}
+#stage{position:fixed;inset:0;touch-action:none}
+#stage canvas{display:block;width:100%;height:100%}
+.hud{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:16px;right:16px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;font-family:Bungee,Impact,sans-serif;font-size:clamp(16px,2.4vw,24px);text-shadow:0 3px 0 var(--ink),0 0 8px rgba(0,0,0,.35);font-variant-numeric:tabular-nums}
+.counters{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;align-items:center;gap:8px}
+.ico{width:1.15em;height:1.15em;filter:drop-shadow(0 3px 0 var(--ink))}
+.coin{width:.9em;height:.9em;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,var(--gold) 45%,#c98a00);border:3px solid var(--ink);display:inline-block;box-sizing:border-box}
+.coin.red{background:radial-gradient(circle at 35% 35%,#ffc2b8,var(--coral) 45%,#b3241a)}
+.right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.meter{--p:1;--hpc:var(--mint);width:clamp(56px,8vw,80px);aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--hpc) calc(var(--p) * 1turn),rgba(22,33,62,.75) 0);border:4px solid var(--ink);display:grid;place-items:center;box-shadow:0 3px 0 rgba(0,0,0,.3);box-sizing:border-box}
+.meter span{font-size:.85em}
+.small{font-size:.72em}
+.tools{display:flex;gap:6px;pointer-events:auto}
+.tool{font-family:Bungee,Impact,sans-serif;font-size:12px;background:rgba(22,33,62,.7);color:var(--paper);border:2px solid rgba(255,248,230,.5);border-radius:8px;padding:5px 8px;cursor:pointer}
+.tool:focus-visible,.btn:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
+#banner{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%) scale(.9);font-family:Bungee,Impact,sans-serif;font-size:clamp(26px,6vw,58px);line-height:1.05;color:var(--gold);text-shadow:0 4px 0 var(--ink),0 0 18px rgba(0,0,0,.3);pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;text-align:center;width:min(90vw,900px);text-wrap:balance}
+#banner small{display:block;font-size:.4em;color:var(--paper);margin-top:8px}
+#banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(22,33,62,.55);padding:16px;overflow:auto}
+.card{max-width:540px;width:100%;box-sizing:border-box;background:var(--paper);color:var(--ink);border-radius:18px;padding:clamp(20px,4vw,32px);box-shadow:0 8px 0 var(--ink),0 20px 60px rgba(0,0,0,.35)}
+.card h1{font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:clamp(32px,7vw,52px);margin:0;line-height:1;color:var(--coral);text-wrap:balance;text-shadow:0 3px 0 var(--ink)}
+.card h2{font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:clamp(24px,5vw,36px);margin:0;color:var(--coral);text-wrap:balance}
+.card p{margin:10px 0 0;font-size:16px;line-height:1.5;max-width:60ch}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:18px 0 22px;font-size:15px;align-items:center}
+kbd{font-family:Bungee,Impact,sans-serif;font-size:11px;letter-spacing:.04em;background:var(--ink);color:var(--paper);border-radius:6px;padding:4px 8px;white-space:nowrap}
+.btn{font-family:Bungee,Impact,sans-serif;font-size:20px;background:var(--gold);color:var(--ink);border:0;border-radius:12px;padding:12px 30px;box-shadow:0 5px 0 var(--ink);cursor:pointer}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.stars{list-style:none;padding:0;margin:16px 0 22px;display:grid;gap:8px;font-size:15px}
+.stars li{display:flex;gap:10px;align-items:baseline}
+.stars b{font-family:Bungee,Impact,sans-serif;font-weight:400;width:1.2em;color:#b8b0a0}
+.stars li.got b{color:#e0a800}
+.stars li.got span{text-decoration:line-through;opacity:.6}
+.stars em{font-style:normal;opacity:.65;font-size:13px}
+.touch-only{display:none!important}
+body.touch .touch-only{display:block!important}
+body.touch .desk-only{display:none!important}
+#joy{position:fixed;left:20px;bottom:calc(24px + env(safe-area-inset-bottom,0px));width:128px;height:128px;border-radius:50%;background:rgba(255,248,230,.16);border:3px solid rgba(255,248,230,.5);touch-action:none}
+#knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px;border-radius:50%;background:rgba(255,248,230,.88);box-shadow:0 3px 0 var(--ink)}
+.tbtn{position:fixed;width:76px;height:76px;border-radius:50%;font-family:Bungee,Impact,sans-serif;font-size:13px;color:var(--ink);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);touch-action:none;padding:0}
+#bJump{right:20px;bottom:calc(52px + env(safe-area-inset-bottom,0px));background:var(--gold)}
+#bPound{right:108px;bottom:calc(22px + env(safe-area-inset-bottom,0px));background:var(--coral);width:62px;height:62px;font-size:11px}
+.keys.touch-only{display:none!important}
+body.touch .keys.touch-only{display:grid!important}
+@media (prefers-reduced-motion: reduce){#banner{transition:none}}
+</style>
+</head><body>
+
+<div id="stage"></div>
+
+<div class="hud">
+  <div class="counters">
+    <div class="row"><svg class="ico" viewBox="-1.15 -1.15 2.3 2.3" aria-hidden="true"><path d="M0 -1L.26 -.36L.95 -.31L.43 .14L.59 .81L0 .45L-.59 .81L-.43 .14L-.95 -.31L-.26 -.36Z" fill="#ffcf3a" stroke="#16213e" stroke-width=".14" stroke-linejoin="round"/></svg><span id="hStars">0/6</span></div>
+    <div class="row"><i class="coin"></i><span id="hCoins">0</span></div>
+    <div class="row"><i class="coin red"></i><span id="hRed">0/8</span></div>
+  </div>
+  <div class="right">
+    <div class="meter" id="meter" title="Energia"><span id="hHp">8</span></div>
+    <div class="small" id="hLives">Tino ×4</div>
+    <div class="small" id="hTime">0:00</div>
+    <div class="tools">
+      <button class="tool" id="bMute" type="button">Audio sì</button>
+      <button class="tool" id="bPause" type="button">Pausa</button>
+    </div>
+  </div>
+</div>
+
+<div id="banner"></div>
+
+<div id="joy" class="touch-only" hidden><div id="knob"></div></div>
+<button id="bJump" class="tbtn touch-only" type="button" hidden>Salta</button>
+<button id="bPound" class="tbtn touch-only" type="button" hidden>Pesta</button>
+
+<div class="overlay" id="startScreen">
+  <div class="card">
+    <h1>Isola Stellata</h1>
+    <p>Tino è naufragato su un'isola dove sono cadute sei stelle. Esplora il colle, la torre, la scala nel cielo e l'isolotto al largo per ritrovarle tutte.</p>
+    <div class="keys desk-only">
+      <kbd>WASD / frecce</kbd><span>Muoviti</span>
+      <kbd>Spazio</kbd><span>Salta. Salta di nuovo appena atterri, correndo, per il doppio e il triplo salto</span>
+      <kbd>Shift / K</kbd><span>In aria: schianto a terra, stende i nemici vicini</span>
+      <kbd>Trascina / Q E</kbd><span>Ruota la telecamera. Rotellina per lo zoom</span>
+      <kbd>P / Esc</kbd><span>Pausa ed elenco stelle</span>
+    </div>
+    <div class="keys touch-only">
+      <kbd>Joystick</kbd><span>Muoviti</span>
+      <kbd>Salta</kbd><span>Tocca di nuovo appena atterri per il triplo salto</span>
+      <kbd>Pesta</kbd><span>In aria: schianto a terra</span>
+      <kbd>Trascina</kbd><span>Ruota la telecamera</span>
+    </div>
+    <button class="btn" id="bPlay" type="button">Gioca</button>
+  </div>
+</div>
+
+<div class="overlay" id="pauseScreen" hidden>
+  <div class="card">
+    <h2>Pausa</h2>
+    <ul class="stars" id="starList"></ul>
+    <button class="btn" id="bResume" type="button">Riprendi</button>
+  </div>
+</div>
+
+<div class="overlay" id="endScreen" hidden>
+  <div class="card">
+    <h1 id="endTitle">Isola completata!</h1>
+    <p id="endText"></p>
+    <p style="margin-bottom:22px"></p>
+    <button class="btn" id="bAgain" type="button">Rigioca</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const V3 = THREE.Vector3;
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const TAU = Math.PI * 2;
+
+// ---------- renderer / scene ----------
+const stage = $('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const SKY = 0x86cdf2;
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 70, 190);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+scene.add(new THREE.HemisphereLight(0xe4f6ff, 0x4f7a3a, 0.75));
+const sun = new THREE.DirectionalLight(0xfff0d0, 0.95);
+sun.position.set(40, 60, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 220 });
+sun.shadow.bias = -0.0006;
+sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun);
+
+const matCache = {};
+function M(color, extra) {
+  const k = color + (extra ? JSON.stringify(extra) : '');
+  return matCache[k] || (matCache[k] = new THREE.MeshStandardMaterial(Object.assign({ color, flatShading: true, roughness: 0.85, metalness: 0 }, extra)));
+}
+function add(mesh, cast = true, recv = true) {
+  mesh.castShadow = cast; mesh.receiveShadow = recv; scene.add(mesh); return mesh;
+}
+
+// ---------- solids ----------
+const solids = [];
+function box(cx, cy, cz, sx, sy, sz, color) {
+  const m = add(new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), M(color)));
+  m.position.set(cx, cy, cz);
+  const s = { type: 'box', cx, cz, hx: sx / 2, hz: sz / 2, bottom: cy - sy / 2, top: cy + sy / 2, mesh: m, delta: new V3() };
+  solids.push(s); return s;
+}
+function cyl(x, z, r, bottom, top, color, seg = 28) {
+  const h = top - bottom;
+  const mat = Array.isArray(color) ? color.map(c => M(c)) : M(color);
+  const m = add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), mat));
+  m.position.set(x, bottom + h / 2, z);
+  const s = { type: 'cyl', x, z, r, bottom, top, mesh: m, delta: new V3() };
+  solids.push(s); return s;
+}
+function overlap(s, x, z, r) {
+  if (s.type === 'cyl') { const dx = x - s.x, dz = z - s.z, m = s.r + r; return dx * dx + dz * dz < m * m; }
+  const qx = clamp(x, s.cx - s.hx, s.cx + s.hx), qz = clamp(z, s.cz - s.hz, s.cz + s.hz);
+  const dx = x - qx, dz = z - qz; return dx * dx + dz * dz < r * r;
+}
+function pushOut(s, p, r) {
+  if (s.type === 'cyl') {
+    let dx = p.x - s.x, dz = p.z - s.z, d = Math.hypot(dx, dz); const m = s.r + r;
+    if (d >= m) return;
+    if (d < 1e-5) { dx = 1; dz = 0; d = 1; }
+    p.x = s.x + dx / d * m; p.z = s.z + dz / d * m; return;
+  }
+  const minx = s.cx - s.hx, maxx = s.cx + s.hx, minz = s.cz - s.hz, maxz = s.cz + s.hz;
+  const qx = clamp(p.x, minx, maxx), qz = clamp(p.z, minz, maxz);
+  const dx = p.x - qx, dz = p.z - qz, d = Math.hypot(dx, dz);
+  if (d > 1e-5) { if (d >= r) return; p.x = qx + dx / d * r; p.z = qz + dz / d * r; return; }
+  const l = p.x - minx, rr = maxx - p.x, b = p.z - minz, f = maxz - p.z, m = Math.min(l, rr, b, f);
+  if (m === l) p.x = minx - r; else if (m === rr) p.x = maxx + r; else if (m === b) p.z = minz - r; else p.z = maxz + r;
+}
+function groundHeight(x, z, y, r = 0.05) {
+  let best = -Infinity;
+  for (const s of solids) if (s.top <= y + 0.1 && s.top > best && overlap(s, x, z, r)) best = s.top;
+  return best;
+}
+
+// ---------- level ----------
+const GRASS = 0x4a9e3a, GRASS2 = 0x3f8c31, DIRT = 0x9a6a3c, SAND = 0xf0d68a, STONE = 0xd8ccb2, ROCK = 0x9a9ea8, BRICK = 0xc9785a;
+
+const sea = new THREE.Mesh(new THREE.CircleGeometry(320, 48), new THREE.MeshStandardMaterial({ color: 0x2b86d9, transparent: true, opacity: 0.9, roughness: 0.25, metalness: 0.1 }));
+sea.rotation.x = -Math.PI / 2; sea.position.y = -0.6; sea.receiveShadow = true; scene.add(sea);
+const seaFloor = new THREE.Mesh(new THREE.CircleGeometry(320, 32), new THREE.MeshBasicMaterial({ color: 0x14507f }));
+seaFloor.rotation.x = -Math.PI / 2; seaFloor.position.y = -6; scene.add(seaFloor);
+
+// main island + beach
+cyl(0, 0, 42, -5, -0.25, SAND, 44);
+cyl(0, 0, 39, -5, 0, [DIRT, GRASS, DIRT], 44);
+
+// hill: "In cima al Colle"
+const HX = 22, HZ = -14;
+cyl(HX, HZ, 11, -1, 1.8, [DIRT, GRASS2, DIRT]);
+cyl(HX, HZ, 7.5, -1, 3.6, [DIRT, GRASS, DIRT]);
+cyl(HX, HZ, 4, -1, 5.4, [DIRT, GRASS2, DIRT]);
+
+// sky stairs
+const sky = [[-6, 1.6, 12], [-10, 3.4, 16], [-16.5, 5.2, 18.5], [-22, 7, 16], [-25, 8.8, 11]];
+const skyPlats = sky.map(([x, t, z]) => box(x, t - 0.4, z, 3.2, 0.8, 3.2, STONE));
+
+// spiral tower
+const TX = -24, TZ = -16, TOWER_TOP = 13;
+cyl(TX, TZ, 3.5, -1, TOWER_TOP, ROCK, 14);
+const stepPos = i => { const a = i * 0.75 + 0.6, R = 5.2; return new V3(TX + Math.cos(a) * R, 1.4 + 1.4 * i, TZ + Math.sin(a) * R); };
+for (let i = 0; i < 9; i++) { const p = stepPos(i); box(p.x, p.y - 0.25, p.z, 2.4, 0.5, 2.4, BRICK); }
+{ // flag
+  const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3, 6), M(0xeeeeee)));
+  pole.position.set(TX + 2.6, TOWER_TOP + 1.5, TZ - 2.2);
+  const flag = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), M(0xff6b5a)));
+  flag.position.set(TX + 3.2, TOWER_TOP + 2.6, TZ - 2.2);
+}
+
+// castle (scenery with collision)
+box(0, 4, -32, 14, 8, 8, STONE);
+for (const [x, z] of [[-7, -36], [7, -36], [-7, -28], [7, -28]]) {
+  cyl(x, z, 1.7, -1, 11, STONE, 12);
+  const roof = add(new THREE.Mesh(new THREE.ConeGeometry(2.1, 3.2, 12), M(0xd9433a)));
+  roof.position.set(x, 12.6, z);
+}
+{
+  const roof = add(new THREE.Mesh(new THREE.ConeGeometry(6.5, 5, 4), M(0xd9433a)));
+  roof.position.set(0, 10.5, -32); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.6;
+  const door = add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.4, 0.2), M(0x5a3520)), false);
+  door.position.set(0, 1.7, -27.95);
+  for (const x of [-4.5, 4.5]) {
+    const w = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 0.2), M(0x2b3a66)), false);
+    w.position.set(x, 5, -27.95);
+  }
+  const win = add(new THREE.Mesh(new THREE.CircleGeometry(0.9, 20), M(0xffcf3a, { emissive: 0x6a4a00 })), false);
+  win.position.set(0, 5.6, -27.89);
+}
+// pedestal for the red-coin star
+cyl(0, -22, 1.3, -1, 0.5, STONE, 16);
+
+// islet + ferry
+cyl(0, 64, 8, -5, 0.4, [SAND, SAND, SAND], 24);
+cyl(0, 64, 6.5, -5, 0.5, [DIRT, GRASS, DIRT], 24);
+const ferry = box(0, -0.15, 45, 4, 0.6, 4, 0xb07a45);
+
+const movers = [
+  { s: ferry, base: new V3(0, -0.15, 49), axis: new V3(0, 0, 1), amp: 6, period: 9, phase: 0 },
+  { s: skyPlats[2], base: new V3(-16.5, 4.8, 18.5), axis: new V3(1, 0, 0), amp: 2.5, period: 5, phase: 0 },
+];
+
+// trees
+function tree(x, z, h = 3, palm = false, baseY = 0) {
+  cyl(x, z, 0.45, baseY - 0.5, baseY + h, 0x7a4f2b, 8);
+  if (palm) {
+    for (let i = 0; i < 6; i++) {
+      const leaf = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 2.6), M(0x3fa34d)), true, false);
+      leaf.position.set(x, baseY + h + 0.1, z); leaf.rotation.y = i / 6 * TAU; leaf.rotation.x = 0.35;
+      leaf.translateZ(1.1);
+    }
+    return;
+  }
+  const c1 = add(new THREE.Mesh(new THREE.ConeGeometry(2.1, 2.8, 8), M(0x2f9a4a)), true, false);
+  c1.position.set(x, baseY + h + 0.8, z);
+  const c2 = add(new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.2, 8), M(0x3bb357)), true, false);
+  c2.position.set(x, baseY + h + 2.2, z);
+}
+[[12, -2], [-14, -2], [31, 6], [27, 22], [-8, 30], [9, 31], [-18, 6], [-32, 12], [28, -26], [-30, -34 + 8]].forEach(([x, z]) => tree(x, z));
+tree(-4, 60, 3.5, true, 0.5);
+
+// rocks and flowers
+for (let i = 0; i < 26; i++) {
+  const a = i * 2.39, r = 12 + (i * 7.3) % 25;
+  const x = Math.cos(a) * r, z = Math.sin(a) * r;
+  if (groundHeight(x, z, 0.1, 1.2) !== 0) continue;
+  const f = add(new THREE.Mesh(new THREE.DodecahedronGeometry(0.25, 0), M([0xff6b5a, 0xffffff, 0xffcf3a, 0xb58cff][i % 4])), false);
+  f.position.set(x, 0.2, z);
+}
+
+// far mountains
+for (let i = 0; i < 14; i++) {
+  const a = i / 14 * TAU + 0.2, r = 150 + (i % 3) * 15, h = 30 + (i * 13) % 28;
+  const m = new THREE.Mesh(new THREE.ConeGeometry(18 + (i % 4) * 5, h, 7), M(i % 2 ? 0x6f9a86 : 0x81a88f));
+  m.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r); scene.add(m);
+}
+// clouds
+const clouds = [];
+for (let i = 0; i < 10; i++) {
+  const g = new THREE.Group();
+  for (let j = 0; j < 4; j++) {
+    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5 + (j % 2) * 1.2, 0), M(0xffffff, { roughness: 1 }));
+    b.position.set(j * 2.6 - 4, (j % 2) * 0.8, (j % 3) * 0.6); g.add(b);
+  }
+  const a = i / 10 * TAU;
+  g.position.set(Math.cos(a) * (60 + i * 7), 32 + (i % 3) * 5, Math.sin(a) * (60 + i * 7));
+  scene.add(g); clouds.push(g);
+}
+
+// ---------- collectibles ----------
+const coinGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.12, 14); coinGeo.rotateX(Math.PI / 2);
+const coinMat = M(0xffcf3a, { emissive: 0x6a4800, metalness: 0.4, roughness: 0.35 });
+const redMat = M(0xff4a3a, { emissive: 0x6a0e00, metalness: 0.4, roughness: 0.35 });
+const coins = [];
+function addCoin(x, y, z, red = false) {
+  const m = new THREE.Mesh(coinGeo, red ? redMat : coinMat);
+  m.position.set(x, y, z); m.castShadow = true; scene.add(m);
+  coins.push({ m, red, taken: false, ph: Math.random() * TAU });
+}
+function ring(cx, cz, r, n, y) { for (let i = 0; i < n; i++) { const a = i / n * TAU; addCoin(cx + Math.cos(a) * r, y, cz + Math.sin(a) * r); } }
+function line(x1, z1, x2, z2, n, y) { for (let i = 0; i < n; i++) { const t = n > 1 ? i / (n - 1) : 0; addCoin(x1 + (x2 - x1) * t, y, z1 + (z2 - z1) * t); } }
+ring(0, 12, 3, 8, 1);
+line(6, 4, 14, -6, 5, 1);
+ring(HX, HZ, 9.2, 10, 2.8);
+ring(HX, HZ, 5.8, 6, 4.6);
+line(-24, 32, 24, 32, 7, 1);
+ring(TX, TZ, 6.8, 8, 1);
+sky.forEach(([x, t, z], i) => { if (i > 0 && i < 4) addCoin(x, t + 1, z); });
+line(0, 20, 0, 34, 4, 1);
+ring(0, 64, 4.8, 6, 1.5);
+// red coins
+[[-6, 2.6, 12], [HX, 4.6, HZ + 6], [0, 1.6, 48], null, [0, 1, -38.3], [32, 1, 14], [-4, 1.5, 67], [-34.5, 1, 4]].forEach((c, i) => {
+  if (!c) { const p = stepPos(4); addCoin(p.x, p.y + 1, p.z, true); } else addCoin(c[0], c[1], c[2], true);
+});
+const RED_TOTAL = coins.filter(c => c.red).length;
+
+function starGeometry() {
+  const s = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * TAU + Math.PI / 2, r = i % 2 ? 0.45 : 1;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    i ? s.lineTo(x, y) : s.moveTo(x, y);
+  }
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.3, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.08, bevelSegments: 1 });
+  g.center(); return g;
+}
+const starGeo = starGeometry();
+const starMat = M(0xffd23a, { emissive: 0x8a5a00, metalness: 0.35, roughness: 0.3 });
+const eyeGeo = new THREE.BoxGeometry(0.1, 0.28, 0.05);
+const stars = [];
+function addStar(name, hint, x, y, z, hidden = false) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(starGeo, starMat); m.castShadow = true; g.add(m);
+  for (const ex of [-0.16, 0.16]) { const e = new THREE.Mesh(eyeGeo, M(0x16213e)); e.position.set(ex, 0.08, 0.28); g.add(e); }
+  g.scale.setScalar(0.9);
+  g.position.set(x, y, z); g.visible = !hidden; scene.add(g);
+  const s = { name, hint, g, y, taken: false, hidden }; stars.push(s); return s;
+}
+addStar('In cima al Colle', 'Il colle a est. Salta di terrazza in terrazza.', HX, 7, HZ);
+addStar('La scala nel cielo', 'Piattaforme sospese a ovest, una si muove.', -25, 10.6, 11);
+addStar("L'isolotto", 'Prendi la zattera a sud per attraversare il mare.', 0, 2.3, 66);
+addStar('La torre a spirale', 'Sali i gradini attorno alla torre di pietra.', TX, TOWER_TOP + 1.8, TZ);
+const starRed = addStar('Otto monete rosse', 'Raccoglile tutte: la stella compare davanti al castello.', 0, 2.3, -22, true);
+const starFoes = addStar('Caccia ai Grumi', 'Sconfiggi tutti i Grumi viola dell\'isola.', 12, 1.7, 22, true);
+
+// ---------- particles ----------
+const partGeo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+const parts = [];
+function burst(pos, color, n = 12, speed = 6) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(partGeo, M(color, { emissive: color, emissiveIntensity: 0.4 }));
+    m.position.copy(pos); scene.add(m);
+    const a = Math.random() * TAU, u = Math.random();
+    parts.push({ m, v: new V3(Math.cos(a) * speed * u, 3 + Math.random() * speed, Math.sin(a) * speed * u), life: 0.6 + Math.random() * 0.4 });
+  }
+}
+
+// ---------- player (Tino) ----------
+const H = 1.6, R = 0.45, STEP = 0.45;
+const tino = new THREE.Group(); scene.add(tino);
+const body = new THREE.Group(); body.position.y = 0.8; tino.add(body);
+function part(geo, color, x, y, z, parent = body) { const m = new THREE.Mesh(geo, M(color)); m.position.set(x, y - 0.8, z); parent.add(m); return m; }
+const torso = part(new THREE.SphereGeometry(0.45, 12, 10), 0xe8743b, 0, 0.72, 0); torso.scale.set(1, 1.05, 0.9);
+part(new THREE.BoxGeometry(0.72, 0.14, 0.62), 0x5a3520, 0, 0.62, 0); // belt
+part(new THREE.SphereGeometry(0.4, 14, 12), 0xf2c9a0, 0, 1.3, 0.02); // head
+part(new THREE.SphereGeometry(0.1, 8, 6), 0xe89a78, 0, 1.26, 0.42); // nose
+for (const x of [-0.14, 0.14]) {
+  part(new THREE.SphereGeometry(0.075, 8, 6), 0xffffff, x, 1.38, 0.33);
+  part(new THREE.SphereGeometry(0.045, 6, 5), 0x16213e, x, 1.38, 0.39);
+}
+const hat = part(new THREE.SphereGeometry(0.43, 14, 8, 0, TAU, 0, Math.PI / 2), 0x1f9e9a, 0, 1.44, 0);
+part(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 16), 0x1f9e9a, 0, 1.44, 0.06);
+part(new THREE.SphereGeometry(0.12, 8, 6), 0xfff8e6, 0, 1.9, 0); // pom-pom
+const feet = [-0.2, 0.2].map(x => part(new THREE.BoxGeometry(0.26, 0.2, 0.42), 0x5a3520, x, 0.12, 0.04));
+const hands = [-0.52, 0.52].map(x => part(new THREE.SphereGeometry(0.14, 8, 6), 0xfff8e6, x, 0.72, 0));
+body.traverse(o => { if (o.isMesh) o.castShadow = true; });
+const blob = new THREE.Mesh(new THREE.CircleGeometry(0.55, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
+blob.rotation.x = -Math.PI / 2; scene.add(blob);
+
+const SPAWN = new V3(0, 0, 24);
+const P = {
+  pos: SPAWN.clone(), vel: new V3(), onGround: false, ground: null, facing: Math.PI,
+  chain: 0, landT: -9, coyote: 0, airT: 0, pound: false, poundHang: 0,
+  hp: 8, inv: 0, squash: 0, walk: 0,
+};
+
+// ---------- enemies (Grumi) ----------
+const enemies = [];
+const spikeGeo = new THREE.ConeGeometry(0.16, 0.4, 6);
+function addEnemy(x, y, z, homeR = 7) {
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 10), M(0x7b4bb3)); b.scale.y = 0.85; b.position.y = 0.62; b.castShadow = true; g.add(b);
+  for (let i = 0; i < 7; i++) {
+    const s = new THREE.Mesh(spikeGeo, M(0xffcf3a)); const a = i / 7 * TAU;
+    s.position.set(Math.cos(a) * 0.45, 1.05 + (i % 2) * 0.08, Math.sin(a) * 0.45); s.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6); g.add(s);
+  }
+  for (const ex of [-0.22, 0.22]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), M(0xffffff)); e.position.set(ex, 0.72, 0.52); g.add(e);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), M(0x16213e)); pu.position.set(ex, 0.72, 0.66); g.add(pu);
+    const br = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.07, 0.05), M(0x2a1840)); br.position.set(ex, 0.93, 0.62); br.rotation.z = ex > 0 ? 0.4 : -0.4; g.add(br);
+  }
+  const ft = [-0.3, 0.3].map(x => { const f = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), M(0x2a1840)); f.position.set(x, 0.12, 0.1); g.add(f); return f; });
+  g.position.set(x, y, z); scene.add(g);
+  enemies.push({ g, ft, pos: new V3(x, y, z), home: new V3(x, y, z), homeR, dir: Math.random() * TAU, turnT: 0, alive: true, dead: 0, ph: Math.random() * TAU });
+}
+[[8, 0, 6, 7], [-12, 0, -6, 7], [16, 0, 22, 7], [HX + 9, 1.8, HZ, 1.3], [-20, 0, 2, 6], [3, 0.5, 64, 3], [-4, 0, -18, 6], [27, 0, 10, 6]]
+  .forEach(([x, y, z, r]) => addEnemy(x, y, z, r));
+const FOES_TOTAL = enemies.length;
+
+// ---------- state / HUD ----------
+const G = { stars: 0, coins: 0, red: 0, lives: 4, time: 0, running: false, paused: false, over: false, nextLife: 50, foes: 0 };
+let muted = false;
+function hud() {
+  $('hStars').textContent = G.stars + '/6';
+  $('hCoins').textContent = G.coins;
+  $('hRed').textContent = G.red + '/' + RED_TOTAL;
+  $('hLives').textContent = 'Tino ×' + Math.max(0, G.lives);
+  const m = $('meter');
+  m.style.setProperty('--p', P.hp / 8);
+  m.style.setProperty('--hpc', P.hp >= 5 ? '#4fd67a' : P.hp >= 3 ? '#ffcf3a' : '#ff6b5a');
+  $('hHp').textContent = P.hp;
+}
+let lastSec = -1;
+function hudTime() {
+  const s = Math.floor(G.time); if (s === lastSec) return; lastSec = s;
+  $('hTime').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+let bannerT = 0;
+function banner(html, t = 2.2) { const b = $('banner'); b.innerHTML = html; b.classList.add('show'); bannerT = t; }
+
+// ---------- audio ----------
+let actx = null;
+function tone(freq, dur, type = 'square', vol = 0.06, slideTo) {
+  if (!actx || muted) return;
+  const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+const seq = (notes, gap, type, vol, dur = 0.2) => notes.forEach((f, i) => setTimeout(() => tone(f, dur, type, vol), i * gap));
+const sfx = {
+  jump: n => tone(280 + n * 110, 0.18, 'square', 0.05, 560 + n * 220),
+  coin: () => { tone(988, 0.07, 'square', 0.04); setTimeout(() => tone(1319, 0.22, 'square', 0.04), 70); },
+  red: () => seq([660, 880, 1175], 70, 'triangle', 0.08, 0.15),
+  stomp: () => tone(260, 0.15, 'square', 0.07, 90),
+  hurt: () => tone(420, 0.35, 'sawtooth', 0.06, 80),
+  star: () => seq([523, 659, 784, 1047, 1319, 1568], 110, 'triangle', 0.09, 0.3),
+  reveal: () => seq([392, 523, 659, 784], 90, 'sine', 0.1, 0.25),
+  pound: () => tone(140, 0.28, 'sine', 0.16, 40),
+  splash: () => tone(900, 0.3, 'sawtooth', 0.03, 120),
+  die: () => seq([523, 415, 330, 262], 160, 'triangle', 0.09, 0.25),
+  life: () => seq([659, 784, 1319, 1047, 1175, 1568], 80, 'square', 0.05, 0.12),
+};
+
+// ---------- input ----------
+const keys = {};
+let jumpBuf = 0, poundReq = false, touchJump = false;
+const joy = { x: 0, y: 0 };
+addEventListener('keydown', e => {
+  if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+  if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
+  if (e.code === 'KeyM') { toggleMute(); return; }
+  if (e.repeat) return;
+  keys[e.code] = true;
+  if (e.code === 'Space') jumpBuf = 0.12;
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyK') poundReq = true;
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+const cam = { yaw: 0, pitch: 0.36, dist: 12, t: new V3().copy(SPAWN).add(new V3(0, 1.4, 0)) };
+let dragId = null, dragX = 0, dragY = 0;
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', e => { if (dragId !== null) return; dragId = e.pointerId; dragX = e.clientX; dragY = e.clientY; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  if (e.pointerId !== dragId) return;
+  cam.yaw -= (e.clientX - dragX) * 0.006; cam.pitch = clamp(cam.pitch + (e.clientY - dragY) * 0.004, 0.05, 1.25);
+  dragX = e.clientX; dragY = e.clientY;
+});
+const endDrag = e => { if (e.pointerId === dragId) dragId = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('wheel', e => { e.preventDefault(); cam.dist = clamp(cam.dist + e.deltaY * 0.01, 6, 22); }, { passive: false });
+
+const isTouch = matchMedia('(pointer: coarse)').matches;
+document.body.classList.toggle('touch', isTouch);
+['joy', 'bJump', 'bPound'].forEach(id => $(id).hidden = !isTouch);
+const joyEl = $('joy'), knob = $('knob');
+let joyId = null;
+function joyMove(e) {
+  const r = joyEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let dx = e.clientX - cx, dy = e.clientY - cy; const d = Math.hypot(dx, dy), max = r.width / 2 - 10;
+  if (d > max) { dx *= max / d; dy *= max / d; }
+  knob.style.transform = `translate(${dx}px,${dy}px)`;
+  joy.x = dx / max; joy.y = -dy / max;
+}
+joyEl.addEventListener('pointerdown', e => { joyId = e.pointerId; joyEl.setPointerCapture(e.pointerId); joyMove(e); e.preventDefault(); });
+joyEl.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyMove(e); });
+const joyEnd = e => { if (e.pointerId !== joyId) return; joyId = null; joy.x = joy.y = 0; knob.style.transform = ''; };
+joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd);
+$('bJump').addEventListener('pointerdown', e => { e.preventDefault(); jumpBuf = 0.12; touchJump = true; });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => $('bJump').addEventListener(t, () => { touchJump = false; }));
+$('bPound').addEventListener('pointerdown', e => { e.preventDefault(); poundReq = true; });
+
+function toggleMute() { muted = !muted; $('bMute').textContent = muted ? 'Audio no' : 'Audio sì'; }
+$('bMute').addEventListener('click', toggleMute);
+$('bPause').addEventListener('click', togglePause);
+function togglePause() {
+  if (!G.running || G.over) return;
+  G.paused = !G.paused;
+  if (G.paused) {
+    $('starList').innerHTML = stars.map(s => `<li class="${s.taken ? 'got' : ''}"><b>★</b><div><span>${s.name}</span><br><em>${s.hint}</em></div></li>`).join('');
+    for (const k in keys) keys[k] = false;
+  }
+  $('pauseScreen').hidden = !G.paused;
+  if (!G.paused) $('bResume').blur();
+}
+$('bResume').addEventListener('click', togglePause);
+$('bPlay').addEventListener('click', () => {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) { actx = null; }
+  $('startScreen').hidden = true; G.running = true;
+  cam.yaw = 0; cam.pitch = 0.36;
+  banner('Trova le 6 stelle<small>Premi P per l\'elenco e gli indizi</small>', 2.8);
+});
+$('bAgain').addEventListener('click', () => location.reload());
+
+// ---------- game logic ----------
+function approach2(v, tx, tz, step) {
+  const dx = tx - v.x, dz = tz - v.z, d = Math.hypot(dx, dz);
+  if (d <= step) { v.x = tx; v.z = tz; } else { v.x += dx / d * step; v.z += dz / d * step; }
+}
+function lerpAngle(a, b, t) { let d = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI; return a + d * t; }
+
+function hurt(from) {
+  if (P.inv > 0) return;
+  P.hp = Math.max(0, P.hp - 2); P.inv = 1.6; sfx.hurt();
+  const dx = P.pos.x - from.x, dz = P.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
+  P.vel.set(dx / d * 10, 8, dz / d * 10); P.onGround = false; P.pound = false;
+  hud();
+  if (P.hp <= 0) die();
+}
+function die() {
+  sfx.die(); G.lives--; hud();
+  if (G.lives < 0) { gameOver(false); return; }
+  banner('Ops!<small>Si riparte dalla spiaggia</small>', 1.8);
+  P.pos.copy(SPAWN); P.vel.set(0, 0, 0); P.hp = 8; P.inv = 1.5; P.pound = false; P.facing = Math.PI; cam.yaw = 0;
+  cam.t.set(SPAWN.x, SPAWN.y + 1.4, SPAWN.z); hud();
+}
+function gameOver(won) {
+  G.over = true; G.running = false;
+  const t = $('hTime').textContent;
+  $('endTitle').textContent = won ? 'Isola completata!' : 'Game over';
+  $('endText').textContent = won
+    ? `Tino ha ritrovato tutte e 6 le stelle in ${t}, con ${G.coins} monete raccolte.`
+    : `Stelle trovate: ${G.stars} su 6. Monete: ${G.coins}. Riprova, l'isola ti aspetta.`;
+  $('endScreen').hidden = false;
+}
+function reveal(s, msg) {
+  if (!s.hidden) return;
+  s.hidden = false; s.g.visible = true; sfx.reveal();
+  burst(s.g.position, 0xffd23a, 24, 8);
+  banner('È apparsa una stella!<small>' + msg + '</small>', 2.6);
+}
+function killEnemy(e) {
+  e.alive = false; e.dead = 0.4; G.foes++; sfx.stomp();
+  burst(e.pos.clone().add(new V3(0, 0.6, 0)), 0x7b4bb3, 10, 5);
+  addCoin(e.pos.x, e.pos.y + 1, e.pos.z);
+  if (G.foes === FOES_TOTAL) reveal(starFoes, 'Davanti alla spiaggia, vicino ai tre alberi');
+}
+
+let gameTime = 0, splashed = false;
+function updatePlayer(dt) {
+  const p = P;
+  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  let iy = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+  let il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; il = 1; }
+  const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
+  const wx = -sy * iy + cy * ix, wz = -cy * iy - sy * ix;
+
+  // ground pound
+  if (poundReq && !p.onGround && !p.pound) { p.pound = true; p.poundHang = 0.22; sfx.jump(0); }
+  poundReq = false;
+
+  if (p.pound) {
+    p.vel.x = p.vel.z = 0;
+    if (p.poundHang > 0) { p.poundHang -= dt; p.vel.y = 0; } else p.vel.y = -34;
+  } else {
+    const maxS = 9.5, acc = p.onGround ? 55 : (il > 0.1 ? 22 : 4);
+    approach2(p.vel, wx * maxS, wz * maxS, acc * dt);
+    if (il > 0.1) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
+    // jump
+    p.coyote = p.onGround ? 0.1 : p.coyote - dt;
+    if (jumpBuf > 0 && p.coyote > 0) {
+      const hs = Math.hypot(p.vel.x, p.vel.z);
+      if (gameTime - p.landT < 0.22 && hs > 5 && p.chain < 2) p.chain++; else p.chain = 0;
+      p.vel.y = [13, 15.5, 19][p.chain];
+      p.onGround = false; p.coyote = 0; jumpBuf = 0; p.airT = 0; p.ground = null;
+      sfx.jump(p.chain);
+    }
+    let g = 34;
+    if (!(keys.Space || touchJump) && p.vel.y > 0) g *= 2.2;
+    p.vel.y = Math.max(p.vel.y - g * dt, -40);
+  }
+  jumpBuf -= dt;
+
+  // carried by moving platform
+  if (p.onGround && p.ground) p.pos.add(p.ground.delta);
+
+  // horizontal
+  p.pos.x += p.vel.x * dt; p.pos.z += p.vel.z * dt;
+  for (const s of solids) {
+    if (s.bottom >= p.pos.y + H || s.top <= p.pos.y + 0.02) continue;
+    if (!overlap(s, p.pos.x, p.pos.z, R)) continue;
+    if (s.top - p.pos.y <= STEP && (p.onGround || p.vel.y <= 0)) { p.pos.y = s.top; if (p.vel.y < 0) p.vel.y = 0; continue; }
+    pushOut(s, p.pos, R);
+  }
+
+  // vertical
+  const wasGround = p.onGround, prevY = p.pos.y;
+  p.pos.y += p.vel.y * dt;
+  p.onGround = false; p.ground = null;
+  if (p.vel.y <= 0) {
+    let best = -Infinity, hit = null;
+    for (const s of solids) if (s.top <= prevY + 0.01 && s.top >= p.pos.y && s.top > best && overlap(s, p.pos.x, p.pos.z, 0.3)) { best = s.top; hit = s; }
+    if (hit) { p.pos.y = best; p.vel.y = 0; p.onGround = true; p.ground = hit; }
+  } else {
+    for (const s of solids) if (s.bottom >= prevY + H - 0.01 && s.bottom < p.pos.y + H && overlap(s, p.pos.x, p.pos.z, 0.3)) { p.pos.y = s.bottom - H; p.vel.y = 0; }
+  }
+  if (p.onGround && !wasGround) {
+    p.landT = gameTime; p.squash = 1;
+    if (p.pound) {
+      p.pound = false; sfx.pound(); burst(p.pos, 0xd8ccb2, 14, 5);
+      for (const e of enemies) if (e.alive && Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 3.4 && Math.abs(e.pos.y - p.pos.y) < 1.6) killEnemy(e);
+    }
+  }
+  if (!p.onGround) p.airT += dt;
+
+  if (p.pos.y < -0.6 && !splashed) { splashed = true; sfx.splash(); burst(new V3(p.pos.x, -0.5, p.pos.z), 0xbfe6ff, 16, 5); }
+  if (p.pos.y > -0.3) splashed = false;
+  if (p.pos.y < -4) { die(); return; }
+  if (p.inv > 0) p.inv -= dt;
+
+  // collect coins
+  const cx = p.pos.x, cyy = p.pos.y + 0.8, cz = p.pos.z;
+  for (const c of coins) {
+    if (c.taken) continue;
+    const d = c.m.position;
+    if ((d.x - cx) ** 2 + (d.y - cyy) ** 2 + (d.z - cz) ** 2 < 1.5 * 1.5) {
+      c.taken = true; scene.remove(c.m);
+      if (c.red) {
+        G.red++; G.coins += 2; sfx.red(); burst(d, 0xff4a3a, 10, 4);
+        banner(G.red + ' / ' + RED_TOTAL + '<small>moneta rossa</small>', 1.2);
+        if (G.red === RED_TOTAL) setTimeout(() => reveal(starRed, 'Sul piedistallo davanti al castello'), 900);
+      } else { G.coins++; sfx.coin(); }
+      p.hp = Math.min(8, p.hp + 1);
+      if (G.coins >= G.nextLife) { G.nextLife += 50; G.lives++; sfx.life(); banner('Vita extra!', 1.4); }
+      hud();
+    }
+  }
+  // collect stars
+  for (const s of stars) {
+    if (s.taken || s.hidden) continue;
+    const d = s.g.position;
+    if ((d.x - cx) ** 2 + (d.y - cyy) ** 2 + (d.z - cz) ** 2 < 1.7 * 1.7) {
+      s.taken = true; s.g.visible = false; G.stars++; p.hp = 8; sfx.star();
+      burst(d, 0xffd23a, 30, 9);
+      banner('Stella!<small>' + s.name + '</small>', 2.6);
+      hud();
+      if (G.stars === stars.length) setTimeout(() => gameOver(true), 2200);
+    }
+  }
+}
+
+function updateEnemies(dt) {
+  for (const e of enemies) {
+    if (!e.alive) {
+      if (e.dead > 0) { e.dead -= dt; e.g.scale.set(1 + (0.4 - e.dead), Math.max(0.05, e.dead * 2.5), 1 + (0.4 - e.dead)); if (e.dead <= 0) scene.remove(e.g); }
+      continue;
+    }
+    e.ph += dt * 10;
+    const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, dist = Math.hypot(dx, dz);
+    const chasing = dist < 9 && Math.abs(P.pos.y - e.pos.y) < 3 && e.pos.distanceTo(e.home) < e.homeR + 4;
+    let speed;
+    if (chasing) { e.dir = lerpAngle(e.dir, Math.atan2(dx, dz), 1 - Math.exp(-5 * dt)); speed = 4.2; }
+    else {
+      e.turnT -= dt;
+      const hx = e.home.x - e.pos.x, hz = e.home.z - e.pos.z;
+      if (Math.hypot(hx, hz) > e.homeR) e.dir = lerpAngle(e.dir, Math.atan2(hx, hz), 1 - Math.exp(-4 * dt));
+      else if (e.turnT <= 0) { e.dir += (Math.random() - 0.5) * 2.5; e.turnT = 1.5 + Math.random() * 2; }
+      speed = 1.8;
+    }
+    const nx = e.pos.x + Math.sin(e.dir) * speed * dt, nz = e.pos.z + Math.cos(e.dir) * speed * dt;
+    const gh = groundHeight(nx, nz, e.pos.y + 0.3, 0.2);
+    if (gh < e.pos.y - 0.8 || gh === -Infinity) { e.dir += Math.PI * (0.6 + Math.random() * 0.4); e.turnT = 1; }
+    else {
+      e.pos.x = nx; e.pos.z = nz; e.pos.y = gh;
+      for (const s of solids) if (s.top > e.pos.y + 0.3 && s.bottom < e.pos.y + 1.2 && overlap(s, e.pos.x, e.pos.z, 0.7)) pushOut(s, e.pos, 0.7);
+    }
+    e.g.position.copy(e.pos); e.g.position.y += Math.abs(Math.sin(e.ph)) * 0.12;
+    e.g.rotation.y = e.dir;
+    e.ft[0].position.z = 0.1 + Math.sin(e.ph) * 0.18; e.ft[1].position.z = 0.1 - Math.sin(e.ph) * 0.18;
+    // vs player
+    const hd = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z);
+    if (hd < 1.15 && P.pos.y < e.pos.y + 1.35 && P.pos.y + H > e.pos.y) {
+      if ((P.vel.y < 0 && P.pos.y > e.pos.y + 0.55) || P.pound) {
+        killEnemy(e);
+        P.pound = false; P.vel.y = (keys.Space || touchJump) ? 16 : 11; P.onGround = false;
+      } else hurt(e.pos);
+    }
+  }
+}
+
+function updateMovers(t) {
+  for (const mv of movers) {
+    const off = Math.sin((t / mv.period) * TAU + mv.phase) * mv.amp;
+    const np = mv.base.clone().addScaledVector(mv.axis, off);
+    const s = mv.s;
+    s.delta.subVectors(np, s.mesh.position);
+    s.mesh.position.copy(np);
+    s.cx = np.x; s.cz = np.z; s.top += s.delta.y; s.bottom += s.delta.y;
+  }
+}
+
+function animatePlayer(dt) {
+  const p = P;
+  tino.position.copy(p.pos);
+  tino.rotation.y = p.facing;
+  const hs = Math.hypot(p.vel.x, p.vel.z);
+  p.squash = Math.max(0, p.squash - dt * 5);
+  if (p.onGround) {
+    p.walk += dt * hs * 1.6;
+    const sw = Math.sin(p.walk) * Math.min(1, hs / 6);
+    feet[0].position.z = 0.04 + sw * 0.3; feet[1].position.z = 0.04 - sw * 0.3;
+    hands[0].position.z = -sw * 0.25; hands[1].position.z = sw * 0.25;
+    hands[0].position.y = hands[1].position.y = -0.08;
+    body.rotation.x = Math.min(1, hs / 9) * 0.15;
+    body.position.y = 0.8 + Math.abs(Math.cos(p.walk)) * 0.06 * Math.min(1, hs / 6);
+  } else {
+    feet[0].position.z = 0.25; feet[1].position.z = -0.15;
+    hands[0].position.y = hands[1].position.y = 0.25;
+    body.position.y = 0.8;
+    if (p.pound) body.rotation.x = p.poundHang > 0 ? (1 - p.poundHang / 0.22) * TAU : 0;
+    else if (p.chain === 2) body.rotation.x = Math.min(1, p.airT / 0.75) * TAU;
+    else body.rotation.x = 0.1;
+  }
+  const sq = 1 - p.squash * 0.25;
+  body.scale.set(1 + p.squash * 0.15, sq, 1 + p.squash * 0.15);
+  tino.visible = p.inv > 0 ? Math.floor(p.inv * 14) % 2 === 0 : true;
+  const gh = groundHeight(p.pos.x, p.pos.z, p.pos.y + 0.05, 0.05);
+  if (gh > -Infinity) {
+    blob.visible = true; blob.position.set(p.pos.x, gh + 0.03, p.pos.z);
+    const s = clamp(1 - (p.pos.y - gh) * 0.05, 0.4, 1); blob.scale.setScalar(s);
+  } else blob.visible = false;
+}
+
+function updateCamera(dt) {
+  if (keys.KeyQ) cam.yaw += 2.2 * dt;
+  if (keys.KeyE) cam.yaw -= 2.2 * dt;
+  const tx = P.pos.x, ty = P.pos.y + 1.4, tz = P.pos.z;
+  const kh = 1 - Math.exp(-10 * dt), kv = 1 - Math.exp(-(P.onGround ? 6 : 2.5) * dt);
+  cam.t.x += (tx - cam.t.x) * kh; cam.t.z += (tz - cam.t.z) * kh;
+  cam.t.y += (Math.max(ty, -1) - cam.t.y) * kv;
+  const cp = Math.cos(cam.pitch);
+  camera.position.set(cam.t.x + Math.sin(cam.yaw) * cp * cam.dist, cam.t.y + Math.sin(cam.pitch) * cam.dist, cam.t.z + Math.cos(cam.yaw) * cp * cam.dist);
+  const gh = groundHeight(camera.position.x, camera.position.z, camera.position.y + 2, 0.3);
+  if (camera.position.y < gh + 0.7) camera.position.y = gh + 0.7;
+  if (camera.position.y < -0.2) camera.position.y = -0.2;
+  camera.lookAt(cam.t);
+}
+
+function animateWorld(dt, t) {
+  for (const c of coins) if (!c.taken) { c.m.rotation.y = t * 3 + c.ph; }
+  for (const s of stars) if (!s.taken) { s.g.rotation.y = t * 1.6; s.g.position.y = s.y + Math.sin(t * 2) * 0.2; }
+  for (const c of clouds) { c.position.x += dt * 1.2; if (c.position.x > 180) c.position.x = -180; }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const q = parts[i]; q.life -= dt;
+    if (q.life <= 0) { scene.remove(q.m); parts.splice(i, 1); continue; }
+    q.v.y -= 18 * dt; q.m.position.addScaledVector(q.v, dt); q.m.rotation.x += dt * 8; q.m.scale.setScalar(Math.min(1, q.life * 2));
+  }
+  sea.position.y = -0.6 + Math.sin(t * 0.8) * 0.05;
+}
+
+// ---------- loop ----------
+let last = performance.now(), worldT = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
+  const active = G.running && !G.paused;
+  if (active) {
+    gameTime += dt; G.time += dt; worldT += dt;
+    updateMovers(worldT);
+    updatePlayer(dt);
+    updateEnemies(dt);
+    hudTime();
+  } else if (!G.running && !G.over) {
+    cam.yaw += dt * 0.12;
+  }
+  if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').classList.remove('show'); }
+  animatePlayer(dt);
+  if (!G.paused) animateWorld(dt, now / 1000);
+  updateCamera(dt);
+  renderer.render(scene, camera);
+}
+hud();
+requestAnimationFrame(frame);
+})();
+</script>
+</body></html>

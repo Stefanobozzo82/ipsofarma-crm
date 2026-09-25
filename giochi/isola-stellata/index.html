@@ -24,6 +24,9 @@ html,body{height:100%;margin:0;background:var(--ink);overflow:hidden;font-family
 .tool:focus-visible,.btn:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
 #bossBar{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-family:Bungee,Impact,sans-serif;font-size:clamp(14px,2.2vw,20px);color:var(--paper);background:rgba(22,33,62,.8);border:3px solid var(--coral);border-radius:12px;padding:6px 14px;display:flex;gap:10px;align-items:center;pointer-events:none;white-space:nowrap}
 #bossHp{color:var(--coral);letter-spacing:.1em}
+#reticle{position:fixed;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border:3px solid var(--paper);border-radius:50%;box-shadow:0 0 0 3px var(--ink);pointer-events:none}
+#reticle::before{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:var(--coral)}
+#reticle span{position:absolute;top:84px;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:Bungee,Impact,sans-serif;font-size:12px;color:var(--paper);text-shadow:0 2px 0 var(--ink)}
 #banner{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%) scale(.9);font-family:Bungee,Impact,sans-serif;font-size:clamp(26px,6vw,58px);line-height:1.05;color:var(--gold);text-shadow:0 4px 0 var(--ink),0 0 18px rgba(0,0,0,.3);pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;text-align:center;width:min(90vw,900px);text-wrap:balance}
 #banner small{display:block;font-size:.4em;color:var(--paper);margin-top:8px}
 #banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -83,6 +86,7 @@ body.touch .keys.touch-only{display:grid!important}
     <div class="small" id="hLives">Tino ×4</div>
     <div class="small" id="hTime">0:00</div>
     <div class="small" id="hWing" hidden>Ali 25</div>
+    <div class="small" id="hMetal" hidden>Metallo 25</div>
     <div class="tools">
       <button class="tool" id="bMute" type="button">Audio sì</button>
       <button class="tool" id="bPause" type="button">Pausa</button>
@@ -92,6 +96,7 @@ body.touch .keys.touch-only{display:grid!important}
 <div id="bossBar" hidden>Re Grumo <span id="bossHp">♥♥♥</span></div>
 
 <div id="banner"></div>
+<div id="reticle" hidden><span>Mira con WASD, frecce o joystick · Salta per sparare · Shift o Pesta per uscire</span></div>
 
 <div id="joy" class="touch-only" hidden><div id="knob"></div></div>
 <button id="bJump" class="tbtn touch-only" type="button" hidden>Salta</button>
@@ -110,6 +115,7 @@ body.touch .keys.touch-only{display:grid!important}
       <kbd>Shift in aria</kbd><span>Schianto a terra</span>
       <kbd>J</kbd><span>Pugno. Correndo o in aria: tuffo. In aria da fermo: calcio</span>
       <kbd>Bordi e tronchi</kbd><span>Saltaci contro per aggrapparti e arrampicarti</span>
+      <kbd>Cannone</kbd><span>Entra nel buco, mira con WASD, Spazio per sparare</span>
       <kbd>Trascina / Q E</kbd><span>Telecamera. Rotellina per lo zoom</span>
       <kbd>P / M</kbd><span>Pausa con indizi / audio</span>
     </div>
@@ -180,6 +186,7 @@ const CATALOG = {
     ['grumi', 'Caccia ai Grumi', "Sconfiggi tutti i Grumi viola dell'isola."],
     ['cento', 'Cento monete', "Raccogli 100 monete senza lasciare l'isola."],
     ['nuvole', 'Sopra le nuvole', 'Rompi il blocco rosso, fai un triplo salto per volare e atterra sulla nuvola a ovest.'],
+    ['cannone', 'Colpo di cannone', "Parla con il Grumo rosa vicino alla spiaggia, entra nel cannone e sparati sull'isola sospesa sul mare."],
   ] },
   volcano: { name: 'Vulcano Rombante', stars: [
     ['cratere', 'Sul cratere', 'Sali le terrazze del vulcano fino alla cima.'],
@@ -207,6 +214,7 @@ const CATALOG = {
     ['anelli', 'Gli anelli', "Attraversa i cinque anelli in ordine, partendo da quello che brilla."],
     ['grotta', 'La grotta sommersa', "A est, in fondo al tunnel di roccia. Tieni d'occhio l'aria!"],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra il molo e il fondale.'],
+    ['corrente', 'La corrente', 'Rompi il blocco verde sulla spiaggia: col metallo cammina sul fondale fin dentro la corrente a nord-ovest.'],
   ] },
   fortress: { name: 'Fortezza del Re', stars: [
     ['rosse', 'Otto monete rosse', 'Lungo il percorso sospeso nel buio, fino al tubo.'],
@@ -260,7 +268,7 @@ const shared = g => { g.userData.shared = true; return g; };
 
 // ---------- level containers ----------
 let root = new THREE.Group(); scene.add(root);
-const solids = [], coins = [], stars = [], enemies = [], movers = [], sinkers = [], hearts = [], parts = [], waves = [], portals = [], itemBoxes = [], lifeItems = [];
+const solids = [], coins = [], stars = [], enemies = [], movers = [], sinkers = [], hearts = [], parts = [], waves = [], portals = [], itemBoxes = [], lifeItems = [], cannons = [];
 let boss = null, L = { id: 'island' };
 function add(mesh, cast = true, recv = true) { mesh.castShadow = cast; mesh.receiveShadow = recv; root.add(mesh); return mesh; }
 function clearLevel() {
@@ -270,7 +278,7 @@ function clearLevel() {
     if (o.material && o.material.isMaterial && o.material.map) o.material.map.dispose();
   });
   root = new THREE.Group(); scene.add(root);
-  for (const a of [solids, coins, stars, enemies, movers, sinkers, hearts, parts, waves, portals, itemBoxes, lifeItems]) a.length = 0;
+  for (const a of [solids, coins, stars, enemies, movers, sinkers, hearts, parts, waves, portals, itemBoxes, lifeItems, cannons]) a.length = 0;
   boss = null;
 }
 
@@ -566,6 +574,18 @@ function buildIsland() {
   addItemBox(6, 2.6, 19, 'wing');
   addItemBox(12, 2.6, 8, 'coins');
   addItemBox(-14, 2.6, -9, 'life');
+  // cannon, its keeper and the floating island it reaches
+  const cannon = addCannon(19, 31, !!save.cannon);
+  const pal = makeGrumo(false);
+  pal.g.children.filter(o => o.geometry === spikeGeo).forEach(o => pal.g.remove(o));
+  pal.g.children[0].material = M(0xff9ac8);
+  pal.g.position.set(15, 0, 27.5); pal.g.rotation.y = Math.PI * 0.8; root.add(pal.g);
+  cyl(15, 27.5, 0.6, -0.5, 1.2, 0xff9ac8, 8).mesh.visible = false;
+  let palMsgT = 0;
+  cyl(-12, 44, 4.5, 4, 7, [DIRT, GRASS, DIRT], 20);
+  const under = add(new THREE.Mesh(new THREE.ConeGeometry(4.3, 5, 8), M(DIRT)), true, false); under.rotation.x = Math.PI; under.position.set(-12, 1.5, 44);
+  addStar('cannone', -12, 9.3, 44);
+  ring(-12, 44, 3, 6, 8);
   // a cloud only reachable by flying
   box(-26, 27.5, 26, 6, 1, 6, 0xffffff);
   for (let i = 0; i < 6; i++) { const b = add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.6 + (i % 2) * 0.6, 0), M(0xffffff, { roughness: 1 })), false, false); b.position.set(-26 + Math.cos(i) * 2.6, 27.2, 26 + Math.sin(i) * 2.6); }
@@ -590,6 +610,14 @@ function buildIsland() {
       emblem.rotation.y = t * 1.2;
     },
     update(dt) {
+      palMsgT -= dt; pal.g.position.y = Math.abs(Math.sin(gameTime * 3)) * 0.1;
+      if (palMsgT <= 0 && Math.hypot(P.pos.x - 15, P.pos.z - 27.5) < 2 && P.pos.y < 1.5) {
+        palMsgT = 4;
+        if (!save.cannon) {
+          save.cannon = true; persist(); openCannons(); sfx.reveal();
+          banner('Grumo rosa: «Ti ho aperto il cannone!»<small>Entra nel buco qui dietro, mira e spara</small>', 3.2);
+        } else banner('Grumo rosa: «Il cannone è pronto»<small>Punta in alto verso l\'isola sospesa sul mare</small>', 2.6);
+      }
       if (!blue.pressed && Math.hypot(P.pos.x - sw.position.x, P.pos.z - sw.position.z) < 1.1 && P.pos.y < 0.8) {
         blue.pressed = true; blue.t = 14; sw.scale.y = 0.3; sw.position.y = 0.05; sfx.reveal();
         coins.forEach(c => { if (c.blue) { c.hidden = false; c.m.visible = true; } });
@@ -1122,6 +1150,12 @@ function buildBay() {
   addPortal(-6, 1, 37, Math.PI / 2, 'castle', 'bay');
   addHeart(5, 2.1, 34);
   addItemBox(-3, 3, 33, 'coins');
+  addItemBox(-10, 2.8, 34, 'metal');
+  // strong upward current: only heavy (metal) Tino can walk through it
+  const CUR = { x: -30, z: -30, r: 3.5 };
+  const curMesh = add(new THREE.Mesh(new THREE.CylinderGeometry(CUR.r, CUR.r, 18, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xcff4ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })), false, false);
+  curMesh.position.set(CUR.x, -9, CUR.z);
+  addStar('corrente', CUR.x, -16.8, CUR.z);
   sign('Sott\'acqua manca l\'aria\nrisali per respirare', 5, 1, 30.2, 0);
 
   // sunken ship
@@ -1216,6 +1250,13 @@ function buildBay() {
     spawn: { pos: new V3(0, 1, 36), yaw: 0 },
     entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Davanti al molo, a mezz\'acqua',
     update(dt) {
+      // the current pushes swimmers up and away
+      const cdx = P.pos.x - CUR.x, cdz = P.pos.z - CUR.z, cd = Math.hypot(cdx, cdz) || 1;
+      if (cd < CUR.r + 0.5 && P.pos.y < WY - 0.5 && !(P.metalT > 0)) {
+        P.pos.y += 8 * dt; P.pos.x += cdx / cd * 5 * dt; P.pos.z += cdz / cd * 5 * dt;
+        if (!L.curTip) { L.curTip = true; banner('La corrente ti respinge<small>Serve qualcosa di più pesante...</small>', 2.4); }
+      }
+      if (Math.random() < 0.6) bubble(CUR.x + (Math.random() - 0.5) * 5, -18, CUR.z + (Math.random() - 0.5) * 5);
       // chests
       chestCool -= dt;
       for (const c of chests) {
@@ -1283,7 +1324,7 @@ const boxMats = {};
 function itemBoxMat(kind) {
   if (boxMats[kind]) return boxMats[kind];
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
-  g.fillStyle = kind === 'wing' ? '#e0453a' : '#ffcf3a'; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = kind === 'wing' ? '#e0453a' : kind === 'metal' ? '#3fbf5a' : '#ffcf3a'; g.fillRect(0, 0, 64, 64);
   g.strokeStyle = '#16213e'; g.lineWidth = 5; g.strokeRect(3, 3, 58, 58);
   g.fillStyle = kind === 'wing' ? '#fff8e6' : '#16213e'; g.font = '900 46px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', 32, 35);
   return (boxMats[kind] = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.5, emissive: kind === 'wing' ? 0x3a0808 : 0x3a2a00 }));
@@ -1315,7 +1356,10 @@ function updateItems(dt) {
       if (P.vel.y > 0) P.vel.y = -2;
       if (b.kind === 'coins') for (let i = 0; i < 3; i++) addCoin(d.x + Math.cos(i * 2.1) * 1.3, d.y - 0.6, d.z + Math.sin(i * 2.1) * 1.3);
       else if (b.kind === 'life') addLifeItem(d.x, d.y + 0.2, d.z);
-      else if (b.kind === 'wing') {
+      else if (b.kind === 'metal') {
+        P.metalT = 25; sfx.reveal();
+        banner('Cappello di metallo!<small>Sei invincibile, affondi e non ti serve aria</small>', 2.8);
+      } else if (b.kind === 'wing') {
         P.wingT = 25; sfx.reveal();
         banner('Cappello alato!<small>Fai un triplo salto per spiccare il volo</small>', 2.8);
       }
@@ -1329,6 +1373,47 @@ function updateItems(dt) {
       l.taken = true; root.remove(l.g); G.lives++; sfx.life(); hud(); banner('Vita extra!', 1.4);
     }
   }
+}
+// ---------- cannons ----------
+function addCannon(x, z, open) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); root.add(g);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.28, 8, 22), M(0x5a5a66)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.2; rim.castShadow = true; g.add(rim);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(1.2, 22), M(0x111111)); hole.rotation.x = -Math.PI / 2; hole.position.y = 0.04; g.add(hole);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.2, 22), M(0x8a8a96)); lid.position.y = 0.22; lid.visible = !open; g.add(lid);
+  const barrel = new THREE.Group(); barrel.position.y = 0.4; barrel.rotation.order = 'YXZ'; barrel.visible = false; g.add(barrel);
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 2.6, 16, 1, true), M(0x2a2a33, { side: THREE.DoubleSide })); tube.rotation.x = Math.PI / 2; tube.position.z = 1.0; barrel.add(tube);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.1, 6, 16), M(0xffcf3a, { metalness: 0.5 })); ring.position.z = 2.25; barrel.add(ring);
+  const c = { g, lid, barrel, x, z, open, yaw: 0, pitch: 0.8, cool: 0 };
+  cannons.push(c); return c;
+}
+function openCannons() { cannons.forEach(c => { c.open = true; c.lid.visible = false; }); }
+function updateCannons(dt) {
+  for (const c of cannons) {
+    c.cool -= dt;
+    if (!c.open || P.cannon || c.cool > 0) continue;
+    if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.1 && P.pos.y < 1) {
+      P.cannon = c; c.yaw = P.facing; c.pitch = 0.8; c.barrel.visible = true; P.fly = P.dive = P.pound = false;
+      sfx.pickup(); $('reticle').hidden = false;
+    }
+  }
+}
+function cannonDir(c) { const cp = Math.cos(c.pitch); return new V3(Math.sin(c.yaw) * cp, Math.sin(c.pitch), Math.cos(c.yaw) * cp); }
+function updateCannon(p, dt, ix, iy, crouchKey) {
+  const c = p.cannon;
+  c.yaw -= ix * 1.1 * dt; c.pitch = clamp(c.pitch + iy * 0.7 * dt, 0.05, 1.35);
+  c.barrel.rotation.y = c.yaw; c.barrel.rotation.x = -c.pitch;
+  p.pos.set(c.x, 0.2, c.z); p.vel.set(0, 0, 0); p.onGround = false; p.ground = null; p.facing = c.yaw;
+  if (jumpBuf > 0 || punchReq) {
+    const d = cannonDir(c);
+    p.pos.set(c.x + d.x * 2.4, 0.4 + d.y * 2.4, c.z + d.z * 2.4); p.vel.copy(d).multiplyScalar(38);
+    p.cannon = null; p.shot = true; p.airT = 0; c.cool = 1.2; c.barrel.visible = false; $('reticle').hidden = true;
+    jumpBuf = 0; sfx.pound(); tone(90, 0.5, 'sawtooth', 0.08, 40); G.shake = 0.3;
+    burst(new V3(c.x + d.x * 2.6, 0.6 + d.y * 2.6, c.z + d.z * 2.6), 0xdddddd, 18, 6);
+    cam.yaw = c.yaw + Math.PI; cam.pitch = 0.3;
+  } else if (crouchKey) {
+    p.cannon = null; p.pos.y = 0.6; p.vel.set(0, 10, 0); c.cool = 1.2; c.barrel.visible = false; $('reticle').hidden = true;
+  }
+  punchReq = poundReq = false; jumpBuf -= dt;
 }
 function animateItems(t) {
   for (const b of itemBoxes) if (!b.broken) { b.m.rotation.y = t * 0.8 + b.ph; }
@@ -1687,6 +1772,7 @@ const feet = [-0.2, 0.2].map(x => part(new THREE.BoxGeometry(0.26, 0.2, 0.42), 0
 const hands = [-0.52, 0.52].map(x => part(new THREE.SphereGeometry(0.14, 8, 6), 0xfff8e6, x, 0.72, 0));
 const wings = [-1, 1].map(sd => { const w = part(new THREE.BoxGeometry(0.55, 0.06, 0.3), 0xffffff, sd * 0.5, 1.62, -0.05); w.rotation.z = -sd * 0.5; w.visible = false; return w; });
 body.traverse(o => { if (o.isMesh) o.castShadow = true; });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0xc9ced8, metalness: 0.7, roughness: 0.25, emissive: 0x1c2028, flatShading: true });
 const blob = new THREE.Mesh(new THREE.CircleGeometry(0.55, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
 blob.rotation.x = -Math.PI / 2; scene.add(blob);
 
@@ -1951,7 +2037,8 @@ $('bKeep').addEventListener('click', () => {
 function placePlayer(sp) {
   P.pos.copy(sp.pos); P.vel.set(0, 0, 0); P.onGround = false; P.ground = null;
   P.pound = P.longJump = P.backflip = false; P.lockT = 0; P.facing = sp.yaw + Math.PI; P.inSand = false; P.sink = 0; P.spinT = 0;
-  P.fly = false; P.hang = null; P.pole = null; P.dive = false; P.bellyT = 0; P.holding = false;
+  P.fly = false; P.hang = null; P.pole = null; P.dive = false; P.bellyT = 0; P.holding = false; P.cannon = null; P.shot = false;
+  $('reticle').hidden = true;
   cam.yaw = sp.yaw; cam.t.set(sp.pos.x, sp.pos.y + 1.4, sp.pos.z);
 }
 function loadLevel(id, entry, eject) {
@@ -1961,7 +2048,7 @@ function loadLevel(id, entry, eject) {
   scene.background.setHex(L.sky); scene.fog.color.setHex(L.sky); scene.fog.near = L.fogNear; scene.fog.far = L.fogFar;
   hemi.color.setHex(L.hemi[0]); hemi.groundColor.setHex(L.hemi[1]); hemi.intensity = L.hemi[2];
   sun.color.setHex(L.sun[0]); sun.intensity = L.sun[1];
-  P.wingT = 0; $('hWing').hidden = true;
+  P.wingT = 0; $('hWing').hidden = true; P.metalT = 0; $('hMetal').hidden = true;
   placePlayer((entry && L.entries[entry]) || L.spawn);
   if (eject && L.ejects && L.ejects[entry]) { P.pos.copy(L.ejects[entry].pos); P.vel.copy(L.ejects[entry].vel); P.lockT = 0.5; }
   G.coins = 0; G.red = 0; G.foes = 0; G.nextLife = 50;
@@ -2043,7 +2130,7 @@ function approach2(v, tx, tz, step) {
 function lerpAngle(a, b, t) { const d = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI; return a + d * t; }
 
 function hurt(from, dmg = 2) {
-  if (P.inv > 0) return;
+  if (P.inv > 0 || P.metalT > 0) return;
   P.hp = Math.max(0, P.hp - dmg); P.inv = 1.6; sfx.hurt();
   const dx = P.pos.x - from.x, dz = P.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
   P.vel.set(dx / d * 10, 8, dz / d * 10); P.onGround = false; P.pound = P.longJump = P.backflip = false; P.lockT = 0.3;
@@ -2112,11 +2199,18 @@ function updatePlayer(dt) {
     if (p.wingT <= 0) { $('hWing').hidden = true; p.fly = false; banner('Il cappello alato è finito', 1.4); }
   }
   p.poleCool = (p.poleCool || 0) - dt; p.hangCool = (p.hangCool || 0) - dt;
+  if (p.metalT > 0) {
+    p.metalT -= dt; const ms = Math.ceil(p.metalT);
+    if (ms !== p.metalShown) { p.metalShown = ms; $('hMetal').hidden = false; $('hMetal').textContent = 'Metallo ' + ms; }
+    if (p.metalT <= 0) { $('hMetal').hidden = true; banner('Il cappello di metallo è finito', 1.4); }
+  }
+  if (p.cannon) { updateCannon(p, dt, ix, iy, crouchKey); return; }
   if (p.pole) { updatePole(p, dt, ix, iy, crouchKey); return; }
   if (p.hang) { updateHang(p, dt, wx, wz, crouchKey); return; }
   const wasSwim = p.swim;
   p.leapT = (p.leapT || 0) - dt;
-  p.swim = L.waterY != null && p.pos.y + 0.9 < L.waterY + 0.15 && !(p.leapT > 0);
+  p.swim = L.waterY != null && p.pos.y + 0.9 < L.waterY + 0.15 && !(p.leapT > 0) && !(p.metalT > 0);
+  const heavy = p.metalT > 0 && L.waterY != null && p.pos.y + 0.9 < L.waterY;
   if (p.swim && !wasSwim) { p.pound = p.longJump = p.backflip = p.fly = p.dive = false; p.chain = 0; p.vel.y = Math.max(p.vel.y * 0.35, -6); }
 
   if (poundReq && !p.onGround && !p.pound && !p.swim) { p.pound = true; p.poundHang = 0.22; p.longJump = p.backflip = p.fly = p.dive = false; sfx.jump(0); }
@@ -2178,6 +2272,7 @@ function updatePlayer(dt) {
     if (p.inSand) { maxS = 3.5; acc = 30; }
     if (p.longJump) { maxS = 17; acc = il > 0.1 ? 5 : 1.5; }
     if (p.dive) { maxS = 15; acc = il > 0.1 ? 3 : 1; }
+    if (heavy) maxS = Math.min(maxS, 5.5);
     if (p.punchT > 0 && p.onGround) acc = 18;
     if (p.bellyT > 0 && p.onGround) {
       p.bellyT -= dt; approach2(p.vel, 0, 0, 10 * dt);
@@ -2189,8 +2284,8 @@ function updatePlayer(dt) {
       const lv = p.vel.x * px + p.vel.z * pz; p.vel.x -= px * lv * 1.2 * dt; p.vel.z -= pz * lv * 1.2 * dt;
       const sp = Math.hypot(p.vel.x, p.vel.z); if (sp > 19) { p.vel.x *= 19 / sp; p.vel.z *= 19 / sp; }
       p.facing = Math.atan2(p.vel.x, p.vel.z);
-    } else if (p.lockT <= 0) approach2(p.vel, wx * maxS, wz * maxS, acc * dt);
-    if (il > 0.1 && p.lockT <= 0 && !p.longJump && p.punchT <= 0 && !p.sliding && !p.dive && !(p.bellyT > 0)) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
+    } else if (p.lockT <= 0 && !p.shot) approach2(p.vel, wx * maxS, wz * maxS, acc * dt);
+    if (il > 0.1 && p.lockT <= 0 && !p.longJump && p.punchT <= 0 && !p.sliding && !p.dive && !(p.bellyT > 0) && !p.shot) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
 
     p.coyote = p.onGround ? 0.1 : p.coyote - dt;
     if (jumpBuf > 0) {
@@ -2204,6 +2299,7 @@ function updatePlayer(dt) {
           if (gameTime - p.landT < 0.22 && hs > 5 && p.chain < 2) p.chain++; else p.chain = 0;
           if (p.inSand) p.chain = 0;
           p.vel.y = p.inSand ? 11.5 : [13, 15.5, 19][p.chain]; sfx.jump(p.chain);
+          if (heavy) p.vel.y *= 0.8;
           if (p.chain === 2 && p.wingT > 0) {
             p.fly = true; p.flyPitch = 0.5; p.flySpeed = 20;
             if (!G.flyTip) { G.flyTip = true; banner('Volo!<small>Avanti: scendi · Indietro: sali · Sinistra e destra: gira</small>', 3.2); }
@@ -2217,8 +2313,8 @@ function updatePlayer(dt) {
         burst(p.pos.clone().add(new V3(-p.wallN.x * 0.4, 1, -p.wallN.z * 0.4)), 0xffffff, 5, 2);
       }
     }
-    let g = p.longJump ? 26 : 34;
-    if (!(keys.Space || touchJump) && p.vel.y > 0 && !p.longJump && !p.backflip && !(p.spinT > 0)) g *= 2.2;
+    let g = p.longJump ? 26 : heavy ? 22 : 34;
+    if (!(keys.Space || touchJump) && p.vel.y > 0 && !p.longJump && !p.backflip && !(p.spinT > 0) && !p.shot) g *= 2.2;
     p.vel.y = Math.max(p.vel.y - g * dt, -40);
   }
   jumpBuf -= dt;
@@ -2234,7 +2330,7 @@ function updatePlayer(dt) {
     if (top - p.pos.y <= STEP && (p.onGround || p.vel.y <= 0)) { p.pos.y = top; if (p.vel.y < 0) p.vel.y = 0; continue; }
     if (s.pole && !p.onGround && !p.swim && !p.fly && !(p.poleCool > 0) && p.pos.y + 1 < s.top && p.pos.y > s.bottom) {
       p.pole = s; p.poleAng = Math.atan2(p.pos.x - s.x, p.pos.z - s.z); p.vel.set(0, 0, 0);
-      p.dive = p.longJump = p.backflip = p.pound = false; p.chain = 0; tone(700, 0.08, 'square', 0.04);
+      p.dive = p.longJump = p.backflip = p.pound = p.shot = false; p.chain = 0; tone(700, 0.08, 'square', 0.04);
       pushOut(s, p.pos, R); continue;
     }
     const bx = p.pos.x, bz = p.pos.z;
@@ -2243,7 +2339,7 @@ function updatePlayer(dt) {
     if (!p.onGround && nl > 1e-4 && top > p.pos.y + 0.8) {
       p.wallT = gameTime; p.wallN.set(nx / nl, 0, nz / nl);
       if (p.longJump || p.dive) { p.vel.x *= 0.2; p.vel.z *= 0.2; }
-      if (p.fly) { p.fly = false; p.vel.set(nx / nl * 4, 0, nz / nl * 4); sfx.stomp(); }
+      if (p.fly || p.shot) { p.fly = p.shot = false; p.vel.set(nx / nl * 4, 0, nz / nl * 4); sfx.stomp(); }
       const ledge = top - p.pos.y, into = -(nx / nl) * Math.sin(p.facing) - (nz / nl) * Math.cos(p.facing);
       if (!p.swim && !p.pound && !(p.hangCool > 0) && p.vel.y <= 3 && ledge > 1.0 && ledge < 1.95 && into > 0.5 && s.type !== 'ramp' && !s.sinker && s.delta.lengthSq() === 0) {
         p.hang = { top, nx: nx / nl, nz: nz / nl }; p.hangT = 0; p.pos.y = top - 1.75; p.vel.set(0, 0, 0);
@@ -2268,7 +2364,7 @@ function updatePlayer(dt) {
     for (const s of solids) if (s.bottom >= prevY + H - 0.01 && s.bottom < p.pos.y + H && overlap(s, p.pos.x, p.pos.z, 0.3)) { p.pos.y = s.bottom - H; p.vel.y = 0; }
   }
   if (p.onGround && !wasGround) {
-    p.landT = gameTime; p.squash = 1; p.longJump = p.backflip = p.fly = false;
+    p.landT = gameTime; p.squash = 1; p.longJump = p.backflip = p.fly = p.shot = false;
     if (p.dive) { p.dive = false; p.bellyT = 0.5; }
     if (p.pound) {
       p.pound = false; sfx.pound(); burst(p.pos, 0xd8ccb2, 14, 5); G.shake = 0.15;
@@ -2289,7 +2385,8 @@ function updatePlayer(dt) {
     const cold = L.hazard === 'cold';
     p.pos.y = L.hazardY + 0.01;
     p.vel.y = 21; p.vel.x *= 0.3; p.vel.z *= 0.3; p.onGround = false; p.pound = p.longJump = p.backflip = false;
-    p.hp = Math.max(0, p.hp - 3); p.burnT = 1.2; p.inv = Math.max(p.inv, 0.6); cold ? sfx.freeze() : sfx.burn();
+    if (!(p.metalT > 0)) p.hp = Math.max(0, p.hp - 3);
+    p.burnT = 1.2; p.inv = Math.max(p.inv, 0.6); cold ? sfx.freeze() : sfx.burn();
     burst(p.pos.clone(), cold ? 0xbfeaff : 0xff7a1a, 16, 5); hud();
     if (L.onHurt) L.onHurt();
     if (p.hp <= 0) { die(); return; }
@@ -2301,7 +2398,7 @@ function updatePlayer(dt) {
   }
   if (p.pos.y < L.deathY) { die(); return; }
   if (L.waterY != null) {
-    if (p.pos.y + 1.5 < L.waterY) {
+    if (p.pos.y + 1.5 < L.waterY && !(p.metalT > 0)) {
       p.airClock = (p.airClock || 0) + dt;
       if (!L.airTip) { L.airTip = true; banner("Sott'acqua<small>L'energia cala: risali in superficie per respirare</small>", 2.8); }
       if (p.airClock > 1.6) {
@@ -2381,7 +2478,7 @@ function updateEnemies(dt) {
     e.ft[0].position.z = 0.1 + Math.sin(e.ph) * 0.18; e.ft[1].position.z = 0.1 - Math.sin(e.ph) * 0.18;
     const hd = Math.hypot(P.pos.x - e.pos.x, P.pos.z - e.pos.z);
     if (hd < 1.15 && P.pos.y < e.pos.y + 1.35 && P.pos.y + H > e.pos.y) {
-      if ((P.vel.y < 0 && P.pos.y > e.pos.y + 0.55) || P.pound) {
+      if ((P.vel.y < 0 && P.pos.y > e.pos.y + 0.55) || P.pound || P.metalT > 0 || P.shot) {
         killEnemy(e);
         P.pound = false; P.longJump = false; P.vel.y = (keys.Space || touchJump) ? 16 : 11; P.onGround = false;
       } else if (P.punchT > 0) killEnemy(e);
@@ -2490,6 +2587,7 @@ function updateMovers(dt, t) {
 
 function updateTriggers(dt) {
   updateItems(dt);
+  updateCannons(dt);
   for (const dr of L.doors) {
     dr.mesh.material = G.stars >= dr.need ? dr.open : dr.shut;
     dr.msgT -= dt;
@@ -2540,6 +2638,10 @@ function animatePlayer(dt) {
       body.rotation.x = Math.PI / 2 - p.flyPitch; body.position.y = 0.8;
       hands[0].position.x = -0.95; hands[1].position.x = 0.95; hands[0].position.y = hands[1].position.y = 0.45; hands[0].position.z = hands[1].position.z = 0;
       feet[0].position.z = feet[1].position.z = -0.1;
+    } else if (p.shot) {
+      body.rotation.x = Math.PI / 2 - Math.atan2(p.vel.y, hs); body.position.y = 0.8;
+      hands[0].position.z = hands[1].position.z = 0.6; hands[0].position.y = hands[1].position.y = 0.5;
+      feet[0].position.z = feet[1].position.z = -0.1;
     } else if (p.dive || (p.bellyT > 0 && p.onGround)) {
       body.rotation.x = 1.45; body.position.y = p.onGround ? 0.35 : 0.8;
       hands[0].position.z = hands[1].position.z = 0.55; hands[0].position.y = hands[1].position.y = 0.3;
@@ -2576,7 +2678,12 @@ function animatePlayer(dt) {
   wings.forEach((w, i) => { w.visible = p.wingT > 0; w.rotation.z = (i ? -1 : 1) * (0.5 + (p.fly ? Math.sin(gameTime * 12) * 0.3 : 0)); });
   const sq = (p.crouch ? 0.68 : 1) - p.squash * 0.25;
   body.scale.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6);
-  tino.visible = p.inv > 0 && p.burnT <= 0 ? Math.floor(p.inv * 14) % 2 === 0 : true;
+  tino.visible = p.cannon ? false : p.inv > 0 && p.burnT <= 0 ? Math.floor(p.inv * 14) % 2 === 0 : true;
+  const metalOn = p.metalT > 0 && !(p.metalT < 3 && Math.floor(p.metalT * 8) % 2);
+  if (metalOn !== p.metalOn) {
+    p.metalOn = metalOn;
+    body.traverse(o => { if (!o.isMesh) return; if (!o.userData.orig) o.userData.orig = o.material; o.material = metalOn ? metalMat : o.userData.orig; });
+  }
   const gh = groundHeight(p.pos.x, p.pos.z, p.pos.y + 0.05, 0.05);
   if (gh > -Infinity) {
     blob.visible = true; blob.position.set(p.pos.x, gh + 0.03, p.pos.z);
@@ -2585,7 +2692,14 @@ function animatePlayer(dt) {
 }
 
 function updateCamera(dt) {
-  if (P.fly) cam.yaw = lerpAngle(cam.yaw, P.facing + Math.PI, 1 - Math.exp(-2.5 * dt));
+  if (P.cannon) {
+    const c = P.cannon, d = cannonDir(c);
+    camera.position.set(c.x - Math.sin(c.yaw) * 3.2, 2.2, c.z - Math.cos(c.yaw) * 3.2);
+    camera.lookAt(c.x + d.x * 30, 0.4 + d.y * 30, c.z + d.z * 30);
+    cam.t.set(c.x, 1.6, c.z); cam.yaw = c.yaw + Math.PI;
+    return;
+  }
+  if (P.fly || P.shot) cam.yaw = lerpAngle(cam.yaw, P.facing + Math.PI, 1 - Math.exp(-2.5 * dt));
   if (keys.KeyQ) cam.yaw += 2.2 * dt;
   if (keys.KeyE) cam.yaw -= 2.2 * dt;
   const tx = P.pos.x, ty = P.pos.y + 1.4, tz = P.pos.z;

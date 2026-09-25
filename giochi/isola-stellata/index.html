@@ -93,7 +93,7 @@ body.touch .keys.touch-only{display:grid!important}
 <div class="overlay" id="startScreen">
   <div class="card">
     <h1>Isola Stellata</h1>
-    <p>Tino è naufragato su un'isola dove sono cadute undici stelle. Sette sono sull'isola; le altre quattro sono oltre la porta del castello, nel Vulcano Rombante, custodite dal Re Grumo.</p>
+    <p>Tino è naufragato su un'isola dove sono cadute undici stelle. Sette sono sull'isola. Le porte del castello portano al Vulcano Rombante, dove regna il Re Grumo, e al Picco Innevato, tra scivoli, ghiaccio e un pinguino smarrito.</p>
     <div class="keys desk-only">
       <kbd>WASD / frecce</kbd><span>Muoviti</span>
       <kbd>Spazio</kbd><span>Salta. Risalta appena atterri, correndo, per doppio e triplo salto</span>
@@ -169,9 +169,16 @@ const CATALOG = {
     ['camino', 'Il camino', "Dietro la partenza: rimbalza da un muro all'altro fino in cima."],
     ['re', 'Il Re Grumo', "Sull'arena a est. Saltagli in testa tre volte."],
   ] },
+  snow: { name: 'Picco Innevato', stars: [
+    ['vetta', 'La vetta', 'Sali la strada attorno alla montagna. Occhio alle palle di neve.'],
+    ['discesa', 'La grande discesa', 'Dalla vetta prendi il ponte a est e lanciati sullo scivolo.'],
+    ['pinguino', 'Il pinguino smarrito', 'Il piccolo è sulla vetta: riportalo alla mamma vicino alla partenza.'],
+    ['lago', 'Oltre il lago gelato', "A ovest, salta sui lastroni di ghiaccio. L'acqua gela!"],
+    ['rosse', 'Otto monete rosse', 'Otto monete rosse sparse nel gelo.'],
+  ] },
 };
 const TOTAL = Object.values(CATALOG).reduce((n, l) => n + l.stars.length, 0);
-const DOOR_NEED = 3;
+const DOOR_NEED = 3, SNOW_NEED = 6;
 const SAVE_KEY = 'isola-stellata-save-v1';
 let save = { stars: {} };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { const s = JSON.parse(raw); if (s && s.stars) save = s; } } catch (e) {}
@@ -234,7 +241,7 @@ function clearLevel() {
 
 // ---------- solids ----------
 function box(cx, cy, cz, sx, sy, sz, color) {
-  const m = add(new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), M(color)));
+  const m = add(new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), Array.isArray(color) ? color.map(c => M(c)) : M(color)));
   m.position.set(cx, cy, cz);
   const s = { type: 'box', cx, cz, hx: sx / 2, hz: sz / 2, bottom: cy - sy / 2, top: cy + sy / 2, mesh: m, delta: new V3() };
   solids.push(s); return s;
@@ -246,6 +253,24 @@ function cyl(x, z, r, bottom, top, color, seg = 28) {
   m.position.set(x, bottom + h / 2, z);
   const s = { type: 'cyl', x, z, r, bottom, top, mesh: m, delta: new V3() };
   solids.push(s); return s;
+}
+// sloped solid: top rises linearly from y0 (min side) to y1 (max side) along axis
+function ramp(cx, cz, sx, sz, axis, y0, y1, color, opts = {}) {
+  const bottom = opts.bottom !== undefined ? opts.bottom : Math.min(y0, y1) - 1.2;
+  const geo = new THREE.BoxGeometry(sx, 1, sz), pa = geo.attributes.position;
+  for (let i = 0; i < pa.count; i++) {
+    if (pa.getY(i) > 0) { const t = axis === 'x' ? (pa.getX(i) + sx / 2) / sx : (pa.getZ(i) + sz / 2) / sz; pa.setY(i, y0 + (y1 - y0) * t); }
+    else pa.setY(i, bottom);
+  }
+  geo.computeVertexNormals();
+  const m = add(new THREE.Mesh(geo, M(color))); m.position.set(cx, 0, cz);
+  const s = { type: 'ramp', cx, cz, hx: sx / 2, hz: sz / 2, axis, y0, y1, bottom, top: Math.max(y0, y1), mesh: m, delta: new V3(), slide: !!opts.slide };
+  solids.push(s); return s;
+}
+function topAt(s, x, z) {
+  if (s.type !== 'ramp') return s.top;
+  const t = s.axis === 'x' ? clamp((x - (s.cx - s.hx)) / (2 * s.hx), 0, 1) : clamp((z - (s.cz - s.hz)) / (2 * s.hz), 0, 1);
+  return s.y0 + (s.y1 - s.y0) * t;
 }
 function overlap(s, x, z, r) {
   if (s.type === 'cyl') { const dx = x - s.x, dz = z - s.z, m = s.r + r; return dx * dx + dz * dz < m * m; }
@@ -268,7 +293,7 @@ function pushOut(s, p, r) {
 }
 function groundHeight(x, z, y, r = 0.05) {
   let best = -Infinity;
-  for (const s of solids) if (s.top <= y + 0.1 && s.top > best && overlap(s, x, z, r)) best = s.top;
+  for (const s of solids) { const t = topAt(s, x, z); if (t <= y + 0.1 && t > best && overlap(s, x, z, r)) best = t; }
   return best;
 }
 
@@ -431,6 +456,11 @@ function buildIsland() {
   }
   const emblem = new THREE.Mesh(starGeo, starMat); emblem.scale.setScalar(0.55); emblem.position.set(0, 4.2, -27.7); root.add(emblem);
   sign('Porta del vulcano\nServono ' + DOOR_NEED + ' stelle', 3.4, 0, -26.2, 0);
+  const snowShut = M(0x3a6a8a), snowOpen = M(0x8ad0f0, { emissive: 0x2a7ab0 });
+  const snowDoor = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 2.4), snowShut), false);
+  snowDoor.position.set(7.05, 1.7, -32);
+  const emblem2 = new THREE.Mesh(starGeo, starMat); emblem2.scale.setScalar(0.55); emblem2.position.set(7.35, 4.2, -32); root.add(emblem2);
+  sign('Porta della neve\nServono ' + SNOW_NEED + ' stelle', 9.4, 0, -35.3, Math.PI / 2);
   cyl(0, -22, 1.3, -1, 0.5, STONE, 16);
 
   // islet + ferry
@@ -508,16 +538,19 @@ function buildIsland() {
 
   return {
     sky: 0x86cdf2, fogNear: 70, fogFar: 190, hemi: [0xe4f6ff, 0x4f7a3a, 0.75], sun: [0xfff0d0, 0.95],
-    music: 'island', deathY: -4, lavaY: null, seaY: -0.6,
+    music: 'island', deathY: -4, hazardY: null, seaY: -0.6,
     spawn: { pos: new V3(0, 0, 24), yaw: 0 },
-    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI } },
-    doors: [{ x: 0, z: -27.6, w: 1.3, need: DOOR_NEED, to: 'volcano', mesh: door, shut: doorShut, open: doorOpen, msgT: 0 }],
-    redTotal: 8, coinStar: true,
+    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI }, snow: { pos: new V3(10.5, 0, -32), yaw: -Math.PI / 2 } },
+    doors: [
+      { x0: -1.3, x1: 1.3, z0: -28.6, z1: -27.2, need: DOOR_NEED, to: 'volcano', mesh: door, shut: doorShut, open: doorOpen, msgT: 0 },
+      { x0: 7.2, x1: 8.1, z0: -33.3, z1: -30.7, need: SNOW_NEED, to: 'snow', mesh: snowDoor, shut: snowShut, open: snowOpen, msgT: 0 },
+    ],
+    redTotal: 8, coinStar: true, redMsg: 'Sul piedistallo davanti al castello',
     foesMsg: 'Davanti alla spiaggia, vicino ai tre alberi',
     tick(dt, t) {
       for (const c of clouds) { c.position.x += dt * 1.2; if (c.position.x > 180) c.position.x = -180; }
       sea.position.y = -0.6 + Math.sin(t * 0.8) * 0.05;
-      emblem.rotation.y = t * 1.2;
+      emblem.rotation.y = t * 1.2; emblem2.rotation.y = t * 1.2;
     },
   };
 }
@@ -610,7 +643,7 @@ function buildVolcano() {
 
   return {
     sky: 0x2a1418, fogNear: 45, fogFar: 150, hemi: [0xffb07a, 0x3a1010, 0.65], sun: [0xffc38a, 0.85],
-    music: 'volcano', deathY: -10, lavaY: 0.05, seaY: null,
+    music: 'volcano', deathY: -10, hazardY: 0.05, hazard: 'lava', seaY: null,
     spawn: { pos: new V3(0, 1.5, 26), yaw: 0 },
     entries: {},
     doors: [], redTotal: 0, coinStar: false,
@@ -627,7 +660,211 @@ function buildVolcano() {
     },
   };
 }
-const LEVELS = { island: buildIsland, volcano: buildVolcano };
+// ---------- LEVEL: snow ----------
+function makePenguin(scale) {
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 10), M(0x1d2230)); b.scale.set(1, 1.3, 0.95); b.position.y = 0.65; g.add(b);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), M(0xf4f8fc)); belly.scale.set(0.9, 1.15, 0.6); belly.position.set(0, 0.6, 0.22); g.add(belly);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 10), M(0x1d2230)); head.position.y = 1.3; g.add(head);
+  for (const x of [-0.12, 0.12]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), M(0xffffff)); e.position.set(x, 1.36, 0.28); g.add(e);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), M(0x16213e)); pu.position.set(x, 1.36, 0.34); g.add(pu);
+    const f = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.3), M(0xff9a2a)); f.position.set(x * 1.4, 0.04, 0.12); g.add(f);
+  }
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.26, 8), M(0xff9a2a)); beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.24, 0.4); g.add(beak);
+  for (const x of [-0.5, 0.5]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.3), M(0x1d2230)); w.position.set(x, 0.75, 0); w.rotation.z = x > 0 ? 0.3 : -0.3; g.add(w); }
+  g.scale.setScalar(scale); g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  root.add(g); return g;
+}
+function buildSnow() {
+  const SNOW = 0xf2f6fb, SNOWS = 0xb9c6d6, ICE = 0xa8dcf5, ROCKS = 0x7d8796, ROAD = 0xe4ebf3, PINE = 0x2c6e55;
+  const water = add(new THREE.Mesh(new THREE.CircleGeometry(320, 48), new THREE.MeshStandardMaterial({ color: 0x5aa7d6, transparent: true, opacity: 0.92, roughness: 0.15, metalness: 0.2 })), false, true);
+  water.rotation.x = -Math.PI / 2; water.position.y = -2;
+
+  cyl(0, 0, 34, -6, 0, [SNOWS, SNOW, SNOWS], 44);
+  // frozen rink
+  const rink = cyl(-18, 14, 6, -1, 0.1, [ICE, ICE, ICE], 28); rink.ice = true;
+  rink.mesh.material = M(ICE, { roughness: 0.15, metalness: 0.3, emissive: 0x16384a });
+
+  // mountain core + spiral road (C0 ground corner at SW, then S, E, N, W sides going up)
+  box(0, 8, -8, 16, 16, 16, [ROCKS, ROCKS, SNOW, ROCKS, ROCKS, ROCKS]);
+  ramp(0, 1.75, 16, 3.5, 'x', 0, 3.5, ROAD, { bottom: -1 });
+  box(9.75, 1.75, 1.75, 3.5, 3.5, 3.5, [SNOWS, SNOWS, ROAD, SNOWS, SNOWS, SNOWS]);
+  ramp(9.75, -8, 3.5, 16, 'z', 7, 3.5, ROAD, { bottom: -1 });
+  box(9.75, 3.5, -17.75, 3.5, 7, 3.5, [SNOWS, SNOWS, ROAD, SNOWS, SNOWS, SNOWS]);
+  ramp(0, -17.75, 16, 3.5, 'x', 10.5, 7, ROAD, { bottom: -1 });
+  box(-9.75, 5.25, -17.75, 3.5, 10.5, 3.5, [SNOWS, SNOWS, ROAD, SNOWS, SNOWS, SNOWS]);
+  ramp(-9.75, -8, 3.5, 16, 'z', 10.5, 14, ROAD, { bottom: -1 });
+  box(-9.75, 7, 1.75, 3.5, 14, 3.5, [SNOWS, SNOWS, ROAD, SNOWS, SNOWS, SNOWS]);
+  // road coins
+  [[-4, 1.75], [4, 1.75], [9.75, -4], [9.75, -12], [4, -17.75], [-4, -17.75], [-9.75, -12], [-9.75, -4]].forEach(([x, z]) => addCoin(x, groundHeight(x, z, 30) + 1, z));
+
+  // summit
+  addStar('vetta', -5, 18.2, -13);
+  addHeart(5, 17.4, -3);
+  addEnemy(2, 16, -7, 3);
+  sign('Scivolo', 6.6, 16, -13.5, -Math.PI / 2);
+  function snowman(x, y, z, s = 1) {
+    cyl(x, z, 0.9 * s, y - 0.2, y + 2.4 * s, SNOW, 10).mesh.visible = false;
+    const a = add(new THREE.Mesh(new THREE.SphereGeometry(0.9 * s, 12, 10), M(SNOW))); a.position.set(x, y + 0.8 * s, z);
+    const b = add(new THREE.Mesh(new THREE.SphereGeometry(0.62 * s, 12, 10), M(SNOW))); b.position.set(x, y + 1.9 * s, z);
+    const n = add(new THREE.Mesh(new THREE.ConeGeometry(0.1 * s, 0.5 * s, 8), M(0xff8a2a))); n.rotation.x = Math.PI / 2; n.position.set(x, y + 1.95 * s, z + 0.75 * s);
+    for (const ex of [-0.2, 0.2]) { const e = add(new THREE.Mesh(new THREE.SphereGeometry(0.07 * s, 6, 5), M(0x16213e))); e.position.set(x + ex * s, y + 2.1 * s, z + 0.55 * s); }
+    const hat = add(new THREE.Mesh(new THREE.CylinderGeometry(0.4 * s, 0.4 * s, 0.5 * s, 12), M(0x2a2f45))); hat.position.set(x, y + 2.6 * s, z);
+  }
+  snowman(4, 16, -10);
+
+  // bridge + slide (east)
+  box(14, 15.6, -13.5, 12, 0.8, 3, ROAD);
+  box(22, 15.5, -13.5, 4, 1, 4, ROAD);
+  ramp(22, 2.25, 4, 27.5, 'z', 16, 6, 0xcfe9f7, { slide: true });
+  ramp(19.75, 2.25, 0.5, 27.5, 'z', 17, 7, 0x6fa8d6);
+  ramp(24.25, 2.25, 0.5, 27.5, 'z', 17, 7, 0x6fa8d6);
+  box(22, 5.5, 19, 4, 1, 6, ROAD);
+  box(22, 6.5, 22.3, 4, 3, 0.6, 0x6fa8d6);
+  addStar('discesa', 22, 7.6, 19.5);
+  [-6, -1, 9, 14].forEach(z => addCoin(22, 16 - (z + 11.5) / 27.5 * 10 + 1, z));
+
+  // lake crossing (west)
+  const floeA = box(-36.5, -1.5, 0, 3, 0.6, 3, ICE); floeA.ice = true;
+  const floeB = box(-39.5, -1.5, 0, 3, 0.6, 3, ICE); floeB.ice = true;
+  movers.push({ s: floeA, base: new V3(-36.5, -1.5, 0), axis: new V3(0, 0, 1), amp: 5, period: 5, phase: 0 });
+  movers.push({ s: floeB, base: new V3(-39.5, -1.5, 0), axis: new V3(0, 0, 1), amp: 5, period: 5, phase: Math.PI });
+  cyl(-46, 0, 4, -6, 1, [SNOWS, SNOW, SNOWS], 20);
+  for (let i = 0; i < 3; i++) {
+    const sp = add(new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.5 + i, 6), M(ICE, { emissive: 0x16384a })));
+    sp.position.set(-47.5 + i * 0.9, 2.2 + i * 0.5, -2.2 + i * 0.4);
+  }
+  addStar('lago', -46.5, 3.2, 1);
+
+  // trees and snowmen on the plateau
+  function pine(x, z) {
+    cyl(x, z, 0.4, -0.5, 2.2, 0x6b4a2b, 8);
+    const c1 = add(new THREE.Mesh(new THREE.ConeGeometry(1.9, 2.6, 8), M(PINE)), true, false); c1.position.set(x, 3.2, z);
+    const c2 = add(new THREE.Mesh(new THREE.ConeGeometry(1.35, 2.1, 8), M(PINE)), true, false); c2.position.set(x, 4.5, z);
+    const cap = add(new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.1, 8), M(SNOW)), true, false); cap.position.set(x, 5.5, z);
+  }
+  [[-25, -5], [-22, -22], [14, -24], [28, -8], [-28, 6], [15, 12], [28, 14], [-8, 28], [-14, -30]].forEach(([x, z]) => pine(x, z));
+  snowman(-4, 0, 20, 0.9); snowman(5, 0, 8, 1); snowman(-26, 0, -16, 1.2);
+
+  // coins on the plateau
+  ring(0, 12, 3, 8, 1);
+  ring(-18, 14, 4, 8, 1.1);
+  line(-28, -2, -28, 18, 5, 1);
+  line(-2, 31, 14, 29, 5, 1);
+  // red coins
+  [[-18, 1.1, 14], [0, 9.8, -17.75], [9.75, 8, -17.75], [22, 16 - 14.5 / 27.5 * 10 + 1, 3], [-45, 2, 2.5], [0, 1, -28], [14, 17, -13.5], [-26, 1, -10]]
+    .forEach(([x, y, z]) => addCoin(x, y, z, true));
+  addStar('rosse', 0, 2.3, 12, true);
+
+  [[12, 0, 8, 6], [-12, 0, -26, 5], [-22, 0, 22, 5], [24, 0, -20, 4]].forEach(([x, y, z, r]) => addEnemy(x, y, z, r));
+  addHeart(-4, 1.4, 25);
+  addPortal(-6, 0, 28, Math.PI / 2, 'island', 'snow');
+
+  // backdrop: snowy peaks
+  for (let i = 0; i < 14; i++) {
+    const a = i / 14 * TAU + 0.1, r = 140 + (i % 3) * 18, h = 45 + (i * 13) % 30, w = 20 + (i % 4) * 5;
+    const m = add(new THREE.Mesh(new THREE.ConeGeometry(w, h, 7), M(i % 2 ? 0x8fa3b8 : 0xa4b6c8)), false, false);
+    m.position.set(Math.cos(a) * r, h / 2 - 4, Math.sin(a) * r);
+    const cap = add(new THREE.Mesh(new THREE.ConeGeometry(w * 0.42, h * 0.42, 7), M(SNOW)), false, false);
+    cap.position.set(m.position.x, h - 4 - h * 0.21 + 0.3, m.position.z);
+  }
+  // falling snow
+  const FL = 500, fpos = new Float32Array(FL * 3);
+  for (let i = 0; i < FL; i++) { fpos[i * 3] = (Math.random() - 0.5) * 70; fpos[i * 3 + 1] = Math.random() * 35; fpos[i * 3 + 2] = (Math.random() - 0.5) * 70; }
+  const fgeo = new THREE.BufferGeometry(); fgeo.setAttribute('position', new THREE.BufferAttribute(fpos, 3));
+  const flakes = new THREE.Points(fgeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0.9, depthWrite: false }));
+  root.add(flakes);
+
+  // rolling snowballs down the road
+  const path = [[-9.75, 1.75], [-9.75, -17.75], [9.75, -17.75], [9.75, 1.75], [-7, 1.75], [-7, 14]];
+  const segs = []; let total = 0;
+  for (let i = 0; i < path.length - 1; i++) { const [ax, az] = path[i], [bx, bz] = path[i + 1], len = Math.hypot(bx - ax, bz - az); segs.push({ ax, az, bx, bz, len, start: total }); total += len; }
+  const ballGeo = new THREE.IcosahedronGeometry(0.9, 1);
+  const balls = []; let ballT = 1.5;
+  function pathPos(d) {
+    const sg = segs.find(s => d <= s.start + s.len) || segs[segs.length - 1];
+    const k = clamp((d - sg.start) / sg.len, 0, 1);
+    return [sg.ax + (sg.bx - sg.ax) * k, sg.az + (sg.bz - sg.az) * k];
+  }
+
+  // penguins
+  const mother = makePenguin(1.8); mother.position.set(8, 0, 22); mother.rotation.y = -1.1;
+  cyl(8, 22, 0.9, -0.5, 2.6, SNOW, 8).mesh.visible = false;
+  const baby = { g: makePenguin(0.8), home: new V3(-3, 16, -4), pos: new V3(-3, 16, -4), carried: false, done: false, cryT: 0 };
+  baby.g.position.copy(baby.pos);
+  function dropBaby(toHome) {
+    if (!baby.carried) return;
+    baby.carried = false;
+    const gh = groundHeight(P.pos.x, P.pos.z, P.pos.y + 0.5, 0.2);
+    if (toHome || gh === -Infinity || gh < -1) baby.pos.copy(baby.home); else baby.pos.set(P.pos.x, gh, P.pos.z);
+    baby.grabCool = 1.2;
+  }
+
+  return {
+    sky: 0xcfe3f2, fogNear: 50, fogFar: 170, hemi: [0xffffff, 0x9fb3c8, 0.85], sun: [0xfff6ea, 0.8],
+    music: 'snow', deathY: -20, hazardY: -2, hazard: 'cold', seaY: null,
+    spawn: { pos: new V3(0, 0, 26), yaw: 0 },
+    entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Al centro della pianura, davanti alla partenza',
+    onHurt() { dropBaby(false); },
+    onDie() { dropBaby(true); for (const b of balls) root.remove(b.m); balls.length = 0; },
+    update(dt) {
+      // snowballs
+      ballT -= dt;
+      if (ballT <= 0) {
+        ballT = 3.4;
+        if (Math.hypot(P.pos.x - path[0][0], P.pos.z - path[0][1]) > 3.5 || P.pos.y < 12) {
+          const m = new THREE.Mesh(ballGeo, M(SNOW)); m.castShadow = true; root.add(m);
+          balls.push({ m, d: 0, y: 14 });
+        }
+      }
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const b = balls[i]; b.d += 6.5 * dt;
+        if (b.d >= total) { root.remove(b.m); balls.splice(i, 1); continue; }
+        const [x, z] = pathPos(b.d);
+        const gh = groundHeight(x, z, b.y + 1, 0.3); if (gh > -Infinity) b.y = gh;
+        b.m.position.set(x, b.y + 0.9, z); b.m.rotation.x += dt * 6; b.m.rotation.z += dt * 2;
+        const dx = P.pos.x - x, dy = P.pos.y + 0.8 - (b.y + 0.9), dz = P.pos.z - z;
+        if (dx * dx + dy * dy + dz * dz < 1.5 * 1.5) hurt({ x, z });
+      }
+      // baby penguin
+      if (baby.done) { baby.g.rotation.z = Math.sin(gameTime * 6) * 0.15; return; }
+      if (baby.grabCool > 0) baby.grabCool -= dt;
+      if (baby.carried) {
+        baby.g.position.set(P.pos.x, P.pos.y + 1.95, P.pos.z); baby.g.rotation.y = P.facing;
+        if (P.onGround && Math.hypot(P.pos.x - mother.position.x, P.pos.z - mother.position.z) < 3.4) {
+          baby.carried = false; baby.done = true;
+          baby.g.position.set(mother.position.x + 1.4, 0, mother.position.z + 0.6); baby.g.rotation.y = -1.1;
+          reveal(starById('pinguino'), 'La mamma ringrazia!', new V3(mother.position.x - 1, 3.2, mother.position.z + 1.5));
+        }
+      } else {
+        baby.g.position.set(baby.pos.x, baby.pos.y + Math.abs(Math.sin(gameTime * 5)) * 0.08, baby.pos.z);
+        baby.g.rotation.z = Math.sin(gameTime * 5) * 0.12;
+        baby.cryT -= dt;
+        const d = Math.hypot(P.pos.x - baby.pos.x, P.pos.z - baby.pos.z);
+        if (d < 8 && baby.cryT <= 0) { baby.cryT = 2.5; sfx.cry(); }
+        if (d < 1.2 && Math.abs(P.pos.y - baby.pos.y) < 1.4 && !(baby.grabCool > 0)) {
+          baby.carried = true; sfx.pickup();
+          banner('Pinguino in braccio<small>Portalo alla mamma, vicino alla partenza</small>', 2.2);
+        }
+      }
+    },
+    tick(dt, t) {
+      water.position.y = -2 + Math.sin(t * 0.6) * 0.04;
+      const fp = fgeo.attributes.position, a = fp.array, cx = cam.t.x, cy = cam.t.y, cz = cam.t.z;
+      for (let i = 0; i < FL; i++) {
+        const j = i * 3;
+        a[j + 1] -= dt * (1.4 + (i % 5) * 0.25); a[j] += Math.sin(t + i) * dt * 0.4;
+        if (a[j + 1] < cy - 10) a[j + 1] += 35;
+        if (a[j] < cx - 35) a[j] += 70; else if (a[j] > cx + 35) a[j] -= 70;
+        if (a[j + 2] < cz - 35) a[j + 2] += 70; else if (a[j + 2] > cz + 35) a[j + 2] -= 70;
+      }
+      fp.needsUpdate = true;
+      mother.rotation.z = Math.sin(t * 2) * 0.05;
+    },
+  };
+}
+const LEVELS = { island: buildIsland, volcano: buildVolcano, snow: buildSnow };
 
 // ---------- player (Tino) ----------
 const H = 1.6, R = 0.45, STEP = 0.45;
@@ -730,6 +967,9 @@ const sfx = {
   locked: () => seq([300, 240], 120, 'square', 0.05, 0.14),
   portal: () => seq([400, 600, 800, 1200], 60, 'sine', 0.08, 0.2),
   bossHit: () => seq([200, 150, 100], 90, 'sawtooth', 0.08, 0.2),
+  freeze: () => { tone(1600, 0.5, 'sine', 0.07, 300); tone(2400, 0.3, 'triangle', 0.03, 800); },
+  pickup: () => seq([784, 988, 1175], 60, 'triangle', 0.07, 0.12),
+  cry: () => seq([1100, 900], 110, 'sine', 0.05, 0.12),
 };
 
 // ---------- music (original tunes, step sequencer) ----------
@@ -740,6 +980,9 @@ const TRACKS = {
   volcano: { bpm: 144, lead: [69,0,72,69,76,0,74,72, 71,0,74,71,77,0,76,74, 72,0,76,72,81,0,79,77, 76,77,76,74,72,71,69,0,
                              69,0,72,69,76,0,74,72, 71,0,74,71,79,0,77,76, 77,76,74,72,71,72,74,71, 69,0,0,0,57,0,0,0],
              roots: [45,43,41,40,45,43,41,40], leadType: 'square', leadVol: 0.03, bassType: 'sawtooth', bassVol: 0.05 },
+  snow: { bpm: 108, lead: [77,0,81,0,84,0,81,0, 79,0,82,0,86,0,82,0, 81,0,84,0,89,0,84,81, 79,77,76,74,72,0,0,0,
+                          77,0,81,0,84,0,86,84, 82,0,79,0,86,0,84,82, 81,79,77,76,74,76,77,79, 77,0,0,0,65,0,0,0],
+          roots: [53,58,48,53,53,58,48,53], leadType: 'triangle', leadVol: 0.07, bassType: 'sine', bassVol: 0.12, hat: false },
   boss: { bpm: 172, lead: [69,0,69,70,69,0,76,0, 69,0,69,70,69,0,77,76, 69,0,69,70,69,0,76,0, 72,71,70,69,68,0,64,0],
           roots: [45,45,46,44], leadType: 'sawtooth', leadVol: 0.028, bassType: 'square', bassVol: 0.05 },
 };
@@ -767,7 +1010,7 @@ function schedule() {
     if (t >= Music.hold) {
       const n = tr.lead[i]; if (n) note(n, t, spb * 0.9, tr.leadType, tr.leadVol);
       const b = BASS_PAT[i % 8]; if (b !== null) note(tr.roots[Math.floor(i / 8) % tr.roots.length] + b - 12, t, spb * 1.6, tr.bassType, tr.bassVol);
-      if (i % 2) hat(t);
+      if (i % 2 && tr.hat !== false) hat(t);
     }
     Music.next += spb; Music.step++;
   }
@@ -918,6 +1161,7 @@ function hurt(from, dmg = 2) {
   P.hp = Math.max(0, P.hp - dmg); P.inv = 1.6; sfx.hurt();
   const dx = P.pos.x - from.x, dz = P.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
   P.vel.set(dx / d * 10, 8, dz / d * 10); P.onGround = false; P.pound = P.longJump = P.backflip = false; P.lockT = 0.3;
+  if (L.onHurt) L.onHurt();
   hud();
   if (P.hp <= 0) die();
 }
@@ -925,6 +1169,7 @@ function die() {
   sfx.die(); G.lives--; hud();
   if (G.lives < 0) { gameOver(false); return; }
   banner('Ops!<small>Si riparte</small>', 1.8);
+  if (L.onDie) L.onDie();
   placePlayer(L.spawn); P.hp = 8; P.inv = 1.5;
   if (boss && boss.state !== 'dead') {
     boss.hp = 3; boss.active = false; boss.state = 'idle'; boss.pos.copy(boss.home); boss.g.visible = true; boss.g.scale.setScalar(2.8);
@@ -995,12 +1240,22 @@ function updatePlayer(dt) {
     p.vel.x = p.vel.z = 0;
     if (p.poundHang > 0) { p.poundHang -= dt; p.vel.y = 0; } else p.vel.y = -34;
   } else {
+    const surf = p.onGround ? p.ground : null;
+    p.sliding = !!(surf && surf.slide);
     let maxS = 9.5, acc = p.onGround ? 55 : (il > 0.1 ? 22 : 4);
+    if (surf && surf.ice) acc = il > 0.1 ? 7 : 1.2;
     if (p.crouch) maxS = 2.5;
     if (p.longJump) { maxS = 17; acc = il > 0.1 ? 5 : 1.5; }
     if (p.punchT > 0 && p.onGround) acc = 18;
-    if (p.lockT <= 0) approach2(p.vel, wx * maxS, wz * maxS, acc * dt);
-    if (il > 0.1 && p.lockT <= 0 && !p.longJump && p.punchT <= 0) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
+    if (p.sliding) {
+      const sg = Math.sign(surf.y0 - surf.y1), dx = surf.axis === 'x' ? sg : 0, dz = surf.axis === 'z' ? sg : 0;
+      const px = -dz, pz = dx, lat = wx * px + wz * pz;
+      p.vel.x += (dx * 24 + px * lat * 16) * dt; p.vel.z += (dz * 24 + pz * lat * 16) * dt;
+      const lv = p.vel.x * px + p.vel.z * pz; p.vel.x -= px * lv * 1.2 * dt; p.vel.z -= pz * lv * 1.2 * dt;
+      const sp = Math.hypot(p.vel.x, p.vel.z); if (sp > 19) { p.vel.x *= 19 / sp; p.vel.z *= 19 / sp; }
+      p.facing = Math.atan2(p.vel.x, p.vel.z);
+    } else if (p.lockT <= 0) approach2(p.vel, wx * maxS, wz * maxS, acc * dt);
+    if (il > 0.1 && p.lockT <= 0 && !p.longJump && p.punchT <= 0 && !p.sliding) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
 
     p.coyote = p.onGround ? 0.1 : p.coyote - dt;
     if (jumpBuf > 0) {
@@ -1033,13 +1288,14 @@ function updatePlayer(dt) {
   // horizontal
   p.pos.x += p.vel.x * dt; p.pos.z += p.vel.z * dt;
   for (const s of solids) {
-    if (s.bottom >= p.pos.y + H || s.top <= p.pos.y + 0.02) continue;
+    const top = topAt(s, p.pos.x, p.pos.z);
+    if (s.bottom >= p.pos.y + H || top <= p.pos.y + 0.02) continue;
     if (!overlap(s, p.pos.x, p.pos.z, R)) continue;
-    if (s.top - p.pos.y <= STEP && (p.onGround || p.vel.y <= 0)) { p.pos.y = s.top; if (p.vel.y < 0) p.vel.y = 0; continue; }
+    if (top - p.pos.y <= STEP && (p.onGround || p.vel.y <= 0)) { p.pos.y = top; if (p.vel.y < 0) p.vel.y = 0; continue; }
     const bx = p.pos.x, bz = p.pos.z;
     pushOut(s, p.pos, R);
     const nx = p.pos.x - bx, nz = p.pos.z - bz, nl = Math.hypot(nx, nz);
-    if (!p.onGround && nl > 1e-4 && s.top > p.pos.y + 0.8) {
+    if (!p.onGround && nl > 1e-4 && top > p.pos.y + 0.8) {
       p.wallT = gameTime; p.wallN.set(nx / nl, 0, nz / nl);
       if (p.longJump) { p.vel.x *= 0.2; p.vel.z *= 0.2; }
     }
@@ -1051,7 +1307,11 @@ function updatePlayer(dt) {
   p.onGround = false; p.ground = null;
   if (p.vel.y <= 0) {
     let best = -Infinity, hit = null;
-    for (const s of solids) if (s.top <= prevY + 0.01 && s.top >= p.pos.y && s.top > best && overlap(s, p.pos.x, p.pos.z, 0.3)) { best = s.top; hit = s; }
+    const reach = wasGround ? 0.6 : 0; // stick to slopes and small drops while walking
+    for (const s of solids) {
+      const t = topAt(s, p.pos.x, p.pos.z);
+      if (t <= prevY + 0.01 && t >= p.pos.y - reach && t > best && overlap(s, p.pos.x, p.pos.z, 0.3)) { best = t; hit = s; }
+    }
     if (hit) { p.pos.y = best; p.vel.y = 0; p.onGround = true; p.ground = hit; }
   } else {
     for (const s of solids) if (s.bottom >= prevY + H - 0.01 && s.bottom < p.pos.y + H && overlap(s, p.pos.x, p.pos.z, 0.3)) { p.pos.y = s.bottom - H; p.vel.y = 0; }
@@ -1066,14 +1326,16 @@ function updatePlayer(dt) {
   if (!p.onGround) p.airT += dt;
 
   // hazards
-  if (L.lavaY !== null && p.pos.y <= L.lavaY) {
-    p.pos.y = L.lavaY + 0.01;
+  if (L.hazardY !== null && p.pos.y <= L.hazardY) {
+    const cold = L.hazard === 'cold';
+    p.pos.y = L.hazardY + 0.01;
     p.vel.y = 21; p.vel.x *= 0.3; p.vel.z *= 0.3; p.onGround = false; p.pound = p.longJump = p.backflip = false;
-    p.hp = Math.max(0, p.hp - 3); p.burnT = 1.2; p.inv = Math.max(p.inv, 0.6); sfx.burn();
-    burst(p.pos.clone(), 0xff7a1a, 16, 5); hud();
+    p.hp = Math.max(0, p.hp - 3); p.burnT = 1.2; p.inv = Math.max(p.inv, 0.6); cold ? sfx.freeze() : sfx.burn();
+    burst(p.pos.clone(), cold ? 0xbfeaff : 0xff7a1a, 16, 5); hud();
+    if (L.onHurt) L.onHurt();
     if (p.hp <= 0) { die(); return; }
   }
-  if (p.burnT > 0) { p.burnT -= dt; if (Math.random() < 0.5) burst(p.pos.clone().add(new V3(0, 0.8, 0)), 0xff9a1a, 1, 2); }
+  if (p.burnT > 0) { p.burnT -= dt; if (Math.random() < 0.5) burst(p.pos.clone().add(new V3(0, 0.8, 0)), L.hazard === 'cold' ? 0xdff4ff : 0xff9a1a, 1, 2); }
   if (L.seaY !== null) {
     if (p.pos.y < L.seaY && !splashed) { splashed = true; sfx.splash(); burst(new V3(p.pos.x, L.seaY + 0.1, p.pos.z), 0xbfe6ff, 16, 5); }
     if (p.pos.y > L.seaY + 0.3) splashed = false;
@@ -1091,7 +1353,7 @@ function updatePlayer(dt) {
       if (c.red) {
         G.red++; G.coins += 2; sfx.red(); burst(d, 0xff4a3a, 10, 4);
         banner(G.red + ' / ' + L.redTotal + '<small>moneta rossa</small>', 1.2);
-        if (G.red === L.redTotal) setTimeout(() => { if (L.id === 'island') reveal(starById('rosse'), 'Sul piedistallo davanti al castello'); }, 900);
+        if (G.red === L.redTotal) { const lid = L.id; setTimeout(() => { if (L.id === lid) reveal(starById('rosse'), L.redMsg); }, 900); }
       } else { G.coins++; sfx.coin(); }
       p.hp = Math.min(8, p.hp + 1);
       if (G.coins >= G.nextLife) { G.nextLife += 50; G.lives++; sfx.life(); banner('Vita extra!', 1.4); }
@@ -1140,7 +1402,7 @@ function updateEnemies(dt) {
     if (gh < e.pos.y - 0.8 || gh === -Infinity) { e.dir += Math.PI * (0.6 + Math.random() * 0.4); e.turnT = 1; }
     else {
       e.pos.x = nx; e.pos.z = nz; e.pos.y = gh;
-      for (const s of solids) if (s.top > e.pos.y + 0.3 && s.bottom < e.pos.y + 1.2 && overlap(s, e.pos.x, e.pos.z, 0.7)) pushOut(s, e.pos, 0.7);
+      for (const s of solids) if (topAt(s, e.pos.x, e.pos.z) > e.pos.y + 0.3 && s.bottom < e.pos.y + 1.2 && overlap(s, e.pos.x, e.pos.z, 0.7)) pushOut(s, e.pos, 0.7);
     }
     e.g.position.copy(e.pos); e.g.position.y += Math.abs(Math.sin(e.ph)) * 0.12;
     e.g.rotation.y = e.dir;
@@ -1258,7 +1520,7 @@ function updateTriggers(dt) {
   for (const dr of L.doors) {
     dr.mesh.material = G.stars >= dr.need ? dr.open : dr.shut;
     dr.msgT -= dt;
-    if (Math.abs(P.pos.x - dr.x) < dr.w && P.pos.z < dr.z + 0.4 && P.pos.z > dr.z - 1 && P.pos.y < 1) {
+    if (P.pos.x > dr.x0 && P.pos.x < dr.x1 && P.pos.z > dr.z0 && P.pos.z < dr.z1 && P.pos.y < 1) {
       if (G.stars >= dr.need) { sfx.portal(); irisTo(() => loadLevel(dr.to)); return; }
       if (dr.msgT <= 0) { dr.msgT = 2.5; sfx.locked(); banner('Porta chiusa<small>Servono ' + dr.need + ' stelle: ne hai ' + G.stars + '</small>', 2.2); }
     }
@@ -1296,6 +1558,7 @@ function animatePlayer(dt) {
       hands[0].position.y = hands[1].position.y = -0.08;
       body.rotation.x = Math.min(1, hs / 9) * 0.15;
       body.position.y = 0.8 + Math.abs(Math.cos(p.walk)) * 0.06 * Math.min(1, hs / 6);
+      if (p.sliding) { body.rotation.x = -0.45; feet[0].position.z = feet[1].position.z = 0.35; hands[0].position.y = hands[1].position.y = 0.3; }
       if (p.punchT > 0) { hands[1].position.z = 0.75 * Math.sin((p.punchT / 0.32) * Math.PI); hands[1].position.x = 0.3; hands[1].position.y = 0; }
     } else {
       feet[0].position.z = 0.25; feet[1].position.z = -0.15;
@@ -1365,6 +1628,7 @@ function frame(now) {
       updateBoss(dt);
       updateWaves(dt);
       updateTriggers(dt);
+      if (L.update) L.update(dt);
     }
   } else if (!G.running && !G.over) cam.yaw += dt * 0.12;
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').classList.remove('show'); }
@@ -1379,6 +1643,7 @@ requestAnimationFrame(frame);
 
 // test hook: jump straight to a level from the page's #hash (e.g. #vulcano)
 if (location.hash === '#vulcano') loadLevel('volcano');
+if (location.hash === '#neve') loadLevel('snow');
 })();
 </script>
 </body></html>

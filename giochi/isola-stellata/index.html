@@ -48,6 +48,13 @@ kbd{font-family:Bungee,Impact,sans-serif;font-size:11px;letter-spacing:.04em;bac
 .stars li.got span{opacity:.6}
 .stars em{font-style:normal;opacity:.65;font-size:13px}
 .pscroll{max-height:55vh;overflow:auto;margin:6px 0 20px}
+.missions{display:grid;gap:8px;margin-top:16px}
+.mission{display:flex;gap:12px;align-items:flex-start;text-align:left;font-family:Nunito,system-ui,sans-serif;font-size:15px;color:var(--ink);background:#fff;border:3px solid var(--ink);border-radius:12px;padding:10px 14px;cursor:pointer;box-shadow:0 3px 0 var(--ink)}
+.mission b{font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:20px;color:#b8b0a0;line-height:1}
+.mission.got b{color:#e0a800}
+.mission strong{display:block;font-weight:800}
+.mission em{display:block;font-style:normal;opacity:.7;font-size:13px;margin-top:2px}
+.mission:focus-visible,.mission:hover{outline:3px solid var(--coral);outline-offset:2px}
 .touch-only{display:none!important}
 body.touch .touch-only{display:block!important}
 body.touch .desk-only{display:none!important}
@@ -75,6 +82,7 @@ body.touch .keys.touch-only{display:grid!important}
     <div class="meter" id="meter" title="Energia"><span id="hHp">8</span></div>
     <div class="small" id="hLives">Tino ×4</div>
     <div class="small" id="hTime">0:00</div>
+    <div class="small" id="hWing" hidden>Ali 25</div>
     <div class="tools">
       <button class="tool" id="bMute" type="button">Audio sì</button>
       <button class="tool" id="bPause" type="button">Pausa</button>
@@ -93,14 +101,15 @@ body.touch .keys.touch-only{display:grid!important}
 <div class="overlay" id="startScreen">
   <div class="card">
     <h1>Isola Stellata</h1>
-    <p>Tino è naufragato su un'isola dove sono cadute undici stelle. Sette sono sull'isola. Le tre porte del castello portano al Vulcano Rombante, dove regna il Re Grumo, al Picco Innevato, tra scivoli, ghiaccio e un pinguino smarrito, e alle Dune Dorate, tra sabbie mobili, tornado e piramidi. Un vortice sull'isolotto porta invece alla Baia Sommersa, tutta da nuotare.</p>
+    <p>Tino è naufragato davanti al castello dell'isola, dove sono cadute le stelle. Dentro il castello ogni quadro è un mondo: saltaci dentro, scegli la missione e riporta a casa le stelle. Dietro la Porta della Stella ti aspetta il Re Grumo.</p>
     <div class="keys desk-only">
       <kbd>WASD / frecce</kbd><span>Muoviti</span>
       <kbd>Spazio</kbd><span>Salta. Risalta appena atterri, correndo, per doppio e triplo salto</span>
       <kbd>Salta sul muro</kbd><span>In aria contro un muro, premi di nuovo Spazio</span>
       <kbd>Shift + Spazio</kbd><span>Correndo: salto lungo. Da fermo: salto all'indietro</span>
       <kbd>Shift in aria</kbd><span>Schianto a terra</span>
-      <kbd>J</kbd><span>Pugno</span>
+      <kbd>J</kbd><span>Pugno. Correndo o in aria: tuffo. In aria da fermo: calcio</span>
+      <kbd>Bordi e tronchi</kbd><span>Saltaci contro per aggrapparti e arrampicarti</span>
       <kbd>Trascina / Q E</kbd><span>Telecamera. Rotellina per lo zoom</span>
       <kbd>P / M</kbd><span>Pausa con indizi / audio</span>
     </div>
@@ -108,7 +117,7 @@ body.touch .keys.touch-only{display:grid!important}
       <kbd>Joystick</kbd><span>Muoviti</span>
       <kbd>Salta</kbd><span>Risalta appena atterri per il triplo salto; in aria contro un muro per il salto a muro</span>
       <kbd>Pesta</kbd><span>In aria: schianto. A terra tienilo premuto e salta: salto lungo o all'indietro</span>
-      <kbd>Pugno</kbd><span>Colpisce i nemici davanti</span>
+      <kbd>Pugno</kbd><span>Colpisce i nemici. Correndo o in aria: tuffo</span>
       <kbd>Trascina</kbd><span>Ruota la telecamera</span>
     </div>
     <div class="btns">
@@ -124,8 +133,16 @@ body.touch .keys.touch-only{display:grid!important}
     <div class="pscroll" id="starList"></div>
     <div class="btns">
       <button class="btn" id="bResume" type="button">Riprendi</button>
-      <button class="btn ghost" id="bExit" type="button" hidden>Torna all'isola</button>
+      <button class="btn ghost" id="bExit" type="button" hidden>Esci dal livello</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="selectScreen" hidden>
+  <div class="card">
+    <h2 id="selTitle"></h2>
+    <p>Scegli la missione</p>
+    <div class="missions" id="selList"></div>
   </div>
 </div>
 
@@ -162,6 +179,7 @@ const CATALOG = {
     ['rosse', 'Otto monete rosse', 'Raccoglile tutte: la stella compare davanti al castello.'],
     ['grumi', 'Caccia ai Grumi', "Sconfiggi tutti i Grumi viola dell'isola."],
     ['cento', 'Cento monete', "Raccogli 100 monete senza lasciare l'isola."],
+    ['nuvole', 'Sopra le nuvole', 'Rompi il blocco rosso, fai un triplo salto per volare e atterra sulla nuvola a ovest.'],
   ] },
   volcano: { name: 'Vulcano Rombante', stars: [
     ['cratere', 'Sul cratere', 'Sali le terrazze del vulcano fino alla cima.'],
@@ -190,9 +208,12 @@ const CATALOG = {
     ['grotta', 'La grotta sommersa', "A est, in fondo al tunnel di roccia. Tieni d'occhio l'aria!"],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra il molo e il fondale.'],
   ] },
+  fortress: { name: 'Fortezza del Re', stars: [
+    ['rosse', 'Otto monete rosse', 'Lungo il percorso sospeso nel buio, fino al tubo.'],
+    ['grande', 'La Grande Stella', 'Oltre il tubo: prendi il Re Grumo per la coda e lancialo contro le mine.'],
+  ] },
 };
 const TOTAL = Object.values(CATALOG).reduce((n, l) => n + l.stars.length, 0);
-const DOOR_NEED = 3, SNOW_NEED = 6, DESERT_NEED = 10, BAY_NEED = 15;
 const SAVE_KEY = 'isola-stellata-save-v1';
 let save = { stars: {} };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { const s = JSON.parse(raw); if (s && s.stars) save = s; } } catch (e) {}
@@ -239,7 +260,7 @@ const shared = g => { g.userData.shared = true; return g; };
 
 // ---------- level containers ----------
 let root = new THREE.Group(); scene.add(root);
-const solids = [], coins = [], stars = [], enemies = [], movers = [], sinkers = [], hearts = [], parts = [], waves = [], portals = [];
+const solids = [], coins = [], stars = [], enemies = [], movers = [], sinkers = [], hearts = [], parts = [], waves = [], portals = [], itemBoxes = [], lifeItems = [];
 let boss = null, L = { id: 'island' };
 function add(mesh, cast = true, recv = true) { mesh.castShadow = cast; mesh.receiveShadow = recv; root.add(mesh); return mesh; }
 function clearLevel() {
@@ -249,7 +270,7 @@ function clearLevel() {
     if (o.material && o.material.isMaterial && o.material.map) o.material.map.dispose();
   });
   root = new THREE.Group(); scene.add(root);
-  for (const a of [solids, coins, stars, enemies, movers, sinkers, hearts, parts, waves, portals]) a.length = 0;
+  for (const a of [solids, coins, stars, enemies, movers, sinkers, hearts, parts, waves, portals, itemBoxes, lifeItems]) a.length = 0;
   boss = null;
 }
 
@@ -447,8 +468,7 @@ function buildIsland() {
   cyl(TX, TZ, 3.5, -1, TOWER_TOP, ROCK, 14);
   const stepPos = i => { const a = i * 0.75 + 0.6, R = 5.2; return new V3(TX + Math.cos(a) * R, 1.4 + 1.4 * i, TZ + Math.sin(a) * R); };
   for (let i = 0; i < 9; i++) { const p = stepPos(i); box(p.x, p.y - 0.25, p.z, 2.4, 0.5, 2.4, BRICK); }
-  const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3, 6), M(0xeeeeee)));
-  pole.position.set(TX + 2.6, TOWER_TOP + 1.5, TZ - 2.2);
+  cyl(TX + 2.6, TZ - 2.2, 0.12, TOWER_TOP, TOWER_TOP + 3, 0xeeeeee, 6).pole = true;
   const flag = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), M(0xff6b5a)));
   flag.position.set(TX + 3.2, TOWER_TOP + 2.6, TZ - 2.2);
 
@@ -469,17 +489,6 @@ function buildIsland() {
     w.position.set(x, 5, -27.95);
   }
   const emblem = new THREE.Mesh(starGeo, starMat); emblem.scale.setScalar(0.55); emblem.position.set(0, 4.2, -27.7); root.add(emblem);
-  sign('Porta del vulcano\nServono ' + DOOR_NEED + ' stelle', 3.4, 0, -26.2, 0);
-  const snowShut = M(0x3a6a8a), snowOpen = M(0x8ad0f0, { emissive: 0x2a7ab0 });
-  const snowDoor = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 2.4), snowShut), false);
-  snowDoor.position.set(7.05, 1.7, -32);
-  const emblem2 = new THREE.Mesh(starGeo, starMat); emblem2.scale.setScalar(0.55); emblem2.position.set(7.35, 4.2, -32); root.add(emblem2);
-  sign('Porta della neve\nServono ' + SNOW_NEED + ' stelle', 9.4, 0, -35.3, Math.PI / 2);
-  const sandShut = M(0x9a7a3a), sandOpen = M(0xffd27a, { emissive: 0x8a5a10 });
-  const sandDoor = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 2.4), sandShut), false);
-  sandDoor.position.set(-7.05, 1.7, -32);
-  const emblem3 = new THREE.Mesh(starGeo, starMat); emblem3.scale.setScalar(0.55); emblem3.position.set(-7.35, 4.2, -32); root.add(emblem3);
-  sign('Porta del deserto\nServono ' + DESERT_NEED + ' stelle', -9.4, 0, -35.3, -Math.PI / 2);
   cyl(0, -22, 1.3, -1, 0.5, STONE, 16);
 
   // islet + ferry
@@ -490,7 +499,7 @@ function buildIsland() {
   movers.push({ s: skyPlats[2], base: new V3(-16.5, 4.8, 18.5), axis: new V3(1, 0, 0), amp: 2.5, period: 5, phase: 0 });
 
   function tree(x, z, h = 3, palm = false, baseY = 0) {
-    cyl(x, z, 0.45, baseY - 0.5, baseY + h, 0x7a4f2b, 8);
+    cyl(x, z, 0.45, baseY - 0.5, baseY + h, 0x7a4f2b, 8).pole = true;
     if (palm) {
       for (let i = 0; i < 6; i++) {
         const leaf = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 2.6), M(0x3fa34d)), true, false);
@@ -503,8 +512,6 @@ function buildIsland() {
   }
   [[12, -2], [-14, -2], [31, 6], [27, 22], [-8, 30], [9, 31], [-18, 6], [-32, 12], [28, -26], [-30, -26]].forEach(([x, z]) => tree(x, z));
   tree(-4, 60, 3.5, true, 0.5);
-  addPortal(4.5, 0.5, 67, 0, 'bay', null, BAY_NEED);
-  sign('Vortice della baia\nServono ' + BAY_NEED + ' stelle', 5.2, 0.5, 63.4, 0);
 
   for (let i = 0; i < 26; i++) {
     const a = i * 2.39, r = 12 + (i * 7.3) % 25, x = Math.cos(a) * r, z = Math.sin(a) * r;
@@ -556,23 +563,44 @@ function buildIsland() {
   [[8, 0, 6, 7], [-12, 0, -6, 7], [16, 0, 22, 7], [HX + 9, 1.8, HZ, 1.3], [-20, 0, 2, 6], [3, 0.5, 64, 3], [-4, 0, -18, 6], [27, 0, 10, 6]]
     .forEach(([x, y, z, r]) => addEnemy(x, y, z, r));
   addHeart(-3, 1.4, 18);
+  addItemBox(6, 2.6, 19, 'wing');
+  addItemBox(12, 2.6, 8, 'coins');
+  addItemBox(-14, 2.6, -9, 'life');
+  // a cloud only reachable by flying
+  box(-26, 27.5, 26, 6, 1, 6, 0xffffff);
+  for (let i = 0; i < 6; i++) { const b = add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.6 + (i % 2) * 0.6, 0), M(0xffffff, { roughness: 1 })), false, false); b.position.set(-26 + Math.cos(i) * 2.6, 27.2, 26 + Math.sin(i) * 2.6); }
+  addStar('nuvole', -26, 30.3, 26);
+  ring(0, 0, 16, 12, 24);
+  // blue coin switch
+  const sw = add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1, 0.3, 16), M(0x4a8cff, { emissive: 0x10306a })), false); sw.position.set(-6, 0.15, -6);
+  [[-2, -11], [1, -14], [4, -17], [7, -19.5], [10, -22], [13, -24]].forEach(([x, z]) => addBlueCoin(x, 1, z));
+  const blue = { pressed: false, t: 0, tick: 0 };
 
   return {
     sky: 0x86cdf2, fogNear: 70, fogFar: 190, hemi: [0xe4f6ff, 0x4f7a3a, 0.75], sun: [0xfff0d0, 0.95],
     music: 'island', deathY: -4, hazardY: null, seaY: -0.6,
     spawn: { pos: new V3(0, 0, 24), yaw: 0 },
-    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI }, snow: { pos: new V3(10.5, 0, -32), yaw: -Math.PI / 2 }, desert: { pos: new V3(-10.5, 0, -32), yaw: Math.PI / 2 }, bay: { pos: new V3(2, 0.5, 62.5), yaw: 0 } },
-    doors: [
-      { x0: -1.3, x1: 1.3, z0: -28.6, z1: -27.2, need: DOOR_NEED, to: 'volcano', mesh: door, shut: doorShut, open: doorOpen, msgT: 0 },
-      { x0: 7.2, x1: 8.1, z0: -33.3, z1: -30.7, need: SNOW_NEED, to: 'snow', mesh: snowDoor, shut: snowShut, open: snowOpen, msgT: 0 },
-      { x0: -8.1, x1: -7.2, z0: -33.3, z1: -30.7, need: DESERT_NEED, to: 'desert', mesh: sandDoor, shut: sandShut, open: sandOpen, msgT: 0 },
-    ],
+    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI } },
+    doors: [{ x0: -1.3, x1: 1.3, z0: -28.6, z1: -27.2, need: 0, to: 'castle', entry: 'door', mesh: door, shut: doorOpen, open: doorOpen, msgT: 0 }],
     redTotal: 8, coinStar: true, redMsg: 'Sul piedistallo davanti al castello',
     foesMsg: 'Davanti alla spiaggia, vicino ai tre alberi',
     tick(dt, t) {
       for (const c of clouds) { c.position.x += dt * 1.2; if (c.position.x > 180) c.position.x = -180; }
       sea.position.y = -0.6 + Math.sin(t * 0.8) * 0.05;
-      emblem.rotation.y = t * 1.2; emblem2.rotation.y = t * 1.2; emblem3.rotation.y = t * 1.2;
+      emblem.rotation.y = t * 1.2;
+    },
+    update(dt) {
+      if (!blue.pressed && Math.hypot(P.pos.x - sw.position.x, P.pos.z - sw.position.z) < 1.1 && P.pos.y < 0.8) {
+        blue.pressed = true; blue.t = 14; sw.scale.y = 0.3; sw.position.y = 0.05; sfx.reveal();
+        coins.forEach(c => { if (c.blue) { c.hidden = false; c.m.visible = true; } });
+        banner('Monete blu!<small>Valgono 5: prendile prima che spariscano</small>', 2.2);
+      }
+      if (blue.pressed && blue.t > 0) {
+        blue.t -= dt; blue.tick -= dt;
+        if (blue.tick <= 0) { blue.tick = blue.t < 4 ? 0.25 : 0.5; tone(1400, 0.04, 'square', 0.03); }
+        if (blue.t <= 0) coins.forEach(c => { if (c.blue && !c.taken) { c.hidden = true; c.m.visible = false; } });
+        else if (blue.t < 3) coins.forEach(c => { if (c.blue && !c.taken) c.m.visible = Math.floor(blue.t * 8) % 2 === 0; });
+      }
     },
   };
 }
@@ -591,8 +619,9 @@ function buildVolcano() {
   box(-1.9, 9, 35, 1, 15, 3, BASALT);
   box(1.9, 9, 35, 1, 15, 3, BASALT);
   sign('Salta sul muro!\nSpazio contro la parete', 3.6, 1.5, 31.2, Math.PI);
-  addPortal(-5, 1.5, 30, Math.PI / 2, 'island', 'door');
+  addPortal(-5, 1.5, 30, Math.PI / 2, 'castle', 'volcano');
   addHeart(4, 2.7, 26);
+  addItemBox(-3, 3.6, 26, 'coins');
 
   // stepping stones to the volcano
   const stones = [19.5, 14.5, 9.5, 4.5, -0.5].map(z => box(0, 1.1, z, 3, 0.8, 3, BASALT));
@@ -724,6 +753,7 @@ function buildSnow() {
   // summit
   addStar('vetta', -5, 18.2, -13);
   addHeart(5, 17.4, -3);
+  addItemBox(3, 18.3, -12, 'life');
   addEnemy(2, 16, -7, 3);
   sign('Scivolo', 6.6, 16, -13.5, -Math.PI / 2);
   function snowman(x, y, z, s = 1) {
@@ -761,7 +791,7 @@ function buildSnow() {
 
   // trees and snowmen on the plateau
   function pine(x, z) {
-    cyl(x, z, 0.4, -0.5, 2.2, 0x6b4a2b, 8);
+    cyl(x, z, 0.4, -0.5, 2.2, 0x6b4a2b, 8).pole = true;
     const c1 = add(new THREE.Mesh(new THREE.ConeGeometry(1.9, 2.6, 8), M(PINE)), true, false); c1.position.set(x, 3.2, z);
     const c2 = add(new THREE.Mesh(new THREE.ConeGeometry(1.35, 2.1, 8), M(PINE)), true, false); c2.position.set(x, 4.5, z);
     const cap = add(new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.1, 8), M(SNOW)), true, false); cap.position.set(x, 5.5, z);
@@ -781,7 +811,7 @@ function buildSnow() {
 
   [[12, 0, 8, 6], [-12, 0, -26, 5], [-22, 0, 22, 5], [24, 0, -20, 4]].forEach(([x, y, z, r]) => addEnemy(x, y, z, r));
   addHeart(-4, 1.4, 25);
-  addPortal(-6, 0, 28, Math.PI / 2, 'island', 'snow');
+  addPortal(-6, 0, 28, Math.PI / 2, 'castle', 'snow');
 
   // backdrop: snowy peaks
   for (let i = 0; i < 14; i++) {
@@ -951,7 +981,7 @@ function buildDesert() {
   const pond = add(new THREE.Mesh(new THREE.CircleGeometry(3.4, 24), M(0x3aa6c9, { roughness: 0.2, emissive: 0x0a3040 })), false, true);
   pond.rotation.x = -Math.PI / 2; pond.position.set(-6, GT + 0.02, 26);
   function palm(x, z, h = 3.6) {
-    cyl(x, z, 0.4, -0.5, GT + h, 0x8a5a33, 8);
+    cyl(x, z, 0.4, -0.5, GT + h, 0x8a5a33, 8).pole = true;
     for (let i = 0; i < 6; i++) {
       const leaf = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 2.6), M(0x3fa34d)), true, false);
       leaf.position.set(x, GT + h + 0.1, z); leaf.rotation.y = i / 6 * TAU; leaf.rotation.x = 0.35; leaf.translateZ(1.1);
@@ -959,9 +989,10 @@ function buildDesert() {
   }
   palm(-10, 23); palm(-3, 30.5); palm(-9.5, 29); palm(10, 14, 3); palm(40, 12, 3.2); palm(-36, 12.5, 3);
   addHeart(6, 1.5, 24);
+  addItemBox(5, 2.5, 27, 'coins'); addItemBox(36, 2.5, 14, 'life');
   ring(0, 22, 6, 10, 1.3);
   line(0, 6, 0, -2, 3, 1.3);
-  addPortal(-5, GT, 33, Math.PI / 2, 'island', 'desert');
+  addPortal(-5, GT, 33, Math.PI / 2, 'castle', 'desert');
 
   // cacti (segment enemies) and a couple of Grumi
   const cacti = [];
@@ -1088,8 +1119,9 @@ function buildBay() {
   for (const [x, z] of [[-1.8, 22.3], [1.8, 22.3], [-1.8, 25.5], [1.8, 25.5]]) {
     const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 19, 6), M(WOOD2))); post.position.set(x, -8.5, z);
   }
-  addPortal(-6, 1, 37, Math.PI / 2, 'island', 'bay');
+  addPortal(-6, 1, 37, Math.PI / 2, 'castle', 'bay');
   addHeart(5, 2.1, 34);
+  addItemBox(-3, 3, 33, 'coins');
   sign('Sott\'acqua manca l\'aria\nrisali per respirare', 5, 1, 30.2, 0);
 
   // sunken ship
@@ -1245,7 +1277,395 @@ function buildBay() {
     },
   };
 }
-const LEVELS = { island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert, bay: buildBay };
+// ---------- items: "!" boxes, extra lives, blue coins ----------
+const itemBoxGeo = shared(new THREE.BoxGeometry(1.1, 1.1, 1.1));
+const boxMats = {};
+function itemBoxMat(kind) {
+  if (boxMats[kind]) return boxMats[kind];
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = kind === 'wing' ? '#e0453a' : '#ffcf3a'; g.fillRect(0, 0, 64, 64);
+  g.strokeStyle = '#16213e'; g.lineWidth = 5; g.strokeRect(3, 3, 58, 58);
+  g.fillStyle = kind === 'wing' ? '#fff8e6' : '#16213e'; g.font = '900 46px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', 32, 35);
+  return (boxMats[kind] = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c), roughness: 0.5, emissive: kind === 'wing' ? 0x3a0808 : 0x3a2a00 }));
+}
+function addItemBox(x, y, z, kind) {
+  const m = new THREE.Mesh(itemBoxGeo, itemBoxMat(kind)); m.position.set(x, y, z); m.castShadow = true; root.add(m);
+  itemBoxes.push({ m, kind, broken: false, ph: Math.random() * TAU });
+}
+function addLifeItem(x, y, z) {
+  const g = new THREE.Group(); g.position.set(x, y, z); root.add(g);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8, 0, TAU, 0, Math.PI / 2), M(0x4fd67a, { emissive: 0x145a2a })); g.add(dome);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 16), M(0x4fd67a, { emissive: 0x145a2a })); g.add(brim);
+  const pom = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), M(0xfff8e6)); pom.position.y = 0.47; g.add(pom);
+  lifeItems.push({ g, y, taken: false });
+}
+const blueMat = M(0x4a8cff, { emissive: 0x10306a, metalness: 0.4, roughness: 0.35 });
+function addBlueCoin(x, y, z) {
+  const m = new THREE.Mesh(coinGeo, blueMat); m.position.set(x, y, z); m.castShadow = true; m.visible = false; root.add(m);
+  coins.push({ m, red: false, blue: true, hidden: true, taken: false, ph: Math.random() * TAU });
+}
+function updateItems(dt) {
+  const cy = P.pos.y + 0.8;
+  for (const b of itemBoxes) {
+    if (b.broken) continue;
+    const d = b.m.position;
+    if ((d.x - P.pos.x) ** 2 + (d.y - cy) ** 2 + (d.z - P.pos.z) ** 2 < 1.3 * 1.3) {
+      b.broken = true; root.remove(b.m); sfx.stomp();
+      burst(d.clone(), b.kind === 'wing' ? 0xe0453a : 0xffcf3a, 14, 5);
+      if (P.vel.y > 0) P.vel.y = -2;
+      if (b.kind === 'coins') for (let i = 0; i < 3; i++) addCoin(d.x + Math.cos(i * 2.1) * 1.3, d.y - 0.6, d.z + Math.sin(i * 2.1) * 1.3);
+      else if (b.kind === 'life') addLifeItem(d.x, d.y + 0.2, d.z);
+      else if (b.kind === 'wing') {
+        P.wingT = 25; sfx.reveal();
+        banner('Cappello alato!<small>Fai un triplo salto per spiccare il volo</small>', 2.8);
+      }
+    }
+  }
+  for (const l of lifeItems) {
+    if (l.taken) continue;
+    l.g.rotation.y += dt * 3; l.g.position.y = l.y + Math.sin(gameTime * 3) * 0.15;
+    const d = l.g.position;
+    if ((d.x - P.pos.x) ** 2 + (d.y - cy) ** 2 + (d.z - P.pos.z) ** 2 < 1.4 * 1.4) {
+      l.taken = true; root.remove(l.g); G.lives++; sfx.life(); hud(); banner('Vita extra!', 1.4);
+    }
+  }
+}
+function animateItems(t) {
+  for (const b of itemBoxes) if (!b.broken) { b.m.rotation.y = t * 0.8 + b.ph; }
+}
+// ---------- LEVEL: castle interior (hub with paintings) ----------
+const NEED = { volcano: 3, snow: 6, desert: 10, bay: 15, fortress: 20 };
+const PAINTS = [{ id: 'volcano', side: -1, z: -6 }, { id: 'snow', side: -1, z: 8 }, { id: 'desert', side: 1, z: -6 }, { id: 'bay', side: 1, z: 8 }];
+function paintingCanvas(kind) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 320; const g = c.getContext('2d');
+  const grad = (y0, y1, a, b) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, y0, 256, y1 - y0); };
+  const poly = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
+  const circ = (x, y, r, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); };
+  if (kind === 'volcano') {
+    grad(0, 320, '#3a0f14', '#ff7a2a'); poly([[10, 300], [128, 95], [246, 300]], '#2a1c1c'); poly([[106, 125], [128, 95], [150, 125]], '#ff5a1a');
+    circ(128, 72, 22, 'rgba(90,80,80,.85)'); circ(108, 46, 16, 'rgba(90,80,80,.6)'); grad(292, 320, '#ff5a1a', '#ffae3a');
+  } else if (kind === 'snow') {
+    grad(0, 320, '#bfe0f5', '#ffffff'); poly([[-10, 300], [105, 80], [220, 300]], '#8fa3b8'); poly([[78, 132], [105, 80], [132, 132]], '#ffffff');
+    poly([[120, 300], [200, 135], [280, 300]], '#a4b6c8'); poly([[182, 172], [200, 135], [218, 172]], '#ffffff');
+    for (const x of [36, 70, 190, 228]) poly([[x - 18, 305], [x, 240], [x + 18, 305]], '#2c6e55');
+    g.fillStyle = '#fff'; for (let i = 0; i < 60; i++) g.fillRect((i * 47) % 256, (i * 83) % 320, 3, 3);
+  } else if (kind === 'desert') {
+    grad(0, 320, '#f7d9a0', '#ffb65a'); circ(192, 78, 30, '#fff4c8'); poly([[26, 282], [120, 118], [214, 282]], '#d9a85e');
+    poly([[120, 118], [214, 282], [162, 282]], '#b8884a'); grad(272, 320, '#e8c27a', '#c99a55');
+    for (const x of [30, 230]) { g.fillStyle = '#3f9a4a'; g.fillRect(x - 5, 240, 10, 40); g.fillRect(x - 14, 252, 8, 14); }
+  } else {
+    grad(0, 320, '#5fc4ea', '#0e4a76'); poly([[60, 232], [200, 232], [180, 264], [80, 264]], '#5c3a1e');
+    g.fillStyle = '#5c3a1e'; g.fillRect(126, 150, 6, 82); poly([[132, 160], [182, 200], [132, 206]], '#e8e0cc');
+    for (let i = 0; i < 14; i++) circ(30 + (i * 37) % 200, 40 + (i * 53) % 180, 4 + (i % 3) * 2, 'rgba(255,255,255,.6)');
+    for (const [x, y, col] of [[48, 120, '#ffa040'], [196, 92, '#ffe066'], [70, 292, '#6fd3ff']]) poly([[x, y], [x + 22, y - 8], [x + 22, y + 8]], col);
+  }
+  g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 6; g.strokeRect(0, 0, 256, 320);
+  return c;
+}
+function plaque(text, w, h) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = Math.round(512 * h / w); const g = c.getContext('2d');
+  g.fillStyle = '#5a3520'; g.fillRect(0, 0, c.width, c.height); g.strokeStyle = '#ffcf3a'; g.lineWidth = 8; g.strokeRect(6, 6, c.width - 12, c.height - 12);
+  g.fillStyle = '#ffcf3a'; g.font = `800 ${Math.round(c.height * 0.5)}px Nunito, Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, c.width / 2, c.height / 2 + 2);
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }));
+}
+function buildCastle() {
+  const WALL = 0xefe2c4, TRIM = 0xb8864a, CARPET = 0xb3303a, PILLAR = 0xe6d6b0, FLOORC = 0xd8c6a0;
+  box(0, -0.5, 0, 40, 1, 40, FLOORC);
+  const fc = document.createElement('canvas'); fc.width = fc.height = 256; const fg = fc.getContext('2d');
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { fg.fillStyle = (i + j) % 2 ? '#e9dcc0' : '#c9a878'; fg.fillRect(i * 32, j * 32, 32, 32); }
+  const ft = new THREE.CanvasTexture(fc); ft.wrapS = ft.wrapT = THREE.RepeatWrapping; ft.repeat.set(5, 5);
+  const floor = add(new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ map: ft, roughness: 0.6 })), false, true);
+  floor.rotation.x = -Math.PI / 2; floor.position.y = 0.01;
+  const carpet = add(new THREE.Mesh(new THREE.PlaneGeometry(6, 18), M(CARPET)), false, true);
+  carpet.rotation.x = -Math.PI / 2; carpet.position.set(0, 0.02, 10);
+  [box(0, 7, -21, 42, 14, 2, WALL), box(0, 7, 21, 42, 14, 2, WALL), box(-21, 7, 0, 2, 14, 42, WALL), box(21, 7, 0, 2, 14, 42, WALL), box(0, 14.5, 0, 42, 1, 42, 0xd9c7a2)]
+    .forEach(s => { s.mesh.castShadow = false; });
+  for (const [x, z, sx, sz] of [[0, 19.9, 40, 0.2], [-19.9, 0, 0.2, 40], [19.9, 0, 0.2, 40]]) {
+    const t = add(new THREE.Mesh(new THREE.BoxGeometry(sx, 0.6, sz), M(TRIM)), false); t.position.set(x, 0.3, z);
+  }
+  // balcony, stairs, railings
+  box(0, 2.5, -16, 40, 5, 8, [WALL, WALL, FLOORC, WALL, WALL, WALL]);
+  ramp(0, -7, 8, 10, 'z', 5, 0, CARPET, { bottom: -0.5 });
+  for (const x of [-4.3, 4.3]) ramp(x, -7, 0.6, 10, 'z', 6, 1, TRIM, { bottom: -0.5 });
+  box(-12.3, 5.5, -12.2, 15.4, 1, 0.3, TRIM); box(12.3, 5.5, -12.2, 15.4, 1, 0.3, TRIM);
+  for (const [x, z] of [[-12, 4], [12, 4], [-12, 14], [12, 14]]) cyl(x, z, 0.9, -0.5, 14, PILLAR, 12).mesh.castShadow = false;
+  // big star door (final level)
+  const bigDoor = add(new THREE.Mesh(new THREE.BoxGeometry(4, 6, 0.3), M(0x6a3a1a)), false); bigDoor.position.set(0, 8, -19.85);
+  const bigStar = new THREE.Mesh(starGeo, starMat); bigStar.scale.setScalar(1.3); bigStar.position.set(0, 12.6, -19.5); root.add(bigStar);
+  const bp = plaque('★ ' + NEED.fortress + ' · Fortezza del Re', 4.6, 0.7); bp.position.set(0, 11.4, -19.68); root.add(bp);
+  // exit door (south)
+  const exitDoor = add(new THREE.Mesh(new THREE.BoxGeometry(3, 4.2, 0.3), M(0x5a3520)), false); exitDoor.position.set(0, 2.1, 19.85);
+  const ep = plaque('Uscita', 2.2, 0.55); ep.position.set(0, 4.7, 19.68); ep.rotation.y = Math.PI; root.add(ep);
+  // windows and chandelier
+  for (const z of [-2, 14]) for (const s of [-1, 1]) {
+    const w = add(new THREE.Mesh(new THREE.PlaneGeometry(2.4, 3.4), new THREE.MeshBasicMaterial({ color: 0xcfeeff })), false, false);
+    w.position.set(s * 19.88, 10.5, z); w.rotation.y = -s * Math.PI / 2;
+  }
+  const ch = new THREE.Group(); ch.position.set(0, 11.2, 5); root.add(ch);
+  const chRing = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.1, 6, 24), M(0xffcf3a, { metalness: 0.6 })); chRing.rotation.x = Math.PI / 2; ch.add(chRing);
+  for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff1b0 })); const a = i / 8 * TAU; b.position.set(Math.cos(a) * 1.6, 0.25, Math.sin(a) * 1.6); ch.add(b); }
+  sign('Salta dentro ai quadri\nper entrare nei mondi', 4.6, 0, 12.2, 0);
+
+  // paintings
+  const paintings = PAINTS.map(pd => {
+    const geo = new THREE.PlaneGeometry(3.4, 4.2, 18, 22);
+    const base = geo.attributes.position.array.slice();
+    const locked = G.stars < NEED[pd.id];
+    const mat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(paintingCanvas(pd.id)), roughness: 0.7, color: locked ? 0x6a6a6a : 0xffffff });
+    const m = add(new THREE.Mesh(geo, mat), false, true); m.position.set(pd.side * 19.8, 4, pd.z); m.rotation.y = -pd.side * Math.PI / 2;
+    const fr = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 4.7, 3.9), M(0xc9982a, { metalness: 0.5, roughness: 0.4 })), false); fr.position.set(pd.side * 19.92, 4, pd.z);
+    const pl = plaque(CATALOG[pd.id].name + ' · ★ ' + NEED[pd.id], 3.4, 0.55); pl.position.set(pd.side * 19.84, 1.25, pd.z); pl.rotation.y = -pd.side * Math.PI / 2; root.add(pl);
+    return { pd, m, geo, base, amp: 0, cx: 0, cy: 0, cool: 0, flat: true };
+  });
+
+  const entries = { door: { pos: new V3(0, 0, 12.5), yaw: 0 }, fortress: { pos: new V3(0, 5, -15.5), yaw: Math.PI } };
+  const ejects = { fortress: { pos: new V3(0, 5.6, -18.9), vel: new V3(0, 7, 7) } };
+  for (const pd of PAINTS) {
+    entries[pd.id] = { pos: new V3(pd.side * 13.5, 0, pd.z), yaw: pd.side * Math.PI / 2 };
+    ejects[pd.id] = { pos: new V3(pd.side * 19.0, 3.4, pd.z), vel: new V3(-pd.side * 7, 7, 0) };
+  }
+  let msgT = 0;
+  return {
+    sky: 0x2a2030, fogNear: 80, fogFar: 220, hemi: [0xfff0dc, 0x8a6a4a, 1.0], sun: [0xfff0d0, 0.35],
+    music: 'castle', deathY: -10, hazardY: null, seaY: null,
+    spawn: entries.door, entries, ejects, doors: [], redTotal: 0, coinStar: false,
+    camBox: { x0: -19.2, x1: 19.2, z0: -19.2, z1: 19.2, y0: 0.6, y1: 13.4 },
+    update(dt) {
+      msgT -= dt;
+      for (const p of paintings) {
+        p.cool -= dt;
+        const pd = p.pd, dz = P.pos.z - pd.z;
+        const dist = pd.side < 0 ? P.pos.x + 19.55 : 19.55 - P.pos.x;
+        if (dist < 2.5 && Math.abs(dz) < 2.2) { p.amp = Math.max(p.amp, 0.1 * (1 - dist / 2.5)); p.cx = pd.side * dz; p.cy = P.pos.y + 0.8 - 4; }
+        if (dist < 0.5 && Math.abs(dz) < 1.8 && P.pos.y > 1.0 && P.pos.y < 5.6 && p.cool <= 0) {
+          p.cool = 1.5; p.cx = pd.side * dz; p.cy = P.pos.y + 0.8 - 4;
+          if (G.stars < NEED[pd.id]) {
+            p.amp = 0.35; sfx.locked(); P.vel.set(-pd.side * 7, 5, 0); P.lockT = 0.35;
+            banner('Quadro sigillato<small>Servono ' + NEED[pd.id] + ' stelle: ne hai ' + G.stars + '</small>', 2.2);
+          } else { p.amp = 0.9; sfx.portal(); enterLevel(pd.id); return; }
+        }
+      }
+      if (Math.abs(P.pos.x) < 2 && P.pos.z < -18.9 && P.pos.y > 4.4) {
+        if (G.stars >= NEED.fortress) { sfx.portal(); enterLevel('fortress'); return; }
+        if (msgT <= 0) { msgT = 2; sfx.locked(); banner('Porta della Stella<small>Servono ' + NEED.fortress + ' stelle: ne hai ' + G.stars + '</small>', 2.2); }
+        P.vel.z = 6; P.lockT = 0.3;
+      }
+      if (Math.abs(P.pos.x) < 1.6 && P.pos.z > 19.1 && P.pos.y < 1) { sfx.portal(); irisTo(() => loadLevel('island', 'door')); }
+    },
+    tick(dt, t) {
+      bigStar.rotation.y = t * 1.2;
+      ch.rotation.y = t * 0.2;
+      for (const p of paintings) {
+        if (p.amp < 0.002) { if (!p.flat) { p.geo.attributes.position.array.set(p.base); p.geo.attributes.position.needsUpdate = true; p.flat = true; } continue; }
+        p.flat = false;
+        const a = p.geo.attributes.position.array;
+        for (let i = 0; i < a.length; i += 3) {
+          const d = Math.hypot(p.base[i] - p.cx, p.base[i + 1] - p.cy);
+          a[i + 2] = p.amp * Math.sin(d * 3 - t * 9) * Math.exp(-d * 0.45);
+        }
+        p.geo.attributes.position.needsUpdate = true;
+        p.amp *= Math.exp(-1.6 * dt);
+      }
+    },
+  };
+}
+// ---------- LEVEL: final fortress ----------
+function buildFortress() {
+  const DS = [0x3a3448, 0x3a3448, 0x6a6478, 0x3a3448, 0x3a3448, 0x3a3448];
+  const glow = add(new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ color: 0x5a1020, fog: false })), false, false);
+  glow.rotation.x = -Math.PI / 2; glow.position.y = -40;
+
+  // the course
+  box(0, -0.5, 40, 8, 1, 8, DS);
+  box(0, -0.25, 31, 2, 0.5, 10, DS);
+  box(0, -0.5, 22, 6, 1, 6, DS);
+  const mA = box(0, -0.3, 15, 3, 0.6, 3, 0x8a7aa8), mB = box(0, -0.3, 10, 3, 0.6, 3, 0x8a7aa8);
+  movers.push({ s: mA, base: new V3(0, -0.3, 15), axis: new V3(1, 0, 0), amp: 4, period: 4, phase: 0 });
+  movers.push({ s: mB, base: new V3(0, -0.3, 10), axis: new V3(1, 0, 0), amp: 4, period: 4, phase: Math.PI });
+  box(0, -0.5, 4, 6, 1, 6, DS);
+  [[1.5, -1.5], [3, -5], [4.5, -8.5]].forEach(([t, z]) => box(0, (t - 1) / 2, z, 3, t + 1, 3, DS));
+  [-12, -15.5, -19, -22.5].forEach(z => { const s = box(0, 4.2, z, 2.6, 0.6, 2.6, 0x8a5a6a); sinkers.push({ s, baseTop: s.top, state: 'idle', t: 0, speed: 6 }); });
+  box(0, 4, -28, 6, 1, 6, DS);
+  box(0, 4, -42.5, 8, 1, 8, DS);
+  const pipe = cyl(0, -43.5, 1.2, 4.5, 6.2, 0x2f9a9a, 16);
+  const rim = add(new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.18, 8, 20), M(0x3fbfbf))); rim.rotation.x = Math.PI / 2; rim.position.set(0, 6.2, -43.5);
+  addEnemy(0, 4.5, -27, 1.5); addEnemy(0, 0, 22, 1.5);
+  addPortal(-3, 0, 42.5, Math.PI / 2, 'castle', 'fortress');
+  sign('Il Re Grumo ti aspetta\noltre il tubo', 2.6, 0, 38.4, 0);
+  [[0, 1.3, 29], [2.4, 1.3, 20.5], [4, 1.4, 15], [-4, 1.4, 10], [0, 1.3, 4], [0, 5.7, -19], [2.3, 5.7, -29.5], [0, 6.4, -34.5]].forEach(([x, y, z]) => addCoin(x, y, z, true));
+  line(0, 38, 0, 33, 3, 1); ring(0, 4, 2.2, 6, 1); line(0, -12, 0, -22.5, 4, 5.6);
+  addStar('rosse', -2.5, 6.8, -40.5, true);
+  addHeart(2.8, 1.4, 40);
+
+  // flame jets
+  const flameMat = new THREE.MeshStandardMaterial({ color: 0xff8a1a, emissive: 0xff4a00, transparent: true, opacity: 0.85, flatShading: true });
+  const flames = [[0, 22, 0, 0], [-1.8, -28, 4.5, 0], [1.8, -28, 4.5, 1.5]].map(([x, z, y, ph]) => {
+    const base = add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 0.3, 10), M(0x222222)), false); base.position.set(x, y + 0.15, z);
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.8, 4, 10), flameMat); f.position.set(x, y + 2, z); root.add(f);
+    return { f, x, z, y, ph, on: false };
+  });
+
+  // boss arena
+  const AZ = -110, AR = 14;
+  cyl(0, AZ, AR, -3, 0, [0x3a3448, 0x5a4a68, 0x3a3448], 40);
+  const tile = add(new THREE.Mesh(new THREE.RingGeometry(5, 5.4, 40), new THREE.MeshBasicMaterial({ color: 0x8a6ab8 })), false, false);
+  tile.rotation.x = -Math.PI / 2; tile.position.set(0, 0.02, AZ);
+  addStar('grande', 0, 2.8, AZ, true); starById('grande').g.scale.setScalar(1.5);
+  const mines = [];
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU + 0.3, x = Math.sin(a) * 13, z = AZ + Math.cos(a) * 13;
+    const g = new THREE.Group(); g.position.set(x, 0.9, z); root.add(g);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 10), M(0x1a1a22, { metalness: 0.4 })); core.castShadow = true; g.add(core);
+    for (let k = 0; k < 8; k++) { const sp = new THREE.Mesh(spikeGeo, M(0xff3a3a, { emissive: 0x6a0000 })); const b = k / 8 * TAU; sp.position.set(Math.cos(b) * 0.85, (k % 2 ? 0.4 : -0.3), Math.sin(b) * 0.85); sp.rotation.set(Math.sin(b) * 1.5, 0, -Math.cos(b) * 1.5); g.add(sp); }
+    mines.push({ g, x, z, active: true });
+  }
+  const fbModel = makeGrumo(true); fbModel.g.scale.setScalar(3.2); root.add(fbModel.g);
+  const tail = new THREE.Group(); fbModel.g.add(tail);
+  for (let k = 0; k < 4; k++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.16 - k * 0.02, 8, 6), M(0x5d2f93)); s.position.set(0, 0.3 + k * 0.05, -0.6 - k * 0.22); tail.add(s); }
+  const tip = new THREE.Mesh(spikeGeo, M(0xffcf3a)); tip.rotation.x = -Math.PI / 2; tip.position.set(0, 0.45, -1.45); tail.add(tip);
+  const FB_HOME = new V3(0, 0, AZ - 6);
+  const fb = { g: fbModel.g, ft: fbModel.ft, pos: FB_HOME.clone(), vel: new V3(), vy: 0, dir: 0, hp: 3, state: 'off', t: 0, fireT: 3, a: 0, w: 0, holdT: 0, ph: 0 };
+  fb.g.position.copy(fb.pos);
+  const fireballs = [];
+  const fireGeo = new THREE.IcosahedronGeometry(0.5, 0);
+  let arena = false;
+  const fbHud = () => { $('bossHp').textContent = '♥'.repeat(Math.max(0, fb.hp)) + '♡'.repeat(3 - Math.max(0, fb.hp)); };
+  function resetBoss() {
+    fb.pos.copy(FB_HOME); fb.vel.set(0, 0, 0); fb.vy = 0; fb.hp = 3; fb.state = arena ? 'wait' : 'off'; fb.t = 1.5; fb.g.visible = true; fb.g.scale.setScalar(3.2);
+    mines.forEach(m => { m.active = true; m.g.visible = true; });
+    fireballs.forEach(f => root.remove(f.m)); fireballs.length = 0;
+    P.holding = false; $('bossBar').hidden = true;
+  }
+  function explodeAt(x, y, z) { burst(new V3(x, y, z), 0xff8a1a, 30, 10); burst(new V3(x, y, z), 0x222222, 14, 6); G.shake = 0.5; sfx.pound(); sfx.bossHit(); }
+
+  return {
+    sky: 0x1a0f24, fogNear: 40, fogFar: 150, hemi: [0x9a7ab8, 0x2a1030, 0.8], sun: [0xffc0e0, 0.7],
+    music: 'fortress', deathY: -20, hazardY: null, seaY: null,
+    spawn: { pos: new V3(0, 0, 42), yaw: 0 }, entries: {}, doors: [], redTotal: 8, coinStar: false,
+    redMsg: "Sull'ultima piattaforma, accanto al tubo",
+    fb, onDie() { resetBoss(); },
+    update(dt) {
+      // flames: on 1.2 s every 3 s
+      for (const f of flames) {
+        const k = ((gameTime + f.ph) % 3) / 3;
+        f.on = k > 0.55 && k < 0.95;
+        f.f.visible = f.on || (k > 0.45 && k <= 0.55);
+        f.f.scale.set(1, f.on ? 1 + Math.sin(gameTime * 30) * 0.08 : 0.2, 1);
+        f.f.position.y = f.y + (f.on ? 2 : 0.4);
+        if (f.on && Math.hypot(P.pos.x - f.x, P.pos.z - f.z) < 1.1 && P.pos.y < f.y + 4 && P.pos.y > f.y - 1) { P.burnT = 1; hurt({ x: f.x, z: f.z }, 3); }
+      }
+      // warp pipe
+      if (!arena && P.onGround && P.ground === pipe) {
+        arena = true; sfx.portal();
+        irisTo(() => { const sp = { pos: new V3(0, 0, AZ + 11), yaw: 0 }; L.spawn = sp; L.music = 'boss'; placePlayer(sp); resetBoss(); playTrack('boss'); });
+        return;
+      }
+      if (!arena) return;
+      // fireballs
+      for (let i = fireballs.length - 1; i >= 0; i--) {
+        const f = fireballs[i]; f.life -= dt; f.m.position.addScaledVector(f.v, dt); f.m.rotation.x += dt * 6;
+        if (f.life <= 0) { root.remove(f.m); fireballs.splice(i, 1); continue; }
+        const d = f.m.position; if (Math.hypot(P.pos.x - d.x, P.pos.z - d.z) < 1.1 && Math.abs(P.pos.y + 0.8 - d.y) < 1.2) hurt(d);
+      }
+      mines.forEach((m, i) => { if (m.active) m.g.rotation.y += dt * (1 + i * 0.1); });
+      const dx = P.pos.x - fb.pos.x, dz = P.pos.z - fb.pos.z, d = Math.hypot(dx, dz) || 1;
+      const fwdX = Math.sin(fb.dir), fwdZ = Math.cos(fb.dir), dot = (dx * fwdX + dz * fwdZ) / d;
+      fb.ph += dt * 6;
+      if (fb.state === 'wait') {
+        fb.t -= dt; fb.dir = lerpAngle(fb.dir, Math.atan2(dx, dz), 1 - Math.exp(-2 * dt));
+        if (fb.t <= 0) {
+          fb.state = 'walk'; fb.t = 4; $('bossBar').hidden = false; fbHud();
+          banner('Il Re Grumo!<small>Prendilo per la coda (J da dietro), fallo girare e lancialo (J) contro le mine</small>', 3.6);
+        }
+      } else if (fb.state === 'walk') {
+        fb.dir = lerpAngle(fb.dir, Math.atan2(dx, dz), 1 - Math.exp(-1.6 * dt));
+        const sp = 2 + (3 - fb.hp) * 0.8;
+        fb.pos.x += fwdX * sp * dt; fb.pos.z += fwdZ * sp * dt;
+        fb.t -= dt; fb.fireT -= dt;
+        if (fb.fireT <= 0) {
+          fb.fireT = 3.2 - (3 - fb.hp) * 0.6;
+          const m = new THREE.Mesh(fireGeo, flameMat); m.position.set(fb.pos.x + fwdX * 2.6, 1, fb.pos.z + fwdZ * 2.6); root.add(m);
+          fireballs.push({ m, v: new V3(dx / d * 9, 0, dz / d * 9), life: 3.2 }); tone(200, 0.4, 'sawtooth', 0.05, 90);
+        }
+        if (fb.t <= 0) { fb.state = 'jump'; fb.vy = 14; }
+        // grab the tail from behind
+        if (P.punchT > 0.22 && P.onGround && d < 3.8 && dot < -0.25) {
+          fb.state = 'held'; P.holding = true; P.throwReq = false; fb.a = Math.atan2(fb.pos.x - P.pos.x, fb.pos.z - P.pos.z); fb.w = 1.5; fb.holdT = 0;
+          sfx.pickup(); banner('Preso!<small>Premi J per lanciarlo</small>', 1.4);
+        }
+      } else if (fb.state === 'jump') {
+        fb.pos.y += fb.vy * dt; fb.vy -= 30 * dt;
+        if (fb.pos.y <= 0) {
+          fb.pos.y = 0; fb.state = 'walk'; fb.t = 5;
+          const m = new THREE.Mesh(waveGeo, waveMat); m.position.set(fb.pos.x, 0.35, fb.pos.z); root.add(m);
+          waves.push({ m, r: 1.5, x: fb.pos.x, z: fb.pos.z, y: 0 }); sfx.pound(); G.shake = 0.35;
+        }
+      } else if (fb.state === 'held') {
+        fb.holdT += dt; fb.w = Math.min(10, fb.w + dt * 4.5); fb.a += fb.w * dt;
+        P.vel.x = P.vel.z = 0; P.lockT = 0.05; P.facing = fb.a;
+        fb.pos.set(P.pos.x + Math.sin(fb.a) * 3.4, P.pos.y + 0.4, P.pos.z + Math.cos(fb.a) * 3.4); fb.dir = fb.a;
+        if (Math.floor(fb.holdT * fb.w / 3) !== Math.floor((fb.holdT - dt) * fb.w / 3)) tone(300 + fb.w * 30, 0.08, 'triangle', 0.04);
+        if (P.throwReq || fb.holdT > 5 || !P.holding) {
+          P.throwReq = false; P.holding = false; fb.state = 'thrown';
+          const sp = 8 + fb.w * 1.9; let aim = fb.a;
+          for (const m of mines) { // gentle aim assist towards a nearby mine
+            if (!m.active) continue;
+            const am = Math.atan2(m.x - fb.pos.x, m.z - fb.pos.z), diff = Math.abs(((am - fb.a + Math.PI) % TAU + TAU) % TAU - Math.PI);
+            if (diff < 0.4) { aim = am; break; }
+          }
+          fb.vel.set(Math.sin(aim) * sp, 0, Math.cos(aim) * sp); fb.vy = 5; sfx.long();
+        }
+      } else if (fb.state === 'thrown') {
+        fb.pos.addScaledVector(fb.vel, dt); fb.vy -= 20 * dt; fb.pos.y += fb.vy * dt; fb.dir += dt * 12;
+        for (const m of mines) {
+          if (!m.active || Math.hypot(fb.pos.x - m.x, fb.pos.z - m.z) > 2.6) continue;
+          m.active = false; m.g.visible = false; explodeAt(m.x, 1, m.z);
+          fb.hp--; fbHud();
+          const r = Math.hypot(fb.pos.x, fb.pos.z - AZ) || 1; fb.pos.set(fb.pos.x / r * 9, 0, AZ + (fb.pos.z - AZ) / r * 9);
+          if (fb.hp <= 0) { fb.state = 'dead'; fb.t = 1.4; $('bossBar').hidden = true; }
+          else { fb.state = 'hurt'; fb.t = 1.5; banner(fb.hp === 1 ? 'Ancora un colpo!' : 'Colpito!', 1.2); }
+          break;
+        }
+        if (fb.state === 'thrown') {
+          const r = Math.hypot(fb.pos.x, fb.pos.z - AZ);
+          if (r > AR + 2) { fb.state = 'hop'; fb.t = 0; fb.from = fb.pos.clone(); fb.to = new V3(fb.pos.x / r * 7, 0, AZ + (fb.pos.z - AZ) / r * 7); tone(150, 0.4, 'square', 0.05, 400); }
+          else if (fb.pos.y <= 0) { fb.pos.y = 0; fb.state = 'hurt'; fb.t = 0.7; }
+        }
+      } else if (fb.state === 'hop') {
+        fb.t += dt / 1.3; const k = Math.min(1, fb.t);
+        fb.pos.lerpVectors(fb.from, fb.to, k); fb.pos.y = fb.from.y * (1 - k) + Math.sin(k * Math.PI) * 9;
+        if (k >= 1) { fb.pos.y = 0; fb.state = 'walk'; fb.t = 3; }
+      } else if (fb.state === 'hurt') {
+        fb.t -= dt; if (fb.t <= 0) { fb.state = 'walk'; fb.t = 3; }
+      } else if (fb.state === 'dead') {
+        fb.t -= dt; fb.dir += dt * 14; fb.g.scale.setScalar(Math.max(0.01, 3.2 * fb.t / 1.4));
+        if (fb.t <= 0) {
+          fb.state = 'gone'; fb.g.visible = false; explodeAt(fb.pos.x, 2, fb.pos.z);
+          reveal(starById('grande'), 'La Grande Stella!', new V3(0, 2.8, AZ)); playTrack('fortress');
+        }
+      }
+      // keep inside the arena while walking
+      if (fb.state === 'walk' || fb.state === 'hurt') {
+        const r = Math.hypot(fb.pos.x, fb.pos.z - AZ); if (r > AR - 3) { fb.pos.x *= (AR - 3) / r; fb.pos.z = AZ + (fb.pos.z - AZ) * (AR - 3) / r; }
+      }
+      // contact
+      if ((fb.state === 'walk' || fb.state === 'jump' || fb.state === 'wait') && d < 2.5 && P.pos.y < fb.pos.y + 3.6 && P.pos.y + H > fb.pos.y) {
+        if (dot > -0.25) hurt(fb.pos);
+        P.pos.x = fb.pos.x + dx / d * 2.5; P.pos.z = fb.pos.z + dz / d * 2.5;
+      }
+      if (fb.state !== 'off' && fb.state !== 'gone') {
+        fb.g.position.copy(fb.pos); fb.g.rotation.y = fb.dir;
+        if (fb.state === 'walk') fb.g.position.y += Math.abs(Math.sin(fb.ph)) * 0.25;
+        fb.g.visible = fb.state === 'hurt' ? Math.floor(fb.t * 14) % 2 === 0 : true;
+        fb.ft[0].position.z = 0.1 + Math.sin(fb.ph) * 0.18; fb.ft[1].position.z = 0.1 - Math.sin(fb.ph) * 0.18;
+        tail.rotation.y = Math.sin(fb.ph * 0.7) * 0.4;
+      }
+    },
+    tick(dt, t) { rim.rotation.z = t; glow.material.color.setHSL(0.97, 0.7, 0.18 + Math.sin(t) * 0.03); },
+  };
+}
+const LEVELS = { island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert, bay: buildBay, castle: buildCastle, fortress: buildFortress };
 
 // ---------- player (Tino) ----------
 const H = 1.6, R = 0.45, STEP = 0.45;
@@ -1265,6 +1685,7 @@ part(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 16), 0x1f9e9a, 0, 1.44, 0.06);
 part(new THREE.SphereGeometry(0.12, 8, 6), 0xfff8e6, 0, 1.9, 0);
 const feet = [-0.2, 0.2].map(x => part(new THREE.BoxGeometry(0.26, 0.2, 0.42), 0x5a3520, x, 0.12, 0.04));
 const hands = [-0.52, 0.52].map(x => part(new THREE.SphereGeometry(0.14, 8, 6), 0xfff8e6, x, 0.72, 0));
+const wings = [-1, 1].map(sd => { const w = part(new THREE.BoxGeometry(0.55, 0.06, 0.3), 0xffffff, sd * 0.5, 1.62, -0.05); w.rotation.z = -sd * 0.5; w.visible = false; return w; });
 body.traverse(o => { if (o.isMesh) o.castShadow = true; });
 const blob = new THREE.Mesh(new THREE.CircleGeometry(0.55, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
 blob.rotation.x = -Math.PI / 2; scene.add(blob);
@@ -1372,6 +1793,12 @@ const TRACKS = {
   bay: { bpm: 96, lead: [74,0,78,81,0,78,74,0, 76,0,79,83,0,79,76,0, 78,0,81,85,0,81,78,0, 81,79,78,76,74,0,0,0,
                          74,0,78,81,0,83,81,0, 79,0,83,86,0,83,79,0, 78,76,74,76,78,81,78,76, 74,0,0,0,62,0,0,0],
          roots: [50,52,54,57,50,55,54,50], leadType: 'triangle', leadVol: 0.07, bassType: 'sine', bassVol: 0.12, hat: false },
+  castle: { bpm: 88, lead: [67,0,71,0,74,0,79,0, 78,0,76,0,74,0,0,0, 72,0,76,0,79,0,84,0, 83,0,81,0,79,0,0,0,
+                          76,0,79,0,83,0,81,79, 78,0,74,0,76,0,78,0, 79,0,74,0,71,0,74,0, 67,0,0,0,55,0,0,0],
+            roots: [43,40,36,38,40,38,43,43], leadType: 'triangle', leadVol: 0.07, bassType: 'sine', bassVol: 0.12, hat: false },
+  fortress: { bpm: 132, lead: [62,0,0,62,65,0,64,62, 61,0,0,61,64,0,62,61, 62,0,0,62,65,0,67,69, 70,69,67,65,64,0,61,0,
+                              62,0,0,62,65,0,64,62, 61,0,0,61,64,0,62,61, 58,0,62,0,65,0,69,0, 62,0,0,0,50,0,0,0],
+              roots: [50,49,50,46,50,49,46,50], leadType: 'sawtooth', leadVol: 0.03, bassType: 'square', bassVol: 0.05 },
   boss: { bpm: 172, lead: [69,0,69,70,69,0,76,0, 69,0,69,70,69,0,77,76, 69,0,69,70,69,0,76,0, 72,71,70,69,68,0,64,0],
           roots: [45,45,46,44], leadType: 'sawtooth', leadVol: 0.028, bassType: 'square', bassVol: 0.05 },
 };
@@ -1417,6 +1844,13 @@ const keys = {};
 let jumpBuf = 0, poundReq = false, punchReq = false, touchJump = false, touchPound = false;
 const joy = { x: 0, y: 0 };
 addEventListener('keydown', e => {
+  if (G.selecting) {
+    const items = [...document.querySelectorAll('#selList .mission')], i = items.indexOf(document.activeElement);
+    if (e.code === 'ArrowDown' || e.code === 'ArrowRight') { e.preventDefault(); (items[i + 1] || items[0]).focus(); }
+    else if (e.code === 'ArrowUp' || e.code === 'ArrowLeft') { e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
+    else if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); (items[i] || items[0]).click(); }
+    return;
+  }
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { cycleAudio(); return; }
@@ -1475,18 +1909,18 @@ function starListHtml() {
     }).join('') + '</ul>').join('');
 }
 function togglePause() {
-  if (!G.running || G.over || G.trans) return;
+  if (!G.running || G.over || G.trans || G.selecting) return;
   G.paused = !G.paused;
   if (G.paused) {
     $('starList').innerHTML = starListHtml();
-    $('bExit').hidden = L.id === 'island';
+    $('bExit').hidden = L.id === 'island' || L.id === 'castle';
     for (const k in keys) keys[k] = false;
   }
   $('pauseScreen').hidden = !G.paused;
   if (!G.paused) $('bResume').blur();
 }
 $('bResume').addEventListener('click', togglePause);
-$('bExit').addEventListener('click', () => { togglePause(); irisTo(() => loadLevel('island', 'door')); });
+$('bExit').addEventListener('click', () => { togglePause(); const from = L.id; irisTo(() => loadLevel('castle', from)); });
 
 function refreshStart() {
   const n = savedCount();
@@ -1508,26 +1942,89 @@ $('bPlay').addEventListener('click', () => {
   banner(G.stars ? 'Bentornato!<small>Stelle: ' + G.stars + ' su ' + TOTAL + '</small>' : 'Trova le ' + TOTAL + ' stelle<small>Premi P per l\'elenco e gli indizi</small>', 2.8);
 });
 $('bAgain').addEventListener('click', () => location.reload());
-$('bKeep').addEventListener('click', () => { $('endScreen').hidden = true; G.over = false; G.running = true; });
+$('bKeep').addEventListener('click', () => {
+  $('endScreen').hidden = true; G.over = false; G.running = true;
+  if (G.afterEnd) { G.afterEnd = false; loadLevel('castle', 'fortress'); }
+});
 
 // ---------- level loading / transitions ----------
 function placePlayer(sp) {
   P.pos.copy(sp.pos); P.vel.set(0, 0, 0); P.onGround = false; P.ground = null;
   P.pound = P.longJump = P.backflip = false; P.lockT = 0; P.facing = sp.yaw + Math.PI; P.inSand = false; P.sink = 0; P.spinT = 0;
+  P.fly = false; P.hang = null; P.pole = null; P.dive = false; P.bellyT = 0; P.holding = false;
   cam.yaw = sp.yaw; cam.t.set(sp.pos.x, sp.pos.y + 1.4, sp.pos.z);
 }
-function loadLevel(id, entry) {
+function loadLevel(id, entry, eject) {
   clearLevel();
   L = { id };
   Object.assign(L, LEVELS[id]());
   scene.background.setHex(L.sky); scene.fog.color.setHex(L.sky); scene.fog.near = L.fogNear; scene.fog.far = L.fogFar;
   hemi.color.setHex(L.hemi[0]); hemi.groundColor.setHex(L.hemi[1]); hemi.intensity = L.hemi[2];
   sun.color.setHex(L.sun[0]); sun.intensity = L.sun[1];
+  P.wingT = 0; $('hWing').hidden = true;
   placePlayer((entry && L.entries[entry]) || L.spawn);
+  if (eject && L.ejects && L.ejects[entry]) { P.pos.copy(L.ejects[entry].pos); P.vel.copy(L.ejects[entry].vel); P.lockT = 0.5; }
   G.coins = 0; G.red = 0; G.foes = 0; G.nextLife = 50;
   $('bossBar').hidden = true;
   hud();
-  if (G.running) { playTrack(L.music); banner(CATALOG[id].name, 2); }
+  if (G.running) { playTrack(L.music); banner(CATALOG[id] ? CATALOG[id].name : 'Castello', 2); }
+}
+function enterLevel(id) { irisTo(() => { loadLevel(id); openSelect(id); }); }
+function openSelect(id) {
+  const lv = CATALOG[id]; if (!lv) return;
+  G.selecting = true;
+  $('selTitle').textContent = lv.name;
+  const list = $('selList'); list.innerHTML = '';
+  let first = null;
+  lv.stars.forEach(([sid, name, hint], i) => {
+    const got = !!save.stars[id + ':' + sid];
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'mission' + (got ? ' got' : '');
+    b.innerHTML = `<b>★</b><span><strong>${i + 1}. ${name}</strong><em>${hint}</em></span>`;
+    b.addEventListener('click', () => {
+      G.selecting = false; $('selectScreen').hidden = true; for (const k in keys) keys[k] = false;
+      banner('Missione ' + (i + 1) + '<small>' + name + '</small>', 2.4);
+    });
+    list.appendChild(b); if (!got && !first) first = b;
+  });
+  $('selectScreen').hidden = false;
+  (first || list.firstChild).focus();
+}
+function showEnding() {
+  G.over = true; G.running = false; G.afterEnd = true; save.ending = true; persist();
+  seq([523, 659, 784, 1047, 784, 1047, 1319], 160, 'triangle', 0.09, 0.35);
+  $('endTitle').textContent = 'Il Re Grumo è sconfitto!';
+  $('endText').textContent = `La Grande Stella è tornata al castello e l'isola brilla di nuovo. Stelle raccolte: ${G.stars} su ${TOTAL}. Tempo di questa sessione: ${$('hTime').textContent}. Grazie per aver giocato a Isola Stellata!`;
+  $('bKeep').hidden = false; $('bKeep').textContent = 'Torna al castello';
+  $('endScreen').hidden = false;
+}
+function hitAround(r) { for (const e of enemies) if (e.alive && e.pos.distanceTo(P.pos) < r) killEnemy(e); }
+function updatePole(p, dt, ix, iy, crouchKey) {
+  const s = p.pole; poundReq = punchReq = false;
+  p.vel.set(0, 0, 0); p.onGround = false; p.ground = null;
+  p.poleAng += ix * 2.4 * dt;
+  const climb = crouchKey ? -8 : iy * 4;
+  p.pos.y = Math.min(p.pos.y + climb * dt, s.top - 1.1);
+  p.climbPh = (p.climbPh || 0) + Math.abs(climb) * dt * 2.5;
+  const r = s.r + 0.42; p.pos.x = s.x + Math.sin(p.poleAng) * r; p.pos.z = s.z + Math.cos(p.poleAng) * r;
+  p.facing = p.poleAng + Math.PI;
+  const gh = groundHeight(p.pos.x, p.pos.z, p.pos.y + 0.1, 0.2);
+  if (p.pos.y <= gh + 0.01 && climb <= 0) { p.pos.y = gh; p.pole = null; p.poleCool = 0.5; return; }
+  if (jumpBuf > 0) {
+    const atTop = p.pos.y >= s.top - 1.15;
+    p.vel.set(Math.sin(p.poleAng) * 7, atTop ? 17 : 12, Math.cos(p.poleAng) * 7);
+    p.facing = p.poleAng; p.pole = null; p.poleCool = 0.4; jumpBuf = 0; p.airT = 0; p.chain = 0; sfx.jump(atTop ? 2 : 0);
+  }
+  jumpBuf -= dt;
+}
+function updateHang(p, dt, wx, wz, crouchKey) {
+  const h = p.hang; poundReq = punchReq = false;
+  p.vel.set(0, 0, 0); p.onGround = false; p.ground = null; p.hangT += dt;
+  p.facing = Math.atan2(-h.nx, -h.nz);
+  const into = -(wx * h.nx + wz * h.nz);
+  if (jumpBuf > 0 || (into > 0.5 && p.hangT > 0.25)) {
+    p.pos.y = h.top + 0.02; p.pos.x -= h.nx * 0.9; p.pos.z -= h.nz * 0.9; p.hang = null; jumpBuf = 0; p.squash = 0.6; sfx.jump(0);
+  } else if (crouchKey || into < -0.5) { p.hang = null; p.hangCool = 0.6; p.pos.x += h.nx * 0.2; p.pos.z += h.nz * 0.2; }
+  jumpBuf -= dt;
 }
 function irisTo(fn) {
   if (G.trans) return;
@@ -1550,6 +2047,7 @@ function hurt(from, dmg = 2) {
   P.hp = Math.max(0, P.hp - dmg); P.inv = 1.6; sfx.hurt();
   const dx = P.pos.x - from.x, dz = P.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
   P.vel.set(dx / d * 10, 8, dz / d * 10); P.onGround = false; P.pound = P.longJump = P.backflip = false; P.lockT = 0.3;
+  P.hang = null; P.pole = null; P.fly = false; P.dive = false; P.holding = false;
   if (L.onHurt) L.onHurt();
   hud();
   if (P.hp <= 0) die();
@@ -1575,7 +2073,7 @@ function gameOver(won) {
   $('endText').textContent = won
     ? `Tino ha ritrovato tutte e ${TOTAL} le stelle. Tempo di questa sessione: ${t}. I progressi restano salvati in questo browser.`
     : `Stelle salvate: ${G.stars} su ${TOTAL}. Le stelle raccolte restano salvate: riprova da dove eri.`;
-  $('bKeep').hidden = !won;
+  $('bKeep').hidden = !won; $('bKeep').textContent = 'Continua a esplorare';
   $('endScreen').hidden = false;
 }
 function reveal(s, msg, pos) {
@@ -1592,7 +2090,10 @@ function killEnemy(e) {
   if (L.id === 'island' && G.foes === enemies.length) reveal(starById('grumi'), L.foesMsg);
 }
 function afterDance() {
-  if (G.stars >= TOTAL && !G.won) { G.won = true; gameOver(true); }
+  const s = G.lastStar; G.lastStar = null;
+  if (s && L.id === 'fortress' && s.id === 'grande') { showEnding(); return; }
+  if (G.stars >= TOTAL && !G.won) { G.won = true; gameOver(true); return; }
+  if (s && ['volcano', 'snow', 'desert', 'bay', 'fortress'].includes(L.id)) { const from = L.id; irisTo(() => loadLevel('castle', from, true)); }
 }
 
 let gameTime = 0, splashed = false;
@@ -1605,15 +2106,31 @@ function updatePlayer(dt) {
   const wx = -sy * iy + cy * ix, wz = -cy * iy - sy * ix;
   const crouchKey = keys.ShiftLeft || keys.ShiftRight || keys.KeyK || touchPound;
   p.crouch = p.onGround && crouchKey && !p.pound;
+  if (p.wingT > 0) {
+    p.wingT -= dt; const ws = Math.ceil(p.wingT);
+    if (ws !== p.wingShown) { p.wingShown = ws; $('hWing').hidden = false; $('hWing').textContent = 'Ali ' + ws; }
+    if (p.wingT <= 0) { $('hWing').hidden = true; p.fly = false; banner('Il cappello alato è finito', 1.4); }
+  }
+  p.poleCool = (p.poleCool || 0) - dt; p.hangCool = (p.hangCool || 0) - dt;
+  if (p.pole) { updatePole(p, dt, ix, iy, crouchKey); return; }
+  if (p.hang) { updateHang(p, dt, wx, wz, crouchKey); return; }
   const wasSwim = p.swim;
   p.leapT = (p.leapT || 0) - dt;
   p.swim = L.waterY != null && p.pos.y + 0.9 < L.waterY + 0.15 && !(p.leapT > 0);
-  if (p.swim && !wasSwim) { p.pound = p.longJump = p.backflip = false; p.chain = 0; p.vel.y = Math.max(p.vel.y * 0.35, -6); }
+  if (p.swim && !wasSwim) { p.pound = p.longJump = p.backflip = p.fly = p.dive = false; p.chain = 0; p.vel.y = Math.max(p.vel.y * 0.35, -6); }
 
-  if (poundReq && !p.onGround && !p.pound) { p.pound = true; p.poundHang = 0.22; p.longJump = p.backflip = false; sfx.jump(0); }
+  if (poundReq && !p.onGround && !p.pound && !p.swim) { p.pound = true; p.poundHang = 0.22; p.longJump = p.backflip = p.fly = p.dive = false; sfx.jump(0); }
   poundReq = false;
 
-  if (punchReq && p.onGround && p.punchT <= 0 && !p.crouch) {
+  if (punchReq && p.holding) { p.throwReq = true; punchReq = false; }
+  const hs0 = Math.hypot(p.vel.x, p.vel.z);
+  if (punchReq && !p.swim && !p.fly && !p.pound && !p.dive && ((p.onGround && hs0 > 8.5 && !p.crouch) || (!p.onGround && hs0 > 6))) {
+    const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+    p.dive = true; p.vel.x = fx * 15; p.vel.z = fz * 15; p.vel.y = p.onGround ? 6 : Math.max(p.vel.y, 3);
+    p.onGround = false; p.ground = null; p.longJump = p.backflip = false; p.chain = 0; p.punchT = 0.3; sfx.long();
+  } else if (punchReq && !p.swim && !p.fly && !p.pound && !p.onGround && !p.dive && !(p.kickT > 0)) {
+    p.kickT = 0.3; p.punchT = 0.3; if (p.vel.y < 4) p.vel.y = 4; sfx.punch(); hitAround(1.9);
+  } else if (punchReq && p.onGround && p.punchT <= 0 && !p.crouch) {
     p.punchT = 0.32; sfx.punch();
     const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
     p.vel.x += fx * 3; p.vel.z += fz * 3;
@@ -1627,7 +2144,7 @@ function updatePlayer(dt) {
       if (d < 3.3) { boss.pos.x += dx / d * 1.6; boss.pos.z += dz / d * 1.6; sfx.stomp(); }
     }
   }
-  punchReq = false; p.punchT -= dt; p.lockT -= dt;
+  punchReq = false; p.punchT -= dt; p.lockT -= dt; p.kickT = (p.kickT || 0) - dt;
 
   if (p.swim) {
     p.pound = false;
@@ -1642,6 +2159,13 @@ function updatePlayer(dt) {
       burst(new V3(p.pos.x, L.waterY + 0.1, p.pos.z), 0xbfe6ff, 10, 4);
     }
     p.stroke = (p.stroke || 0) + dt * (il > 0.1 || up ? 10 : 3);
+  } else if (p.fly) {
+    p.facing -= ix * 1.9 * dt;
+    p.flyPitch = clamp(p.flyPitch - iy * 1.4 * dt - p.flyPitch * 0.2 * dt, -1.0, 0.9);
+    p.flySpeed = clamp(p.flySpeed + (-Math.sin(p.flyPitch) * 24 - (p.flySpeed - 16) * 0.3) * dt, 0, 34);
+    const cpf = Math.cos(p.flyPitch);
+    p.vel.set(Math.sin(p.facing) * cpf * p.flySpeed, Math.sin(p.flyPitch) * p.flySpeed, Math.cos(p.facing) * cpf * p.flySpeed);
+    if (p.flySpeed < 5) p.fly = false;
   } else if (p.pound) {
     p.vel.x = p.vel.z = 0;
     if (p.poundHang > 0) { p.poundHang -= dt; p.vel.y = 0; } else p.vel.y = -34;
@@ -1653,8 +2177,12 @@ function updatePlayer(dt) {
     if (p.crouch) maxS = 2.5;
     if (p.inSand) { maxS = 3.5; acc = 30; }
     if (p.longJump) { maxS = 17; acc = il > 0.1 ? 5 : 1.5; }
+    if (p.dive) { maxS = 15; acc = il > 0.1 ? 3 : 1; }
     if (p.punchT > 0 && p.onGround) acc = 18;
-    if (p.sliding) {
+    if (p.bellyT > 0 && p.onGround) {
+      p.bellyT -= dt; approach2(p.vel, 0, 0, 10 * dt);
+      if (jumpBuf > 0) { p.vel.y = 10.5; p.bellyT = 0; p.onGround = false; p.ground = null; jumpBuf = 0; p.coyote = 0; p.airT = 0; sfx.jump(0); }
+    } else if (p.sliding) {
       const sg = Math.sign(surf.y0 - surf.y1), dx = surf.axis === 'x' ? sg : 0, dz = surf.axis === 'z' ? sg : 0;
       const px = -dz, pz = dx, lat = wx * px + wz * pz;
       p.vel.x += (dx * 24 + px * lat * 16) * dt; p.vel.z += (dz * 24 + pz * lat * 16) * dt;
@@ -1662,7 +2190,7 @@ function updatePlayer(dt) {
       const sp = Math.hypot(p.vel.x, p.vel.z); if (sp > 19) { p.vel.x *= 19 / sp; p.vel.z *= 19 / sp; }
       p.facing = Math.atan2(p.vel.x, p.vel.z);
     } else if (p.lockT <= 0) approach2(p.vel, wx * maxS, wz * maxS, acc * dt);
-    if (il > 0.1 && p.lockT <= 0 && !p.longJump && p.punchT <= 0 && !p.sliding) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
+    if (il > 0.1 && p.lockT <= 0 && !p.longJump && p.punchT <= 0 && !p.sliding && !p.dive && !(p.bellyT > 0)) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-14 * dt));
 
     p.coyote = p.onGround ? 0.1 : p.coyote - dt;
     if (jumpBuf > 0) {
@@ -1676,6 +2204,10 @@ function updatePlayer(dt) {
           if (gameTime - p.landT < 0.22 && hs > 5 && p.chain < 2) p.chain++; else p.chain = 0;
           if (p.inSand) p.chain = 0;
           p.vel.y = p.inSand ? 11.5 : [13, 15.5, 19][p.chain]; sfx.jump(p.chain);
+          if (p.chain === 2 && p.wingT > 0) {
+            p.fly = true; p.flyPitch = 0.5; p.flySpeed = 20;
+            if (!G.flyTip) { G.flyTip = true; banner('Volo!<small>Avanti: scendi · Indietro: sali · Sinistra e destra: gira</small>', 3.2); }
+          }
         }
         p.onGround = false; p.coyote = 0; jumpBuf = 0; p.airT = 0; p.ground = null; p.inSand = false;
       } else if (gameTime - p.wallT < 0.2 && p.airT > 0.08) {
@@ -1700,12 +2232,23 @@ function updatePlayer(dt) {
     if (s.bottom >= p.pos.y + H || top <= p.pos.y + 0.02) continue;
     if (!overlap(s, p.pos.x, p.pos.z, R)) continue;
     if (top - p.pos.y <= STEP && (p.onGround || p.vel.y <= 0)) { p.pos.y = top; if (p.vel.y < 0) p.vel.y = 0; continue; }
+    if (s.pole && !p.onGround && !p.swim && !p.fly && !(p.poleCool > 0) && p.pos.y + 1 < s.top && p.pos.y > s.bottom) {
+      p.pole = s; p.poleAng = Math.atan2(p.pos.x - s.x, p.pos.z - s.z); p.vel.set(0, 0, 0);
+      p.dive = p.longJump = p.backflip = p.pound = false; p.chain = 0; tone(700, 0.08, 'square', 0.04);
+      pushOut(s, p.pos, R); continue;
+    }
     const bx = p.pos.x, bz = p.pos.z;
     pushOut(s, p.pos, R);
     const nx = p.pos.x - bx, nz = p.pos.z - bz, nl = Math.hypot(nx, nz);
     if (!p.onGround && nl > 1e-4 && top > p.pos.y + 0.8) {
       p.wallT = gameTime; p.wallN.set(nx / nl, 0, nz / nl);
-      if (p.longJump) { p.vel.x *= 0.2; p.vel.z *= 0.2; }
+      if (p.longJump || p.dive) { p.vel.x *= 0.2; p.vel.z *= 0.2; }
+      if (p.fly) { p.fly = false; p.vel.set(nx / nl * 4, 0, nz / nl * 4); sfx.stomp(); }
+      const ledge = top - p.pos.y, into = -(nx / nl) * Math.sin(p.facing) - (nz / nl) * Math.cos(p.facing);
+      if (!p.swim && !p.pound && !(p.hangCool > 0) && p.vel.y <= 3 && ledge > 1.0 && ledge < 1.95 && into > 0.5 && s.type !== 'ramp' && !s.sinker && s.delta.lengthSq() === 0) {
+        p.hang = { top, nx: nx / nl, nz: nz / nl }; p.hangT = 0; p.pos.y = top - 1.75; p.vel.set(0, 0, 0);
+        p.dive = p.longJump = p.backflip = false; tone(600, 0.06, 'square', 0.04);
+      }
     }
   }
 
@@ -1725,7 +2268,8 @@ function updatePlayer(dt) {
     for (const s of solids) if (s.bottom >= prevY + H - 0.01 && s.bottom < p.pos.y + H && overlap(s, p.pos.x, p.pos.z, 0.3)) { p.pos.y = s.bottom - H; p.vel.y = 0; }
   }
   if (p.onGround && !wasGround) {
-    p.landT = gameTime; p.squash = 1; p.longJump = p.backflip = false;
+    p.landT = gameTime; p.squash = 1; p.longJump = p.backflip = p.fly = false;
+    if (p.dive) { p.dive = false; p.bellyT = 0.5; }
     if (p.pound) {
       p.pound = false; sfx.pound(); burst(p.pos, 0xd8ccb2, 14, 5); G.shake = 0.15;
       if (L.onPound) L.onPound(p.ground);
@@ -1774,7 +2318,7 @@ function updatePlayer(dt) {
   // coins
   const cx = p.pos.x, cyy = p.pos.y + 0.8, cz = p.pos.z;
   for (const c of coins) {
-    if (c.taken) continue;
+    if (c.taken || c.hidden) continue;
     const d = c.m.position;
     if ((d.x - cx) ** 2 + (d.y - cyy) ** 2 + (d.z - cz) ** 2 < 1.5 * 1.5) {
       c.taken = true; root.remove(c.m);
@@ -1782,7 +2326,7 @@ function updatePlayer(dt) {
         G.red++; G.coins += 2; sfx.red(); burst(d, 0xff4a3a, 10, 4);
         banner(G.red + ' / ' + L.redTotal + '<small>moneta rossa</small>', 1.2);
         if (G.red === L.redTotal) { const lid = L.id; setTimeout(() => { if (L.id === lid) reveal(starById('rosse'), L.redMsg); }, 900); }
-      } else { G.coins++; sfx.coin(); }
+      } else if (c.blue) { G.coins += 5; sfx.red(); } else { G.coins++; sfx.coin(); }
       p.hp = Math.min(8, p.hp + 1);
       if (G.coins >= G.nextLife) { G.nextLife += 50; G.lives++; sfx.life(); banner('Vita extra!', 1.4); }
       if (L.coinStar && G.coins >= 100) reveal(starById('cento'), '100 monete raccolte!', new V3(p.pos.x, p.pos.y + 3, p.pos.z));
@@ -1801,7 +2345,7 @@ function updatePlayer(dt) {
         banner('Stella!<small>' + s.name + ' · ' + G.stars + ' su ' + TOTAL + '</small>', 2.6);
       } else banner('Stella già presa<small>' + s.name + '</small>', 2.2);
       p.vel.set(0, Math.min(p.vel.y, 0), 0); p.pound = p.longJump = p.backflip = false;
-      G.dance = 1.7;
+      G.dance = 1.7; G.lastStar = s;
       hud();
     }
   }
@@ -1931,11 +2475,11 @@ function updateMovers(dt, t) {
     s.cx = np.x; s.cz = np.z; s.top += s.delta.y; s.bottom += s.delta.y;
   }
   for (const k of sinkers) {
-    const s = k.s; s.delta.set(0, 0, 0);
+    const s = k.s; s.delta.set(0, 0, 0); s.sinker = true;
     if (k.state === 'idle') { if (P.onGround && P.ground === s) { k.state = 'sink'; k.t = 0; } continue; }
     k.t += dt;
     if (k.t > 0.35) {
-      const dy = -1.5 * dt; s.delta.y = dy; s.mesh.position.y += dy; s.top += dy; s.bottom += dy;
+      const dy = -(k.speed || 1.5) * dt; s.delta.y = dy; s.mesh.position.y += dy; s.top += dy; s.bottom += dy;
       if (s.top < -1.2 && P.ground !== s) {
         const up = k.baseTop - s.top; s.mesh.position.y += up; s.top += up; s.bottom += up; k.state = 'idle';
       }
@@ -1945,11 +2489,12 @@ function updateMovers(dt, t) {
 }
 
 function updateTriggers(dt) {
+  updateItems(dt);
   for (const dr of L.doors) {
     dr.mesh.material = G.stars >= dr.need ? dr.open : dr.shut;
     dr.msgT -= dt;
     if (P.pos.x > dr.x0 && P.pos.x < dr.x1 && P.pos.z > dr.z0 && P.pos.z < dr.z1 && P.pos.y < 1) {
-      if (G.stars >= dr.need) { sfx.portal(); irisTo(() => loadLevel(dr.to)); return; }
+      if (G.stars >= dr.need) { sfx.portal(); irisTo(() => loadLevel(dr.to, dr.entry)); return; }
       if (dr.msgT <= 0) { dr.msgT = 2.5; sfx.locked(); banner('Porta chiusa<small>Servono ' + dr.need + ' stelle: ne hai ' + G.stars + '</small>', 2.2); }
     }
   }
@@ -1983,7 +2528,23 @@ function animatePlayer(dt) {
     feet[0].position.z = feet[1].position.z = 0.04;
   } else {
     tino.rotation.y = p.facing;
-    if (p.swim) {
+    if (p.hang) {
+      body.rotation.x = 0; body.position.y = 0.8;
+      hands[0].position.y = hands[1].position.y = 0.95; hands[0].position.z = hands[1].position.z = 0.35;
+      feet[0].position.z = feet[1].position.z = 0.1;
+    } else if (p.pole) {
+      const k = Math.sin(p.climbPh || 0); body.rotation.x = 0; body.position.y = 0.8;
+      hands[0].position.y = 0.55 + k * 0.15; hands[1].position.y = 0.55 - k * 0.15; hands[0].position.z = hands[1].position.z = 0.32;
+      feet[0].position.z = feet[1].position.z = 0.3;
+    } else if (p.fly) {
+      body.rotation.x = Math.PI / 2 - p.flyPitch; body.position.y = 0.8;
+      hands[0].position.x = -0.95; hands[1].position.x = 0.95; hands[0].position.y = hands[1].position.y = 0.45; hands[0].position.z = hands[1].position.z = 0;
+      feet[0].position.z = feet[1].position.z = -0.1;
+    } else if (p.dive || (p.bellyT > 0 && p.onGround)) {
+      body.rotation.x = 1.45; body.position.y = p.onGround ? 0.35 : 0.8;
+      hands[0].position.z = hands[1].position.z = 0.55; hands[0].position.y = hands[1].position.y = 0.3;
+      feet[0].position.z = feet[1].position.z = -0.1;
+    } else if (p.swim) {
       const k = Math.sin(p.stroke || 0), moving = hs > 1.5;
       body.rotation.x = moving ? 1.15 : 0.3; body.position.y = 0.8;
       feet[0].position.z = 0.04 + k * 0.2; feet[1].position.z = 0.04 - k * 0.2;
@@ -1998,6 +2559,7 @@ function animatePlayer(dt) {
       body.rotation.x = Math.min(1, hs / 9) * 0.15;
       body.position.y = 0.8 + Math.abs(Math.cos(p.walk)) * 0.06 * Math.min(1, hs / 6);
       if (p.sliding) { body.rotation.x = -0.45; feet[0].position.z = feet[1].position.z = 0.35; hands[0].position.y = hands[1].position.y = 0.3; }
+      if (p.holding) { hands[0].position.z = hands[1].position.z = 0.55; hands[0].position.y = hands[1].position.y = 0.2; }
       if (p.punchT > 0) { hands[1].position.z = 0.75 * Math.sin((p.punchT / 0.32) * Math.PI); hands[1].position.x = 0.3; hands[1].position.y = 0; }
     } else {
       feet[0].position.z = 0.25; feet[1].position.z = -0.15;
@@ -2008,8 +2570,10 @@ function animatePlayer(dt) {
       else if (p.backflip) body.rotation.x = -Math.min(1, p.airT / 0.95) * TAU;
       else if (p.chain === 2) body.rotation.x = Math.min(1, p.airT / 0.75) * TAU;
       else body.rotation.x = 0.1;
+      if (p.kickT > 0) feet[1].position.z = 0.55;
     }
   }
+  wings.forEach((w, i) => { w.visible = p.wingT > 0; w.rotation.z = (i ? -1 : 1) * (0.5 + (p.fly ? Math.sin(gameTime * 12) * 0.3 : 0)); });
   const sq = (p.crouch ? 0.68 : 1) - p.squash * 0.25;
   body.scale.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6);
   tino.visible = p.inv > 0 && p.burnT <= 0 ? Math.floor(p.inv * 14) % 2 === 0 : true;
@@ -2021,6 +2585,7 @@ function animatePlayer(dt) {
 }
 
 function updateCamera(dt) {
+  if (P.fly) cam.yaw = lerpAngle(cam.yaw, P.facing + Math.PI, 1 - Math.exp(-2.5 * dt));
   if (keys.KeyQ) cam.yaw += 2.2 * dt;
   if (keys.KeyE) cam.yaw -= 2.2 * dt;
   const tx = P.pos.x, ty = P.pos.y + 1.4, tz = P.pos.z;
@@ -2032,6 +2597,12 @@ function updateCamera(dt) {
   const gh = groundHeight(camera.position.x, camera.position.z, camera.position.y + 2, 0.3);
   if (camera.position.y < gh + 0.7) camera.position.y = gh + 0.7;
   if (L.waterY == null && camera.position.y < 0.2) camera.position.y = 0.2;
+  if (L.camBox) {
+    const b = L.camBox;
+    camera.position.x = clamp(camera.position.x, b.x0, b.x1); camera.position.z = clamp(camera.position.z, b.z0, b.z1);
+    const hd = Math.hypot(camera.position.x - cam.t.x, camera.position.z - cam.t.z);
+    camera.position.y = clamp(Math.min(camera.position.y, cam.t.y + 0.8 + hd * 0.45), b.y0, b.y1);
+  }
   if (G.shake > 0) {
     G.shake -= dt; const a = G.shake * 0.8;
     camera.position.x += (Math.random() - 0.5) * a; camera.position.y += (Math.random() - 0.5) * a;
@@ -2047,6 +2618,7 @@ function animateWorld(dt, t) {
     if (q.life <= 0) { root.remove(q.m); parts.splice(i, 1); continue; }
     q.v.y -= 18 * dt; q.m.position.addScaledVector(q.v, dt); q.m.rotation.x += dt * 8; q.m.scale.setScalar(Math.min(1, q.life * 2));
   }
+  animateItems(t);
   if (L.tick) L.tick(dt, t);
 }
 
@@ -2055,7 +2627,7 @@ let last = performance.now(), worldT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
-  const active = G.running && !G.paused && !G.trans;
+  const active = G.running && !G.paused && !G.trans && !G.selecting;
   if (active) {
     G.time += dt; hudTime();
     if (G.dance > 0) { G.dance -= dt; if (G.dance <= 0) afterDance(); }
@@ -2085,6 +2657,8 @@ if (location.hash === '#vulcano') loadLevel('volcano');
 if (location.hash === '#neve') loadLevel('snow');
 if (location.hash === '#deserto') loadLevel('desert');
 if (location.hash === '#baia') loadLevel('bay');
+if (location.hash === '#castello') loadLevel('castle');
+if (location.hash === '#fortezza') loadLevel('fortress');
 })();
 </script>
 </body></html>

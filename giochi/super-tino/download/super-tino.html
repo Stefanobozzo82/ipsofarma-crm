@@ -193,6 +193,14 @@ body.touch .keys.touch-only{display:grid!important}
       <kbd>Trascina / Q E</kbd><span>Telecamera (segue Tino da dietro). C la rimette alle spalle, rotellina per lo zoom</span>
       <kbd>P / M</kbd><span>Pausa (indizi, audio e grafica) / audio</span>
     </div>
+    <div class="keys desk-only" id="padHelp">
+      <kbd>🎮 Joypad</kbd><span>Collegalo e premi un tasto: levetta sinistra muove, destra gira la telecamera</span>
+      <kbd>A / ✕</kbd><span>Salta (e conferma nei menu)</span>
+      <kbd>B X / ○ □</kbd><span>Pugno, tuffo e calcio</span>
+      <kbd>Grilletti, LB</kbd><span>Accovacciati / schianto (come Shift)</span>
+      <kbd>RB, Y / △</kbd><span>Telecamera alle spalle di Tino</span>
+      <kbd>Start</kbd><span>Pausa; salta le scene animate</span>
+    </div>
     <div class="keys touch-only">
       <kbd>Joystick</kbd><span>Muoviti</span>
       <kbd>Salta</kbd><span>Risalta appena atterri per il triplo salto; in aria contro un muro per il salto a muro</span>
@@ -4092,6 +4100,40 @@ function holdMusic(sec) { if (actx) Music.hold = actx.currentTime + sec; }
 const keys = {};
 let jumpBuf = 0, poundReq = false, punchReq = false, touchJump = false, touchPound = false;
 const joy = { x: 0, y: 0 };
+// ---------- gamepad: buttons become keyboard events, sticks move Tino and the camera ----------
+const pad = { x: 0, y: 0, rx: 0, ry: 0, held: {}, idx: null, sel: 0 };
+const PADMAP = { 0: 'Space', 1: 'KeyJ', 2: 'KeyJ', 3: 'KeyC', 4: 'ShiftLeft', 5: 'KeyC', 6: 'ShiftLeft', 7: 'ShiftLeft', 9: 'Escape', 12: 'ArrowUp', 13: 'ArrowDown', 14: 'ArrowLeft', 15: 'ArrowRight' };
+const padKey = (type, code) => dispatchEvent(new KeyboardEvent(type, { code, key: code }));
+addEventListener('gamepadconnected', e => { pad.idx = e.gamepad.index; if (G.running) banner('Joypad collegato<small>' + (e.gamepad.id.split('(')[0].trim() || 'Pronto a giocare') + '</small>', 2); });
+addEventListener('gamepaddisconnected', e => { if (pad.idx === e.gamepad.index) { pad.idx = null; pad.x = pad.y = pad.rx = pad.ry = 0; for (const c in pad.held) if (pad.held[c]) { pad.held[c] = false; padKey('keyup', c); } } });
+function rumble(ms, strong = 0.6) {
+  try { const gp = pad.idx !== null && navigator.getGamepads()[pad.idx]; if (gp && gp.vibrationActuator) gp.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: strong * 0.6 }); } catch (e) {}
+}
+function pollPad() {
+  if (!navigator.getGamepads) return;
+  const list = navigator.getGamepads(); let gp = pad.idx !== null ? list[pad.idx] : null;
+  if (!gp) for (const g of list) if (g && g.connected) { gp = g; pad.idx = g.index; break; }
+  if (!gp) return;
+  const dz = v => Math.abs(v) < 0.2 ? 0 : (v - Math.sign(v) * 0.2) / 0.8;
+  pad.x = dz(gp.axes[0] || 0); pad.y = -dz(gp.axes[1] || 0); pad.rx = dz(gp.axes[2] || 0); pad.ry = dz(gp.axes[3] || 0);
+  const want = {};
+  for (const b in PADMAP) { const btn = gp.buttons[b]; if (btn && (btn.pressed || btn.value > 0.5)) want[PADMAP[b]] = true; }
+  // in the mission list the left stick works like the arrow keys
+  const sel = G.selecting ? (pad.y > 0.6 ? -1 : pad.y < -0.6 ? 1 : 0) : 0;
+  if (sel && sel !== pad.sel) padKey('keydown', sel > 0 ? 'ArrowDown' : 'ArrowUp');
+  pad.sel = sel;
+  for (const code of new Set(Object.keys(want).concat(Object.keys(pad.held)))) {
+    const on = !!want[code];
+    if (on === !!pad.held[code]) continue;
+    pad.held[code] = on;
+    if (on && code === 'Space' && !G.selecting && !G.cut) {
+      // A on a menu screen presses its main button
+      const btn = document.querySelector('.overlay:not([hidden]) .btns .btn:not([hidden])');
+      if (btn) { btn.click(); continue; }
+    }
+    padKey(on ? 'keydown' : 'keyup', code);
+  }
+}
 addEventListener('keydown', e => {
   if (G.cut) {
     e.preventDefault();
@@ -4410,7 +4452,7 @@ function lerpAngle(a, b, t) { const d = ((b - a + Math.PI) % TAU + TAU) % TAU - 
 
 function hurt(from, dmg = 2) {
   if (P.inv > 0 || P.metalT > 0) return;
-  P.hp = Math.max(0, P.hp - dmg); P.inv = 1.6; sfx.hurt();
+  P.hp = Math.max(0, P.hp - dmg); P.inv = 1.6; sfx.hurt(); rumble(250, 0.8);
   const dx = P.pos.x - from.x, dz = P.pos.z - from.z, d = Math.hypot(dx, dz) || 1;
   P.vel.set(dx / d * 10, 8, dz / d * 10); P.onGround = false; P.pound = P.longJump = P.backflip = false; P.lockT = 0.3;
   P.hang = null; P.pole = null; P.fly = false; P.dive = false; P.holding = false; P.carry = null;
@@ -4465,8 +4507,8 @@ function afterDance() {
 let gameTime = 0, splashed = false;
 function updatePlayer(dt) {
   const p = P;
-  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
-  let iy = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x + pad.x;
+  let iy = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y + pad.y;
   let il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; il = 1; }
   const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
   const wx = -sy * iy + cy * ix, wz = -cy * iy - sy * ix;
@@ -4654,6 +4696,7 @@ function updatePlayer(dt) {
     if (p.pound) {
       p.pound = false; sfx.pound(); burst(p.pos, 0xd8ccb2, 14, 5); G.shake = 0.15;
       if (L.onPound) L.onPound(p.ground);
+      rumble(120, 0.5);
       for (const e of enemies) if (e.alive && Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 3.4 && Math.abs(e.pos.y - p.pos.y) < 1.6) killEnemy(e);
     }
   }
@@ -5015,6 +5058,7 @@ function updateCamera(dt) {
   if (P.fly || P.shot) cam.yaw = lerpAngle(cam.yaw, P.facing + Math.PI, 1 - Math.exp(-2.5 * dt));
   if (keys.KeyQ) { cam.yaw += 2.2 * dt; cam.manual = camNow(); }
   if (keys.KeyE) { cam.yaw -= 2.2 * dt; cam.manual = camNow(); }
+  if (pad.rx || pad.ry) { cam.yaw -= pad.rx * 2.6 * dt; cam.pitch = clamp(cam.pitch + pad.ry * 1.4 * dt, 0.05, 1.25); cam.manual = camNow(); }
   if (keys.KeyC && cam.recenter <= 0) { cam.recenter = 0.5; cam.manual = -9; }
   const hsp = Math.hypot(P.vel.x, P.vel.z);
   // follow cam: swing behind Tino as he runs, unless the player just turned the camera by hand
@@ -5112,6 +5156,7 @@ let last = performance.now(), worldT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
+  pollPad();
   const active = G.running && !G.paused && !G.trans && !G.selecting && !G.cut;
   if (active) {
     G.time += dt; hudTime();

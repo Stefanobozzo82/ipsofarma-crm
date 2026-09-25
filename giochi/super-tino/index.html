@@ -3796,7 +3796,11 @@ function updatePlayer(dt) {
       if (!s.saved) {
         save.stars[s.key] = true; persist(); G.stars = savedCount();
         banner('Stella!<small>' + s.name + ' · ' + G.stars + ' su ' + TOTAL + '</small>', 2.6);
-      } else banner('Stella già presa<small>' + s.name + '</small>', 2.2);
+      } else {
+        banner('Stella già presa<small>' + s.name + ' · puoi continuare a esplorare</small>', 2.2);
+        // an already-collected star doesn't end the visit (except the Grand Star, which still leads to the ending)
+        if (!(L.id === 'fortress' && s.id === 'grande')) { hud(); continue; }
+      }
       p.vel.set(0, Math.min(p.vel.y, 0), 0); p.pound = p.longJump = p.backflip = false;
       G.dance = 1.7; G.lastStar = s; G.danceYaw = P.facing;
       hud();

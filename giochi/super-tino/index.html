@@ -222,12 +222,16 @@ const CATALOG = {
     ['nuvole', 'Sopra le nuvole', 'Rompi il blocco rosso, fai un triplo salto per volare e atterra sulla nuvola a ovest.'],
     ['cannone', 'Colpo di cannone', "Parla con il Grumo rosa vicino alla spiaggia, entra nel cannone e sparati sull'isola sospesa sul mare."],
     ['corsa', 'La corsa con Lampo', 'Parla con la tartaruga Lampo vicino alla spiaggia e arriva prima di lei in cima al colle.'],
+    ['monte', 'In cima al Monte Tondo', 'Attraversa il ponte di legno a est e sali i gradoni del monte. Attento ai massi che rotolano!'],
+    ['quercia', 'La Quercia Gigante', "Salta sui sassi a ovest fino al Bosco Antico e arrampicati sui rami della grande quercia."],
   ] },
   volcano: { name: 'Vulcano Rombante', stars: [
     ['cratere', 'Sul cratere', 'Risali i fianchi del vulcano fino alla cima.'],
     ['ponti', 'Ponti sulla lava', 'A ovest le piattaforme affondano: non fermarti.'],
     ['camino', 'Il camino', "Dietro la partenza: rimbalza da un muro all'altro fino in cima."],
     ['re', 'Il Re Grumo', "Sull'arena a est. Saltagli in testa tre volte: lascia la chiave d'argento."],
+    ['geyser', 'Il geyser di fuoco', "Oltre le isole di cenere a nord-ovest: aspetta l'eruzione, fatti lanciare in alto e atterra sulla roccia sospesa."],
+    ['rocca', 'La rocca di basalto', 'Dietro al vulcano, oltre il ponte delle fiamme rotanti: sali la scala a spirale fino in cima alla torre.'],
     ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
   ] },
   snow: { name: 'Picco Innevato', stars: [
@@ -237,6 +241,8 @@ const CATALOG = {
     ['lago', 'Oltre il lago gelato', "A ovest, salta sui lastroni di ghiaccio. L'acqua gela!"],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse sparse nel gelo.'],
     ['regelo', 'Il Re del Gelo', "Oltre il ponte di ghiaccio a nord: saltagli in testa tre volte. Lascia la chiave d'oro."],
+    ['pupazzo', 'Il pupazzo gigante', "A est, oltre le pietre sull'acqua, sali i blocchi attorno al pupazzo fino al cappello. Occhio al suo soffio!"],
+    ['ghiacciaio', 'In cima al ghiacciaio', 'A nord-ovest, oltre il ponte, salta sulle colonne di ghiaccio che salgono e scendono fino in cima.'],
     ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
   ] },
   desert: { name: 'Dune Dorate', stars: [
@@ -245,6 +251,8 @@ const CATALOG = {
     ['ciclone', 'Nel ciclone', 'A est: fatti lanciare in alto dal tornado e atterra sulla piattaforma.'],
     ['sabbie', 'Oltre le sabbie mobili', 'A ovest: salta sulle rocce che affondano senza fermarti.'],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra dune e rovine.'],
+    ['colonne', 'Le colonne spezzate', "Oltre le sabbie mobili a nord della piramide: salta di colonna in colonna fino alla più alta."],
+    ['falco', 'Il falco del canyon', 'Un falco ha rubato una stella e vola sopra la grande mesa a ovest: sali in cima e saltagli addosso!'],
     ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
   ] },
   bay: { name: 'Baia Sommersa', stars: [
@@ -255,29 +263,39 @@ const CATALOG = {
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra il molo e il fondale.'],
     ['corrente', 'La corrente', 'Rompi il blocco verde sulla spiaggia: col metallo cammina sul fondale fin dentro la corrente a nord-ovest.'],
     ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
+    ['faro', 'In cima al faro', "Nuota nella laguna a ovest fino all'isola del faro e sali la scala a chiocciola. Un gradino va su e giù."],
+    ['perle', 'Le perle giganti', "Nella fossa profonda a nord: prendi la perla di ogni conchiglia gigante quando si apre. Le bolle del tempio ridanno fiato."],
   ] },
   ghost: { name: 'Villa Spettrale', stars: [
     ['fantasmi', 'Caccia ai fantasmini', 'I fantasmini si avvicinano quando giri loro le spalle: voltati e colpiscili.'],
     ['soffitta', 'La soffitta', 'Entra nella villa, sali le scale e i gradini sospesi fino alla soffitta.'],
     ['lapidi', 'Le tre lapidi', 'Nel cimitero a est: schiaccia ogni lapide con lo schianto a terra.'],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra il giardino e la villa.'],
+    ['fantasmone', 'Il Fantasmone del campanile', 'Dietro la villa sali la scala attorno al campanile. Sul balcone giragli le spalle per attirarlo, poi voltati e colpiscilo tre volte.'],
+    ['giostra', 'La giostra stregata', 'A ovest attraversa il ponte che crolla, poi sali sui cavalli della giostra fino al tendone.'],
   ] },
   clock: { name: 'Torre degli Ingranaggi', stars: [
-    ['cima', 'In cima alla torre', 'Sali la spirale di piattaforme, ingranaggi e ascensori fino in cima.'],
+    ['cima', 'In cima alla spirale', 'Sali la spirale di piattaforme, ingranaggi e ascensori fino alla piattaforma centrale in cima.'],
     ['pendolo', 'Il grande pendolo', 'A metà salita salta sulla piattaforma centrale, tra un passaggio e l\'altro del pendolo.'],
     ['lancette', 'Sulle lancette', "Più in alto una lancetta dell'orologio sporge verso il centro: camminaci sopra."],
+    ['minuti', 'La lancetta dei minuti', "In cima alla spirale arrampicati sul palo fino al piano di sopra e sali sui pistoni. Poi cavalca la grande lancetta che gira e salta nella nicchia a ovest."],
+    ['campana', 'La campana in cima', "Nella parte alta della torre: ingranaggi che girano, piattaforme che scorrono sotto il secondo pendolo e, in cima, la grande campana."],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse lungo la salita.'],
   ] },
   rainbow: { name: "Ponti d'Arcobaleno", stars: [
     ['arcobaleno', "In cima all'arcobaleno", "Sali sull'arco colorato a est: la stella è in cima."],
     ['tappeto', 'Il tappeto volante', "Sali sul tappeto viola a ovest e lasciati portare fino all'isola lontana."],
     ['castello', 'Il castello tra le nuvole', 'Salta sulle nuvole verso nord e sali sul tetto del castello.'],
+    ['nave', 'La nave volante', "A sud, supera le nuvole ballerine e quelle che affondano fino alla nave volante, poi arrampicati sull'albero maestro."],
+    ['casa', 'La casa nel cielo', "Oltre l'isola dell'arcobaleno, sali sulla giostra di nuvole fino alla casa lontana: impila le casse, sali sul tetto e poi sul camino."],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra ponti, nuvole e tappeto.'],
   ] },
   shroom: { name: 'Bosco dei Funghi', stars: [
     ['funghi', 'Il fungo gigante', 'A est rimbalza sui funghi a pois, sempre più in alto, fino al cappello del fungo gigante.'],
     ['albero', 'In cima al grande albero', "A nord sali i funghi a mensola attorno al tronco fino alla chioma."],
     ['coniglio', 'Il coniglio dispettoso', 'Nel prato a ovest vive un coniglio che scappa sempre: raggiungilo e prendilo!'],
+    ['ninfee', 'Le ninfee dello stagno', "Oltre il prato a ovest c'è uno stagno: salta di ninfea in ninfea, affondano se ti fermi! La stella è sull'isolotto."],
+    ['ceppo', 'Il ceppo gigante', 'A nord-est salta sui tronchetti e sulla foglia volante tutto attorno al ceppo gigante, fino in cima.'],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra funghi, prato e albero.'],
   ] },
   cave: { name: 'Caverna di Cristallo', stars: [
@@ -286,6 +304,8 @@ const CATALOG = {
     ['lago', 'Il drago del lago', "Sali sulla schiena di Nessa, il drago buono del lago a est, e fatti portare fino all'isolotto."],
     ['nebbia', 'Nel gas velenoso', 'A sud-ovest attraversa il labirinto pieno di gas. Il cappello di metallo ti protegge.'],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse: una è sott\'acqua, nel lago.'],
+    ['miniera', 'La vecchia miniera', 'Dal passaggio a sud-est entra nella miniera: prendi il carrello, sali le impalcature e usa il montacarichi.'],
+    ['geode', 'Il cuore del geode', 'Dal varco a nord-ovest salta sui pilastri di cristallo fino al geode, poi sali verso il cuore di cristallo.'],
   ] },
   slide: { name: 'Scivolo Segreto', stars: [
     ['scivolo', 'In fondo allo scivolo', 'Lasciati scivolare fino al traguardo.'],
@@ -942,6 +962,93 @@ function buildIsland() {
     const beak = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 5), M(0xff9a3a)); beak.rotation.x = Math.PI / 2 + 0.4; beak.position.set(0, 0.62, 0.46); og.add(beak);
     for (const sx of [-1, 1]) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), M(0xff9a3a)); f.position.set(sx * 0.18, -0.6, 0.1); og.add(f); }
   }
+  // ===== EAST: the wooden bridge and Monte Tondo (tiered mountain island with rolling boulders) =====
+  const PLANK = 0xb07a45, POST = 0x5c3a1e, BARK = 0x6b4a2b;
+  const MX = 100, MZ = 0;
+  mound(MX, MZ, 30, 25, -4, 0.2, SAND);
+  mound(MX, MZ, 24.5, 21, 0.15, 0.5, GRASS);
+  foams.push(addFoam(MX, MZ, 26.2, 27.8, -0.55));
+  // bridge: planks, a gap, a sliding raft, planks
+  box(44, 0.05, 4, 16, 0.5, 3, PLANK);
+  box(57.5, 0.05, 4, 5, 0.5, 3, PLANK);
+  const raft = box(64.5, 0.05, 4, 3, 0.5, 3, PLANK);
+  movers.push({ s: raft, base: new V3(64.5, 0.05, 4), axis: new V3(1, 0, 0), amp: 2.5, period: 4.5, phase: 0 });
+  box(73, 0.05, 4, 8, 0.5, 3, PLANK);
+  for (const x of [38, 44, 50, 55.5, 59.5, 70, 76]) for (const z of [2.6, 5.4]) {
+    const po = add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 5, 6), M(POST)), true, false); po.position.set(x, -2.2, z);
+  }
+  sign('Monte Tondo\n\u2192', 37.5, gy(37.5, 7.5), 7.5, -Math.PI / 2);
+  // tier 1 (reached by a dirt ramp), tier 2 (ramp with boulders), stone pillars to the summit
+  const T1 = { x: 104, z: -4 }, T2 = { x: 108, z: -8 }, SUM = { x: 111, z: -11, top: 14.5 };
+  cyl(T1.x, T1.z, 14, -1, 4, [ROCK, GRASS, ROCK], 30);
+  ramp(87, 1, 10, 4, 'x', 0.4, 4, DIRT);
+  cyl(T2.x, T2.z, 8, 3, 9, [ROCK, GRASS, ROCK], 24);
+  ramp(108, 4, 3.6, 9, 'z', 9, 4, DIRT);
+  cyl(SUM.x, SUM.z, 3.2, 8, SUM.top, [ROCK, GRASS, ROCK], 16);
+  const mSteps = [[104.8, -12.6, 10.4], [107.2, -15.4, 11.8], [110.9, -15.6, 13.2]];
+  mSteps.forEach(([x, z, t]) => box(x, (t + 8.6) / 2, z, 2.2, t - 8.6, 2.2, STONE));
+  cyl(SUM.x + 1.6, SUM.z + 1.4, 0.12, SUM.top, SUM.top + 3, 0xeeeeee, 6).pole = true;
+  const mflag = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), M(0x4a8cff)));
+  mflag.position.set(SUM.x + 2.2, SUM.top + 2.6, SUM.z + 1.4);
+  addStar('monte', SUM.x - 0.4, SUM.top + 1.8, SUM.z - 0.4);
+  // rolling boulders down the upper ramp
+  const boulderGeo = new THREE.IcosahedronGeometry(0.95, 1);
+  const boulders = [0, 1].map(i => { const m = add(new THREE.Mesh(boulderGeo, M(ROCKT)), true, false); m.visible = false; return { m, t: -1 - i * 3.2, y: 10, vy: 0 }; });
+  [[88, 12], [112, 16], [118, -10], [96, -20], [84, -8], [106, 20]].forEach(([x, z]) => tree(x, z, 3, true, gy(x, z)));
+  [[92, 0.5, 14, 4], [98, 4, -10, 4], [80, 0.5, -6, 4]].forEach(([x, y, z, r]) => addEnemy(x, y, z, r));
+  line(38, 4, 50, 4, 5, 1.3);
+  line(55.5, 4, 59.5, 4, 2, 1.3);
+  line(70, 4, 76, 4, 3, 1.3);
+  ringOn(98, 0, 4.5, 8, 1);
+  lineOn(108, 1, 108, 8, 4, 1);
+  mSteps.forEach(([x, z, t]) => addCoin(x, t + 1, z));
+  ring(SUM.x, SUM.z, 2.2, 6, SUM.top + 1);
+  addItemBox(80, 2.2, -5, 'coins');
+  addHeart(96, 5.4, 2);
+  // ===== WEST: stepping stones over the sea and the Bosco Antico with the Giant Oak =====
+  const WX = -95, WZ = 6;
+  mound(WX, WZ, 26, 21, -4, 0.2, SAND);
+  mound(WX, WZ, 20.5, 17, 0.15, 0.5, GRASS);
+  foams.push(addFoam(WX, WZ, 22.2, 23.8, -0.55));
+  const stones = [[-44.5, 6, 1.6, 0.6], [-49, 3.5, 1.5, 1.4], [-66, 6.5, 1.5, 1.4], [-70.5, 4.5, 1.6, 0.9]];
+  stones.forEach(([x, z, r, t]) => cyl(x, z, r, -5, t, ROCK, 12));
+  [[-53.3, 5.5], [-57.6, 8], [-61.9, 6]].forEach(([x, z]) => { const lg = box(x, 0.5, z, 2.6, 0.6, 2.6, POST); sinkers.push({ s: lg, baseTop: lg.top, state: 'idle', t: 0 }); });
+  sign('Bosco Antico\n\u2190', -38.6, gy(-38.6, 10), 10, Math.PI / 2);
+  // the Giant Oak: branches spiral up the trunk, a vine (pole) links the lower and upper halves
+  const OX = -100, OZ = 2, CAN = 21.5;
+  cyl(OX, OZ, 3.2, -1, CAN - 1, BARK, 16);
+  cyl(OX, OZ, 5.2, CAN - 1, CAN, [BARK, GRASS2, BARK], 20);
+  const brAt = (a, R) => [OX + Math.cos(a) * R, OZ + Math.sin(a) * R];
+  const branches = [[0, 4.7, 2], [0.95, 4.7, 4], [1.9, 4.7, 6], [2.85, 4.7, 8], [4.5, 4.9, 15.5], [5.45, 4.9, 17.5], [6.4, 6.8, 19.5]];
+  branches.forEach(([a, R, t]) => { const [x, z] = brAt(a, R); box(x, t - 0.3, z, 2.8, 0.6, 2.8, 0x8a5a33); addCoin(x, t + 1, z); });
+  const [vx, vz] = brAt(3.8, 6.4);
+  const vine = cyl(vx, vz, 0.15, 7.5, 15, 0x3f8c31, 6); vine.pole = true;
+  // a hedge of leaves around the rim of the crown (a gap is left where the last branch arrives)
+  const leafMeshes = [];
+  for (let i = 0; i < 11; i++) {
+    const a = 0.45 + i / 12 * TAU;
+    const lf = add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.4 + (i % 3) * 0.3, 0), M(i % 2 ? 0x2f9a4a : 0x3bb357)), true, false);
+    lf.position.set(OX + Math.cos(a) * 5.4, CAN - 0.6 + (i % 2) * 0.4, OZ + Math.sin(a) * 5.4); leafMeshes.push(lf);
+  }
+  for (const a of [0.8, 1.8, 2.8, 3.7]) {
+    const lf = add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.8, 0), M(0x2f9a4a)), true, false);
+    lf.position.set(OX + Math.cos(a) * 4.2, CAN - 2.2, OZ + Math.sin(a) * 4.2); leafMeshes.push(lf);
+  }
+  treeObs(OX, OZ, CAN - 4, CAN + 1, 6.6, leafMeshes);
+  addStar('quercia', OX, CAN + 1.8, OZ);
+  ring(OX, OZ, 2.4, 6, CAN + 1);
+  ringOn(OX, OZ, 6.8, 10, 1);
+  addItemBox(brAt(2.85, 4.7)[0], 10.4, brAt(2.85, 4.7)[1], 'life');
+  [[-84, 14], [-86, -6], [-104, 16], [-108, -8], [-92, 20], [-80, 4], [-112, 6]].forEach(([x, z]) => tree(x, z, 3 + (Math.abs(x + z) % 3) * 0.6, false, gy(x, z)));
+  for (const [x, z, r] of [[-88, 10, 1.4], [-96, -10, 1.2], [-109, -1, 1.6]]) {
+    const st = add(new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.35, 1.2, 8), M(0xefe2c4)), true, false); st.position.set(x, gy(x, z) + 0.6, z);
+    const cap = add(new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8, 0, TAU, 0, Math.PI / 2), M(0xe0303a)), true, false); cap.position.set(x, gy(x, z) + 1.1, z);
+  }
+  [[-86, 0.5, 2, 5], [-102, 0.5, 14, 4]].forEach(([x, y, z, r]) => addEnemy(x, y, z, r));
+  stones.forEach(([x, z, r, t]) => addCoin(x, t + 1, z));
+  [[-53.3, 5.5], [-57.6, 8], [-61.9, 6]].forEach(([x, z]) => addCoin(x, 1.8, z));
+  lineOn(-78, 5, -90, 5, 4, 1);
+
   const OWLC = new V3(6, 0, 4), owlPath = a => new V3(OWLC.x + Math.cos(a) * 9, 5.2 + Math.sin(a * 2) * 1.6, OWLC.z + Math.sin(a) * 9);
   owl.pos.copy(owlPath(0));
 
@@ -964,6 +1071,17 @@ function buildIsland() {
     },
     update(dt) {
       palMsgT -= dt; pal.g.position.y = Math.abs(Math.sin(gameTime * 3)) * 0.1;
+      for (const b of boulders) {
+        b.t += dt;
+        if (b.t < 0) { b.m.visible = false; continue; }
+        if (!b.m.visible) { b.m.visible = true; b.y = 10; b.vy = 0; }
+        const bz = -1.5 + b.t * 5.5, gnd = groundHeight(108, bz, b.y + 0.2, 0.3) + 0.95;
+        if (b.y > gnd + 0.05) { b.vy -= 30 * dt; b.y = Math.max(gnd, b.y + b.vy * dt); } else { b.y = gnd; b.vy = 0; }
+        b.m.position.set(108, b.y, bz); b.m.rotation.x += dt * 5.8;
+        if (bz > 17) { b.t = -1.2; b.m.visible = false; burst(b.m.position.clone(), 0x9a9ea8, 8, 3); continue; }
+        const dx = P.pos.x - 108, dy = P.pos.y + 0.8 - b.y, dz = P.pos.z - bz;
+        if (dx * dx + dy * dy + dz * dz < 1.7 * 1.7) hurt(b.m.position);
+      }
       // owl
       owl.cool -= dt;
       if (owl.carried && P.carry !== owl) { owl.carried = false; owl.cool = 3; owl.back = 1; }
@@ -1100,6 +1218,116 @@ function buildVolcano() {
   ringOn(32, 10, 6, 10, 1); ringOn(32, 10, 9, 12, 1);
   addStar('re', 32, 5.4, 10, true);
 
+  // ===== fire bars: rotating chains of fireballs =====
+  const fireBars = [];
+  const fbGeo = new THREE.IcosahedronGeometry(0.42, 0), fbMat = M(0xffa200, { emissive: 0xff5a00 });
+  function fireBar(x, y, z, n, speed, phase = 0) {
+    const g = new THREE.Group(); g.position.set(x, y, z); root.add(g);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.5, 8), M(BASALT)); hub.position.y = -0.2; g.add(hub);
+    for (let i = 1; i <= n; i++) { const m = new THREE.Mesh(fbGeo, fbMat); m.position.x = i * 0.85; g.add(m); }
+    fireBars.push({ g, n, speed, a: phase, x, y, z });
+  }
+
+  // ===== WEST: the ash islands (from the sinking bridges northwards) =====
+  box(-33, 1.4, 19, 3, 0.8, 3, BASALT); box(-35.5, 1.6, 14.5, 3, 0.8, 3, BASALT);
+  addCoin(-33, 3.2, 19); addCoin(-35.5, 3.4, 14.5);
+  cyl(-39, 6, 6.5, -2, 2.4, [ROCKD, ROCKT, ROCKD], 22);
+  ring(-39, 6, 4, 8, 3.4);
+  addEnemy(-40, 2.4, 5, 2.5);
+  const ashM = box(-41, 1.6, -4, 3, 0.8, 3, BASALT);
+  movers.push({ s: ashM, base: new V3(-41, 1.6, -4), axis: new V3(1, 0, 0), amp: 2.5, period: 3.6, phase: 0 });
+  box(-43, 1.8, -9.5, 3, 0.8, 3, BASALT); addCoin(-43, 3.6, -9.5);
+  cyl(-44, -20, 7, -2, 2.8, [ROCKD, ROCKT, ROCKD], 24);
+  fireBar(-44, 3.3, -20, 5, 1.3);
+  ring(-44, -20, 5.8, 10, 3.8);
+  addEnemy(-47, 2.8, -23, 1.2);
+  addHeart(-39.5, 4.1, -17);
+  sign('Isole di cenere\nIl geyser è a nord', -40.5, 2.4, 1.2, 0);
+  [-29.8, -34, -38.2].forEach(z => {
+    const sk = box(-45, 1.4, z, 3, 0.6, 3, 0x7a6a5a);
+    sinkers.push({ s: sk, baseTop: sk.top, state: 'idle', t: 0 });
+    addCoin(-45, 3, z);
+  });
+
+  // geyser island + floating rock with the star
+  const GX = -49, GZ = -46, GTOP = 2;
+  cyl(-46, -48, 8, -2, GTOP, [ROCKD, ROCKT, ROCKD], 26);
+  const gRim = add(new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.35, 6, 16), M(ROCKD)));
+  gRim.rotation.x = Math.PI / 2; gRim.position.set(GX, GTOP + 0.1, GZ);
+  const gPool = add(new THREE.Mesh(new THREE.CircleGeometry(1.3, 16), new THREE.MeshBasicMaterial({ color: 0xff6a1a })), false, false);
+  gPool.rotation.x = -Math.PI / 2; gPool.position.set(GX, GTOP + 0.04, GZ);
+  const gColMat = new THREE.MeshStandardMaterial({ color: 0xff8a2a, emissive: 0xff4a00, emissiveIntensity: 0.9, transparent: true, opacity: 0.7, flatShading: true, depthWrite: false });
+  const gCol = add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.3, 12, 10, 1, true), gColMat), false, false);
+  gCol.position.set(GX, GTOP + 6, GZ); gCol.visible = false;
+  const geyser = { t: 0, cool: 0, fx: 0 };
+  box(-44, 12.2, -49.5, 4.5, 0.8, 4.5, BASALT);
+  addStar('geyser', -44, 14.8, -49.5);
+  ring(-44, -49.5, 1.6, 6, 13.6);
+  addCoin(GX, 6, GZ); addCoin(GX, 9, GZ); addCoin(GX, 12, GZ);
+  sign("Il geyser erutta\nogni pochi secondi:\nfatti lanciare!", -42, GTOP, -42.5, -Math.PI / 6);
+  ring(-46, -48, 6.5, 10, 3);
+  addEnemy(-42, GTOP, -45, 2);
+
+  // lava rafts east of the geyser island, toward the basalt fortress
+  const raft1 = box(-35.5, 1.0, -54, 3.5, 0.6, 3.5, 0x5b4a44), raft2 = box(-24.5, 1.0, -54, 3.5, 0.6, 3.5, 0x5b4a44);
+  movers.push({ s: raft1, base: new V3(-35.5, 1.0, -54), axis: new V3(1, 0, 0), amp: 3, period: 5, phase: 0 });
+  movers.push({ s: raft2, base: new V3(-24.5, 1.0, -54), axis: new V3(1, 0, 0), amp: 3, period: 5, phase: Math.PI });
+  line(-38, -54, -21, -54, 5, 2.6);
+
+  // ===== NORTH: bridge of the rotating flames + the basalt fortress =====
+  box(0, 1.2, -45.75, 5, 0.8, 14.5, BASALT);
+  fireBar(0, 2.15, -46.5, 5, 1.6);
+  lineOn(0, -40, 0, -44, 3, 1); lineOn(0, -49, 0, -52, 3, 1);
+  sign('Ponte delle fiamme\nSalta le sfere!', 2.4, 0.25, -37.3, 0);
+  box(0, 0.25, -63, 36, 3.5, 22, [BASALT, BASALT, ROCKT, BASALT, BASALT, BASALT]);
+  const TWZ = -66;
+  cyl(0, TWZ, 3.6, 1.5, 16.6, [ROCKD, ROCKT, ROCKD], 16);
+  for (let i = 0; i < 13; i++) {
+    const a = Math.PI / 2 + i * 0.72, top = 2 + 1.05 * (i + 1);
+    const x = Math.cos(a) * 5.6, z = TWZ + Math.sin(a) * 5.6;
+    box(x, top - 0.35, z, 2.4, 0.7, 2.4, i % 2 ? BASALT : 0x5b4a44);
+    if (i % 2 === 0) addCoin(x, top + 1, z);
+  }
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * TAU, m = add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), M(ROCKD)));
+    m.position.set(Math.cos(a) * 3.2, 17.05, TWZ + Math.sin(a) * 3.2); m.rotation.y = -a;
+  }
+  const flame = add(new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), M(0xffa200, { emissive: 0xff5a00 })), false, false); flame.position.set(-2.2, 18.3, TWZ - 2.2);
+  addStar('rocca', 0, 18.8, TWZ);
+  sign('La rocca di basalto\nSali la scala a spirale', 5, 2, -54.5, 0);
+  addEnemy(-10, 2, -58, 3); addEnemy(10, 2, -70, 3); addEnemy(11, 2, -57, 2.5);
+  addHeart(-13, 2.9, -70); addItemBox(13, 4.2, -62, 'coins');
+  lineOn(-15, -56, -15, -71, 5, 1); lineOn(15, -71, 15, -56, 5, 1);
+
+  // ===== EAST: the iron grates (north of the boss arena) =====
+  box(35.5, 3.0, -4, 3, 0.8, 3, BASALT); box(38, 3.2, -9, 3, 0.8, 3, BASALT);
+  addCoin(35.5, 4.8, -4); addCoin(38, 5, -9);
+  const GRATE = 0x4a3a36;
+  [-14.6, -19.2, -23.8, -28.4].forEach((z, k) => {
+    box(40, 1.2, z, 20, 3.6, 3.2, [GRATE, GRATE, 0x5b4a44, GRATE, GRATE, GRATE]);
+    lineOn(32 + (k % 2) * 2, z, 48 - (k % 2) * 2, z, 5, 1);
+  });
+  box(40, 1.25, -21.5, 1.4, 4.5, 1.4, BASALT);
+  fireBar(40, 4.0, -21.5, 6, -1.1);
+  addEnemy(34, 3, -14.6, 1.5); addEnemy(46, 3, -28.4, 1.5);
+  addItemBox(48, 5.1, -19.2, 'coins'); addHeart(32, 4.2, -28.4);
+  // stones from the grates down to the fortress plateau
+  box(27.5, 2.6, -33.5, 3, 0.8, 3, BASALT); box(23.5, 2.4, -37.5, 3, 0.8, 3, BASALT);
+  const grM = box(20.5, 2.2, -42.5, 3, 0.8, 3, BASALT);
+  movers.push({ s: grM, base: new V3(20.5, 2.2, -42.5), axis: new V3(1, 0, 0), amp: 1.8, period: 3.2, phase: 1 });
+  box(17, 2.0, -47.5, 3, 0.8, 3, BASALT);
+  [[27.5, -33.5, 4.4], [23.5, -37.5, 4.2], [17, -47.5, 3.8]].forEach(([x, z, y]) => addCoin(x, y, z));
+
+  // ===== SOUTH-EAST: the small volcano =====
+  box(37.5, 2.8, 24, 3, 0.8, 3, BASALT); addCoin(37.5, 4.6, 24);
+  box(40, 2.2, 28.5, 3, 0.8, 3, BASALT); addCoin(40, 4, 28.5);
+  mound(45, 38, 11, 3, 0.2, 7, ROCKT);
+  const crater2 = add(new THREE.Mesh(new THREE.CircleGeometry(1.8, 14), new THREE.MeshBasicMaterial({ color: 0xff6a1a })), false, false);
+  crater2.rotation.x = -Math.PI / 2; crater2.position.set(45, 7.03, 38);
+  ringOn(45, 38, 8, 10, 1); ringOn(45, 38, 5, 8, 1);
+  addEnemy(40, gy(40, 34), 34, 2); addEnemy(50, gy(50, 42), 42, 2);
+  addHeart(45, 8.4, 38); addItemBox(47, 9, 36, 'coins');
+
   // backdrop
   for (let i = 0; i < 12; i++) {
     const a = i / 12 * TAU + 0.3, r = 140 + (i % 3) * 18, h = 40 + (i * 17) % 30;
@@ -1109,7 +1337,7 @@ function buildVolcano() {
   const embers = [];
   for (let i = 0; i < 60; i++) {
     const m = new THREE.Mesh(partGeo, M(0xffa040, { emissive: 0xff6a00 }));
-    m.position.set(-40 + Math.random() * 85, Math.random() * 14, -40 + Math.random() * 85); root.add(m);
+    m.position.set(-60 + Math.random() * 115, Math.random() * 14, -80 + Math.random() * 130); root.add(m);
     embers.push({ m, v: 1 + Math.random() * 2 });
   }
   const smokeMat = new THREE.MeshStandardMaterial({ color: 0x5a5050, transparent: true, opacity: 0.45, flatShading: true });
@@ -1125,6 +1353,31 @@ function buildVolcano() {
     spawn: { pos: new V3(0, 1.5, 26), yaw: 0 },
     entries: {},
     doors: [], redTotal: 0, coinStar: true,
+    update(dt) {
+      for (const fb of fireBars) {
+        fb.a += fb.speed * dt; fb.g.rotation.y = fb.a;
+        if (Math.abs(P.pos.y + 0.8 - fb.y) > 1.3) continue;
+        const cx = Math.cos(fb.a), cz = -Math.sin(fb.a);
+        for (let i = 1; i <= fb.n; i++) {
+          const bx = fb.x + cx * i * 0.85, bz = fb.z + cz * i * 0.85;
+          if (Math.hypot(P.pos.x - bx, P.pos.z - bz) < 0.8) { hurt(new V3(bx, fb.y, bz)); break; }
+        }
+      }
+      geyser.t += dt; geyser.cool -= dt;
+      const ph = geyser.t % 5, on = ph < 2.2;
+      gCol.visible = on;
+      if (on) { const k = Math.min(1, ph * 5) * (ph > 1.9 ? (2.2 - ph) / 0.3 : 1); gCol.scale.set(0.8 + Math.sin(geyser.t * 20) * 0.08, Math.max(0.02, k), 0.8 + Math.cos(geyser.t * 17) * 0.08); gCol.position.y = GTOP + 6 * Math.max(0.02, k); }
+      geyser.fx -= dt;
+      if (geyser.fx <= 0) {
+        geyser.fx = on ? 0.08 : (ph > 3.8 ? 0.2 : 0.6);
+        burst(new V3(GX, GTOP + (on ? 3 + Math.random() * 8 : 0.3), GZ), Math.random() < 0.5 ? 0xffc040 : 0xff6a1a, on ? 3 : 2, on ? 4 : 2);
+      }
+      if (on && ph > 0.15 && geyser.cool <= 0 && Math.hypot(P.pos.x - GX, P.pos.z - GZ) < 1.6 && P.pos.y < GTOP + 4) {
+        P.vel.set(0, 30, 0); P.onGround = false; P.ground = null; P.pound = P.longJump = P.backflip = false;
+        P.lockT = 0.3; P.spinT = 1.0; geyser.cool = 1.2; sfx.whoosh(); burst(new V3(GX, GTOP + 0.5, GZ), 0xffa040, 14, 6);
+      }
+      if (P.spinT > 0) { P.spinT -= dt; P.facing += dt * 20; }
+    },
     tick(dt, t) {
       lavaMat.emissiveIntensity = 0.75 + Math.sin(t * 2) * 0.12;
       TEX.lava.offset.set(t * 0.01, Math.sin(t * 0.3) * 0.02);
@@ -1244,6 +1497,96 @@ function buildSnow() {
   [[-25, -5], [-22, -22], [14, -24], [28, -8], [-28, 6], [15, 12], [28, 14], [-8, 28], [-14, -30]].forEach(([x, z]) => pine(x, z));
   snowman(-4, 0, 20, 0.9); snowman(5, 0, 8, 1); snowman(-26, 0, -16, 1.2);
 
+  // ===== EAST: Campo del Pupazzo (island reached over stepping stones) =====
+  cyl(56, 16, 18, -6, 0, [SNOWS, SNOW, SNOWS], 40);
+  cyl(34.4, 10, 1.2, -3, 0, [ROCKS, SNOW, ROCKS], 12); cyl(37.1, 10, 1.2, -3, 0, [ROCKS, SNOW, ROCKS], 12);
+  addCoin(34.4, 1, 10); addCoin(37.1, 1, 10);
+  sign('Campo del Pupazzo', 41, 0, 7.5, -Math.PI / 2);
+  const eRink = cyl(52, 6, 5, -1, 0.1, [ICE, ICE, ICE], 24); eRink.ice = true;
+  eRink.mesh.material = M(ICE, { roughness: 0.15, metalness: 0.3, emissive: 0x16384a });
+  // the giant snowman: round visuals, cylinder collision (body shoulders are a ledge, the hat is the summit)
+  const GS = new V3(62, 0, 22);
+  cyl(GS.x, GS.z, 4.3, -0.5, 9, SNOW, 16).mesh.visible = false;
+  cyl(GS.x, GS.z, 2.7, 8.8, 14, SNOW, 12).mesh.visible = false;
+  const gBody = add(new THREE.Mesh(new THREE.SphereGeometry(5, 20, 14), M(SNOW))); gBody.position.set(GS.x, 4.4, GS.z);
+  const gHead = add(new THREE.Mesh(new THREE.SphereGeometry(3.2, 18, 12), M(SNOW))); gHead.position.set(GS.x, 11.4, GS.z);
+  cyl(GS.x, GS.z, 3.0, 13.9, 14.5, 0x2a2f45, 20); cyl(GS.x, GS.z, 2.0, 14.5, 16.8, 0x2a2f45, 16);
+  const gBand = add(new THREE.Mesh(new THREE.CylinderGeometry(2.04, 2.04, 0.45, 16), M(0xd8363a)), false, false); gBand.position.set(GS.x, 14.8, GS.z);
+  const gScarf = add(new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.45, 8, 22), M(0xd8363a))); gScarf.rotation.x = Math.PI / 2; gScarf.position.set(GS.x, 8.7, GS.z);
+  const gNose = add(new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.2, 10), M(0xff8a2a))); gNose.rotation.z = Math.PI / 2; gNose.position.set(GS.x - 3.9, 11.6, GS.z);
+  for (const ez of [-1.1, 1.1]) { const e = add(new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 6), M(0x16213e)), false, false); e.position.set(GS.x - 2.85, 12.5, GS.z + ez); }
+  for (let i = 0; i < 5; i++) { const m = add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 5), M(0x16213e)), false, false); const a = (i - 2) * 0.28; m.position.set(GS.x - 3.0 * Math.cos(a) + 0.2, 10.4 - Math.abs(i - 2) * -0.12, GS.z + 3.0 * Math.sin(a)); }
+  for (const dy of [-0.4, 1.8]) { const b = add(new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), M(0x16213e)), false, false); b.position.set(GS.x - Math.sqrt(25 - dy * dy) + 0.1, 4.4 + dy, GS.z); }
+  for (const sd of [-1, 1]) { const arm = add(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 5, 6), M(0x6b4a2b)), true, false); arm.position.set(GS.x, 7.2, GS.z + sd * 6); arm.rotation.x = sd * 1.05; }
+  // spiral of floating snow blocks around it
+  const gSteps = [];
+  for (let i = 0; i < 9; i++) {
+    const a = -0.58 + i * 0.62, r = i >= 7 ? 6.2 : 7.2, top = 1.5 + i * 1.5;
+    gSteps.push(box(GS.x + Math.cos(a) * r, top - 0.4, GS.z + Math.sin(a) * r, 2.4, 0.8, 2.4, [SNOWS, SNOWS, SNOW, SNOWS, SNOWS, SNOWS]));
+  }
+  gSteps.forEach((b, i) => { if (i % 2) addCoin(b.cx, b.top + 1, b.cz); });
+  addStar('pupazzo', GS.x, 18, GS.z);
+  const puffMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false });
+  const puffs = [];
+  for (let i = 0; i < 16; i++) { const m = add(new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 6), puffMat), false, false); m.visible = false; puffs.push(m); }
+  let breathT = 0;
+  addEnemy(52, 0.1, 6, 4); addEnemy(47, 0, 13, 4); addEnemy(67, 0, 10, 3);
+  // igloo with a heart
+  function igloo(x, z, r, ry) {
+    cyl(x, z, r * 0.92, -0.5, r * 0.9, SNOW, 14).mesh.visible = false;
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; root.add(g);
+    const d = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 10, 0, TAU, 0, Math.PI / 2), M(0xeef4fa)); d.castShadow = d.receiveShadow = true; g.add(d);
+    const tn = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.42, r * 0.42, r * 0.9, 12), M(0xeef4fa)); tn.rotation.z = Math.PI / 2; tn.position.set(r * 0.85, 0, 0); tn.castShadow = true; g.add(tn);
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(r * 0.32, 12, 0, Math.PI), M(0x1a2438)); hole.rotation.y = Math.PI / 2; hole.position.set(r * 1.31, 0.02, 0); g.add(hole);
+  }
+  igloo(47, 22, 3.4, 0);
+  addHeart(43, 1.4, 22);
+  pine(71, 14); pine(44, 4); pine(52, 31);
+  ringOn(52, 6, 3, 8, 1); ring(GS.x, GS.z, 9.2, 12, 1); lineOn(43, 11, 43, 25, 4, 1);
+
+  // ===== NORTH-WEST: Ghiacciaio (bridge from the plateau, floe from the lake islet) =====
+  cyl(-50, -26, 14, -6, 0, [SNOWS, SNOW, SNOWS], 36);
+  const nwBridge = box(-33.05, -0.3, -19, 10.5, 0.6, 3, ROAD);
+  for (const bx of [-30, -34, -38]) for (const bz of [-20.6, -17.4]) { const p = add(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1, 6), M(0x6b4a2b)), true, false); p.position.set(bx, 0.5, bz); }
+  line(-29.5, -19, -36.5, -19, 4, 1);
+  sign('Ghiacciaio', -39.5, 0, -16.5, -Math.PI / 2);
+  const nwFloe = box(-46, -1.5, -8.3, 3, 0.6, 3, ICE); nwFloe.ice = true;
+  movers.push({ s: nwFloe, base: new V3(-46, -1.5, -8.3), axis: new V3(0, 0, 1), amp: 2.4, period: 5.5, phase: 0.8 });
+  const glacier = box(-54, 6.75, -31, 10, 18.5, 12, [ICE, ICE, SNOW, ICE, ICE, ICE]); glacier.ice = true;
+  const fall = add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 15.5, 6), M(0xcfe9f7, { transparent: true, opacity: 0.75, emissive: 0x2a5a7a, roughness: 0.1 })), false, false);
+  fall.position.set(-48.85, 7.75, -31);
+  for (let i = 0; i < 7; i++) {
+    const sp = add(new THREE.Mesh(new THREE.ConeGeometry(0.5, 2 + (i % 3), 6), M(ICE, { emissive: 0x16384a })), true, false);
+    sp.rotation.x = Math.PI; sp.position.set(-49.2 + (i % 2) * 0.3, 15 - (i % 3) * 0.4, -36 + i * 1.6);
+  }
+  const pillars = [];
+  for (let i = 0; i < 6; i++) {
+    const top = 2 + i * 2.2, z = -15 - i * 4, cy = (top - 2) / 2;
+    const pl = box(-46.5, cy, z, 2.6, top + 2, 2.6, [ICE, ICE, SNOW, ICE, ICE, ICE]);
+    movers.push({ s: pl, base: new V3(-46.5, cy, z), axis: new V3(0, 1, 0), amp: 0.8, period: 3.2, phase: i * 0.8 });
+    pillars.push(pl); addCoin(-46.5, top + 2, z);
+  }
+  addStar('ghiacciaio', -55.5, 17.4, -34);
+  ring(-54, -30, 2.6, 8, 17);
+  addEnemy(-53, 16, -27, 2.5);
+  addEnemy(-55, 0, -17, 4); addEnemy(-41, 0, -26, 3);
+  pine(-60, -18); pine(-62, -27); pine(-41, -35);
+  igloo(-56, -40, 2.6, -Math.PI / 2);
+  addItemBox(-58, 2.6, -22, 'coins');
+  ringOn(-52, -19, 3, 8, 1);
+
+  // ===== SOUTH-WEST: Lago dei Pinguini (frozen lake joined to the plateau) =====
+  const swLake = cyl(-33, 33, 15, -1.5, 0.1, [ICE, ICE, ICE], 40); swLake.ice = true;
+  swLake.mesh.material = M(ICE, { roughness: 0.15, metalness: 0.3, emissive: 0x16384a });
+  igloo(-38, 39, 3.8, 0);
+  addItemBox(-38, 6.2, 39, 'life');
+  for (const [x, z, h] of [[-26, 42, 2.2], [-28, 22, 1.6], [-44, 30, 2.8]]) { const b = box(x, h / 2 + 0.1, z, 2, h, 2, ICE); b.ice = true; addCoin(x, h + 1.2, z); }
+  snowman(-24, 0.1, 35, 1.1);
+  pine(-44, 42); pine(-24, 45); pine(-45, 24);
+  const chicks = [0, 1, 2].map(i => { const g = makePenguin(0.7); g.position.set(-33, 0.1, 27 + i * 3); return g; });
+  addEnemy(-30, 0.1, 36, 5); addEnemy(-38, 0.1, 28, 4);
+  ring(-33, 33, 9, 12, 1.1); line(-27, 30, -39, 30, 4, 1.1);
+
   // coins on the plateau
   ring(0, 12, 3, 8, 1);
   ring(-18, 14, 4, 8, 1.1);
@@ -1308,6 +1651,13 @@ function buildSnow() {
     onHurt() { dropBaby(false); },
     onDie() { dropBaby(true); for (const b of balls) root.remove(b.m); balls.length = 0; },
     update(dt) {
+      // giant snowman: inhale, then blow westwards for two seconds
+      breathT = (breathT + dt) % 6.5;
+      if (breathT > 1.3 && breathT < 3.4) {
+        const bx = P.pos.x - GS.x, bz = P.pos.z - GS.z, bd = Math.hypot(bx, bz) || 1;
+        let da = Math.atan2(bz, bx) - Math.PI; da = Math.atan2(Math.sin(da), Math.cos(da));
+        if (Math.abs(da) < 0.62 && bd > 3.3 && bd < 17 && P.pos.y > 4 && P.pos.y < 19 && !P.pole) { P.pos.x += bx / bd * 7 * dt; P.pos.z += bz / bd * 7 * dt; }
+      }
       // snowballs
       ballT -= dt;
       if (ballT <= 0) {
@@ -1360,6 +1710,16 @@ function buildSnow() {
       }
       fp.needsUpdate = true;
       mother.rotation.z = Math.sin(t * 2) * 0.05;
+      const inh = breathT < 1.3 ? Math.sin(breathT / 1.3 * Math.PI) : 0;
+      gHead.scale.setScalar(1 + inh * 0.06); gNose.position.x = GS.x - 3.9 - inh * 0.2;
+      const blowing = breathT > 1.3 && breathT < 3.4;
+      puffs.forEach((m, i) => {
+        m.visible = blowing; if (!blowing) return;
+        const u = ((t * 1.3 + i / puffs.length) % 1), sp = 0.4 + u * 2.4;
+        m.position.set(GS.x - 3.6 - u * 13, 11 + Math.sin(i * 2.3) * sp * 0.6, GS.z + Math.cos(i * 1.7) * sp);
+        m.scale.setScalar(0.5 + u * 1.3);
+      });
+      chicks.forEach((g, i) => { const k = Math.sin(t * (0.5 + i * 0.13) + i * 2); g.position.x = -33 + k * 8; g.rotation.y = Math.cos(t * (0.5 + i * 0.13) + i * 2) > 0 ? Math.PI / 2 : -Math.PI / 2; g.rotation.z = Math.sin(t * 7 + i) * 0.12; });
     },
   };
 }
@@ -1475,6 +1835,114 @@ function buildDesert() {
   ringOn(34, 8, 4, 8, 1); ringOn(3, 14, 2.5, 6, 1); ringOn(-34, 10, 2, 5, 1);
   lineOn(-20, -5, -10, -5, 4, 1); lineOn(10, -5, 20, -5, 4, 1);
 
+  // ===== NORTH: the valley of the broken columns =====
+  box(0, (GT - 3) / 2, -56, 58, GT + 3, 26, [SS, SS, ST, SS, SS, SS]);
+  // crossings over the quicksand channel behind the pyramid
+  box(-8, 0.35, -36, 3, 0.9, 3, RK); box(-8, 0.35, -40, 3, 0.9, 3, RK);
+  addCoin(-8, 2.1, -36); addCoin(-8, 2.1, -40);
+  [-35.8, -39.6].forEach(z => { const sk = box(8, 0.5, z, 2.6, 0.6, 2.6, RK); sinkers.push({ s: sk, baseTop: sk.top, state: 'idle', t: 0 }); addCoin(8, 2.2, z); });
+  sign('Valle delle colonne\nSali fino alla più alta', -3.5, GT, -45, 0);
+  // the climb: broken columns of increasing height
+  const COL = [[-18, -47, 1.9], [-14.5, -50, 3.5], [-10.5, -52.5, 5.1], [-6.5, -55, 6.7], [-2.5, -57.5, 8.3], [1.5, -60, 9.9], [5.5, -62.5, 11.5]];
+  COL.forEach(([x, z, top], i) => {
+    const r = i === COL.length - 1 ? 1.8 : 1.2;
+    const c = cyl(x, z, r, -0.5, top, [PY1, PY2, PY1], 12);
+    if (i === 3) movers.push({ s: c, base: c.mesh.position.clone(), axis: new V3(0, 1, 0), amp: 0.7, period: 3.2, phase: 0 });
+    if (i < COL.length - 1) addCoin(x, top + 1.1, z);
+  });
+  addStar('colonne', 5.5, 13.7, -62.5);
+  // intact colonnades on both sides (landmarks, climbable if you are good at wall jumps)
+  for (const x of [-25, 25]) for (let z = -46; z >= -66; z -= 6.5) {
+    cyl(x, z, 0.9, -0.5, 7, [PY1, PY2, PY1], 12);
+    box(x, 7.3, z, 2.4, 0.6, 2.4, PY2);
+  }
+  box(-25, 8.0, -56, 2.6, 0.8, 22, PY1); box(25, 8.0, -56, 2.6, 0.8, 22, PY1);
+  line(-25, -47, -25, -65, 5, 9.5); line(25, -47, 25, -65, 5, 9.5);
+  // fallen column
+  const fallen = add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 8, 12), M(PY1)));
+  fallen.rotation.z = Math.PI / 2; fallen.position.set(-12, GT + 0.8, -63);
+  box(-12, GT + 0.8, -63, 8, 1.6, 1.8, PY1).mesh.visible = false;
+  lineOn(-15, -63, -9, -63, 4, 2.2);
+  // the sphinx
+  const SPX = 15, SPZ = -58;
+  box(SPX, GT + 1.5, SPZ, 5, 3, 10, [PY2, PY2, PY1, PY2, PY2, PY2]);
+  box(SPX - 1.6, GT + 0.5, SPZ + 6.5, 1.4, 1, 3.2, PY1); box(SPX + 1.6, GT + 0.5, SPZ + 6.5, 1.4, 1, 3.2, PY1);
+  box(SPX, GT + 4.6, SPZ + 3.2, 3, 3.2, 3, PY1);
+  const nemes = add(new THREE.Mesh(new THREE.BoxGeometry(4, 2.6, 1), M(0x3a7ac9))); nemes.position.set(SPX, GT + 4.4, SPZ + 2);
+  for (const ex of [-0.6, 0.6]) { const e = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.1), M(0x16213e))); e.position.set(SPX + ex, GT + 5, SPZ + 4.75); }
+  line(SPX, SPZ - 1, SPX, SPZ - 4.5, 3, GT + 4.1);
+  addItemBox(SPX, GT + 8.3, SPZ + 3.2, 'life');
+  // guards
+  [[-4, GT, -48, 3], [10, GT, -66, 3], [-20, GT, -58, 3]].forEach(([x, y, z, r]) => addCactus(x, y, z, r));
+  addEnemy(12, GT, -48, 3);
+  ringOn(0, -66, 3, 8, 1); lineOn(-22, -50, -22, -64, 4, 1);
+  addHeart(-16, 1.5, -66);
+
+  // ===== WEST: the canyon of the falcon =====
+  box(-54, (GT - 3) / 2, -25, 32, GT + 3, 34, [SS, SS, ST, SS, SS, SS]);
+  // slabs from the pyramid yard (row z=-20) and from the west rock (north)
+  [-25.5, -29.8, -34].forEach((x, i) => {
+    const sl = box(x, 0.4, -20, 3, 0.8, 3, RK);
+    if (i === 1) sinkers.push({ s: sl, baseTop: sl.top, state: 'idle', t: 0 });
+    addCoin(x, 2.1, -20);
+  });
+  box(-35, 0.4, 1, 3, 0.8, 3, RK); box(-37, 0.4, -4, 3, 0.8, 3, RK);
+  addCoin(-35, 2.1, 1); addCoin(-37, 2.1, -4);
+  // the mesa, with a ledge path around it
+  const MX = -59, MZ = -31, MTOP = 8;
+  box(MX, (MTOP - 1.2) / 2, MZ, 14, MTOP + 1.2, 14, [RK, RK, 0xc49060, RK, RK, RK]);
+  for (const [y, c] of [[2.6, 0xc49060], [5.4, 0xc99a55]]) { const st = add(new THREE.Mesh(new THREE.BoxGeometry(14.3, 0.7, 14.3), M(c))); st.position.set(MX, y, MZ); }
+  ramp(-50.5, -29, 3, 14, 'z', 4.8, GT, RK, { bottom: -1 });
+  box(-50.5, 4.4, -38, 3, 0.8, 4, RK);
+  ramp(-58.5, -39.5, 13, 3, 'x', 8.3, 4.8, RK, { bottom: -1 });
+  lineOn(-50.5, -24, -50.5, -35, 4, 1); lineOn(-53, -39.5, -63, -39.5, 4, 1);
+  sign('Un falco ha rubato\nuna stella! Sali\nin cima alla mesa', -41.5, GT, -17, Math.PI / 2);
+  // rock arch at the canyon entrance
+  box(-40, 3, -13, 2, 6, 2, RK); box(-40, 3, -27, 2, 6, 2, RK);
+  box(-40, 6.6, -20, 2.4, 1.2, 16, [RK, RK, 0xc49060, RK, RK, RK]);
+  line(-40, -15, -40, -25, 4, 8.1);
+  [[-46, GT, -12, 3], [-64, GT, -14, 3]].forEach(([x, y, z, r]) => addCactus(x, y, z, r));
+  addEnemy(-58, GT, -18, 4);
+  palm(-66, -12, 3.4); palm(-45, -40, 3);
+  addHeart(-44, 1.5, -34); addItemBox(-62, GT + 2.2, -16, 'coins');
+  ringOn(MX, MZ, 4.5, 8, 1);
+  addStar('falco', MX, MTOP + 2.2, MZ, true);
+  // the falcon (circles above the mesa carrying the star)
+  const falcon = { g: new THREE.Group(), a: 0, t: 0, state: 'fly', wings: [] };
+  root.add(falcon.g);
+  {
+    const fb = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 8), M(0x7a4f2b, { roughness: 0.9 })); fb.scale.set(0.8, 0.7, 1.5); falcon.g.add(fb);
+    const fh = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 8), M(0xf4ead0, { roughness: 0.9 })); fh.position.set(0, 0.35, 0.85); falcon.g.add(fh);
+    const bk = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 6), M(0xffcf3a, { roughness: 0.9 })); bk.rotation.x = Math.PI / 2; bk.position.set(0, 0.3, 1.3); falcon.g.add(bk);
+    for (const ex of [-0.17, 0.17]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), M(0x16213e)); e.position.set(ex, 0.45, 1.15); falcon.g.add(e); }
+    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.8), M(0x5c3a1e, { roughness: 0.9 })); tl.position.set(0, 0, -1.1); falcon.g.add(tl);
+    for (const sd of [-1, 1]) {
+      const pv = new THREE.Group(); pv.position.set(sd * 0.4, 0.1, 0); falcon.g.add(pv);
+      const w = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1), M(0x7a4f2b, { roughness: 0.9 })); w.position.x = sd * 1.1; pv.add(w);
+      const tip = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.7), M(0x3a2a22, { roughness: 0.9 })); tip.position.x = sd * 2.4; pv.add(tip);
+      falcon.wings.push({ pv, sd });
+    }
+    const cs = new THREE.Mesh(starGeo, starMat); cs.scale.setScalar(0.6); cs.position.set(0, -0.8, 0.2); falcon.g.add(cs); falcon.star = cs;
+    falcon.g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  }
+
+  // ===== EAST: the sea of dunes =====
+  box(56, (GT - 3) / 2, 22, 24, GT + 3, 32, [SS, SS, ST, SS, SS, SS]);
+  [[52, 15, 5, 1, 2.2], [62, 26, 6, 1.5, 3.2], [53, 31, 4, 1, 1.6], [63, 12, 4, 1, 1.8], [47, 24, 3, 0.8, 1.2]].forEach(([x, z, r, rf, h]) => {
+    mound(x, z, r, rf, GT, GT + h, ST);
+    addCoin(x, GT + h + 1.1, z);
+  });
+  ringOn(62, 26, 4, 8, 1); lineOn(47, 34, 66, 34, 6, 1); lineOn(50, 9, 60, 20, 5, 1);
+  const pond2 = add(new THREE.Mesh(new THREE.CircleGeometry(2.4, 20), M(0x3aa6c9, { roughness: 0.2, emissive: 0x0a3040 })), false, true);
+  pond2.rotation.x = -Math.PI / 2; pond2.position.set(62, GT + 0.02, 35);
+  palm(59.5, 35.5, 3.4); palm(64.5, 33, 3); palm(66, 20, 3.2);
+  // half-buried ruin: a stepped platform with a lookout
+  box(57, GT + 0.9, 20, 5, 1.8, 5, PY2); box(57, GT + 2.4, 20, 3, 1.2, 3, PY1);
+  ring(57, 20, 1.2, 5, GT + 4.2);
+  [[50, GT, 28, 3], [64, GT, 17, 3]].forEach(([x, y, z, r]) => addCactus(x, y, z, r));
+  addEnemy(55, GT, 30, 3);
+  addHeart(48, 1.5, 12); addItemBox(52, GT + 2.4, 36, 'coins');
+
   // backdrop: dunes, far pyramids, sun
   for (let i = 0; i < 16; i++) {
     const a = i / 16 * TAU, r = 120 + (i % 4) * 20;
@@ -1508,6 +1976,24 @@ function buildDesert() {
       else reveal(starById('obelischi'), "Davanti all'ingresso della piramide");
     },
     update(dt) {
+      // falcon
+      falcon.t += dt;
+      if (falcon.state === 'fly') {
+        falcon.a += dt * 0.5;
+        const fx = MX + Math.cos(falcon.a) * 6, fz = MZ + Math.sin(falcon.a) * 6, fy = MTOP + 3.4 + Math.sin(falcon.t * 0.9) * 1.3;
+        falcon.g.position.set(fx, fy, fz); falcon.g.rotation.set(0, -falcon.a, -0.35);
+        if (Math.hypot(P.pos.x - fx, P.pos.y + 0.8 - fy, P.pos.z - fz) < 1.7) {
+          falcon.state = 'flee'; falcon.star.visible = false; sfx.stomp();
+          burst(falcon.g.position.clone(), 0x7a4f2b, 14, 5);
+          if (P.vel.y < 0) { P.vel.y = 11; P.onGround = false; }
+          const st = starById('falco');
+          if (st && st.hidden) reveal(st, 'Il falco ha lasciato la stella sulla mesa!', new V3(clamp(fx, MX - 5.5, MX + 5.5), MTOP + 2.2, clamp(fz, MZ - 5.5, MZ + 5.5)));
+        }
+      } else if (falcon.g.visible) {
+        falcon.g.position.y += dt * 7; falcon.g.position.x -= dt * 6; falcon.g.rotation.z = 0;
+        if (falcon.g.position.y > 60) falcon.g.visible = false;
+      }
+      falcon.wings.forEach(w => { w.pv.rotation.z = w.sd * Math.sin(falcon.t * (falcon.state === 'fly' ? 5 : 10)) * 0.5; });
       // tornado
       tornado.t += dt; tornado.cool -= dt;
       tornado.x = 34 + Math.cos(tornado.t * 0.5) * 4 + Math.sin(tornado.t * 1.3) * 0.8;
@@ -1559,15 +2045,23 @@ function buildDesert() {
 // ---------- LEVEL: underwater bay ----------
 function buildBay() {
   const WY = 0, SEAB = 0xd9c58f, CLIFF = 0x6f7f8a, WOOD = 0x7a4f2b, WOOD2 = 0x5c3a1e;
-  const surface = makeWater(90, 45, 0x3aa0d8, 0.5, WY, true);
+  const surface = makeWater(150, 70, 0x3aa0d8, 0.5, WY, true); surface.position.x = -29.5; surface.position.z = -29.5;
   const outer = add(new THREE.Mesh(new THREE.CircleGeometry(300, 40), M(0x2b86d9, { roughness: 0.25 })), false, false);
   outer.rotation.x = -Math.PI / 2; outer.position.y = -0.3;
 
   box(0, -20, -6, 82, 4, 70, SEAB);
-  box(0, -7, -43, 90, 30, 4, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  // (the old north wall is gone: the deep trench continues northwards)
+  box(0, -10, -102, 90, 36, 4, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(43, -10, -74.5, 4, 36, 59, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(0, -26, -70.5, 82, 4, 59, SEAB);
+  box(0, -24, -6, 82, 4, 70, SEAB);
+  box(-72.5, -9, -72.5, 63, 34, 63, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
   box(0, -7, 43, 90, 30, 4, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
   box(43, -7, 0, 4, 30, 90, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
-  box(-43, -7, 0, 4, 30, 90, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  // (the old west wall is gone: the lagoon continues westwards)
+  box(-102, -7, 0, 4, 30, 90, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(-72.5, -7, 43, 59, 30, 4, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(-70.5, -17, 0, 59, 10, 82, SEAB);
   box(0, -9, 35, 82, 20, 12, [SAND, SAND, SAND, SAND, SAND, SAND]);
   box(0, 0.85, 25.5, 4, 0.3, 7, WOOD);
   for (const [x, z] of [[-1.8, 22.3], [1.8, 22.3], [-1.8, 25.5], [1.8, 25.5]]) {
@@ -1641,7 +2135,7 @@ function buildBay() {
 
   // jellyfish
   const jellyMat = new THREE.MeshStandardMaterial({ color: 0xff8ad8, emissive: 0x6a1a5a, transparent: true, opacity: 0.75, flatShading: true });
-  const jellies = [[-8, -8, 14], [8, -10, 14], [24, -15, 10], [-26, -12, -18], [14, -9, -32], [-30, -6, 12]].map(([x, y, z], i) => {
+  const jellies = [[2, -15, -62], [-18, -17, -88], [-60, -6, 22], [-8, -8, 14], [8, -10, 14], [24, -15, 10], [-26, -12, -18], [14, -9, -32], [-30, -6, 12]].map(([x, y, z], i) => {
     const g = new THREE.Group(); root.add(g);
     const bell = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8, 0, TAU, 0, Math.PI / 2), jellyMat); g.add(bell);
     for (let k = 0; k < 5; k++) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 4), jellyMat); const a = k / 5 * TAU; t.position.set(Math.cos(a) * 0.35, -0.6, Math.sin(a) * 0.35); g.add(t); }
@@ -1673,12 +2167,104 @@ function buildBay() {
   function bubble(x, y, z) { const m = new THREE.Mesh(bubbleGeo, bubbleMat); m.position.set(x, y, z); root.add(m); bubbles.push({ m, v: 1.8 + Math.random() }); }
   let bubbleT = 0, wasUnder = false;
 
+  // ===== WEST LAGOON: the lighthouse island =====
+  const LX = -72, LZ = 0, RED = 0xd9433a, WHITE = 0xf2f6fb;
+  box(-47, 0.85, 34, 12, 0.3, 3, WOOD);
+  for (const x of [-44, -50]) for (const z of [32.8, 35.2]) { const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 14, 6), M(WOOD2))); post.position.set(x, -6, z); }
+  mound(LX, LZ, 16, 9, -12, 1.2, ROCK);
+  mound(LX, LZ, 10, 8, 1.0, 1.6, SAND);
+  for (let i = 0; i < 5; i++) cyl(LX, LZ, 2.4, 1.4 + i * 2.8, 1.4 + (i + 1) * 2.8, i % 2 ? RED : WHITE, 18);
+  cyl(LX, LZ, 3.4, 15.4, 16, STONE, 20);
+  const lantern = add(new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 1.8, 12), M(0xfff2a8, { emissive: 0xffc830, emissiveIntensity: 0.8, transparent: true, opacity: 0.85 })), false, false);
+  lantern.position.set(LX, 16.9, LZ);
+  const lroof = add(new THREE.Mesh(new THREE.ConeGeometry(1.8, 1.4, 12), M(RED)), true, false); lroof.position.set(LX, 18.5, LZ);
+  const beam = add(new THREE.Mesh(new THREE.ConeGeometry(2.2, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff4c0, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide })), false, false);
+  beam.geometry.translate(0, -7, 0); beam.rotation.z = Math.PI / 2; const beamPivot = new THREE.Group(); beamPivot.position.set(LX, 16.9, LZ); root.add(beamPivot); root.remove(beam); beamPivot.add(beam);
+  const stepAt = i => { const a = 0.8 + i * 0.72, R = 4.6; return [LX + Math.cos(a) * R, 3.0 + 1.4 * i, LZ + Math.sin(a) * R]; };
+  for (let i = 0; i < 10; i++) {
+    const [x, t, z] = stepAt(i);
+    if (i === 5) { const lift = box(x, t - 0.25, z, 2.2, 0.5, 2.2, WOOD); movers.push({ s: lift, base: new V3(x, t - 0.25, z), axis: new V3(0, 1, 0), amp: 1.45, period: 4, phase: 0 }); }
+    else box(x, t - 0.25, z, 2.2, 0.5, 2.2, WOOD);
+    addCoin(x, t + 1, z);
+  }
+  addStar('faro', LX, 17.8, LZ + 2.5);
+  ring(LX, LZ, 6.5, 10, 2.6);
+  addEnemy(LX + 5, 1.6, LZ - 4, 3); addEnemy(LX - 5, 1.6, LZ + 4, 3);
+  sign('Faro della Baia', LX + 6.5, 1.6, LZ + 5.5, Math.PI / 4);
+  addItemBox(LX - 6, 2.8, LZ - 3, 'coins');
+  // reef around the lagoon floor
+  const coralCols = [0xff7a8a, 0xffb347, 0xb58cff, 0xff8ad8, 0x6fd3ff];
+  for (let i = 0; i < 30; i++) {
+    const x = -96 + (i * 29) % 52, z = -36 + (i * 47) % 74;
+    if (Math.hypot(x - LX, z - LZ) < 15) continue;
+    const h = 1 + (i % 3) * 0.7, c = add(new THREE.Mesh(new THREE.ConeGeometry(0.5 + (i % 2) * 0.3, h, 6), M(coralCols[i % 5])), false, false);
+    c.position.set(x, -12 + h / 2, z);
+  }
+  ring(-88, 26, 3.5, 8, -9); ring(-88, -28, 3.5, 8, -9); line(-56, 20, -56, -20, 6, -6);
+  // ===== NORTH: the deep trench, the sunken temple, giant clams and air vents =====
+  const TY = -24, TMZ = -78;
+  box(0, -23, TMZ, 20, 2, 16, STONE);
+  [[-8, -72, 10], [8, -72, 10], [-8, -84, 10], [8, -84, 6], [-8, -78, 4], [8, -78, 10]].forEach(([x, z, h]) => cyl(x, z, 0.9, -22, -22 + h, STONE, 12));
+  box(0, -11.6, TMZ + 3, 20, 0.8, 10, STONE);
+  const ped = add(new THREE.Mesh(new THREE.ConeGeometry(7.5, 2.4, 4), M(STONE)), true, false); ped.rotation.y = Math.PI / 4; ped.scale.z = 0.5; ped.position.set(0, -10, TMZ + 3);
+  const perleStar = addStar('perle', 0, -7.4, TMZ + 3, true);
+  const vents = [[0, TMZ], [-24, -70], [26, -84]].map(([x, z]) => {
+    const vy = x === 0 ? -22 : TY;
+    const rim = add(new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.3, 8, 18), M(ROCK)), false, false); rim.rotation.x = Math.PI / 2; rim.position.set(x, vy + 0.15, z);
+    return { x, z, y: vy, fill: 0 };
+  });
+  const clamGeo = new THREE.SphereGeometry(1.6, 14, 6, 0, TAU, 0, Math.PI / 2);
+  const clams = [[-24, -58], [22, -62], [-30, -92], [28, -94], [0, -96]].map(([x, z], i) => {
+    const g = new THREE.Group(); g.position.set(x, TY, z); g.rotation.y = i * 1.3; root.add(g);
+    const lower = new THREE.Mesh(clamGeo, M(0xb58cff)); lower.rotation.x = Math.PI; lower.scale.y = 0.45; lower.position.y = 0.7; g.add(lower);
+    const hinge = new THREE.Group(); hinge.position.set(0, 0.7, -1.5); g.add(hinge);
+    const upper = new THREE.Mesh(clamGeo, M(0xd8b8ff)); upper.scale.y = 0.45; upper.position.z = 1.5; hinge.add(upper);
+    const pearl = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), M(0xffffff, { emissive: 0x6a6a8a, metalness: 0.3, roughness: 0.2 })); pearl.position.set(x, TY + 1.05, z); root.add(pearl);
+    ring(x, z, 3.2, 5, TY + 1);
+    cyl(x, z, 1.5, TY - 1, TY + 0.35, 0xb58cff, 14).mesh.visible = false;
+    return { g, hinge, pearl, x, z, ph: i * 1.7, open: false, got: false };
+  });
+  let pearls = 0;
+  ring(0, TMZ, 3, 8, -20.5); line(0, -44, 0, -60, 4, -12); line(-14, -76, -14, -88, 4, -21); line(14, -76, 14, -88, 4, -21);
+  addHeart(0, -19, TMZ + 5);
+  for (let i = 0; i < 40; i++) {
+    const west = i % 2 === 0, x = west ? -98 + ((i * 37) % 55) : -38 + ((i * 41) % 76), z = west ? -38 + ((i * 53) % 78) : -98 + ((i * 29) % 54);
+    if (west && Math.hypot(x - LX, z - LZ) < 14) continue;
+    if (!west && Math.abs(x) < 12 && z > -88 && z < -68) continue;
+    const h = 1.5 + (i % 4) * 0.8;
+    const w = add(new THREE.Mesh(new THREE.BoxGeometry(0.22, h, 0.22), M(i % 3 ? 0x2f9a5a : 0x5fbf4a)), false, false);
+    w.geometry.translate(0, h / 2, 0); w.position.set(x, west ? -12 : TY, z);
+  }
+  for (let i = 0; i < 4; i++) {
+    const sh = new THREE.Mesh(new THREE.ConeGeometry(2.6, 24, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xcff4ff, transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide }));
+    sh.position.set(i < 2 ? -80 + i * 18 : -20 + (i - 2) * 40, -11, i < 2 ? -18 + i * 30 : -70); sh.rotation.z = 0.25; root.add(sh);
+  }
+
   return {
     sky: 0x9fdcf5, fogNear: 60, fogFar: 180, hemi: [0xe4f6ff, 0x3a7a8a, 0.8], sun: [0xfff4e0, 0.95],
     music: 'bay', deathY: -40, hazardY: null, seaY: WY, waterY: WY,
     spawn: { pos: new V3(0, 1, 36), yaw: 0 },
     entries: {}, doors: [], redTotal: 8, coinStar: true, redMsg: 'Davanti al molo, a mezz\'acqua',
     update(dt) {
+      // giant clams: grab the pearl while the shell is open
+      for (const c of clams) {
+        c.open = Math.sin(gameTime * 1.25 + c.ph) > -0.1;
+        if (c.got || !c.open) continue;
+        const dx = P.pos.x - c.pearl.position.x, dy = P.pos.y + 0.8 - c.pearl.position.y, dz = P.pos.z - c.pearl.position.z;
+        if (dx * dx + dy * dy + dz * dz < 1.5 * 1.5) {
+          c.got = true; c.pearl.visible = false; pearls++; sfx.red(); burst(c.pearl.position.clone(), 0xffffff, 10, 3);
+          if (pearls === clams.length) reveal(perleStar, 'Sul tetto del tempio sommerso');
+          else banner(pearls + ' / ' + clams.length + '<small>perle giganti</small>', 1.4);
+        }
+      }
+      // air vents: breathe in the bubbles
+      for (const v of vents) {
+        if (Math.hypot(P.pos.x - v.x, P.pos.z - v.z) < 1.8 && P.pos.y < WY - 1 && P.pos.y < v.y + 8) {
+          P.airClock = 0; v.fill += dt;
+          if (v.fill > 0.3) { v.fill = 0; if (P.hp < 8) { P.hp++; hud(); } }
+          if (!L.ventTip) { L.ventTip = true; banner("Bolle d'aria!<small>Resta tra le bolle per riprendere fiato</small>", 2.4); }
+        }
+      }
       // the current pushes swimmers up and away
       const cdx = P.pos.x - CUR.x, cdz = P.pos.z - CUR.z, cd = Math.hypot(cdx, cdz) || 1;
       if (cd < CUR.r + 0.5 && P.pos.y < WY - 0.5 && !(P.metalT > 0)) {
@@ -1725,6 +2311,9 @@ function buildBay() {
         else if (i > nextRing) { m.material = ringMatOff; m.scale.setScalar(1); }
       });
       for (const w of weeds) w.rotation.z = Math.sin(t * 1.3 + w.position.x) * 0.2;
+      for (const c of clams) { c.hinge.rotation.x += ((c.open ? -0.9 : 0) - c.hinge.rotation.x) * Math.min(1, dt * 8); if (!c.got) c.pearl.visible = c.hinge.rotation.x < -0.35; }
+      beamPivot.rotation.y = t * 0.8;
+      if (Math.random() < 0.5) { const v = vents[Math.floor(Math.random() * vents.length)]; bubble(v.x + (Math.random() - 0.5) * 1.4, v.y + 0.3, v.z + (Math.random() - 0.5) * 1.4); }
       for (const s of schools) s.g.rotation.y = t * s.sp;
       bubbleT -= dt;
       if (bubbleT <= 0) {
@@ -2308,10 +2897,23 @@ function buildFortress() {
 // ---------- LEVEL: haunted villa ----------
 function buildGhost() {
   const LAWN = 0x2f4a2f, MW = 0x5a4a5e, WOODD = 0x3a2a22;
-  cyl(0, 0, 30, -4, 0, [0x3a3448, LAWN, 0x3a3448], 48);
-  for (let i = 0; i < 48; i++) {
-    const a = i / 48 * TAU, p = add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.4, 0.25), M(0x1a1a22)), true, false);
-    p.position.set(Math.cos(a) * 29.3, 0.7, Math.sin(a) * 29.3);
+  // grounds: the garden, the bell-tower yard behind the villa (north), the carousel islet (west), the crypt (east)
+  const GR = [[0, 0, 30], [0, -46, 34], [-58, 4, 15], [48, 6, 13]];
+  GR.forEach(([x, z, r], i) => cyl(x, z, r, -4, 0, [0x3a3448, LAWN, 0x3a3448], i < 2 ? 48 : 36));
+  box(33, -0.3, 6, 7, 0.6, 3.4, 0x4a4450); // stone walkway to the crypt
+  {
+    const pts = [];
+    GR.forEach(([gx, gz, r], k) => {
+      const n = Math.round(TAU * r / 3.9);
+      for (let i = 0; i < n; i++) {
+        const a = i / n * TAU, x = gx + Math.cos(a) * (r - 0.7), z = gz + Math.sin(a) * (r - 0.7);
+        if (GR.some(([ox, oz, or], j) => j !== k && Math.hypot(x - ox, z - oz) < or + 0.3)) continue;
+        if ((Math.abs(z - 4) < 2.6 && x < -26 && x > -46) || (Math.abs(z - 6) < 2.4 && x > 26 && x < 38)) continue;
+        pts.push([x, z]);
+      }
+    });
+    const fm = add(new THREE.InstancedMesh(new THREE.BoxGeometry(0.25, 1.4, 0.25), M(0x1a1a22), pts.length), true, false), o = new THREE.Object3D();
+    pts.forEach(([x, z], i) => { o.position.set(x, 0.7, z); o.updateMatrix(); fm.setMatrixAt(i, o.matrix); });
   }
   // the villa: open hall, stairs to a mezzanine, floating steps to the attic
   box(0, 7, -31, 22, 14, 2, MW); box(-11, 7, -22, 2, 14, 18, MW); box(11, 7, -22, 2, 14, 18, MW);
@@ -2343,7 +2945,7 @@ function buildGhost() {
   }
   // ghosts: they sneak up while you look away and freeze when you face them
   const ghosts = [];
-  function addGhost(x, y, z) {
+  function addGhost(x, y, z, extra) {
     const g = new THREE.Group(); root.add(g);
     const mat = new THREE.MeshStandardMaterial({ color: 0xf4f0ff, emissive: 0x3a3a55, transparent: true, opacity: 0.85, flatShading: true });
     const b = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 10), mat); g.add(b);
@@ -2351,11 +2953,157 @@ function buildGhost() {
     for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), M(0x16213e)); e.position.set(sx * 0.2, 0.12, 0.52); g.add(e); }
     const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), M(0x8a1a2a)); mouth.position.set(0, -0.15, 0.53); mouth.scale.set(1.5, 0.7, 0.5); g.add(mouth);
     const hands = [-1, 1].map(sx => { const hnd = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), mat); hnd.position.set(sx * 0.62, -0.05, 0.1); g.add(hnd); return hnd; });
-    ghosts.push({ g, mat, hands, pos: new V3(x, y, z), home: new V3(x, y, z), alive: true, dead: 0, ph: Math.random() * TAU, shy: 0 });
+    ghosts.push({ g, mat, hands, pos: new V3(x, y, z), home: new V3(x, y, z), alive: true, dead: 0, ph: Math.random() * TAU, shy: 0, extra: !!extra });
+    return ghosts[ghosts.length - 1];
   }
   [[-12, 1.6, 4], [12, 1.6, 8], [0, 1.6, 16], [-4, 1.6, -20], [4, 7.6, -28]].forEach(p => addGhost(...p));
   let ghostsLeft = 5;
   addStar('fantasmi', 0, 2.5, 5, true);
+
+  // ===== NORTH: the bell-tower yard and the Fantasmone's balcony =====
+  const TX = 0, TZ = -60, BY = 16, TOW = 0x4a3e52;
+  cyl(TX, TZ, 3, -0.5, BY, TOW, 12);
+  const balc = cyl(TX, TZ, 7.5, BY - 0.8, BY, WOODD, 28);
+  for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + Math.PI / 4; cyl(TX + Math.cos(a) * 6.7, TZ + Math.sin(a) * 6.7, 0.35, BY, BY + 9, TOW, 8); }
+  const troof = add(new THREE.Mesh(new THREE.ConeGeometry(9.5, 6, 8), M(0x2a2238))); troof.position.set(TX, BY + 12, TZ);
+  const tcap = add(new THREE.Mesh(new THREE.CylinderGeometry(8.2, 8.2, 0.6, 8), M(0x3a2a44)), false, false); tcap.position.set(TX, BY + 9, TZ);
+  const bell = add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.7, 2.4, 12, 1, true), M(0xb08a3a, { metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide })), true, false); bell.position.set(TX, BY + 6.8, TZ);
+  for (let k = 0; k < 6; k++) { const w = add(new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.6), new THREE.MeshBasicMaterial({ color: 0xffd36a, side: THREE.DoubleSide })), false, false); const a = k / 6 * TAU; w.position.set(TX + Math.sin(a) * 3.02, 6 + (k % 2) * 4, TZ + Math.cos(a) * 3.02); w.rotation.y = a; }
+  // the spiral stair around the tower: some steps bob, some crumble
+  for (let i = 0; i < 14; i++) {
+    const a = i * 0.44, x = TX + Math.sin(a) * 9.6, z = TZ + Math.cos(a) * 9.6, y = 1.1 + i * 1.05;
+    const st = box(x, y - 0.3, z, 2.5, 0.6, 2.5, i % 2 ? WOODD : 0x4a3a30);
+    if (i === 4 || i === 9) movers.push({ s: st, base: new V3(x, y - 0.3, z), axis: new V3(0, 1, 0), amp: 0.7, period: 3, phase: i });
+    else if (i === 6 || i === 11) sinkers.push({ s: st, baseTop: st.top, state: 'idle', t: 0, speed: 4 });
+    addCoin(x, y + 1, z);
+  }
+  sign('Il campanile\ndel Fantasmone', 3, 0, -45, Math.PI);
+  // the yard: graves, dead trees, lanterns
+  [[-22, -52], [-18, -52], [-22, -60], [-18, -60], [-22, -68], [18, -52], [22, -52], [18, -60], [22, -60], [22, -68]].forEach(([x, z], i) => {
+    const g = box(x, 0.65, z, 1.1, 1.3, 0.4, 0x7a7a88); g.mesh.rotation.z = ((i * 7) % 5 - 2) * 0.06;
+  });
+  [[-24, -38], [26, -40], [-12, -74], [14, -76], [-28, -60]].forEach(([x, z]) => deadTree(x, z));
+  for (const [x, z] of [[-14, -30], [14, -30], [-8, -44], [8, -44]]) {
+    const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.4, 6), M(0x1a1a22))); post.position.set(x, 1.2, z);
+    const orb = add(new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), new THREE.MeshBasicMaterial({ color: 0xa8f0ff })), false, false); orb.position.set(x, 2.5, z);
+  }
+  lineOn(-18, -24, -18, -40, 5, 1); lineOn(18, -24, 18, -40, 5, 1); ring(TX, TZ, 13, 12, 1); lineOn(-20, -56, 20, -56, 6, 1.6);
+  addGhost(-14, 1.6, -46, true); addGhost(14, 1.6, -50, true); addGhost(0, 1.6, -74, true);
+  addHeart(-6, 1.4, -74);
+  // the Fantasmone: shy like the little ones, but three hits are needed
+  const bigG = new THREE.Group(); root.add(bigG);
+  const bigMat = new THREE.MeshStandardMaterial({ color: 0xf4f0ff, emissive: 0x4a3a66, transparent: true, opacity: 0.9, flatShading: true });
+  { const b = new THREE.Mesh(new THREE.SphereGeometry(0.6, 14, 12), bigMat); bigG.add(b);
+    const tl = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 10), bigMat); tl.rotation.x = 2.3; tl.position.set(0, -0.3, -0.45); bigG.add(tl);
+    for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), M(0x16213e)); e.position.set(sx * 0.2, 0.12, 0.52); bigG.add(e); }
+    const mo = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), M(0x8a1a2a)); mo.position.set(0, -0.15, 0.53); mo.scale.set(1.7, 0.8, 0.5); bigG.add(mo);
+    const cr = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.16, 8, 1, true), M(0xffcf3a, { emissive: 0x6a4800, side: THREE.DoubleSide })); cr.position.set(0, 0.62, 0); bigG.add(cr); }
+  const bigHands = [-1, 1].map(sx => { const hnd = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), bigMat); hnd.position.set(sx * 0.62, -0.05, 0.1); bigG.add(hnd); return hnd; });
+  bigG.scale.setScalar(2.3);
+  const big = { pos: new V3(TX, BY + 1.7, TZ - 5.6), alive: true, active: false, dead: 0, hp: 3, inv: 0, shy: 0, ph: 0 };
+  bigG.position.copy(big.pos);
+  const bigHud = () => { $('bossHp').textContent = '♥'.repeat(Math.max(0, big.hp)) + '♡'.repeat(3 - Math.max(0, big.hp)); };
+  addStar('fantasmone', TX, BY + 2, TZ + 5, true);
+  function updateBig(dt, cx, cy, cz, fx, fz) {
+    if (!big.alive) {
+      if (big.dead > 0) { big.dead -= dt; bigG.scale.setScalar(Math.max(0.01, big.dead * 3.8)); bigG.position.y += dt * 3; if (big.dead <= 0) root.remove(bigG); }
+      return;
+    }
+    big.ph += dt; big.inv -= dt;
+    const onBal = P.pos.y > BY - 1 && Math.hypot(P.pos.x - TX, P.pos.z - TZ) < 8;
+    if (!big.active && onBal && P.onGround) {
+      big.active = true; $('bossBar').hidden = false; $('bossName').textContent = 'Il Fantasmone'; bigHud(); playTrack('boss');
+      banner('Il Fantasmone!<small>Giragli le spalle per attirarlo, poi voltati e colpiscilo</small>', 2.8);
+    } else if (big.active && P.pos.y < BY - 5) { big.active = false; $('bossBar').hidden = true; playTrack(L.music); }
+    const dx = cx - big.pos.x, dy = cy - big.pos.y, dz = cz - big.pos.z, dh = Math.hypot(dx, dz) || 1, dist = Math.hypot(dx, dy, dz) || 1;
+    const watched = (-dx / dh) * fx + (-dz / dh) * fz > 0.45 && dist < 20;
+    big.shy += ((watched ? 1 : 0) - big.shy) * Math.min(1, dt * 5);
+    if (big.active) {
+      // it floats around the tower: move by angle, so it never gets stuck behind it
+      const wrap = a => ((a + Math.PI) % TAU + TAU) % TAU - Math.PI;
+      const ga = Math.atan2(big.pos.z - TZ, big.pos.x - TX), gr = Math.hypot(big.pos.x - TX, big.pos.z - TZ) || 1;
+      const pa = Math.atan2(P.pos.z - TZ, P.pos.x - TX), pr = clamp(Math.hypot(P.pos.x - TX, P.pos.z - TZ), 4.3, 7.2);
+      let na = ga, nr = gr;
+      if (big.inv > 0) { const da = wrap(ga - pa); na = ga + (da >= 0 ? 1 : -1) * 4.5 * dt / gr; nr += (7.2 - gr) * Math.min(1, dt * 2); }
+      else if (!watched) {
+        const sp = (2.1 + (3 - big.hp) * 0.8) * dt;
+        if (dh < 2.6) { big.pos.x += dx / dh * sp; big.pos.z += dz / dh * sp; na = Math.atan2(big.pos.z - TZ, big.pos.x - TX); nr = Math.hypot(big.pos.x - TX, big.pos.z - TZ); }
+        else { na = ga + clamp(wrap(pa - ga), -sp / gr, sp / gr); nr += (pr - gr) * Math.min(1, dt * 2); }
+      } else if (dh < 5) na = ga + (wrap(ga - pa) >= 0 ? 1 : -1) * 2.2 * dt / gr; // slides away around the tower
+      nr = clamp(nr, 4.3, 7.2);
+      big.pos.x = TX + Math.cos(na) * nr; big.pos.z = TZ + Math.sin(na) * nr;
+    }
+    bigG.position.set(big.pos.x, big.pos.y + Math.sin(big.ph * 2) * 0.3, big.pos.z);
+    bigG.rotation.y = Math.atan2(dx, dz);
+    bigMat.opacity = (0.9 - big.shy * 0.55) * (big.inv > 0 && Math.sin(big.ph * 30) > 0 ? 0.4 : 1);
+    bigHands.forEach((hnd, i) => { const sx = i ? 1 : -1; hnd.position.set(sx * (0.62 - big.shy * 0.44), -0.05 + big.shy * 0.17, 0.1 + big.shy * 0.5); });
+    if (big.active && dh < 2.4 && Math.abs(dy) < 2.4) {
+      if (big.inv <= 0 && (P.punchT > 0 || P.pound || P.metalT > 0 || (P.vel.y < 0 && cy > big.pos.y + 0.8))) {
+        big.hp--; big.inv = 1.8; bigHud(); sfx.bossHit(); G.shake = 0.25; burst(big.pos.clone(), 0xe8e0ff, 20, 6);
+        if (P.vel.y < 0) { P.vel.y = 12; P.onGround = false; P.pound = false; }
+        if (big.hp <= 0) {
+          big.alive = false; big.dead = 0.6; sfx.stomp(); $('bossBar').hidden = true; playTrack(L.music);
+          burst(big.pos.clone(), 0xffcf3a, 16, 7);
+          for (let k = 0; k < 3; k++) addCoin(big.pos.x + (k - 1) * 0.9, BY + 1, big.pos.z);
+          reveal(starById('fantasmone'), 'Sul balcone del campanile');
+        }
+      } else if (big.shy < 0.5 && big.inv <= 0) hurt(big.pos);
+    }
+  }
+
+  // ===== WEST: the crumbling bridge and the haunted carousel =====
+  const CX = -58, CZ = 4;
+  [-31.6, -34.4, -37.2, -40].forEach((x, i) => {
+    const pl = box(x, -0.3, 4, 2.6, 0.6, 2.8, i % 2 ? WOODD : 0x4a3a30);
+    sinkers.push({ s: pl, baseTop: pl.top, state: 'idle', t: 0, speed: 2.2 });
+    addCoin(x, 1, 4);
+  });
+  sign('La giostra\nstregata', -27, 0, 7.5, -Math.PI / 2);
+  cyl(CX, CZ, 1, 0, 10.2, 0x6a4a5a, 10);
+  const canopy = cyl(CX, CZ, 3.6, 9.8, 10.2, [0x5a2a4a, 0x8a3a6a, 0x5a2a4a], 16);
+  const fringe = add(new THREE.Mesh(new THREE.CylinderGeometry(7.2, 7.2, 0.8, 16, 1, true), M(0x8a3a6a, { side: THREE.DoubleSide })), false, false); fringe.position.set(CX, 15, CZ);
+  const tent = add(new THREE.Mesh(new THREE.ConeGeometry(7.4, 2.2, 16, 1, true), M(0x5a2a4a, { side: THREE.DoubleSide })), false, false); tent.position.set(CX, 16.5, CZ);
+  const hub = add(new THREE.Mesh(new THREE.CylinderGeometry(6.8, 6.8, 0.3, 24), M(0x3a2030)), true, false); hub.position.set(CX, 0.15, CZ);
+  const lamps = [];
+  for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, l = add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ color: k % 2 ? 0xffd36a : 0xb58cff })), false, false); l.position.set(CX + Math.cos(a) * 7.2, 14.5, CZ + Math.sin(a) * 7.2); lamps.push(l); }
+  const horses = [];
+  for (let i = 0; i < 6; i++) {
+    const s = box(CX + 5.4, 3, CZ, 1.9, 0.4, 1.9, 0xc9a24a);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.1, 0.45), M(i % 2 ? 0xe8e0f0 : 0x2a2230)); head.position.set(0.95, 0.6, 0); s.mesh.add(head);
+    const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 14.6, 6), M(0xd8b04a, { metalness: 0.6, roughness: 0.3 })), false, false);
+    horses.push({ s, head, pole });
+  }
+  let carA = 0;
+  function updateCarousel(dt) {
+    carA += dt * 0.45;
+    horses.forEach((h, i) => {
+      const a = carA + i * TAU / 6, np = new V3(CX + Math.cos(a) * 5.4, 4.9 + Math.sin(gameTime * 1.2 + i * 2.1) * 2.9, CZ + Math.sin(a) * 5.4);
+      const s = h.s; s.delta.subVectors(np, s.mesh.position); s.mesh.position.copy(np); s.cx = np.x; s.cz = np.z; s.top += s.delta.y; s.bottom += s.delta.y;
+      h.pole.position.set(np.x - Math.cos(a) * 0.6, 7.3, np.z - Math.sin(a) * 0.6);
+      h.head.position.set(Math.sin(a) * 0.8, 0.6, -Math.cos(a) * 0.8);
+    });
+    fringe.rotation.y = tent.rotation.y = -carA;
+  }
+  updateCarousel(0);
+  addStar('giostra', CX, 11.6, CZ);
+  ringOn(CX, CZ, 10, 10, 1); ring(CX, CZ, 2.6, 5, 11);
+  addGhost(-52, 1.6, -6, true); addGhost(-64, 1.6, 12, true);
+  addItemBox(-66, 2.6, -2, 'wing');
+
+  // ===== EAST: the crypt beyond the cemetery =====
+  const MX = 50, MZ = 6;
+  box(MX, 2.5, MZ, 8, 5, 6, MW);
+  for (const [ux, uz] of [[-2.6, -1.6], [2.6, -1.6], [-2.6, 1.6], [2.6, 1.6]]) { const u = add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xa8f0ff })), false, false); u.position.set(MX + ux, 5.8, MZ + uz); }
+  box(MX, 5.2, MZ, 6, 0.4, 4, 0x4a4450);
+  for (const sz of [-1, 1]) cyl(MX - 4.4, MZ + sz * 2.2, 0.35, 0, 5, 0x8a8a96, 8);
+  const door = add(new THREE.Mesh(new THREE.PlaneGeometry(2, 3), new THREE.MeshBasicMaterial({ color: 0x0a0610 })), false, false); door.position.set(MX - 4.02, 1.5, MZ); door.rotation.y = -Math.PI / 2;
+  box(44.6, 0.6, 1.2, 1.6, 1.2, 1.6, WOODD); box(45.6, 1.8, -1.6, 1.8, 1.2, 1.8, WOODD); box(48.4, 3.1, -1.6, 1.8, 1.2, 1.8, WOODD);
+  ring(MX, MZ, 1.8, 6, 6.4);
+  [[42, 12], [44, 14], [56, 12], [57, 0], [42, -2]].forEach(([x, z], i) => { const g = box(x, 0.65, z, 1.1, 1.3, 0.4, 0x7a7a88); g.mesh.rotation.y = i * 0.5; });
+  deadTree(55, -2); deadTree(40, 14);
+  lineOn(38, 6, 44, 6, 3, 1); ringOn(MX, MZ, 7.5, 8, 1);
+  addGhost(54, 1.6, 14, true);
+  addItemBox(MX + 1.5, 7.2, MZ, 'life');
 
   ring(0, 11, 3, 8, 1); ring(-18, -4, 3, 6, 1); lineOn(-8.5, -16, -8.5, -24, 4, 1); line(-8, -27.5, 8, -27.5, 5, 7);
   [[-20, 1, -2], [20, 1, 14], [0, 1, -18], [-8.5, 4, -21], [8, 7, -28.5], [8.5, 10.6, -23.5], [-18, 1, 18], [16, 1, -20]].forEach(([x, y, z]) => addCoin(x, y, z, true));
@@ -2364,9 +3112,12 @@ function buildGhost() {
   addPortal(-5, 0, 25, Math.PI / 2, 'castle', 'ghost');
 
   return {
-    sky: 0x120c1c, fogNear: 30, fogFar: 110, hemi: [0x8a7ab8, 0x1a1024, 0.75], sun: [0xb0b8ff, 0.55],
+    sky: 0x120c1c, fogNear: 34, fogFar: 125, hemi: [0x8a7ab8, 0x1a1024, 0.75], sun: [0xb0b8ff, 0.55],
     music: 'ghost', deathY: -15, hazardY: null, seaY: null,
     spawn: { pos: new V3(0, 0, 24), yaw: 0 }, entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Davanti alla porta della villa',
+    onDie() {
+      if (big.alive) { big.active = false; big.hp = 3; big.inv = 0; big.pos.set(TX, BY + 1.7, TZ - 5.6); }
+    },
     onPound(s) {
       if (!s || !s.tomb || s.tomb.pressed) return;
       s.tomb.pressed = true; s.mesh.position.y -= 1.6; s.top -= 1.6; s.bottom -= 1.6; pressed++; sfx.pound();
@@ -2374,6 +3125,7 @@ function buildGhost() {
     },
     update(dt) {
       const cx = P.pos.x, cy = P.pos.y + 0.9, cz = P.pos.z, fx = Math.sin(P.facing), fz = Math.cos(P.facing);
+      updateCarousel(dt); updateBig(dt, cx, cy, cz, fx, fz);
       for (const gh of ghosts) {
         if (!gh.alive) {
           if (gh.dead > 0) { gh.dead -= dt; gh.g.scale.setScalar(Math.max(0.01, gh.dead * 2)); gh.g.position.y += dt * 3; if (gh.dead <= 0) root.remove(gh.g); }
@@ -2391,26 +3143,30 @@ function buildGhost() {
         gh.hands.forEach((hnd, i) => { const sx = i ? 1 : -1; hnd.position.set(sx * (0.62 - gh.shy * 0.44), -0.05 + gh.shy * 0.17, 0.1 + gh.shy * 0.5); });
         if (dist < 1.25) {
           if (P.punchT > 0 || P.pound || P.metalT > 0 || P.shot || (P.vel.y < 0 && cy > gh.pos.y + 0.3)) {
-            gh.alive = false; gh.dead = 0.5; ghostsLeft--; sfx.stomp(); burst(gh.pos.clone(), 0xe8e0ff, 16, 5);
+            gh.alive = false; gh.dead = 0.5; if (!gh.extra) ghostsLeft--; sfx.stomp(); burst(gh.pos.clone(), 0xe8e0ff, 16, 5);
             addCoin(gh.pos.x, gh.pos.y, gh.pos.z);
             if (P.vel.y < 0) { P.vel.y = 11; P.onGround = false; }
-            if (ghostsLeft === 0) reveal(starById('fantasmi'), 'Al centro del giardino');
+            if (!gh.extra && ghostsLeft === 0) reveal(starById('fantasmi'), 'Al centro del giardino');
           } else if (gh.shy < 0.5) hurt(gh.pos);
         }
       }
     },
-    tick(dt, t) { books.forEach((bk, i) => { bk.position.y = 9 + (i % 2) + Math.sin(t * 1.5 + i) * 0.4; bk.rotation.y = t * 0.8 + i; }); },
+    tick(dt, t) {
+      books.forEach((bk, i) => { bk.position.y = 9 + (i % 2) + Math.sin(t * 1.5 + i) * 0.4; bk.rotation.y = t * 0.8 + i; });
+      bell.rotation.z = Math.sin(t * 1.3) * 0.18;
+      lamps.forEach((l, i) => l.material.color.setHex(Math.sin(t * 3 + i) > 0 ? 0xffd36a : 0xb58cff));
+    },
   };
 }
 
 // ---------- LEVEL: clockwork tower ----------
 function buildClock() {
   const WOODC = 0x8a5a33, BRASS = 0xc9a24a, STONEC = 0x9a8a78;
-  cyl(0, 0, 14, -2, 0, [STONEC, 0x6b4a2b, STONEC], 40);
-  const wallGeo = new THREE.CylinderGeometry(14.5, 14.5, 52, 40, 1, true);
-  const wuv = wallGeo.attributes.uv; for (let i = 0; i < wuv.count; i++) wuv.setXY(i, wuv.getX(i) * 30, wuv.getY(i) * 17);
-  const wall = add(new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0xc8b89c, map: TEX.brick, side: THREE.BackSide, flatShading: true })), false, true); wall.position.y = 24;
-  const cap = add(new THREE.Mesh(new THREE.CircleGeometry(14.5, 40), M(0x3a2a1a)), false, false); cap.rotation.x = Math.PI / 2; cap.position.y = 50;
+  cyl(0, 0, 19.6, -2, 0, [STONEC, 0x6b4a2b, STONEC], 48);
+  const wallGeo = new THREE.CylinderGeometry(20, 20, 102, 48, 1, true);
+  const wuv = wallGeo.attributes.uv; for (let i = 0; i < wuv.count; i++) wuv.setXY(i, wuv.getX(i) * 41, wuv.getY(i) * 33);
+  const wall = add(new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0xc8b89c, map: TEX.brick, side: THREE.BackSide, flatShading: true })), false, true); wall.position.y = 49;
+  const cap = add(new THREE.Mesh(new THREE.CircleGeometry(20, 48), M(0x3a2a1a)), false, false); cap.rotation.x = Math.PI / 2; cap.position.y = 100;
   // spiral climb: static ledges, sliding platforms, gears and lifts
   const path = [];
   for (let i = 0; i < 19; i++) {
@@ -2443,11 +3199,12 @@ function buildClock() {
   fg.fillStyle = '#f4ead0'; fg.beginPath(); fg.arc(128, 128, 124, 0, TAU); fg.fill(); fg.strokeStyle = '#3a2a1a'; fg.lineWidth = 8; fg.stroke();
   fg.fillStyle = '#3a2a1a'; for (let i = 0; i < 12; i++) { const b2 = i / 12 * TAU; fg.fillRect(128 + Math.sin(b2) * 100 - 5, 128 - Math.cos(b2) * 100 - 5, 10, 10); }
   const face = add(new THREE.Mesh(new THREE.CircleGeometry(5, 32), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(fc), side: THREE.DoubleSide })), false, false);
-  face.position.set(Math.sin(ah) * 14.3, handY + 2, Math.cos(ah) * 14.3); face.lookAt(0, handY + 2, 0);
+  face.position.set(Math.sin(ah) * 19.8, handY + 2, Math.cos(ah) * 19.8); face.lookAt(0, handY + 2, 0);
+  const face2 = add(new THREE.Mesh(new THREE.CircleGeometry(7, 40), face.material), false, false); face2.position.set(0, 72, 19.8); face2.lookAt(0, 72, 0);
   const decoGears = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 12; i++) {
     const b2 = i / 6 * TAU + 0.4, gr = new THREE.Mesh(new THREE.TorusGeometry(2 + (i % 2), 0.35, 6, 14), M(BRASS, { metalness: 0.5 }));
-    gr.position.set(Math.sin(b2) * 14, 8 + i * 6.5, Math.cos(b2) * 14); gr.lookAt(0, gr.position.y, 0); root.add(gr); decoGears.push(gr);
+    gr.position.set(Math.sin(b2) * 19.6, 8 + i * 7, Math.cos(b2) * 19.6); gr.lookAt(0, gr.position.y, 0); root.add(gr); decoGears.push(gr);
   }
   // coins and red coins along the climb
   path.forEach((p, i) => { if (![2, 5, 7, 10, 12, 15, 17].includes(i)) addCoin(p.x, p.y + 1, p.z); else addCoin(p.x, p.y + 1, p.z, true); });
@@ -2455,14 +3212,104 @@ function buildClock() {
   ring(0, 0, 6, 10, 1); ring(0, 0, 2.5, 6, 22.5);
   addStar('rosse', 0, 2.5, 0, true);
   addHeart(3, 1.4, -4); addItemBox(path[8].x, path[8].y + 2.6, path[8].z, 'life');
+  // ===== GROUND FLOOR (new): conveyor belts along the wider ring =====
+  const beltTex = (() => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d');
+    g.fillStyle = '#2a2a30'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#c9a24a'; for (let i = 0; i < 4; i++) g.fillRect(i * 16, 0, 5, 64);
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  })();
+  const belts = [];
+  const addBelt = (cx, cy, cz, sx, sz, vx, vz) => {
+    const s = box(cx, cy - 0.15, cz, sx, 0.3, sz, 0x2a2a30);
+    const tex = beltTex.clone(); tex.needsUpdate = true; tex.repeat.set(vx ? sx / 2 : 1, vz ? sz / 2 : 1);
+    if (vz) { tex.rotation = Math.PI / 2; tex.repeat.set(sz / 2, 1); }
+    s.mesh.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, flatShading: true });
+    belts.push({ s, tex, vx, vz });
+    return s;
+  };
+  addBelt(0, 0.3, 16.5, 12, 3, 3.2, 0); addBelt(0, 0.3, -16.5, 12, 3, -3.2, 0);
+  line(-5, 16.5, 5, 16.5, 5, 1.4); line(-5, -16.5, 5, -16.5, 5, 1.4);
+  addEnemy(-13, 0, 6, 4); addEnemy(13, 0, -2, 3);
+
+  // ===== UPPER TOWER (new) =====
+  // floor at y 56 with a square hole over the top of the spiral; a pole leads up through it
+  const UP = 56;
+  for (const [cx, cz, sx, sz] of [[0, -11.75, 40, 16.5], [0, 11.75, 40, 16.5], [-11.75, 0, 16.5, 7], [11.75, 0, 16.5, 7]]) box(cx, UP - 0.3, cz, sx, 0.6, sz, 0x7a4f2b);
+  const upPole = cyl(2.3, 0, 0.3, 43.5, 60, 0x3a2a22, 10); upPole.pole = true;
+  sign('Piano di sopra:\nsali sul palo!', -2.6, 43.5, -2.2, -Math.PI / 2);
+  ring(0, 0, 8, 8, UP + 1);
+  addBelt(-12, UP + 0.4, 4, 3, 12, 0, 3.4); line(-12, -0.5, -12, 8.5, 4, UP + 1.6);
+  addEnemy(-8, UP, 10, 4); addEnemy(6, UP, 9, 4);
+  addHeart(-12, UP + 1.4, -8);
+  // pistons up to the north ledge
+  [[14, -4, 58.6], [14, -8.5, 60.6], [11, -12.5, 62.6]].forEach(([x, z, t], i) => {
+    const s = box(x, t - 2.5, z, 2.6, 5, 2.6, BRASS); movers.push({ s, base: new V3(x, t - 2.5, z), axis: new V3(0, 1, 0), amp: 1, period: 2.6, phase: i * 2.1 });
+    addCoin(x, t + 2.4, z);
+  });
+  const HY = 64.5; // top of the north ledge and of the minute hand
+  box(0, HY - 0.3, -16.75, 15, 0.6, 5.5, 0x8a5a33);
+  line(-5, -16.5, 5, -16.5, 5, HY + 1);
+  // the giant minute hand: turns around the tower axis, walkable (a row of invisible blocks that follow it)
+  cyl(0, 0, 1.6, HY - 0.6, HY, BRASS, 20);
+  const handG = new THREE.Group(); handG.position.set(0, HY - 0.2, 0); root.add(handG);
+  const hb = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.4, 11.4), M(0x1a1a22)); hb.position.z = 7; hb.castShadow = true; handG.add(hb);
+  const htip = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.4, 3), M(0x1a1a22)); htip.position.z = 12.6; handG.add(htip);
+  const hcap = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.5, 16), M(BRASS, { metalness: 0.6, roughness: 0.3 })); hcap.position.y = 0.3; handG.add(hcap);
+  const hand = { a: 0, w: 0.3, segs: [] };
+  for (let i = 0; i < 6; i++) { const r = 2.6 + i * 1.85, q = box(0, HY - 0.2, r, 1.8, 0.4, 1.8, 0x1a1a22); q.mesh.visible = false; hand.segs.push({ q, r }); }
+  ring(0, 0, 7, 10, HY + 1.1);
+  // west niche, reachable only from the hand
+  box(-16.5, 66.5, 0, 5, 0.6, 6, 0x8a5a33);
+  addStar('minuti', -16.8, 68.8, 0);
+  // south ledge
+  box(0, 65.7, 16.75, 15, 0.6, 5.5, 0x8a5a33);
+  line(-5, 16.5, 5, 16.5, 5, 67);
+  addEnemy(-3, 66, 16.5, 2.5); addItemBox(4, 68.6, 16.2, 'coins');
+  // turning gears that carry Tino round
+  const spinG = [];
+  [[10.5, 12, 68, 0.9], [14, 7.5, 70, -0.9], [15.5, 2, 72, 0.9], [13.5, -4.5, 74, -0.9], [10.5, -10, 76, 0.9]].forEach(([x, z, t, w]) => {
+    const g = cyl(x, z, 2, t - 0.6, t, BRASS, 16);
+    for (let k = 0; k < 10; k++) { const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 0.55), M(BRASS)); const b2 = k / 10 * TAU; tooth.position.set(Math.cos(b2) * 2.1, 0, Math.sin(b2) * 2.1); g.mesh.add(tooth); }
+    const hubm = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.1, 0.4), M(0x6a4a2a)); hubm.position.y = 0.32; g.mesh.add(hubm);
+    spinG.push({ g, x, z, w }); addCoin(x, t + 1, z);
+  });
+  // north upper ledge, sliding platforms under the second pendulum, the top platform and the bell
+  const HT = 78;
+  box(0, HT - 0.3, -16.75, 15, 0.6, 5.5, 0x8a5a33);
+  line(-4.5, -16.5, 4.5, -16.5, 4, HT + 1); addHeart(-6, HT + 1.4, -17);
+  [[-11, 79.2, 0], [-7, 80.4, 2.1], [-3, 81.6, 4.2]].forEach(([z, t, ph]) => {
+    const s = box(0, t - 0.3, z, 3, 0.6, 3, WOODC); movers.push({ s, base: new V3(0, t - 0.3, z), axis: new V3(1, 0, 0), amp: 3.5, period: 4.5, phase: ph });
+    addCoin(0, t + 1.2, z);
+  });
+  const pend2 = new THREE.Group(); pend2.position.set(0, 93, -7); root.add(pend2);
+  const rod2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 11, 6), M(0x6a4a2a)); rod2.position.y = -5.5; pend2.add(rod2);
+  const bob2 = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.5, 20), M(BRASS, { metalness: 0.6, roughness: 0.3 })); bob2.rotation.x = Math.PI / 2; bob2.position.y = -11; bob2.castShadow = true; pend2.add(bob2);
+  const beam = add(new THREE.Mesh(new THREE.BoxGeometry(40, 0.8, 0.8), M(0x5c3a1e)), false, false); beam.position.set(0, 93.4, -7);
+  cyl(0, 4, 4, 82.2, 83, BRASS, 28);
+  ring(0, 4, 2.6, 6, 84);
+  const bell = add(new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(0.01, 3.2), new THREE.Vector2(0.9, 3.1), new THREE.Vector2(1.3, 2.2), new THREE.Vector2(1.5, 0.8), new THREE.Vector2(2.2, 0), new THREE.Vector2(2.1, -0.15)], 20), M(BRASS, { metalness: 0.6, roughness: 0.3, side: THREE.DoubleSide })));
+  bell.position.set(0, 89.2, 4);
+  const bellRope = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 7.6, 6), M(0x6a4a2a)), false, false); bellRope.position.set(0, 96.2, 4);
+  addStar('campana', 0, 85.4, 4);
   addPortal(-5, 0, -5, Math.PI / 2, 'castle', 'clock');
 
   return {
     sky: 0x2a1c14, fogNear: 60, fogFar: 140, hemi: [0xffe8c8, 0x3a2a1a, 0.95], sun: [0xfff0d0, 0.45],
-    music: 'clock', deathY: -10, hazardY: null, seaY: null, camCyl: 13.6,
+    music: 'clock', deathY: -10, hazardY: null, seaY: null, camCyl: 19.4,
     spawn: { pos: new V3(0, 0, 4), yaw: -Math.PI }, entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Al centro del pavimento della torre',
     update(dt) {
-      const d = Math.hypot(P.pos.x, P.pos.z); if (d > 13.4) { P.pos.x *= 13.4 / d; P.pos.z *= 13.4 / d; }
+      const d = Math.hypot(P.pos.x, P.pos.z); if (d > 19.2) { P.pos.x *= 19.2 / d; P.pos.z *= 19.2 / d; }
+      const onG = P.onGround ? P.ground : null;
+      for (const b of belts) if (onG === b.s) { P.pos.x += b.vx * dt; P.pos.z += b.vz * dt; }
+      for (const g of spinG) {
+        const da = g.w * dt; g.g.mesh.rotation.y += da;
+        if (onG === g.g) { const dx = P.pos.x - g.x, dz = P.pos.z - g.z, c = Math.cos(da), sn = Math.sin(da); P.pos.x = g.x + dx * c + dz * sn; P.pos.z = g.z - dx * sn + dz * c; P.facing += da; }
+      }
+      hand.a += hand.w * dt; handG.rotation.y = hand.a;
+      for (const { q, r } of hand.segs) { const nx = Math.sin(hand.a) * r, nz = Math.cos(hand.a) * r; q.delta.set(nx - q.cx, 0, nz - q.cz); q.mesh.position.x = nx; q.mesh.position.z = nz; q.cx = nx; q.cz = nz; }
+      const th2 = Math.sin(gameTime * 1.3 + 1) * 0.55; pend2.rotation.z = th2;
+      const bx2 = Math.sin(th2) * 11, by2 = 93 - Math.cos(th2) * 11;
+      if (Math.hypot(P.pos.x - bx2, P.pos.y + 0.8 - by2, P.pos.z + 7) < 1.9) hurt({ x: bx2, z: -7 });
       const th = Math.sin(gameTime * 1.1) * 0.5; pend.rotation.z = th;
       const bx = Math.sin(th) * 19, by = 42.8 - Math.cos(th) * 19;
       if (Math.hypot(P.pos.x - bx, P.pos.y + 0.8 - by, P.pos.z) < 2) hurt({ x: bx, z: 0 });
@@ -2470,6 +3317,8 @@ function buildClock() {
     tick(dt, t) {
       for (const s of solids) if (s.gear) s.mesh.rotation.y = t * 0.8;
       decoGears.forEach((gr, i) => { gr.rotation.z = t * (i % 2 ? 0.5 : -0.4); });
+      for (const b of belts) { if (b.vx) b.tex.offset.x = -t * b.vx / 2; else b.tex.offset.x = -t * b.vz / 2; }
+      bell.rotation.z = Math.sin(t * 0.9) * 0.06;
     },
   };
 }
@@ -2478,6 +3327,7 @@ function buildClock() {
 function buildRainbow() {
   const CLOUD = 0xfafcff, SIDE = 0xe8e0f5;
   for (let i = 0; i < 40; i++) { const c = add(new THREE.Mesh(new THREE.IcosahedronGeometry(6 + (i % 4) * 2, 0), M(CLOUD, { roughness: 1 })), false, false); c.position.set(-90 + (i * 37) % 180, -18 - (i % 3) * 3, -110 + (i * 53) % 190); }
+  for (let i = 0; i < 18; i++) { const c = add(new THREE.Mesh(new THREE.IcosahedronGeometry(7 + (i % 3) * 2, 0), M(CLOUD, { roughness: 1 })), false, false); c.position.set(i < 9 ? 60 + (i * 29) % 80 : -50 + (i * 23) % 100, -17 - (i % 3) * 3, i < 9 ? -40 + (i * 31) % 80 : 60 + (i * 17) % 45); }
   cyl(0, 0, 8, -3, 0, [SIDE, GRASS, SIDE], 28);
   // rainbow arch to the east island
   [0xff5a5a, 0xffcf3a, 0x4fd67a, 0x4a8cff].forEach((col, k) => { const z = -1 + k; ramp(16, z, 16, 1, 'x', 0, 10, col); ramp(32, z, 16, 1, 'x', 10, 0, col); });
@@ -2509,6 +3359,83 @@ function buildRainbow() {
   addStar('rosse', 46, 2.5, -3, true);
   addEnemy(46, 0, -3, 3); addEnemy(-3, 7.5, -32, 3);
   addHeart(3, 1.4, 4); addItemBox(-4, 2.6, -4, 'coins');
+  // ===== SOUTH (new): rainbow ramp, dancing clouds, floating isle, sinking clouds and the flying ship =====
+  [0xff5a5a, 0xffcf3a, 0x4fd67a, 0x4a8cff].forEach((col, k) => ramp(-1.5 + k, 14.25, 1, 13.5, 'z', 0, 3, col));
+  [[24.5, 3.3, 0], [28.5, 3.8, 2.1], [32.5, 4.3, 4.2]].forEach(([z, t, ph]) => {
+    const s = box(0, t - 0.3, z, 3, 0.6, 3, CLOUD); movers.push({ s, base: new V3(0, t - 0.3, z), axis: new V3(1, 0, 0), amp: 3, period: 3.6, phase: ph });
+    addCoin(0, t + 1.2, z);
+  });
+  cyl(0, 40, 5.5, 1, 4.5, [SIDE, GRASS, SIDE], 24);
+  sign('Nave volante', -3.2, 4.5, 37.5, Math.PI);
+  [[48.2, 5.2], [52.2, 5.8]].forEach(([z, t]) => { const s = box(0, t - 0.3, z, 2.6, 0.6, 2.6, 0xffd0ec); sinkers.push({ s, baseTop: s.top, state: 'idle', t: 0 }); addCoin(0, t + 1.1, z); });
+  // the ship: deck, hull, bow, rails, cabin, mast (climbable pole) with the crow's nest
+  const HULL = 0x7a4f2b, DECK = 0xb8864a;
+  box(0, 5.9, 65, 8, 1, 20, DECK);
+  const hull = add(new THREE.Mesh(new THREE.BoxGeometry(7, 3, 19), M(HULL))); hull.position.set(0, 3.9, 65.2);
+  const bow = add(new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 2.2, 3), M(HULL))); bow.position.set(0, 3.9, 55.6); bow.rotation.y = Math.PI;
+  const keel = add(new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 16), M(0x5c3a1e))); keel.position.set(0, 1.9, 65.5);
+  for (const sx of [-1, 1]) {
+    const rl = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.25, 19), M(0xffcf3a)), true, false); rl.position.set(sx * 3.9, 7.15, 65.5);
+    for (let z = 56.5; z <= 74.5; z += 4.5) { const po = add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.8, 0.16), M(0x5c3a1e)), false, false); po.position.set(sx * 3.9, 6.8, z); }
+    const wg = add(new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.25, 6), M(0xffd0ec))); wg.position.set(sx * 5.8, 5.2, 63); wg.rotation.z = sx * -0.25;
+  }
+  box(0, 8.15, 71.5, 7, 3.5, 5, 0xf4e8ff);
+  for (const sx of [-1.6, 1.6]) { const w = add(new THREE.Mesh(new THREE.CircleGeometry(0.6, 12), M(0x6fd3ff, { emissive: 0x1f6fb0 })), false, false); w.position.set(sx, 8.4, 68.97); w.rotation.y = Math.PI; }
+  box(-2.5, 7.3, 66.5, 1.8, 1.8, 1.8, 0xb07a45);
+  cyl(2.4, 58.5, 0.6, 6.4, 7.6, 0x7a4f2b, 10);
+  const mast = cyl(0, 61, 0.3, 6.4, 21.5, 0x6b4a2b, 10); mast.pole = true;
+  cyl(0, 61, 1.8, 18.9, 19.5, 0x8a5a33, 16);
+  const nestRim = add(new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.12, 6, 18), M(0xffcf3a)), false, false); nestRim.rotation.x = Math.PI / 2; nestRim.position.set(0, 20.1, 61);
+  const flag = add(new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), M(0xff5a5a, { side: THREE.DoubleSide })), false, false); flag.position.set(0.9, 21, 61);
+  cyl(0, 71.5, 0.22, 9.9, 16.6, 0x6b4a2b, 8);
+  const sail = add(new THREE.Mesh(new THREE.PlaneGeometry(4.4, 3.4), M(0xfff8e6, { side: THREE.DoubleSide })), true, false); sail.position.set(0, 14.4, 71.25);
+  const props = [];
+  for (const sx of [-1, 1]) {
+    const pg = new THREE.Group(); pg.position.set(sx * 2.2, 4.2, 75.1); root.add(pg); props.push(pg);
+    for (let k = 0; k < 3; k++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(0.35, 2.4, 0.08), M(0xffcf3a)); bl.position.y = 0; bl.rotation.z = k * TAU / 3; bl.geometry.translate(0, 1.1, 0); pg.add(bl); }
+  }
+  addStar('nave', 0, 22.2, 61);
+  // coins, foes and goodies in the south
+  lineOn(0, 10, 0, 20, 5, 1); ring(0, 40, 3, 6, 5.5);
+  line(-2.5, 57, -2.5, 64, 4, 7.4); line(2.5, 62, 2.5, 68, 3, 7.4);
+  ring(0, 61, 1.2, 4, 20.5);
+  line(-2, 70.2, 2, 70.2, 3, 11);
+  addEnemy(1.5, 4.5, 41, 3); addEnemy(0, 6.4, 66, 2.5);
+  addHeart(-3, 5.9, 42.5); addItemBox(2.5, 8.8, 64.5, 'coins');
+
+  // ===== EAST (new): cloud steps, the sky carousel and the house in the sky =====
+  box(55.5, 0.9, 0, 3, 0.6, 3, CLOUD); box(59.5, 1.9, 0, 3, 0.6, 3, CLOUD); box(64, 2.7, 0, 3, 0.6, 3, 0xffd0ec);
+  [[55.5, 2.4], [59.5, 3.4], [64, 4.2]].forEach(([x, y]) => addCoin(x, y, 0));
+  const CX = 76, CR = 8, car = { a: 0, plats: [] };
+  cyl(CX, 0, 2.2, -2, 1.5, [SIDE, 0xffcf3a, SIDE], 16);
+  const carG = new THREE.Group(); carG.position.set(CX, 2.45, 0); root.add(carG);
+  [0xff5a5a, 0xffcf3a, 0x4fd67a, 0x4a8cff].forEach((col, k) => {
+    const b = k * Math.PI / 2, x = CX + Math.cos(b) * CR, z = -Math.sin(b) * CR;
+    car.plats.push(box(x, 2.7, z, 3.2, 0.6, 3.2, CLOUD));
+    const sp = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.3, 0.5), M(col)); sp.position.set(Math.cos(b) * 4.9, 0, -Math.sin(b) * 4.9); sp.rotation.y = b; carG.add(sp);
+  });
+  const canopy = new THREE.Mesh(new THREE.ConeGeometry(3.2, 2.2, 12), M(0xff8ad8)); canopy.position.y = 4.4; carG.add(canopy);
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.4, 8), M(0xffcf3a)); pillar.position.y = 1.8; carG.add(pillar);
+  ring(CX, 0, CR, 12, 4.2);
+  box(88, 2.7, 0, 3, 0.6, 3, 0xffd0ec);
+  // the house island
+  cyl(100, 0, 9, -3, 3, [SIDE, GRASS, SIDE], 28);
+  sign('Casa nel cielo', 92.6, 3, 3.2, -Math.PI / 2);
+  box(101, 6.3, -1, 9, 6.6, 7, 0xf4e8ff);
+  ramp(101, -3, 10, 4, 'z', 9.7, 12.5, 0xff8ad8); ramp(101, 1, 10, 4, 'z', 12.5, 9.7, 0xff8ad8);
+  box(103.5, 13, -1, 1.6, 3.4, 1.6, BRICK);
+  const door = add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 1.6), M(0x8a3ab8)), false, false); door.position.set(96.45, 4.2, -1);
+  for (const wx of [98.5, 103.5]) { const w = add(new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), M(0x6fd3ff, { emissive: 0x1f6fb0 })), false, false); w.position.set(wx, 7.3, 2.52); }
+  box(96.8, 3.9, 4.6, 2, 1.8, 2, 0xb07a45); box(99, 4.8, 4.6, 2, 3.6, 2, 0xb07a45); box(101.2, 5.7, 4.6, 2, 5.4, 2, 0xb07a45);
+  for (const [tx, tz] of [[94, -6], [106.5, 4.5]]) {
+    cyl(tx, tz, 0.35, 3, 5.4, 0x8a5a33, 8);
+    const fo = add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 0), M(0xffb8e6))); fo.position.set(tx, 6.4, tz);
+    treeObs(tx, tz, 3, 8, 1.6, [fo]);
+  }
+  addStar('casa', 103.5, 16.9, -1);
+  ring(100, 0, 7.6, 12, 4); line(97.5, -1, 101.5, -1, 3, 13.8);
+  addEnemy(95, 3, -4, 3); addEnemy(104, 3, 6, 2.5);
+  addHeart(92.5, 4.4, -2); addItemBox(100, 5.8, -7, 'life');
   addPortal(5, 0, 3, 0, 'castle', 'rainbow');
 
   return {
@@ -2516,6 +3443,8 @@ function buildRainbow() {
     music: 'rainbow', deathY: -25, hazardY: null, seaY: null,
     spawn: { pos: new V3(0, 0, 5), yaw: 0 }, entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: "Sull'isola in fondo all'arcobaleno",
     update(dt) {
+      car.a += dt * 0.45; carG.rotation.y = car.a;
+      car.plats.forEach((q, k) => { const b = car.a + k * Math.PI / 2, nx = CX + Math.cos(b) * CR, nz = -Math.sin(b) * CR; q.delta.set(nx - q.cx, 0, nz - q.cz); q.mesh.position.x = nx; q.mesh.position.z = nz; q.cx = nx; q.cz = nz; });
       const s = carpet; s.delta.set(0, 0, 0);
       const onIt = P.onGround && P.ground === s;
       if (cp.state === 'wait' && onIt) cp.state = 'go';
@@ -2527,7 +3456,7 @@ function buildRainbow() {
         if (cp.state === 'back' && cp.d <= 0) cp.state = 'wait';
       } else if (cp.state === 'stay') { cp.t -= dt; if (cp.t <= 0 && !onIt) cp.state = 'back'; }
     },
-    tick(dt, t) { carpet.mesh.rotation.z = Math.sin(t * 3) * 0.04; },
+    tick(dt, t) { carpet.mesh.rotation.z = Math.sin(t * 3) * 0.04; props.forEach((pg, i) => { pg.rotation.z = t * (i ? 9 : -9); }); flag.rotation.y = Math.sin(t * 4) * 0.3; },
   };
 }
 // ---------- LEVEL: giant mushroom forest ----------
@@ -2535,6 +3464,12 @@ function buildShroom() {
   const SIDE = 0x6b4a2b, BARK = 0x6b4a2b, CAPR = 0xe0303a, STEM = 0xf4ead0, SHELF = 0xe8b86a, LEAF = 0x2f8a3a;
   cyl(0, 0, 34, -4, 0, [SIDE, GRASS, SIDE], 56);
   mound(-18, 8, 7, 2, 0, 2.5, GRASS2); mound(16, 16, 6, 1.5, 0, 2, GRASS2);
+  // new regions: west pond (ring of grassy banks), north-east stump clearing, south-east mushroom-tower glade
+  const PC = new V3(-52, 0, -4), NE = new V3(37, 0, -32), SE = new V3(33, 0, 27);
+  const inNew = (x, z, pad = 0) => Math.hypot(x - PC.x, z - PC.z) < 26 + pad || Math.hypot(x - NE.x, z - NE.z) < 19.5 + pad || Math.hypot(x - SE.x, z - SE.z) < 13.5 + pad;
+  for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; cyl(PC.x + Math.cos(a) * 18.5, PC.z + Math.sin(a) * 18.5, 7, -4, 0.3, [SIDE, GRASS, SIDE], 24); }
+  cyl(NE.x, NE.z, 18, -4, 0.3, [SIDE, GRASS, SIDE], 48);
+  cyl(SE.x, SE.z, 12, -4, 0.3, [SIDE, GRASS, SIDE], 36);
   // mushroom with a polka-dot cap; bouncy ones launch Tino upwards
   const spotGeo = new THREE.SphereGeometry(1, 8, 6);
   function shroom(x, z, r, top, bouncy, col = CAPR) {
@@ -2573,6 +3508,7 @@ function buildShroom() {
   for (let i = 0; i < 30; i++) {
     const a = i / 30 * TAU + 0.1, r = 31 + (i % 3), x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (z > 20 && Math.abs(x) < 9) continue;
+    if (inNew(x, z)) continue;
     const tr = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 4, 7), M(BARK))); tr.position.set(x, 2, z);
     const cn = add(new THREE.Mesh(new THREE.ConeGeometry(2.4 + (i % 2), 6, 8), M(i % 2 ? LEAF : 0x3f9e45))); cn.position.set(x, 6.5, z);
     treeObs(x, z, 0, 9.5, 2.4 + (i % 2), [tr, cn]);
@@ -2613,11 +3549,103 @@ function buildShroom() {
   sign('Funghi a pois:\nsaltaci sopra!', 9, 0, 11, -0.6);
   addPortal(-5, 0, 27, Math.PI / 2, 'castle', 'shroom');
 
+  // forest trees on the rims of the new regions
+  function ftree(x, z, i) {
+    const tr = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 4, 7), M(BARK))); tr.position.set(x, 2.3, z);
+    const cn = add(new THREE.Mesh(new THREE.ConeGeometry(2.4 + (i % 2), 6, 8), M(i % 2 ? LEAF : 0x3f9e45))); cn.position.set(x, 6.8, z);
+    treeObs(x, z, 0, 9.8, 2.4 + (i % 2), [tr, cn]);
+  }
+  [72, 108, 144, 180, 216, 252, 288].forEach((d, i) => { const a = d * Math.PI / 180; ftree(PC.x + Math.cos(a) * 20.5, PC.z + Math.sin(a) * 20.5, i); });
+  [-100, -80, -60, -40, 25, 40, 55].forEach((d, i) => { const a = d * Math.PI / 180; ftree(NE.x + Math.cos(a) * 16.5, NE.z + Math.sin(a) * 16.5, i); });
+  [-30, 0, 30, 60, 90, 120].forEach((d, i) => { const a = d * Math.PI / 180; ftree(SE.x + Math.cos(a) * 10.3, SE.z + Math.sin(a) * 10.3, i + 1); });
+
+  // ===== WEST: Stagno delle Ninfee =====
+  const pondMat = new THREE.MeshStandardMaterial({ color: 0x3f9aa0, transparent: true, opacity: 0.82, roughness: 0.1, metalness: 0.3, map: TEX.water, depthWrite: false });
+  const pondGeo = new THREE.CircleGeometry(14.6, 40); scaleUV(pondGeo, 1.6);
+  const pond = add(new THREE.Mesh(pondGeo, pondMat), false, true); pond.rotation.x = -Math.PI / 2; pond.position.set(PC.x, -0.6, PC.z);
+  const mud = add(new THREE.Mesh(new THREE.CircleGeometry(15, 32), M(0x24402e)), false, true); mud.rotation.x = -Math.PI / 2; mud.position.set(PC.x, -3, PC.z);
+  cyl(PC.x, PC.z, 3.2, -3, 1.2, [SIDE, GRASS2, SIDE], 20);
+  addStar('ninfee', PC.x, 2.6, PC.z);
+  const padGeo = new THREE.CylinderGeometry(1.45, 1.45, 0.1, 14, 1, false, 0.4, TAU - 0.5), padHide = new THREE.MeshBasicMaterial({ visible: false });
+  [[-42.2, -1.0], [-44.6, 2.0], [-48.0, 3.8], [-51.8, 4.4], [-55.5, 3.2], [-58.2, 0.3]].forEach(([x, z], i) => {
+    const b = box(x, -0.4, z, 2.4, 0.4, 2.4, LEAF); b.mesh.material = padHide;
+    const lp = new THREE.Mesh(padGeo, M(i % 2 ? 0x3f9e45 : 0x4fae4a)); lp.position.y = 0.16; lp.rotation.y = i * 1.3; lp.receiveShadow = true; b.mesh.add(lp);
+    if (i % 2 === 0) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), M(0xff8ad8)); fl.position.set(0.5, 0.35, 0.3); fl.scale.y = 0.6; b.mesh.add(fl); }
+    sinkers.push({ s: b, baseTop: b.top, state: 'idle', t: 0, speed: 1.0 });
+    addCoin(x, 0.9, z);
+  });
+  const log = box(-58.6, -0.35, -4.2, 1.6, 0.5, 3.2, BARK);
+  movers.push({ s: log, base: new V3(-58.6, -0.35, -4.2), axis: new V3(1, 0, 0), amp: 1.6, period: 4, phase: 0 });
+  ring(PC.x, PC.z, 2, 6, 2.2);
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * TAU + 0.2, r = 13.6 + (i % 3) * 0.5, x = PC.x + Math.cos(a) * r, z = PC.z + Math.sin(a) * r;
+    if (Math.abs(a - TAU) < 0.5 || a < 0.5) continue;
+    for (let k = 0; k < 3; k++) {
+      const st = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.6 + k * 0.3, 5), M(0x3f7a2a)), false, false); st.position.set(x + k * 0.3 - 0.3, 0.3 + 0.8 + k * 0.15, z + (k % 2) * 0.3);
+      if (k === 1) { const hd = add(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.5, 6), M(0x6b4a2b)), false, false); hd.position.set(st.position.x, st.position.y + 0.95, st.position.z); }
+    }
+  }
+  sign('Stagno delle ninfee:\nnon fermarti!', -36.5, 0.3, -9, -Math.PI / 2);
+  addEnemy(-40, 0.3, 12, 3); addEnemy(-40, 0.3, -20, 3); addEnemy(-68, 0.3, -4, 3);
+  addHeart(-37.5, 1.7, 1);
+  lineOn(-66, -14, -66, 6, 5, 1);
+  const pondSafe = new V3(-37.5, 0.4, -4);
+
+  // ===== NORTH-EAST: Ceppo Gigante =====
+  const S = new V3(45, 0, -30), RING = 0xd9b27a;
+  cyl(S.x, S.z, 5.5, -0.5, 14, [BARK, RING, BARK], 22);
+  const core = add(new THREE.Mesh(new THREE.CircleGeometry(1.4, 16), M(0x8a5a33)), false, true); core.rotation.x = -Math.PI / 2; core.position.set(S.x, 14.02, S.z);
+  for (let i = 0; i < 3; i++) { const rg = add(new THREE.Mesh(new THREE.RingGeometry(2 + i * 1.1, 2.12 + i * 1.1, 28), M(0x8a5a33)), false, false); rg.rotation.x = -Math.PI / 2; rg.position.set(S.x, 14.03, S.z); }
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU + 0.3, rt = add(new THREE.Mesh(new THREE.BoxGeometry(3, 1.4, 1.1), M(BARK)));
+    rt.position.set(S.x + Math.cos(a) * 6, 0.4, S.z + Math.sin(a) * 6); rt.rotation.y = -a; rt.rotation.z = 0.25;
+  }
+  for (let i = 0; i < 4; i++) { const a = i * 1.7 + 0.5, sh = add(new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.8, 0.3, 12), M(SHELF)), true, false); sh.position.set(S.x + Math.cos(a) * 5.6, 3 + i * 2.6, S.z + Math.sin(a) * 5.6); }
+  addStar('ceppo', S.x, 15.4, S.z);
+  ring(S.x, S.z, 3.5, 8, 15);
+  const logP = [[150, 9, 1.8], [185, 9, 3.8], [220, 9, 5.8], [295, 9, 8.8], [330, 9, 10.8], [5, 8.5, 12.8]].map(([d, r, top]) => {
+    const a = d * Math.PI / 180, x = S.x + Math.cos(a) * r, z = S.z + Math.sin(a) * r;
+    const lg = cyl(x, z, 1.3, -4, top, [BARK, RING, BARK], 14); addCoin(x, top + 1, z); return lg;
+  });
+  { // the floating leaf between the third and fourth stump
+    const a = logP[2], b = logP[3], mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2, dx = b.x - a.x, dz = b.z - a.z, dl = Math.hypot(dx, dz);
+    const leaf = box(mx, 7.1, mz, 2.4, 0.4, 2.4, 0x5fbf4a);
+    const vein = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 2.2), M(0x3f7a2a)); vein.position.y = 0.23; leaf.mesh.add(vein);
+    movers.push({ s: leaf, base: new V3(mx, 7.1, mz), axis: new V3(dx / dl, 0, dz / dl), amp: 2.4, period: 4.5, phase: 0 });
+  }
+  const neB = [shroom(28, -40, 1.8, 1.5, true, 0xff6a3a)];
+  const shelfHi = cyl(27.5, -44.8, 2.2, 6.5, 7, SHELF, 16);
+  addItemBox(27.5, 9.6, -44.8, 'life');
+  sign('Ceppo gigante', 33, 0.3, -21, 0.7);
+  addEnemy(40, 0.3, -19, 4); addEnemy(48, 0.3, -44, 3); addEnemy(30, 0.3, -32, 3);
+  ringOn(30, -22, 3, 8, 1); lineOn(26, -28, 36, -46, 5, 1);
+
+  // ===== SOUTH-EAST: Radura della Torre (bounce twice up to the tall mushroom) =====
+  const seB = [shroom(30.5, 24, 2, 1.5, true, 0x3a8aff), shroom(34.5, 27.8, 1.9, 5.3, true, 0xb84aff)];
+  const tower = shroom(37.5, 31.5, 3, 10.8, false, 0xffcf3a);
+  addItemBox(37.5, 13.4, 31.5, 'coins');
+  ring(37.5, 31.5, 2, 6, 11.8);
+  seB.forEach(b => addCoin(b.x, b.top + 3.5, b.z));
+  ringOn(28, 33, 3, 8, 1); lineOn(40, 20, 40, 26, 3, 1);
+  addEnemy(30, 0.3, 33, 3); addEnemy(40, 0.3, 22, 3);
+  for (let i = 0; i < 10; i++) { const a = i * 2.39, r = 4 + (i % 4) * 1.7, x = SE.x + Math.cos(a) * r, z = SE.z + Math.sin(a) * r;
+    const st = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.5, 6), M(STEM)), false); st.position.set(x, gy(x, z) + 0.25, z);
+    const cp = add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 6, 0, TAU, 0, Math.PI / 2), M([CAPR, 0xffcf3a, 0xb84aff][i % 3])), false); cp.position.set(x, gy(x, z) + 0.45, z); }
+  const moreB = neB.concat(seB);
+
   return {
     sky: 0x9fd8e8, fogNear: 60, fogFar: 170, hemi: [0xfff6e0, 0x3a5a2a, 0.9], sun: [0xfff0c8, 0.9],
     music: 'shroom', deathY: -15, hazardY: null, seaY: null,
     spawn: { pos: new V3(0, 0, 26), yaw: 0 }, entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Nella radura davanti alla partenza',
     update(dt) {
+      // pond: a splash sends Tino back to the shore
+      if (P.pos.y < -0.9 && Math.hypot(P.pos.x - PC.x, P.pos.z - PC.z) < 15.5) {
+        sfx.splash(); burst(new V3(P.pos.x, -0.5, P.pos.z), 0xbfe6ff, 16, 5);
+        if (!(P.metalT > 0)) { P.hp = Math.max(0, P.hp - 1); hud(); }
+        if (P.hp <= 0) { die(); return; }
+        P.pos.copy(pondSafe); P.vel.set(0, 0, 0); P.onGround = false; P.ground = null; P.pound = P.longJump = P.backflip = P.dive = false; P.inv = Math.max(P.inv, 1);
+        banner('Splash!<small>Salta di ninfea in ninfea senza fermarti</small>', 1.8);
+      }
       // bouncy caps
       if (P.onGround && P.ground && P.ground.shroom && !P.pound) {
         const b = P.ground; b.squish = 1;
@@ -2668,12 +3696,13 @@ function buildShroom() {
       rbody.scale.y = 0.85 + (tired ? Math.sin(gameTime * 10) * 0.05 : 0);
     },
     tick(dt, t) {
-      for (const b of bouncers.concat([giant])) {
+      for (const b of bouncers.concat([giant], moreB)) {
         if (!b.squish) continue;
         b.squish = Math.max(0, b.squish - dt * 3);
         const k = Math.sin(b.squish * Math.PI * 2) * b.squish * 0.25; b.mesh.scale.set(1 + k, 1 - k, 1 + k);
       }
       canopy.mesh.rotation.y = Math.sin(t * 0.3) * 0.02;
+      TEX.water.offset.set(t * 0.012, t * 0.007);
     },
   };
 }
@@ -2682,9 +3711,22 @@ function buildCave() {
   const FLOOR = 0x5a4e5e, WALLC = 0x3a3044, PLAT = 0x7a7080;
   box(-14, -2, 0, 44, 4, 72, FLOOR); box(21, -2, 22, 26, 4, 28, FLOOR); box(21, -2, -30, 26, 4, 12, FLOOR);
   box(21, -9, -8, 26, 2, 32, 0x2a3a4a);
-  [box(0, 10, -37, 74, 24, 2, WALLC), box(0, 10, 37, 74, 24, 2, WALLC), box(-37, 10, 0, 2, 24, 74, WALLC), box(35, 10, 0, 2, 24, 74, WALLC)].forEach(w => { w.mesh.castShadow = false; });
+  [
+    // main hall: north wall with a passage at x -33..-25 (to the geode), east wall with a passage at z 17..25 (to the mine)
+    // (walls next to the new bottomless shafts reach down to y -20, so nothing shows through underneath)
+    box(-35, 1, -37, 4, 42, 2, WALLC), box(6, 1, -37, 62, 42, 2, WALLC), box(-29, 14, -37, 8, 16, 2, WALLC), box(-29, -12, -37, 8, 16, 2, WALLC),
+    box(0, 10, 37, 74, 24, 2, WALLC), box(-37, 10, 0, 2, 24, 74, WALLC),
+    box(35, 1, -10, 2, 42, 54, WALLC), box(35, 1, 31, 2, 42, 12, WALLC), box(35, 14, 21, 2, 16, 8, WALLC), box(35, -12, 21, 2, 16, 8, WALLC),
+    // east wing (the old mine)
+    box(60, 1, -37, 50, 42, 2, WALLC), box(60, 1, 37, 50, 42, 2, WALLC), box(85, 1, 0, 2, 42, 76, WALLC),
+    // north wing (the geode)
+    box(-37, 1, -59, 2, 42, 44, WALLC), box(35, 1, -59, 2, 42, 44, WALLC), box(0, 1, -81, 74, 42, 2, WALLC),
+  ].forEach(w => { w.mesh.castShadow = false; });
   const roof = add(new THREE.Mesh(new THREE.PlaneGeometry(74, 74), M(0x221a2a)), false, false); roof.rotation.x = Math.PI / 2; roof.position.y = 22;
-  const water = makeWater(44, 22, 0x1a7a9a, 0.78, -0.6); water.position.set(21, -0.6, -8);
+  const roofE = add(new THREE.Mesh(new THREE.PlaneGeometry(50, 76), M(0x221a2a)), false, false); roofE.rotation.x = Math.PI / 2; roofE.position.set(60, 22, 0);
+  const roofN = add(new THREE.Mesh(new THREE.PlaneGeometry(74, 44), M(0x221a2a)), false, false); roofN.rotation.x = Math.PI / 2; roofN.position.set(0, 22, -59);
+  for (const [x, z, w, d] of [[60, -14, 50, 46], [70, 15, 30, 14], [0, -60, 72, 42]]) { const pit = add(new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: 0x07050c })), false, false); pit.rotation.x = -Math.PI / 2; pit.position.set(x, -19, z); }
+  const water = makeWater(44, 22, 0x1a7a9a, 0.78, -0.6); water.position.set(21, -0.6, -8); water.scale.x = 28 / 44;
   // glowing crystals
   const CRY = [0x6fe3ff, 0xb58cff, 0xff7ad8];
   const crystals = [];
@@ -2696,6 +3738,7 @@ function buildCave() {
     const side = i % 4, u = ((i * 37) % 70) - 35;
     const x = side === 0 ? -35.5 : side === 1 ? 33.5 : u, z = side === 2 ? -35.5 : side === 3 ? 35.5 : u;
     if (side === 1 && z > -24 && z < 8) continue;
+    if ((side === 1 && z > 14 && z < 28) || (side === 2 && x > -35 && x < -23)) continue;
     const y = side === 1 && z > -24 && z < 8 ? -8 : 0;
     for (let j = 0; j < 3; j++) crystal(x + (j - 1) * 0.7, y, z + (j % 2) * 0.6, 0.7 + ((i + j) % 3) * 0.35, i + j);
   }
@@ -2753,6 +3796,98 @@ function buildCave() {
   sign('Attenzione:\ngas velenoso!', -9, 0, 18, -Math.PI / 2);
   addItemBox(-8, 2.6, 13.5, 'metal');
   let gasT = 1.4;
+  const glow = (s, col, k = 0.35) => { s.mesh.material = M(col, { emissive: col, emissiveIntensity: k, roughness: 0.3 }); return s; };
+  const beam = (x, z, y0, y1) => { const b = add(new THREE.Mesh(new THREE.BoxGeometry(0.35, y1 - y0, 0.35), M(0x5a3a24)), true, false); b.position.set(x, (y0 + y1) / 2, z); };
+  const lamp = (x, y, z) => { const o = add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffc04a })), false, false); o.position.set(x, y, z); };
+  // ===== EAST WING: the old mine, over a bottomless shaft =====
+  const WOODM = 0x7a5232, RAIL = 0x8a8e9a;
+  box(45, -2, 22, 22, 4, 28, FLOOR);      // entry hall (x 34..56, z 8..36)
+  box(70, -2, 29, 28, 4, 14, FLOOR);      // storeroom (x 56..84, z 22..36)
+  for (const z of [17, 25]) { beam(36.6, z, 0, 6); } const lin = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 9), M(0x5a3a24)), true, false); lin.position.set(36.6, 6, 21);
+  sign('Miniera\nabbandonata', 38.5, 0, 14, -Math.PI / 2);
+  // the rail bridge north, the station and the mine cart shuttling east over the shaft
+  box(45, -0.3, 2, 2.4, 0.6, 12, WOODM);
+  box(45, -0.3, -7, 5, 0.6, 6, WOODM);
+  for (const [x, z] of [[44, -4], [46, -4], [43, -9.5], [47, -9.5]]) beam(x, z, -18, 0);
+  for (const sx of [-0.6, 0.6]) { const r = add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 15), M(RAIL, { metalness: 0.6, roughness: 0.4 })), false, false); r.position.set(45 + sx, 0.06, 0.5); }
+  const cart = box(61, -0.5, -7, 3, 1, 3, 0x6a4a34);
+  for (const [wx, wz] of [[-1, -1.3], [1, -1.3], [-1, 1.3], [1, 1.3]]) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.2, 10), M(0x3a3a44)); wh.rotation.x = Math.PI / 2; wh.position.set(wx, -0.5, wz * 1.05); cart.mesh.add(wh); }
+  for (const sz of [-1.4, 1.4]) { const lip = new THREE.Mesh(new THREE.BoxGeometry(3, 0.35, 0.2), M(0x8a6a44)); lip.position.set(0, 0.62, sz); cart.mesh.add(lip); }
+  movers.push({ s: cart, base: new V3(61, -0.5, -7), axis: new V3(1, 0, 0), amp: 11, period: 9, phase: -Math.PI / 2 });
+  for (const sz of [-8, -6]) { const r = add(new THREE.Mesh(new THREE.BoxGeometry(26, 0.12, 0.12), M(RAIL, { metalness: 0.6, roughness: 0.4 })), false, false); r.position.set(61, -1.1, sz); }
+  line(50, -7, 72, -7, 7, 1.6);
+  // the rock pillar and the scaffolding climbing north
+  cyl(78, -7, 4.5, -20, 0, [0x4a3e4e, FLOOR, 0x4a3e4e], 16);
+  addEnemy(79, 0, -6, 1.8);
+  const SCAF = [[79, 2, -13.5], [75, 4, -17.5], [79, 6, -21.5], [75, 8, -25.5], [79, 10, -29.5]];
+  SCAF.forEach(([x, y, z], i) => {
+    const pl = box(x, y - 0.3, z, 3, 0.6, 3, WOODM);
+    if (i === 3) sinkers.push({ s: pl, baseTop: pl.top, state: 'idle', t: 0, speed: 3 });
+    else { beam(x - 1.2, z - 1.2, -18, y - 0.6); beam(x + 1.2, z + 1.2, -18, y - 0.6); }
+    addCoin(x, y + 1, z);
+  });
+  lamp(81, 7, -21.5); lamp(73, 11, -25.5);
+  // high walkway west, the lift and the star ledge
+  box(66, 9.7, -31, 20, 0.6, 3, WOODM);
+  for (const x of [58, 66, 74]) beam(x, -32.2, -18, 9.4);
+  lineOn(74, -31, 58, -31, 6, 1);
+  addEnemy(64, 10, -31, 1.2);
+  const lift = box(54.5, 12.2, -31, 3, 0.6, 3, 0x8a6a44);
+  movers.push({ s: lift, base: new V3(54.5, 12.2, -31), axis: new V3(0, 1, 0), amp: 2.4, period: 5, phase: -Math.PI / 2 });
+  const rope = add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 8, 5), M(0x9a8a6a)), false, false); rope.position.set(54.5, 18, -31);
+  const winch = box(47.5, 14.7, -31, 5, 0.6, 5, WOODM);
+  beam(45.4, -33.1, -18, 14.4); beam(49.6, -28.9, -18, 14.4);
+  addStar('miniera', 47.5, 16.6, -31);
+  lamp(45.5, 17, -33); lamp(49.5, 17, -29);
+  // storeroom
+  ringOn(70, 29, 5, 10, 1); addEnemy(66, 0, 30, 3); addEnemy(76, 0, 27, 3);
+  addItemBox(80, 2.6, 33, 'coins'); addHeart(60, 1.4, 34);
+  for (const [x, z] of [[82, 24], [58, 24]]) box(x, 0.6, z, 1.6, 1.2, 1.6, WOODM);
+  lineOn(38, 30, 52, 30, 5, 1); ringOn(45, 14, 3, 6, 1); lineOn(45, 6, 45, -2, 3, 1);
+  for (const [x, z] of [[40, 34], [54, 12], [83, 30], [40, 10]]) lamp(x, 2.4, z);
+  for (let i = 0; i < 18; i++) {
+    const side = i % 3, u = (i * 29) % 46;
+    const [x, z, y] = side === 0 ? [84.3, -34 + u, -8 + (i % 4) * 5] : side === 1 ? [38 + u, -35.3, -10 + (i % 5) * 4] : [38 + u, 35.4, 0];
+    for (let j = 0; j < 2; j++) crystal(x + (side ? j * 0.7 : 0), y, z + (side ? 0 : j * 0.7), 0.7 + ((i + j) % 3) * 0.35, i + j);
+  }
+  for (let i = 0; i < 16; i++) crystal(38 + (i * 13) % 46, 22, -33 + (i * 17) % 66, 0.8 + (i % 3) * 0.5, i, true);
+
+  // ===== NORTH WING: the giant geode over a crystal abyss =====
+  const GC = [0x6fe3ff, 0xb58cff, 0xff7ad8];
+  box(-29, -2, -44.5, 14, 4, 17, FLOOR);   // entry ledge (x -36..-22, z -36..-53)
+  sign('Il geode\ngigante', -24, 0, -39, Math.PI / 2 + 0.6);
+  glow(cyl(-19.5, -49, 1.6, -20, 1.2, PLAT, 6), GC[0]);
+  glow(cyl(-15, -53, 1.6, -20, 2.4, PLAT, 6), GC[1]);
+  const cm = glow(box(-10, 3.3, -56.5, 2.8, 0.6, 2.8, PLAT), GC[2]);
+  movers.push({ s: cm, base: new V3(-10, 3.3, -56.5), axis: new V3(0, 1, 0), amp: 1.2, period: 4, phase: 0 });
+  glow(cyl(-5, -60, 1.6, -20, 4.8, PLAT, 6), GC[0]);
+  const cs = glow(box(-0.5, 5.1, -61.5, 2.6, 0.6, 2.6, PLAT), GC[1]);
+  sinkers.push({ s: cs, baseTop: cs.top, state: 'idle', t: 0, speed: 2.5 });
+  for (const [x, z, t] of [[-19.5, -49, 1.2], [-15, -53, 2.4], [-5, -60, 4.8]]) addCoin(x, t + 1, z);
+  // the geode: a round platform ringed by huge crystals
+  const GX = 9, GZ = -62;
+  cyl(GX, GZ, 6.5, -20, 6, [0x4a3e5e, 0x8a7aa0, 0x4a3e5e], 24);
+  for (let i = 0; i < 9; i++) { const a = i / 9 * TAU + 0.3; if (Math.abs(a - Math.PI) < 0.5 || Math.abs(a - 5.7) < 0.45) continue; crystal(GX + Math.cos(a) * 5.9, 6, GZ + Math.sin(a) * 5.9, 1.3 + (i % 3) * 0.4, i); }
+  ringOn(GX, GZ, 3.5, 8, 1); addEnemy(GX + 2, 6, GZ + 2, 2.5); addHeart(GX - 2, 7.4, GZ - 2);
+  // floating crystals up to the heart of the geode
+  const FL = [[18, 8, -68], [22, 10, -73], [26, 12, -66], [29, 14, -60]];
+  FL.forEach(([x, y, z], i) => {
+    const pl = glow(box(x, y - 0.3, z, 3, 0.6, 3, PLAT), GC[i % 3], 0.45);
+    if (i === 2) movers.push({ s: pl, base: new V3(x, y - 0.3, z), axis: new V3(0, 0, 1), amp: 2.5, period: 5, phase: 0 });
+    addCoin(x, y + 1, z);
+  });
+  box(29, 15.2, -52, 8, 1.6, 8, 0x4a3e5e);
+  for (let i = 0; i < 7; i++) crystal(29 + Math.cos(i * 0.9) * 3.2, 16, -52 - 2.5 - (i % 3) * 0.6 + Math.sin(i * 0.9) * 0.5, 1.6 + (i % 3) * 0.6, i);
+  addStar('geode', 29, 17.8, -51);
+  addItemBox(-32, 2.6, -50, 'life');
+  for (let i = 0; i < 22; i++) {
+    const side = i % 3, u = (i * 23) % 70;
+    const [x, z, y] = side === 0 ? [-35.4, -40 - (u % 38), -6 + (i % 4) * 4] : side === 1 ? [33.4, -40 - (u % 38), -10 + (i % 5) * 4] : [-34 + u, -79.4, -8 + (i % 4) * 5];
+    for (let j = 0; j < 2; j++) crystal(x + (side === 2 ? j * 0.7 : 0), y, z + (side === 2 ? 0 : j * 0.7), 0.8 + ((i + j) % 3) * 0.4, i + j);
+  }
+  for (let i = 0; i < 18; i++) crystal(-32 + (i * 19) % 64, 22, -41 - (i * 11) % 37, 0.8 + (i % 3) * 0.5, i, true);
+  for (let i = 0; i < 10; i++) crystal(-30 + (i * 17) % 60, -19, -42 - (i * 7) % 34, 2 + (i % 3), i);
+
   // coins
   lineOn(-14.5, 16, -14.5, 32, 5, 1); lineOn(-19.5, 32, -19.5, 16, 5, 1); lineOn(-24.5, 16, -24.5, 32, 5, 1); lineOn(-29.5, 32, -29.5, 16, 5, 1);
   ring(0, 20, 4, 8, 1); ring(AC.x, AC.z, 7, 10, 4); lineOn(0, -13, 0, -30, 5, 1.2); ringOn(20, 24, 6, 8, 1);
@@ -2764,10 +3899,10 @@ function buildCave() {
   addPortal(-5, 0, 32, Math.PI / 2, 'castle', 'cave');
 
   return {
-    sky: 0x0c0a18, fogNear: 28, fogFar: 95, hemi: [0x9aa8ff, 0x201830, 0.75], sun: [0xc8d8ff, 0.4],
+    sky: 0x0c0a18, fogNear: 30, fogFar: 105, hemi: [0x9aa8ff, 0x201830, 0.75], sun: [0xc8d8ff, 0.4],
     music: 'cave', deathY: -20, hazardY: null, seaY: null, waterY: -0.6,
     spawn: { pos: new V3(0, 0, 30), yaw: 0 }, entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Vicino alla partenza',
-    camBox: { x0: -35.5, x1: 33.5, z0: -35.5, z1: 35.5, y0: -12, y1: 21 },
+    camBox: { x0: -35.5, x1: 83.5, z0: -79.5, z1: 35.5, y0: -12, y1: 21 },
     onPound(s) {
       if (!s || s !== kb.solid || kb.state !== 'down') return;
       kb.hp--; kbHud(); sfx.bossHit(); G.shake = 0.3; burst(P.pos.clone(), 0xb0b4c0, 16, 6);
@@ -2780,6 +3915,8 @@ function buildCave() {
       } else { kb.state = 'rise'; kb.t = 0; dropSolid(); }
     },
     update(dt) {
+      // the lake only exists in the main hall: the two wings have bottomless shafts instead
+      L.waterY = (P.pos.x > 34.5 || P.pos.z < -37.5) ? null : -0.6;
       // King Slab
       if (kb.state !== 'dead') {
         const onPlat = P.pos.y > 2.5 && Math.hypot(P.pos.x - AC.x, P.pos.z - AC.z) < 10;

@@ -2,7 +2,7 @@
 <title>Super Tino</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Caveat:wght@600&family=Nunito:wght@600;800&display=swap">
 <style>
 :root{--ink:#16213e;--gold:#ffcf3a;--coral:#ff6b5a;--sky:#7ec8f0;--paper:#fff8e6;--mint:#4fd67a;color-scheme:dark}
 [hidden]{display:none!important}
@@ -28,6 +28,17 @@ html,body{height:100%;margin:0;background:var(--ink);overflow:hidden;font-family
 #reticle{position:fixed;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border:3px solid var(--paper);border-radius:50%;box-shadow:0 0 0 3px var(--ink);pointer-events:none}
 #reticle::before{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:var(--coral)}
 #reticle span{position:absolute;top:84px;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:Bungee,Impact,sans-serif;font-size:12px;color:var(--paper);text-shadow:0 2px 0 var(--ink)}
+#cutBars i{position:fixed;left:0;right:0;height:11vh;background:#07060c;z-index:5;pointer-events:none;animation:barIn .5s ease-out}
+#cutBars .top{top:0}#cutBars .bot{bottom:0}
+@keyframes barIn{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+#dialog{position:fixed;left:50%;bottom:calc(11vh + 14px);transform:translateX(-50%);width:min(92vw,640px);box-sizing:border-box;background:var(--paper);color:var(--ink);border:4px solid var(--ink);border-radius:16px;padding:14px 18px 10px;box-shadow:0 6px 0 var(--ink);z-index:6}
+#dialog b{display:block;font-family:Bungee,Impact,sans-serif;font-weight:400;color:var(--coral);font-size:15px;letter-spacing:.04em}
+#dialog p{margin:6px 0 6px;font-size:18px;line-height:1.45;min-height:2.9em}
+.dlgHint{display:block;font-size:11px;opacity:.55;text-align:right}
+#letter{position:fixed;inset:0;display:grid;place-items:center;z-index:6;padding:16px;pointer-events:none}
+#letter .paper{width:min(88vw,520px);box-sizing:border-box;background:#fbf3dc;color:#3a2a1a;border-radius:6px;padding:28px 30px 16px;box-shadow:0 18px 50px rgba(0,0,0,.45);transform:rotate(-1.2deg)}
+#letter p{margin:0 0 10px;font-family:Caveat,'Comic Sans MS',cursive;font-size:clamp(22px,4.2vw,30px);line-height:1.3;white-space:pre-line}
+body.cut .hud,body.cut #bossBar,body.cut .touch-only{opacity:0!important;pointer-events:none!important}
 #banner{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%) scale(.9);font-family:Bungee,Impact,sans-serif;font-size:clamp(26px,6vw,58px);line-height:1.05;color:var(--gold);text-shadow:0 4px 0 var(--ink),0 0 18px rgba(0,0,0,.3);pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;text-align:center;width:min(90vw,900px);text-wrap:balance}
 #banner small{display:block;font-size:.4em;color:var(--paper);margin-top:8px}
 #banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -95,6 +106,9 @@ body.touch .keys.touch-only{display:grid!important}
 <div id="bossBar" hidden><span id="bossName">Re Grumo</span> <span id="bossHp">♥♥♥</span></div>
 
 <div id="banner"></div>
+<div id="cutBars" hidden><i class="top"></i><i class="bot"></i></div>
+<div id="dialog" hidden><b id="dlgWho"></b><p id="dlgText"></p><span class="dlgHint">Spazio o tocca per continuare · Esc per saltare</span></div>
+<div id="letter" hidden><div class="paper"><p id="letterText"></p><span class="dlgHint">Spazio o tocca per continuare · Esc per saltare</span></div></div>
 <div id="reticle" hidden><span>Mira con WASD, frecce o joystick · Salta per sparare · Shift o Pesta per uscire</span></div>
 
 <div id="joy" class="touch-only" hidden><div id="knob"></div></div>
@@ -128,6 +142,7 @@ body.touch .keys.touch-only{display:grid!important}
     <div class="btns">
       <button class="btn" id="bPlay" type="button">Gioca</button>
       <button class="btn ghost" id="bReset" type="button" hidden>Nuova partita</button>
+      <button class="btn ghost" id="bIntro" type="button" hidden>Rivedi l'introduzione</button>
     </div>
   </div>
 </div>
@@ -960,7 +975,7 @@ function buildVolcano() {
     const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 4, 6), M(BASALT))); post.position.set(x, 3, z);
     const fire = add(new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 0), M(0xffa200, { emissive: 0xff5a00 })), false, false); fire.position.set(x, 5.3, z);
   }
-  addBoss(32, 3, 10, 11, { star: 're', msg: "Al centro dell'arena", key: 'silver', name: 'Il Re Grumo', bar: 'Re Grumo' });
+  addBoss(32, 3, 10, 11, { star: 're', msg: "Al centro dell'arena", key: 'silver', name: 'Il Re Grumo', bar: 'Re Grumo', taunt: 'Un panda rosso nel mio vulcano? Le stelle sono mie, e non te le ridarò mai!' });
   ringOn(32, 10, 6, 10, 1); ringOn(32, 10, 9, 12, 1);
   addStar('re', 32, 5.4, 10, true);
 
@@ -1093,7 +1108,7 @@ function buildSnow() {
     const sp = add(new THREE.Mesh(new THREE.ConeGeometry(0.6, 3 + (i % 3), 6), M(ICE, { emissive: 0x16384a })), true, false);
     sp.position.set(Math.sin(a) * 9.6, 1.5, -50 + Math.cos(a) * 9.6);
   }
-  addBoss(0, 0.4, -50, 9, { star: 'regelo', msg: "Al centro dell'arena di ghiaccio", key: 'gold', name: 'Il Re del Gelo', bar: 'Re del Gelo', tint: 0x8fd0f0 });
+  addBoss(0, 0.4, -50, 9, { star: 'regelo', msg: "Al centro dell'arena di ghiaccio", key: 'gold', name: 'Il Re del Gelo', bar: 'Re del Gelo', tint: 0x8fd0f0, taunt: 'Brrr... quassù fa freddo per tutti, piccolo panda. Ti congelerò la coda!' });
   addStar('regelo', 0, 2.8, -50, true);
   sign('Arena del Re del Gelo', 2.6, 0, -31.5, 0);
 
@@ -1853,9 +1868,9 @@ function buildCastle() {
   const blockG = box(0, 2.3, -1.8, 8.6, 4.6, 0.4, WALL); blockG.mesh.visible = false;
   const lockDoors = [
     { key: 'silver', blocker: blockS, open: false, anim: 0, msgT: 0, near: () => P.pos.x > 19.2 && Math.abs(P.pos.z) < 1.7 && P.pos.y < 2,
-      hint: "Serve la chiave d'argento: sconfiggi il Re Grumo nel Vulcano", apply: k => { hinge.rotation.y = 1.5 * k; } },
+      hint: "Serve la chiave d'argento: sconfiggi il Re Grumo nel Vulcano", cam: [[14, 5, 6], [21, 2.2, 0], [15.5, 3.2, 3]], apply: k => { hinge.rotation.y = 1.5 * k; } },
     { key: 'gold', blocker: blockG, open: false, anim: 0, msgT: 0, near: () => Math.abs(P.pos.x) < 4.2 && P.pos.z < -1 && P.pos.z > -3 && P.pos.y < 2,
-      hint: "Serve la chiave d'oro: sconfiggi il Re del Gelo nella Neve", apply: k => { gate.position.y = 5 * k; } },
+      hint: "Serve la chiave d'oro: sconfiggi il Re del Gelo nella Neve", cam: [[0, 4, 9], [0, 3, -2], [2, 3.5, 5]], apply: k => { gate.position.y = 5 * k; } },
   ];
   for (const d of lockDoors) if (opened[d.key]) { d.open = true; d.anim = 1; d.apply(1); solids.splice(solids.indexOf(d.blocker), 1); }
 
@@ -1883,15 +1898,28 @@ function buildCastle() {
     music: 'castle', deathY: -10, hazardY: null, seaY: null,
     spawn: entries.door, entries, ejects, doors: [], redTotal: 0, coinStar: false,
     camBox: { x0: -19.2, x1: 39.2, z0: -19.2, z1: 19.2, y0: 0.6, y1: 13.4 },
+    cutscene() {
+      if (save.seen && save.seen.castle) return;
+      save.seen = Object.assign({}, save.seen, { castle: true }); persist();
+      startCut([
+        { dur: 5, who: 'Gufa Bianca', text: "Benvenuto nel castello! Ogni quadro è un mondo: quelli spenti si accendono quando hai abbastanza stelle.",
+          from: { pos: [0, 11, 16], look: [-20, 4, 0] }, to: { pos: [0, 8, 8], look: [-20, 4, 0] } },
+        { dur: 5, who: 'Gufa Bianca', text: "Alcune porte sono chiuse a chiave: le chiavi le custodiscono i re dei mondi. Sconfiggili!",
+          from: { pos: [6, 5, 8], look: [21, 2.5, 0] }, to: { pos: [4, 4, 4], look: [0, 2.5, -2] } },
+        { dur: 5, who: 'Gufa Bianca', text: 'Lassù, dietro la Porta della Stella, ti aspetta il Re Grumo. Buona fortuna, Tino!',
+          from: { pos: [0, 6, 2], look: [0, 10, -20] }, to: { pos: [0, 9, -7], look: [0, 10, -20] } },
+      ]);
+    },
     update(dt) {
       msgT -= dt;
       for (const d of lockDoors) {
         d.msgT -= dt;
-        if (d.open) { if (d.anim < 1) { d.anim = Math.min(1, d.anim + dt * 1.2); d.apply(d.anim); } continue; }
+        if (d.open) continue;
         if (!d.near()) continue;
         if (save.keys && save.keys[d.key]) {
           d.open = true; save.opened = Object.assign({}, save.opened, { [d.key]: true }); persist();
           solids.splice(solids.indexOf(d.blocker), 1); sfx.reveal();
+          startCut([{ dur: 2.6, from: { pos: d.cam[0], look: d.cam[1] }, to: { pos: d.cam[2], look: d.cam[1] } }]);
           banner('Porta aperta!<small>Hai usato ' + KEY_NAME[d.key] + '</small>', 2.2);
         } else if (d.msgT <= 0) { d.msgT = 2.5; sfx.locked(); banner('Chiuso a chiave<small>' + d.hint + '</small>', 2.8); }
       }
@@ -1918,6 +1946,7 @@ function buildCastle() {
     },
     tick(dt, t) {
       bigStar.rotation.y = t * 1.2;
+      for (const d of lockDoors) if (d.open && d.anim < 1) { d.anim = Math.min(1, d.anim + dt * 0.8); d.apply(d.anim); }
       ch.rotation.y = t * 0.2;
       for (const p of paintings) {
         if (p.amp < 0.002) { if (!p.flat) { p.geo.attributes.position.array.set(p.base); p.geo.attributes.position.needsUpdate = true; p.flat = true; } continue; }
@@ -2039,7 +2068,11 @@ function buildFortress() {
         fb.t -= dt; fb.dir = lerpAngle(fb.dir, Math.atan2(dx, dz), 1 - Math.exp(-2 * dt));
         if (fb.t <= 0) {
           fb.state = 'walk'; fb.t = 4; $('bossBar').hidden = false; fbHud();
-          banner('Il Re Grumo!<small>Prendilo per la coda (J da dietro), fallo girare e lancialo (J) contro le mine</small>', 3.6);
+          const fp = fb.pos.clone();
+          startCut([
+            { dur: 3, who: 'Re Grumo', text: 'Sei arrivato fin qui? Allora prova a prendermi... se ci riesci!',
+              from: { pos: fp.clone().add(new V3(0, 9, 14)), look: fp.clone().add(new V3(0, 3, 0)) }, to: { pos: fp.clone().add(new V3(2, 3.5, 8)), look: fp.clone().add(new V3(0, 3, 0)) } },
+          ], () => banner('Il Re Grumo!<small>Prendilo per la coda (J da dietro), fallo girare e lancialo (J) contro le mine</small>', 3.6));
         }
       } else if (fb.state === 'walk') {
         fb.dir = lerpAngle(fb.dir, Math.atan2(dx, dz), 1 - Math.exp(-1.6 * dt));
@@ -2553,6 +2586,12 @@ const keys = {};
 let jumpBuf = 0, poundReq = false, punchReq = false, touchJump = false, touchPound = false;
 const joy = { x: 0, y: 0 };
 addEventListener('keydown', e => {
+  if (G.cut) {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (e.code === 'Escape') endCut(); else if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ') cutPress();
+    return;
+  }
   if (G.selecting) {
     const items = [...document.querySelectorAll('#selList .mission')], i = items.indexOf(document.activeElement);
     if (e.code === 'ArrowDown' || e.code === 'ArrowRight') { e.preventDefault(); (items[i + 1] || items[0]).focus(); }
@@ -2619,7 +2658,7 @@ function starListHtml() {
     }).join('') + '</ul>').join('');
 }
 function togglePause() {
-  if (!G.running || G.over || G.trans || G.selecting) return;
+  if (!G.running || G.over || G.trans || G.selecting || G.cut) return;
   G.paused = !G.paused;
   if (G.paused) {
     $('starList').innerHTML = starListHtml();
@@ -2637,7 +2676,7 @@ $('bExit').addEventListener('click', () => { togglePause(); const from = L.id; i
 function refreshStart() {
   const n = savedCount();
   $('bPlay').textContent = n ? `Continua ★ ${n}/${TOTAL}` : 'Gioca';
-  $('bReset').hidden = !n;
+  $('bReset').hidden = !n; $('bIntro').hidden = !(save.seen && save.seen.intro);
   $('bReset').textContent = 'Nuova partita';
   $('bReset').dataset.armed = '';
 }
@@ -2651,7 +2690,15 @@ $('bPlay').addEventListener('click', () => {
   $('startScreen').hidden = true; G.running = true;
   cam.yaw = L.spawn.yaw; cam.pitch = 0.36;
   playTrack(L.music);
-  banner(G.stars ? 'Bentornato!<small>Stelle: ' + G.stars + ' su ' + TOTAL + '</small>' : 'Trova le ' + TOTAL + ' stelle<small>Premi P per l\'elenco e gli indizi</small>', 2.8);
+  const welcome = () => banner(G.stars ? 'Bentornato!<small>Stelle: ' + G.stars + ' su ' + TOTAL + '</small>' : 'Trova le ' + TOTAL + ' stelle<small>Premi P per l\'elenco e gli indizi</small>', 2.8);
+  if (!(save.seen && save.seen.intro) && L.id === 'island') {
+    save.seen = Object.assign({}, save.seen, { intro: true }); persist();
+    introCut(() => { cam.yaw = L.spawn.yaw; welcome(); });
+  } else welcome();
+});
+$('bIntro').addEventListener('click', () => {
+  initAudio(); $('startScreen').hidden = true; G.running = true; playTrack(L.music);
+  introCut(() => { cam.yaw = L.spawn.yaw; });
 });
 $('bAgain').addEventListener('click', () => location.reload());
 $('bKeep').addEventListener('click', () => {
@@ -2682,7 +2729,75 @@ function loadLevel(id, entry, eject) {
   G.coins = 0; G.red = 0; G.foes = 0; G.nextLife = 50;
   $('bossBar').hidden = true; $('bossName').textContent = 'Re Grumo';
   hud();
-  if (G.running) { playTrack(L.music); banner(CATALOG[id] ? CATALOG[id].name : 'Castello', 2); }
+  if (G.running) { playTrack(L.music); banner(CATALOG[id] ? CATALOG[id].name : 'Castello', 2); if (L.cutscene) L.cutscene(); }
+}
+// ---------- cutscenes: scripted camera shots with letterbox, dialog and letters ----------
+const cutV = v => { const r = typeof v === 'function' ? v() : v; return Array.isArray(r) ? new V3(...r) : r.clone(); };
+function startCut(shots, onEnd) {
+  G.cut = { shots, i: -1, t: 0, typed: 0, onEnd };
+  $('cutBars').hidden = false; document.body.classList.add('cut'); $('banner').classList.remove('show');
+  for (const k in keys) keys[k] = false;
+  nextShot();
+}
+function nextShot() {
+  const c = G.cut; c.i++; c.t = 0; c.typed = 0;
+  if (c.i >= c.shots.length) { endCut(); return; }
+  const sh = c.shots[c.i];
+  if (sh.enter) sh.enter();
+  sh.fp = cutV(sh.from.pos); sh.fl = cutV(sh.from.look);
+  const to = sh.to || sh.from; sh.tp = cutV(to.pos); sh.tl = cutV(to.look);
+  $('dialog').hidden = !sh.text; $('letter').hidden = !sh.letter;
+  if (sh.text) { $('dlgWho').textContent = sh.who || ''; $('dlgText').textContent = ''; }
+  if (sh.letter) $('letterText').textContent = '';
+}
+function endCut() {
+  const c = G.cut; if (!c) return;
+  G.cut = null; G.fireworks = false;
+  $('cutBars').hidden = true; $('dialog').hidden = true; $('letter').hidden = true; document.body.classList.remove('cut');
+  if (c.onEnd) c.onEnd();
+}
+function cutPress() {
+  const c = G.cut; if (!c) return;
+  const sh = c.shots[c.i], txt = sh.text || sh.letter || '';
+  if (c.typed < txt.length) c.typed = txt.length; else nextShot();
+}
+function updateCut(dt) {
+  const c = G.cut, sh = c.shots[c.i]; if (!sh) return;
+  c.t += dt;
+  const k0 = Math.min(1, c.t / sh.dur), k = k0 * k0 * (3 - 2 * k0);
+  camera.position.lerpVectors(sh.fp, sh.tp, k);
+  camera.lookAt(new V3().lerpVectors(sh.fl, sh.tl, k));
+  const txt = sh.text || sh.letter;
+  if (txt) {
+    const before = Math.floor(c.typed); c.typed = Math.min(txt.length, c.typed + dt * (sh.letter ? 40 : 45));
+    if (Math.floor(c.typed) !== before) { $(sh.letter ? 'letterText' : 'dlgText').textContent = txt.slice(0, Math.floor(c.typed)); if (!sh.letter && Math.floor(c.typed) % 3 === 0) tone(620 + Math.random() * 80, 0.03, 'square', 0.015); }
+    if (c.typed >= txt.length && c.t > sh.dur + txt.length * 0.03 + 3) nextShot();
+  } else if (c.t >= sh.dur) nextShot();
+  if (G.fireworks && Math.random() < 0.12) {
+    const col = [0xffcf3a, 0xff6b5a, 0x4fd67a, 0x6fd3ff, 0xb58cff][Math.floor(Math.random() * 5)];
+    burst(new V3((Math.random() - 0.5) * 30, 16 + Math.random() * 10, -32 + (Math.random() - 0.5) * 16), col, 18, 9); if (Math.random() < 0.4) tone(200 + Math.random() * 300, 0.25, 'triangle', 0.03, 80);
+  }
+}
+addEventListener('pointerdown', e => { if (G.cut && !e.target.closest('button')) { e.preventDefault(); cutPress(); } }, true);
+const INTRO_LETTER = "Caro Tino,\nle stelle che illuminavano il castello sono state rubate dal Re Grumo e nascoste dentro i quadri.\nVieni al castello: solo tu puoi riportarle a casa!\n\n— Gufa Bianca, custode delle stelle";
+function introCut(onEnd) {
+  startCut([
+    { dur: 7, letter: INTRO_LETTER, from: { pos: [0, 45, 130], look: [0, 6, 0] }, to: { pos: [0, 34, 100], look: [0, 6, 0] } },
+    { dur: 5, who: 'Gufa Bianca', text: "Ecco l'Isola Stellata. Il castello è laggiù, oltre il colle e la torre.", from: { pos: [70, 30, 60], look: [0, 6, -32] }, to: { pos: [26, 12, 2], look: [0, 6, -32] } },
+    { dur: 5, who: 'Gufa Bianca', text: 'Dentro, ogni quadro è un mondo. Salta nei quadri, trova le stelle e ferma il Re Grumo!', from: { pos: [14, 6, -12], look: [0, 6, -30] }, to: { pos: [-12, 7, -14], look: [0, 6, -30] } },
+    { dur: 4, who: 'Gufa Bianca', text: "Coraggio, Tino! Se ti serve un indizio, premi P.", wave: true, from: { pos: [0, 9, 40], look: [0, 1.3, 24] },
+      enter() { this.from = { pos: [P.pos.x, 9, P.pos.z + 16], look: [P.pos.x, 1.3, P.pos.z] }; this.to = { pos: [P.pos.x + 1.5, 2.6, P.pos.z + 5.5], look: [P.pos.x, 1.3, P.pos.z] }; } },
+  ], onEnd);
+}
+function endingCut() {
+  startCut([
+    { dur: 6, who: 'Gufa Bianca', text: 'Il Re Grumo è sconfitto! La Grande Stella è tornata sul castello e tutta l\'isola brilla di nuovo.', enter() { G.fireworks = true; },
+      from: { pos: [60, 26, 50], look: [0, 10, -32] }, to: { pos: [22, 12, 6], look: [0, 10, -32] } },
+    { dur: 4, who: 'Tino', text: 'Ce l\'ho fatta! Grazie, Gufa Bianca!', wave: true,
+      from: { pos: [0, 6, 38], look: [0, 1.3, 24] }, to: { pos: [1.5, 2.6, 29.5], look: [0, 1.3, 24] } },
+    { dur: 8, letter: 'Super Tino\n\nTino, il panda rosso, ha riportato ' + G.stars + ' stelle su ' + TOTAL + ' al castello.\n\nGrazie per aver giocato!',
+      from: { pos: [0, 8, 34], look: [0, 6, -20] }, to: { pos: [0, 40, 95], look: [0, 6, -20] } },
+  ], showEndCard);
 }
 function enterLevel(id) { irisTo(() => { loadLevel(id); openSelect(id); }); }
 function openSelect(id) {
@@ -2705,7 +2820,11 @@ function openSelect(id) {
   (first || list.firstChild).focus();
 }
 function showEnding() {
-  G.over = true; G.running = false; G.afterEnd = true; save.ending = true; persist();
+  save.ending = true; persist();
+  irisTo(() => { loadLevel('island'); playTrack('rainbow'); endingCut(); });
+}
+function showEndCard() {
+  G.over = true; G.running = false; G.afterEnd = true;
   seq([523, 659, 784, 1047, 784, 1047, 1319], 160, 'triangle', 0.09, 0.35);
   $('endTitle').textContent = 'Il Re Grumo è sconfitto!';
   $('endText').textContent = `La Grande Stella è tornata al castello e l'isola brilla di nuovo. Stelle raccolte: ${G.stars} su ${TOTAL}. Tempo di questa sessione: ${$('hTime').textContent}. Grazie per aver giocato a Super Tino!`;
@@ -3075,7 +3194,7 @@ function updatePlayer(dt) {
         banner('Stella!<small>' + s.name + ' · ' + G.stars + ' su ' + TOTAL + '</small>', 2.6);
       } else banner('Stella già presa<small>' + s.name + '</small>', 2.2);
       p.vel.set(0, Math.min(p.vel.y, 0), 0); p.pound = p.longJump = p.backflip = false;
-      G.dance = 1.7; G.lastStar = s;
+      G.dance = 1.7; G.lastStar = s; G.danceYaw = P.facing;
       hud();
     }
   }
@@ -3134,7 +3253,13 @@ function updateBoss(dt) {
     b.g.position.set(b.pos.x, b.pos.y + Math.abs(Math.sin(b.ph)) * 0.1, b.pos.z);
     if (onArena) {
       b.active = true; b.state = 'walk'; b.t = 2.5; $('bossBar').hidden = false; bossHud();
-      $('bossName').textContent = b.cfg.bar; banner(b.cfg.name + '!<small>Saltagli in testa tre volte</small>', 2.4); playTrack('boss');
+      $('bossName').textContent = b.cfg.bar; playTrack('boss');
+      const d0 = new V3(P.pos.x - b.pos.x, 0, P.pos.z - b.pos.z); if (d0.lengthSq() < 0.01) d0.set(0, 0, 1); d0.normalize();
+      const bp = b.pos.clone();
+      startCut([{ dur: 3, who: b.cfg.bar, text: b.cfg.taunt,
+        from: { pos: bp.clone().addScaledVector(d0, 12).add(new V3(0, 8, 0)), look: bp.clone().add(new V3(0, 3, 0)) },
+        to: { pos: bp.clone().addScaledVector(d0, 7.5).add(new V3(0, 3.2, 0)), look: bp.clone().add(new V3(0, 2.6, 0)) } }],
+        () => banner(b.cfg.name + '!<small>Saltagli in testa tre volte</small>', 2.2));
     } else return;
   }
   const dx = P.pos.x - b.pos.x, dz = P.pos.z - b.pos.z, d = Math.hypot(dx, dz) || 1;
@@ -3321,6 +3446,8 @@ function animatePlayer(dt) {
     body.traverse(o => { if (!o.isMesh || o.userData.outline) return; if (!o.userData.orig) o.userData.orig = o.material; o.material = metalOn ? metalMat : o.userData.orig; });
   }
   const now = performance.now() / 1000;
+  const waveCut = G.cut && G.cut.shots[G.cut.i] && G.cut.shots[G.cut.i].wave;
+  if (waveCut) { tino.rotation.y = Math.atan2(camera.position.x - P.pos.x, camera.position.z - P.pos.z); hands[1].position.set(0.5, 0.95 + Math.sin(now * 9) * 0.12, 0.15); }
   if (!G.running && !G.over) { tino.rotation.y = cam.yaw; hands[1].position.set(0.5, 0.95 + Math.sin(now * 9) * 0.12, 0.15); }
   const blink = (now % 3.4) < 0.12 || (p.inv > 0.8 && p.burnT <= 0);
   eyeParts.forEach(e => { e.scale.y = blink ? 0.15 : 1; });
@@ -3340,6 +3467,11 @@ function animatePlayer(dt) {
 }
 
 function updateCamera(dt) {
+  if (G.cut) { updateCut(dt); return; }
+  if (G.dance > 0 && G.danceYaw !== undefined) {
+    const a = G.danceYaw, tp = new V3(P.pos.x + Math.sin(a) * 5.5, P.pos.y + 2.2, P.pos.z + Math.cos(a) * 5.5);
+    camera.position.lerp(tp, 1 - Math.exp(-4 * dt)); camera.lookAt(P.pos.x, P.pos.y + 1.1, P.pos.z); return;
+  }
   if (P.cannon) {
     const c = P.cannon, d = cannonDir(c);
     camera.position.set(c.x - Math.sin(c.yaw) * 3.2, 2.2, c.z - Math.cos(c.yaw) * 3.2);
@@ -3405,7 +3537,7 @@ let last = performance.now(), worldT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
-  const active = G.running && !G.paused && !G.trans && !G.selecting;
+  const active = G.running && !G.paused && !G.trans && !G.selecting && !G.cut;
   if (active) {
     G.time += dt; hudTime();
     if (G.dance > 0) { G.dance -= dt; if (G.dance <= 0) afterDance(); }

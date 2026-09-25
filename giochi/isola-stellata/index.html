@@ -93,7 +93,7 @@ body.touch .keys.touch-only{display:grid!important}
 <div class="overlay" id="startScreen">
   <div class="card">
     <h1>Isola Stellata</h1>
-    <p>Tino è naufragato su un'isola dove sono cadute undici stelle. Sette sono sull'isola. Le tre porte del castello portano al Vulcano Rombante, dove regna il Re Grumo, al Picco Innevato, tra scivoli, ghiaccio e un pinguino smarrito, e alle Dune Dorate, tra sabbie mobili, tornado e piramidi.</p>
+    <p>Tino è naufragato su un'isola dove sono cadute undici stelle. Sette sono sull'isola. Le tre porte del castello portano al Vulcano Rombante, dove regna il Re Grumo, al Picco Innevato, tra scivoli, ghiaccio e un pinguino smarrito, e alle Dune Dorate, tra sabbie mobili, tornado e piramidi. Un vortice sull'isolotto porta invece alla Baia Sommersa, tutta da nuotare.</p>
     <div class="keys desk-only">
       <kbd>WASD / frecce</kbd><span>Muoviti</span>
       <kbd>Spazio</kbd><span>Salta. Risalta appena atterri, correndo, per doppio e triplo salto</span>
@@ -183,9 +183,16 @@ const CATALOG = {
     ['sabbie', 'Oltre le sabbie mobili', 'A ovest: salta sulle rocce che affondano senza fermarti.'],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra dune e rovine.'],
   ] },
+  bay: { name: 'Baia Sommersa', stars: [
+    ['relitto', 'Il relitto', 'Nuota fino alla nave affondata: la stella è sulla cabina.'],
+    ['forzieri', 'I quattro forzieri', 'Apri i forzieri nel giusto ordine: segui le bollicine.'],
+    ['anelli', 'Gli anelli', "Attraversa i cinque anelli in ordine, partendo da quello che brilla."],
+    ['grotta', 'La grotta sommersa', "A est, in fondo al tunnel di roccia. Tieni d'occhio l'aria!"],
+    ['rosse', 'Otto monete rosse', 'Otto monete rosse tra il molo e il fondale.'],
+  ] },
 };
 const TOTAL = Object.values(CATALOG).reduce((n, l) => n + l.stars.length, 0);
-const DOOR_NEED = 3, SNOW_NEED = 6, DESERT_NEED = 10;
+const DOOR_NEED = 3, SNOW_NEED = 6, DESERT_NEED = 10, BAY_NEED = 15;
 const SAVE_KEY = 'isola-stellata-save-v1';
 let save = { stars: {} };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { const s = JSON.parse(raw); if (s && s.stars) save = s; } } catch (e) {}
@@ -372,11 +379,11 @@ function sign(text, x, gy, z, ry = 0) {
   const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.2), M(0x5a3520)); post.position.y = 0.6; post.castShadow = true; grp.add(post);
 }
 
-function addPortal(x, y, z, ry, to, entry) {
+function addPortal(x, y, z, ry, to, entry, need = 0) {
   const g = new THREE.Group(); g.position.set(x, y + 1.5, z); g.rotation.y = ry; root.add(g);
   const t = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.2, 8, 28), M(0x6fd3ff, { emissive: 0x1f6fb0 })); g.add(t);
   const d = new THREE.Mesh(new THREE.CircleGeometry(1.2, 28), new THREE.MeshBasicMaterial({ color: 0x9fe3ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })); g.add(d);
-  portals.push({ g, d, x, y, z, to, entry });
+  portals.push({ g, d, x, y, z, to, entry, need, msgT: 0 });
 }
 
 // ---------- Grumo model ----------
@@ -496,6 +503,8 @@ function buildIsland() {
   }
   [[12, -2], [-14, -2], [31, 6], [27, 22], [-8, 30], [9, 31], [-18, 6], [-32, 12], [28, -26], [-30, -26]].forEach(([x, z]) => tree(x, z));
   tree(-4, 60, 3.5, true, 0.5);
+  addPortal(4.5, 0.5, 67, 0, 'bay', null, BAY_NEED);
+  sign('Vortice della baia\nServono ' + BAY_NEED + ' stelle', 5.2, 0.5, 63.4, 0);
 
   for (let i = 0; i < 26; i++) {
     const a = i * 2.39, r = 12 + (i * 7.3) % 25, x = Math.cos(a) * r, z = Math.sin(a) * r;
@@ -552,7 +561,7 @@ function buildIsland() {
     sky: 0x86cdf2, fogNear: 70, fogFar: 190, hemi: [0xe4f6ff, 0x4f7a3a, 0.75], sun: [0xfff0d0, 0.95],
     music: 'island', deathY: -4, hazardY: null, seaY: -0.6,
     spawn: { pos: new V3(0, 0, 24), yaw: 0 },
-    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI }, snow: { pos: new V3(10.5, 0, -32), yaw: -Math.PI / 2 }, desert: { pos: new V3(-10.5, 0, -32), yaw: Math.PI / 2 } },
+    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI }, snow: { pos: new V3(10.5, 0, -32), yaw: -Math.PI / 2 }, desert: { pos: new V3(-10.5, 0, -32), yaw: Math.PI / 2 }, bay: { pos: new V3(2, 0.5, 62.5), yaw: 0 } },
     doors: [
       { x0: -1.3, x1: 1.3, z0: -28.6, z1: -27.2, need: DOOR_NEED, to: 'volcano', mesh: door, shut: doorShut, open: doorOpen, msgT: 0 },
       { x0: 7.2, x1: 8.1, z0: -33.3, z1: -30.7, need: SNOW_NEED, to: 'snow', mesh: snowDoor, shut: snowShut, open: snowOpen, msgT: 0 },
@@ -1061,7 +1070,182 @@ function buildDesert() {
     },
   };
 }
-const LEVELS = { island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert };
+// ---------- LEVEL: underwater bay ----------
+function buildBay() {
+  const WY = 0, SEAB = 0xd9c58f, CLIFF = 0x6f7f8a, WOOD = 0x7a4f2b, WOOD2 = 0x5c3a1e;
+  const surface = add(new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshStandardMaterial({ color: 0x3aa0d8, transparent: true, opacity: 0.45, roughness: 0.2, side: THREE.DoubleSide, depthWrite: false })), false, false);
+  surface.rotation.x = -Math.PI / 2; surface.position.y = WY;
+  const outer = add(new THREE.Mesh(new THREE.CircleGeometry(300, 40), M(0x2b86d9, { roughness: 0.25 })), false, false);
+  outer.rotation.x = -Math.PI / 2; outer.position.y = -0.3;
+
+  box(0, -20, -6, 82, 4, 70, SEAB);
+  box(0, -7, -43, 90, 30, 4, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(0, -7, 43, 90, 30, 4, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(43, -7, 0, 4, 30, 90, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(-43, -7, 0, 4, 30, 90, [CLIFF, CLIFF, GRASS, CLIFF, CLIFF, CLIFF]);
+  box(0, -9, 35, 82, 20, 12, [SAND, SAND, SAND, SAND, SAND, SAND]);
+  box(0, 0.85, 25.5, 4, 0.3, 7, WOOD);
+  for (const [x, z] of [[-1.8, 22.3], [1.8, 22.3], [-1.8, 25.5], [1.8, 25.5]]) {
+    const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 19, 6), M(WOOD2))); post.position.set(x, -8.5, z);
+  }
+  addPortal(-6, 1, 37, Math.PI / 2, 'island', 'bay');
+  addHeart(5, 2.1, 34);
+  sign('Sott\'acqua manca l\'aria\nrisali per respirare', 5, 1, 30.2, 0);
+
+  // sunken ship
+  box(0, -16, -8, 8, 4, 22, WOOD);
+  box(0, -12.5, -15, 6, 3, 5, WOOD2);
+  cyl(0, -4, 0.4, -14, -2, WOOD2, 8);
+  const sail = add(new THREE.Mesh(new THREE.BoxGeometry(5, 4, 0.12), M(0xe8e0cc)), true, false); sail.position.set(0, -6.5, -3.6); sail.rotation.z = 0.08;
+  const bow = add(new THREE.Mesh(new THREE.ConeGeometry(4, 4, 4), M(WOOD))); bow.rotation.x = Math.PI / 2; bow.rotation.y = Math.PI / 4; bow.position.set(0, -16, 5); bow.scale.set(1, 1, 0.7);
+  addStar('relitto', 0, -9.2, -15);
+  ring(0, -4, 2.6, 6, -13);
+
+  // chests: open them in the order shown by bubbles
+  const chestGeo = new THREE.BoxGeometry(1.6, 0.9, 1.1), lidGeo = new THREE.BoxGeometry(1.6, 0.3, 1.1);
+  const chests = [[-14, -2], [14, -2], [-12, -26], [12, -26]].map(([x, z]) => {
+    const g = new THREE.Group(); g.position.set(x, -18, z); root.add(g);
+    const base = new THREE.Mesh(chestGeo, M(0x8a5a2b)); base.position.y = 0.45; base.castShadow = true; g.add(base);
+    const band = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.12, 1.15), M(0xffcf3a, { metalness: 0.5 })); band.position.y = 0.7; g.add(band);
+    const hinge = new THREE.Group(); hinge.position.set(0, 0.9, -0.55); g.add(hinge);
+    const lid = new THREE.Mesh(lidGeo, M(0x9a6a33)); lid.position.set(0, 0.15, 0.55); hinge.add(lid);
+    return { g, hinge, x, z, open: false };
+  });
+  const order = [2, 0, 3, 1];
+  let nextChest = 0, chestCool = 0;
+  addStar('forzieri', 0, -11.5, 7, true);
+
+  // bubble rings
+  const ringPos = [[-22, -5, 8], [-22, -9, -6], [-12, -12, -24], [6, -9, -30], [20, -5, -18]].map(a => new V3(...a));
+  const ringMatOff = M(0x9fe3ff, { emissive: 0x1f5f80 }), ringMatNext = M(0xffd23a, { emissive: 0x8a5a00 }), ringMatDone = M(0x4fd67a, { emissive: 0x145a2a });
+  const rings = ringPos.map((p, i) => {
+    const m = add(new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.2, 8, 28), ringMatOff), false, false);
+    m.position.copy(p); m.lookAt(ringPos[i < ringPos.length - 1 ? i + 1 : i - 1]);
+    return m;
+  });
+  let nextRing = 0;
+  addStar('anelli', 24, -6, -10, true);
+
+  // cave tunnel (east)
+  box(32, -16.5, 8, 12, 3, 1, CLIFF);
+  box(32, -16.5, 12, 12, 3, 1, CLIFF);
+  box(32, -14.5, 10, 12, 1, 5, CLIFF);
+  box(38.5, -16.5, 10, 1, 3, 3, CLIFF);
+  box(32, -11, 10, 14, 7, 8, [CLIFF, CLIFF, 0x5f8a6a, CLIFF, CLIFF, CLIFF]);
+  line(27, 10, 31, 10, 3, -16.8); addCoin(35.5, -16.8, 10);
+  addStar('grotta', 37, -16.7, 10);
+
+  // coins in open water (they also refill energy)
+  ring(0, 12, 4, 8, -6);
+  line(-20, 18, -20, -2, 5, -3);
+  line(20, 18, 20, 0, 5, -10);
+  ring(-12, -26, 3, 6, -16);
+  [[0, 2, 22.8], [0, -1.3, -4], [33.5, -16.8, 10], [-34, -17, -34], [0, -17, -28], [-12, -15, -22], [30, -17, 22], [-30, -8, 20]]
+    .forEach(([x, y, z]) => addCoin(x, y, z, true));
+  addStar('rosse', 0, -8, 14, true);
+
+  // jellyfish
+  const jellyMat = new THREE.MeshStandardMaterial({ color: 0xff8ad8, emissive: 0x6a1a5a, transparent: true, opacity: 0.75, flatShading: true });
+  const jellies = [[-8, -8, 14], [8, -10, 14], [24, -15, 10], [-26, -12, -18], [14, -9, -32], [-30, -6, 12]].map(([x, y, z], i) => {
+    const g = new THREE.Group(); root.add(g);
+    const bell = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 8, 0, TAU, 0, Math.PI / 2), jellyMat); g.add(bell);
+    for (let k = 0; k < 5; k++) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 4), jellyMat); const a = k / 5 * TAU; t.position.set(Math.cos(a) * 0.35, -0.6, Math.sin(a) * 0.35); g.add(t); }
+    return { g, base: new V3(x, y, z), ph: i * 1.3 };
+  });
+
+  // decor: seaweed, fish, light shafts, bubbles
+  const weeds = [];
+  for (let i = 0; i < 55; i++) {
+    const x = -38 + ((i * 37) % 76), z = -38 + ((i * 53) % 66);
+    if (Math.abs(x) < 5 && z > -20 && z < 6) continue;
+    const h = 1.5 + (i % 4) * 0.8;
+    const w = add(new THREE.Mesh(new THREE.BoxGeometry(0.22, h, 0.22), M(i % 3 ? 0x2f9a5a : 0x5fbf4a)), false, false);
+    w.geometry.translate(0, h / 2, 0); w.position.set(x, -18, z); weeds.push(w);
+  }
+  const schools = [[-10, -6, 0, 6], [15, -12, -12, 7], [-20, -14, -28, 5]].map(([x, y, z, r], i) => {
+    const g = new THREE.Group(); g.position.set(x, y, z); root.add(g);
+    const col = [0xffa040, 0x6fd3ff, 0xffe066][i];
+    for (let k = 0; k < 7; k++) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.6, 5), M(col)); f.rotation.x = Math.PI / 2; f.position.set(r + (k % 3) * 0.6, (k % 2) * 0.5, k * 0.7 - 2); g.add(f); }
+    return { g, sp: 0.3 + i * 0.1 };
+  });
+  const shaftMat = new THREE.MeshBasicMaterial({ color: 0xcff4ff, transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide });
+  for (let i = 0; i < 7; i++) {
+    const sh = new THREE.Mesh(new THREE.ConeGeometry(2.6, 24, 8, 1, true), shaftMat);
+    sh.position.set(-30 + i * 10, -11, -20 + (i % 3) * 14); sh.rotation.z = 0.25; root.add(sh);
+  }
+  const bubbleGeo = new THREE.SphereGeometry(0.12, 6, 4), bubbleMat = new THREE.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.7 });
+  const bubbles = [];
+  function bubble(x, y, z) { const m = new THREE.Mesh(bubbleGeo, bubbleMat); m.position.set(x, y, z); root.add(m); bubbles.push({ m, v: 1.8 + Math.random() }); }
+  let bubbleT = 0, wasUnder = false;
+
+  return {
+    sky: 0x9fdcf5, fogNear: 60, fogFar: 180, hemi: [0xe4f6ff, 0x3a7a8a, 0.8], sun: [0xfff4e0, 0.95],
+    music: 'bay', deathY: -40, hazardY: null, seaY: WY, waterY: WY,
+    spawn: { pos: new V3(0, 1, 36), yaw: 0 },
+    entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Davanti al molo, a mezz\'acqua',
+    update(dt) {
+      // chests
+      chestCool -= dt;
+      for (const c of chests) {
+        if (c.open || chestCool > 0) continue;
+        const d = Math.hypot(P.pos.x - c.x, P.pos.z - c.z);
+        if (d < 1.5 && P.pos.y < -16) {
+          if (chests.indexOf(c) === order[nextChest]) {
+            c.open = true; nextChest++; sfx.red(); burst(new V3(c.x, -17, c.z), 0xffcf3a, 10, 3);
+            if (nextChest === chests.length) reveal(starById('forzieri'), 'Sopra la prua della nave');
+            else banner(nextChest + ' / 4<small>forziere giusto</small>', 1.2);
+          } else {
+            sfx.hurt(); hurt({ x: c.x, z: c.z }, 1); chestCool = 1;
+            chests.forEach(k => { k.open = false; }); nextChest = 0;
+            banner('Ordine sbagliato!<small>Segui le bollicine</small>', 1.8);
+          }
+        }
+      }
+      // rings
+      if (nextRing < rings.length && P.pos.distanceTo(ringPos[nextRing].clone().sub(new V3(0, 0.8, 0))) < 1.6) {
+        rings[nextRing].material = ringMatDone; nextRing++; sfx.coin();
+        if (nextRing === rings.length) reveal(starById('anelli'), "Dopo l'ultimo anello");
+      }
+      // jellyfish
+      for (const j of jellies) {
+        j.ph += dt;
+        j.g.position.set(j.base.x + Math.cos(j.ph * 0.4) * 1.5, j.base.y + Math.sin(j.ph * 0.9) * 1.5, j.base.z + Math.sin(j.ph * 0.4) * 1.5);
+        j.g.scale.y = 1 + Math.sin(j.ph * 3) * 0.12;
+        const dx = P.pos.x - j.g.position.x, dy = P.pos.y + 0.8 - j.g.position.y, dz = P.pos.z - j.g.position.z;
+        if (dx * dx + dy * dy + dz * dz < 1.3 * 1.3) hurt(j.g.position);
+      }
+    },
+    tick(dt, t) {
+      surface.position.y = WY + Math.sin(t * 0.8) * 0.04;
+      chests.forEach(c => { c.hinge.rotation.x += ((c.open ? -1.9 : 0) - c.hinge.rotation.x) * Math.min(1, dt * 6); });
+      rings.forEach((m, i) => {
+        if (i === nextRing) { m.material = ringMatNext; m.scale.setScalar(1 + Math.sin(t * 5) * 0.08); }
+        else if (i > nextRing) { m.material = ringMatOff; m.scale.setScalar(1); }
+      });
+      for (const w of weeds) w.rotation.z = Math.sin(t * 1.3 + w.position.x) * 0.2;
+      for (const s of schools) s.g.rotation.y = t * s.sp;
+      bubbleT -= dt;
+      if (bubbleT <= 0) {
+        bubbleT = 0.12;
+        if (nextChest < chests.length) { const c = chests[order[nextChest]]; bubble(c.x + (Math.random() - 0.5) * 0.6, -17.2, c.z + (Math.random() - 0.5) * 0.6); }
+        bubble(-38 + Math.random() * 76, -18, -38 + Math.random() * 66);
+        if (P.swim && P.pos.y + 1.5 < WY && Math.random() < 0.4) bubble(P.pos.x, P.pos.y + 1.4, P.pos.z);
+      }
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i]; b.m.position.y += b.v * dt; b.m.position.x += Math.sin(t * 3 + i) * dt * 0.3;
+        if (b.m.position.y > WY - 0.1) { root.remove(b.m); bubbles.splice(i, 1); }
+      }
+      const under = camera.position.y < WY;
+      if (under !== wasUnder) {
+        wasUnder = under;
+        const c = under ? 0x0e5a86 : L.sky;
+        scene.background.setHex(c); scene.fog.color.setHex(c);
+        scene.fog.near = under ? 4 : L.fogNear; scene.fog.far = under ? 60 : L.fogFar;
+      }
+    },
+  };
+}
+const LEVELS = { island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert, bay: buildBay };
 
 // ---------- player (Tino) ----------
 const H = 1.6, R = 0.45, STEP = 0.45;
@@ -1185,6 +1369,9 @@ const TRACKS = {
   desert: { bpm: 120, lead: [64,0,65,68,69,0,68,65, 64,0,0,0,62,64,65,0, 64,0,65,68,71,0,69,68, 69,68,65,64,65,0,0,0,
                             76,0,77,80,81,0,80,77, 76,0,0,0,74,76,77,0, 76,77,76,74,72,71,69,68, 64,0,0,0,52,0,0,0],
             roots: [40,40,41,40,40,40,41,40], leadType: 'square', leadVol: 0.032, bassType: 'triangle', bassVol: 0.12 },
+  bay: { bpm: 96, lead: [74,0,78,81,0,78,74,0, 76,0,79,83,0,79,76,0, 78,0,81,85,0,81,78,0, 81,79,78,76,74,0,0,0,
+                         74,0,78,81,0,83,81,0, 79,0,83,86,0,83,79,0, 78,76,74,76,78,81,78,76, 74,0,0,0,62,0,0,0],
+         roots: [50,52,54,57,50,55,54,50], leadType: 'triangle', leadVol: 0.07, bassType: 'sine', bassVol: 0.12, hat: false },
   boss: { bpm: 172, lead: [69,0,69,70,69,0,76,0, 69,0,69,70,69,0,77,76, 69,0,69,70,69,0,76,0, 72,71,70,69,68,0,64,0],
           roots: [45,45,46,44], leadType: 'sawtooth', leadVol: 0.028, bassType: 'square', bassVol: 0.05 },
 };
@@ -1418,6 +1605,10 @@ function updatePlayer(dt) {
   const wx = -sy * iy + cy * ix, wz = -cy * iy - sy * ix;
   const crouchKey = keys.ShiftLeft || keys.ShiftRight || keys.KeyK || touchPound;
   p.crouch = p.onGround && crouchKey && !p.pound;
+  const wasSwim = p.swim;
+  p.leapT = (p.leapT || 0) - dt;
+  p.swim = L.waterY != null && p.pos.y + 0.9 < L.waterY + 0.15 && !(p.leapT > 0);
+  if (p.swim && !wasSwim) { p.pound = p.longJump = p.backflip = false; p.chain = 0; p.vel.y = Math.max(p.vel.y * 0.35, -6); }
 
   if (poundReq && !p.onGround && !p.pound) { p.pound = true; p.poundHang = 0.22; p.longJump = p.backflip = false; sfx.jump(0); }
   poundReq = false;
@@ -1438,7 +1629,20 @@ function updatePlayer(dt) {
   }
   punchReq = false; p.punchT -= dt; p.lockT -= dt;
 
-  if (p.pound) {
+  if (p.swim) {
+    p.pound = false;
+    approach2(p.vel, wx * 6, wz * 6, 14 * dt);
+    if (il > 0.1) p.facing = lerpAngle(p.facing, Math.atan2(wx, wz), 1 - Math.exp(-8 * dt));
+    const depth = L.waterY - (p.pos.y + 0.9), up = keys.Space || touchJump;
+    const ty = up ? 5.5 : crouchKey ? -6 : (depth > 0.3 ? -1 : 0);
+    p.vel.y += (ty - p.vel.y) * (1 - Math.exp(-4 * dt));
+    if (depth < 0.05 && p.vel.y > 0) p.vel.y = 0;
+    if (jumpBuf > 0 && depth < 0.6) {
+      p.vel.y = 13; p.leapT = 0.4; p.swim = false; jumpBuf = 0; p.onGround = false; p.ground = null; sfx.jump(0);
+      burst(new V3(p.pos.x, L.waterY + 0.1, p.pos.z), 0xbfe6ff, 10, 4);
+    }
+    p.stroke = (p.stroke || 0) + dt * (il > 0.1 || up ? 10 : 3);
+  } else if (p.pound) {
     p.vel.x = p.vel.z = 0;
     if (p.poundHang > 0) { p.poundHang -= dt; p.vel.y = 0; } else p.vel.y = -34;
   } else {
@@ -1552,6 +1756,19 @@ function updatePlayer(dt) {
     if (p.pos.y > L.seaY + 0.3) splashed = false;
   }
   if (p.pos.y < L.deathY) { die(); return; }
+  if (L.waterY != null) {
+    if (p.pos.y + 1.5 < L.waterY) {
+      p.airClock = (p.airClock || 0) + dt;
+      if (!L.airTip) { L.airTip = true; banner("Sott'acqua<small>L'energia cala: risali in superficie per respirare</small>", 2.8); }
+      if (p.airClock > 1.6) {
+        p.airClock = 0; p.hp--; tone(500, 0.12, 'sine', 0.05, 350); hud();
+        if (p.hp <= 0) { banner('Senza fiato!', 1.6); die(); return; }
+      }
+    } else {
+      p.airClock = 0;
+      if (p.swim) { p.airFill = (p.airFill || 0) + dt; if (p.airFill > 0.3 && p.hp < 8) { p.airFill = 0; p.hp++; hud(); } }
+    }
+  }
   if (p.inv > 0) p.inv -= dt;
 
   // coins
@@ -1738,7 +1955,12 @@ function updateTriggers(dt) {
   }
   for (const pt of portals) {
     pt.g.rotation.z += dt; pt.d.material.opacity = 0.35 + Math.sin(gameTime * 4) * 0.12;
-    if (Math.hypot(P.pos.x - pt.x, P.pos.z - pt.z) < 1.1 && Math.abs(P.pos.y - pt.y) < 1.2) { sfx.portal(); irisTo(() => loadLevel(pt.to, pt.entry)); return; }
+    pt.msgT -= dt;
+    if (Math.hypot(P.pos.x - pt.x, P.pos.z - pt.z) < 1.1 && Math.abs(P.pos.y - pt.y) < 1.2) {
+      if (pt.need && G.stars < pt.need) {
+        if (pt.msgT <= 0) { pt.msgT = 2.5; sfx.locked(); banner('Vortice chiuso<small>Servono ' + pt.need + ' stelle: ne hai ' + G.stars + '</small>', 2.2); }
+      } else { sfx.portal(); irisTo(() => loadLevel(pt.to, pt.entry)); return; }
+    }
   }
   for (const h of hearts) {
     const d = h.g.position.distanceTo(new V3(P.pos.x, P.pos.y + 0.8, P.pos.z));
@@ -1761,7 +1983,13 @@ function animatePlayer(dt) {
     feet[0].position.z = feet[1].position.z = 0.04;
   } else {
     tino.rotation.y = p.facing;
-    if (p.onGround) {
+    if (p.swim) {
+      const k = Math.sin(p.stroke || 0), moving = hs > 1.5;
+      body.rotation.x = moving ? 1.15 : 0.3; body.position.y = 0.8;
+      feet[0].position.z = 0.04 + k * 0.2; feet[1].position.z = 0.04 - k * 0.2;
+      hands[0].position.y = hands[1].position.y = 0.2 + Math.cos(p.stroke || 0) * 0.25;
+      hands[0].position.z = hands[1].position.z = moving ? 0.3 : 0;
+    } else if (p.onGround) {
       p.walk += dt * hs * 1.6;
       const sw = Math.sin(p.walk) * Math.min(1, hs / 6);
       feet[0].position.z = 0.04 + sw * 0.3; feet[1].position.z = 0.04 - sw * 0.3;
@@ -1796,14 +2024,14 @@ function updateCamera(dt) {
   if (keys.KeyQ) cam.yaw += 2.2 * dt;
   if (keys.KeyE) cam.yaw -= 2.2 * dt;
   const tx = P.pos.x, ty = P.pos.y + 1.4, tz = P.pos.z;
-  const kh = 1 - Math.exp(-10 * dt), kv = 1 - Math.exp(-(P.onGround ? 6 : 2.5) * dt);
+  const kh = 1 - Math.exp(-10 * dt), kv = 1 - Math.exp(-(P.onGround || P.swim ? 6 : 2.5) * dt);
   cam.t.x += (tx - cam.t.x) * kh; cam.t.z += (tz - cam.t.z) * kh;
-  cam.t.y += (Math.max(ty, -1) - cam.t.y) * kv;
+  cam.t.y += (Math.max(ty, L.waterY != null ? -40 : -1) - cam.t.y) * kv;
   const cp = Math.cos(cam.pitch);
   camera.position.set(cam.t.x + Math.sin(cam.yaw) * cp * cam.dist, cam.t.y + Math.sin(cam.pitch) * cam.dist, cam.t.z + Math.cos(cam.yaw) * cp * cam.dist);
   const gh = groundHeight(camera.position.x, camera.position.z, camera.position.y + 2, 0.3);
   if (camera.position.y < gh + 0.7) camera.position.y = gh + 0.7;
-  if (camera.position.y < 0.2) camera.position.y = 0.2;
+  if (L.waterY == null && camera.position.y < 0.2) camera.position.y = 0.2;
   if (G.shake > 0) {
     G.shake -= dt; const a = G.shake * 0.8;
     camera.position.x += (Math.random() - 0.5) * a; camera.position.y += (Math.random() - 0.5) * a;
@@ -1856,6 +2084,7 @@ requestAnimationFrame(frame);
 if (location.hash === '#vulcano') loadLevel('volcano');
 if (location.hash === '#neve') loadLevel('snow');
 if (location.hash === '#deserto') loadLevel('desert');
+if (location.hash === '#baia') loadLevel('bay');
 })();
 </script>
 </body></html>

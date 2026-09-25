@@ -529,6 +529,12 @@ const shared = g => { g.userData.shared = true; return g; };
 let root = new THREE.Group(); scene.add(root);
 const solids = [], coins = [], stars = [], enemies = [], movers = [], sinkers = [], hearts = [], parts = [], waves = [], portals = [], itemBoxes = [], lifeItems = [], cannons = [], keyItems = [];
 let boss = null, L = { id: 'island' };
+// trees the camera must not pass through: a vertical cylinder per tree, plus its foliage meshes (faded when they still block the view)
+const camTrees = [];
+function treeObs(x, z, y0, y1, r, meshes = []) {
+  for (const m of meshes) { m.material = m.material.clone(); m.material.transparent = true; }
+  camTrees.push({ x, z, y0, y1, r, meshes, fade: 1 });
+}
 function add(mesh, cast = true, recv = true) { mesh.castShadow = cast; mesh.receiveShadow = recv; root.add(mesh); return mesh; }
 function clearLevel() {
   scene.remove(root);
@@ -537,7 +543,7 @@ function clearLevel() {
     if (o.material && o.material.isMaterial && o.material.map && !o.material.map.isShared) o.material.map.dispose();
   });
   root = new THREE.Group(); scene.add(root);
-  for (const a of [solids, coins, stars, enemies, movers, sinkers, hearts, parts, waves, portals, itemBoxes, lifeItems, cannons, keyItems]) a.length = 0;
+  for (const a of [solids, coins, stars, enemies, movers, sinkers, hearts, parts, waves, portals, itemBoxes, lifeItems, cannons, keyItems, camTrees]) a.length = 0;
   boss = null;
 }
 
@@ -793,16 +799,19 @@ function buildIsland() {
   movers.push({ s: skyPlats[2], base: new V3(-16.5, 4.8, 18.5), axis: new V3(1, 0, 0), amp: 2.5, period: 5, phase: 0 });
 
   function tree(x, z, h = 3, palm = false, baseY = 0) {
-    cyl(x, z, 0.45, baseY - 0.5, baseY + h, 0x7a4f2b, 8).pole = true;
+    const trunk = cyl(x, z, 0.45, baseY - 0.5, baseY + h, 0x7a4f2b, 8); trunk.pole = true;
     if (palm) {
+      const leaves = [];
       for (let i = 0; i < 6; i++) {
         const leaf = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 2.6), M(0x3fa34d)), true, false);
-        leaf.position.set(x, baseY + h + 0.1, z); leaf.rotation.y = i / 6 * TAU; leaf.rotation.x = 0.35; leaf.translateZ(1.1);
+        leaf.position.set(x, baseY + h + 0.1, z); leaf.rotation.y = i / 6 * TAU; leaf.rotation.x = 0.35; leaf.translateZ(1.1); leaves.push(leaf);
       }
+      treeObs(x, z, baseY - 0.5, baseY + h + 0.8, 2.4, leaves.concat(trunk.mesh));
       return;
     }
     const c1 = add(new THREE.Mesh(new THREE.ConeGeometry(2.1, 2.8, 8), M(0x2f9a4a)), true, false); c1.position.set(x, baseY + h + 0.8, z);
     const c2 = add(new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.2, 8), M(0x3bb357)), true, false); c2.position.set(x, baseY + h + 2.2, z);
+    treeObs(x, z, baseY - 0.5, baseY + h + 3.3, 2.1, [c1, c2, trunk.mesh]);
   }
   [[12, -2], [-14, -2], [31, 6], [27, 22], [-8, 30], [9, 31], [-18, 6], [-32, 12], [28, -26], [-30, -26]].forEach(([x, z]) => tree(x, z));
   tree(-4, 60, 3.5, true, 0.5);
@@ -1218,10 +1227,11 @@ function buildSnow() {
 
   // trees and snowmen on the plateau
   function pine(x, z) {
-    cyl(x, z, 0.4, -0.5, 2.2, 0x6b4a2b, 8).pole = true;
+    const trunk = cyl(x, z, 0.4, -0.5, 2.2, 0x6b4a2b, 8); trunk.pole = true;
     const c1 = add(new THREE.Mesh(new THREE.ConeGeometry(1.9, 2.6, 8), M(PINE)), true, false); c1.position.set(x, 3.2, z);
     const c2 = add(new THREE.Mesh(new THREE.ConeGeometry(1.35, 2.1, 8), M(PINE)), true, false); c2.position.set(x, 4.5, z);
     const cap = add(new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.1, 8), M(SNOW)), true, false); cap.position.set(x, 5.5, z);
+    treeObs(x, z, -0.5, 6.1, 1.9, [c1, c2, cap, trunk.mesh]);
   }
   [[-25, -5], [-22, -22], [14, -24], [28, -8], [-28, 6], [15, 12], [28, 14], [-8, 28], [-14, -30]].forEach(([x, z]) => pine(x, z));
   snowman(-4, 0, 20, 0.9); snowman(5, 0, 8, 1); snowman(-26, 0, -16, 1.2);
@@ -1414,11 +1424,13 @@ function buildDesert() {
   const pond = add(new THREE.Mesh(new THREE.CircleGeometry(3.4, 24), M(0x3aa6c9, { roughness: 0.2, emissive: 0x0a3040 })), false, true);
   pond.rotation.x = -Math.PI / 2; pond.position.set(-6, GT + 0.02, 26);
   function palm(x, z, h = 3.6) {
-    cyl(x, z, 0.4, -0.5, GT + h, 0x8a5a33, 8).pole = true;
+    const trunk = cyl(x, z, 0.4, -0.5, GT + h, 0x8a5a33, 8); trunk.pole = true;
+    const leaves = [];
     for (let i = 0; i < 6; i++) {
       const leaf = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 2.6), M(0x3fa34d)), true, false);
-      leaf.position.set(x, GT + h + 0.1, z); leaf.rotation.y = i / 6 * TAU; leaf.rotation.x = 0.35; leaf.translateZ(1.1);
+      leaf.position.set(x, GT + h + 0.1, z); leaf.rotation.y = i / 6 * TAU; leaf.rotation.x = 0.35; leaf.translateZ(1.1); leaves.push(leaf);
     }
+    treeObs(x, z, -0.5, GT + h + 0.8, 2.4, leaves.concat(trunk.mesh));
   }
   palm(-10, 23); palm(-3, 30.5); palm(-9.5, 29); palm(10, 14, 3); palm(40, 12, 3.2); palm(-36, 12.5, 3);
   addHeart(6, 1.5, 24);
@@ -2311,8 +2323,10 @@ function buildGhost() {
   addStar('lapidi', 24.5, 2.5, 0, true);
   // dead trees and lanterns
   function deadTree(x, z) {
-    cyl(x, z, 0.35, -0.5, 4, 0x2a1e18, 7).pole = true;
-    for (let k = 0; k < 3; k++) { const br = add(new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 0.15), M(0x2a1e18)), true, false); br.position.set(x + (k - 1) * 0.5, 3.8 + k * 0.3, z); br.rotation.z = (k - 1) * 0.9; }
+    const trunk = cyl(x, z, 0.35, -0.5, 4, 0x2a1e18, 7); trunk.pole = true;
+    const brs = [];
+    for (let k = 0; k < 3; k++) { const br = add(new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 0.15), M(0x2a1e18)), true, false); br.position.set(x + (k - 1) * 0.5, 3.8 + k * 0.3, z); br.rotation.z = (k - 1) * 0.9; brs.push(br); }
+    treeObs(x, z, -0.5, 5, 1.1, brs.concat(trunk.mesh));
   }
   [[-20, 10], [-22, -12], [20, 18], [24, -14], [-14, 22]].forEach(([x, z]) => deadTree(x, z));
   for (const [x, z] of [[-3, 16], [3, 16], [-3, 6], [3, 6]]) {
@@ -2553,6 +2567,7 @@ function buildShroom() {
     if (z > 20 && Math.abs(x) < 9) continue;
     const tr = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 4, 7), M(BARK))); tr.position.set(x, 2, z);
     const cn = add(new THREE.Mesh(new THREE.ConeGeometry(2.4 + (i % 2), 6, 8), M(i % 2 ? LEAF : 0x3f9e45))); cn.position.set(x, 6.5, z);
+    treeObs(x, z, 0, 9.5, 2.4 + (i % 2), [tr, cn]);
   }
   for (let i = 0; i < 26; i++) {
     const x = Math.sin(i * 12.9898) * 26, z = Math.cos(i * 78.233) * 26; if (Math.hypot(x - T.x, z - T.z) < 8 || Math.hypot(x - C.x, z - C.z) < 12) continue;
@@ -4067,7 +4082,29 @@ function updateCamera(dt) {
       for (const sd of solids) if (!sd.pole && y > sd.bottom && y < topAt(sd, x, z) + 0.3 && overlap(sd, x, z, 0.3)) { hit = true; break; }
       if (hit) { k = Math.max(0.15, (i - 1) / steps); break; }
     }
+    // trees: pull the camera in front of the first tree on the way back, smoothly; fade whatever still covers Tino
+    let kt = 1;
+    if (camTrees.length) {
+      for (let i = 1; i <= steps && kt === 1; i++) {
+        const f = i / steps, x = tx0 + dx * f, y = ty0 + dy * f, z = tz0 + dz * f;
+        for (const tr of camTrees) if (y > tr.y0 && y < tr.y1 + 0.4 && (x - tr.x) ** 2 + (z - tr.z) ** 2 < (tr.r + 0.4) ** 2) { kt = (i - 1) / steps; break; }
+      }
+      if (kt * len < 3.5) kt = 1; // tree right behind Tino: stay back and let the foliage fade instead
+    }
+    cam.kt = cam.kt === undefined ? kt : cam.kt + (kt - cam.kt) * (1 - Math.exp(-(kt < cam.kt ? 14 : 2.5) * dt));
+    k = Math.min(k, cam.kt);
     if (k < 1) camera.position.set(tx0 + dx * k, ty0 + dy * k, tz0 + dz * k);
+    for (const tr of camTrees) {
+      // distance from the tree axis to the line of sight, in the horizontal plane, within the segment
+      const ex = camera.position.x - tx0, ez = camera.position.z - tz0, el = ex * ex + ez * ez || 1;
+      const u = clamp(((tr.x - tx0) * ex + (tr.z - tz0) * ez) / el, 0, 1), px = tx0 + ex * u, pz = tz0 + ez * u, py = ty0 + (camera.position.y - ty0) * u;
+      const block = (px - tr.x) ** 2 + (pz - tr.z) ** 2 < tr.r * tr.r && py > tr.y0 && py < tr.y1 + 0.3;
+      const want = block ? 0.3 : 1;
+      if (Math.abs(want - tr.fade) > 0.01 || (want === 1 && tr.fade !== 1)) {
+        tr.fade += (want - tr.fade) * (1 - Math.exp(-8 * dt)); if (Math.abs(want - tr.fade) < 0.02) tr.fade = want;
+        for (const m of tr.meshes) { m.material.opacity = tr.fade; m.material.depthWrite = tr.fade > 0.95; }
+      }
+    }
   }
   const gh = groundHeight(camera.position.x, camera.position.z, camera.position.y + 2, 0.3);
   if (camera.position.y < gh + 0.7) camera.position.y = gh + 0.7;

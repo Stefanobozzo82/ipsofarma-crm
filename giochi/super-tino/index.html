@@ -264,6 +264,12 @@ const CATALOG = {
     ['castello', 'Il castello tra le nuvole', 'Salta sulle nuvole verso nord e sali sul tetto del castello.'],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra ponti, nuvole e tappeto.'],
   ] },
+  shroom: { name: 'Bosco dei Funghi', stars: [
+    ['funghi', 'Il fungo gigante', 'A est rimbalza sui funghi a pois, sempre più in alto, fino al cappello del fungo gigante.'],
+    ['albero', 'In cima al grande albero', "A nord sali i funghi a mensola attorno al tronco fino alla chioma."],
+    ['coniglio', 'Il coniglio dispettoso', 'Nel prato a ovest vive un coniglio che scappa sempre: raggiungilo e prendilo!'],
+    ['rosse', 'Otto monete rosse', 'Otto monete rosse tra funghi, prato e albero.'],
+  ] },
   fortress: { name: 'Fortezza del Re', stars: [
     ['rosse', 'Otto monete rosse', 'Lungo il percorso sospeso nel buio, fino al tubo.'],
     ['grande', 'La Grande Stella', 'Oltre il tubo: prendi il Re Grumo per la coda e lancialo contro le mine.'],
@@ -411,6 +417,7 @@ const SKIES = {
   fortress: { top: '#05020a', mid: '#2a1438', stars: 1, glow: '#8a1a3a' },
   ghost: { top: '#05030f', mid: '#2a1a44', stars: 1, moon: 1, glow: '#4a2a6a' },
   rainbow: { top: '#6fa8ff', mid: '#ffe0f5', clouds: 1, sun: '#fffbe0' },
+  shroom: { top: '#3b8fb0', mid: '#d4f2c0', clouds: 0.7, sun: '#fff3c8' },
 };
 const skyCache = {};
 function paintSky(id, horizonHex) {
@@ -484,7 +491,7 @@ function applyQuality() {
   const b = document.getElementById('bGfx'); if (b) b.textContent = gfxHigh ? 'Grafica alta' : 'Grafica leggera';
 }
 // bloom strength and threshold per world: bright, pale worlds get almost none
-const BLOOM = { ghost: [0.6, 0.8], clock: [0.35, 0.9], rainbow: [0.18, 0.96], island: [0.35, 0.92], volcano: [0.7, 0.8], snow: [0.05, 0.99], desert: [0.12, 0.98], bay: [0.15, 0.97], castle: [0.3, 0.93], fortress: [0.8, 0.72] };
+const BLOOM = { ghost: [0.6, 0.8], clock: [0.35, 0.9], rainbow: [0.18, 0.96], shroom: [0.22, 0.95], island: [0.35, 0.92], volcano: [0.7, 0.8], snow: [0.05, 0.99], desert: [0.12, 0.98], bay: [0.15, 0.97], castle: [0.3, 0.93], fortress: [0.8, 0.72] };
 function renderFrame() {
   skyMesh.position.copy(camera.position);
   if (composer && gfxHigh) {
@@ -1746,12 +1753,12 @@ function animateItems(t) {
   for (const b of itemBoxes) if (!b.broken) { b.m.rotation.y = t * 0.8 + b.ph; }
 }
 // ---------- LEVEL: castle interior (hub with paintings) ----------
-const NEED = { volcano: 3, snow: 6, desert: 10, bay: 15, ghost: 10, clock: 20, rainbow: 24, fortress: 20 };
+const NEED = { volcano: 3, snow: 6, desert: 10, bay: 15, ghost: 10, clock: 20, rainbow: 24, shroom: 12, fortress: 20 };
 // wall: which axis the wall faces along; w: wall plane; c: position along the wall; n: normal pointing into the room; fy: floor height
 const PAINTS = [
   { id: 'volcano', wall: 'x', w: -20, c: -6, n: 1, fy: 0 }, { id: 'snow', wall: 'x', w: -20, c: 8, n: 1, fy: 0 },
   { id: 'desert', wall: 'x', w: 40, c: -5, n: -1, fy: 0 }, { id: 'bay', wall: 'x', w: 40, c: 5, n: -1, fy: 0 },
-  { id: 'ghost', wall: 'z', w: 20, c: -7, n: -1, fy: 0 },
+  { id: 'ghost', wall: 'z', w: 20, c: -7, n: -1, fy: 0 }, { id: 'shroom', wall: 'z', w: 20, c: 7, n: -1, fy: 0 },
   { id: 'clock', wall: 'z', w: -20, c: -10, n: 1, fy: 5 }, { id: 'rainbow', wall: 'z', w: -20, c: 10, n: 1, fy: 5 },
 ];
 const pAt = (pd, off, y) => pd.wall === 'x' ? new V3(pd.w + pd.n * off, y, pd.c) : new V3(pd.c, y, pd.w + pd.n * off);
@@ -1783,6 +1790,13 @@ function paintingCanvas(kind) {
     grad(0, 320, '#5a3a1a', '#c9a24a'); circ(128, 150, 90, '#f4ead0'); g.strokeStyle = '#3a2a1a'; g.lineWidth = 8; g.beginPath(); g.arc(128, 150, 90, 0, TAU); g.stroke();
     g.lineWidth = 6; g.beginPath(); g.moveTo(128, 150); g.lineTo(128, 80); g.moveTo(128, 150); g.lineTo(178, 170); g.stroke();
     for (const [x, y, r] of [[40, 280, 34], [220, 40, 30], [210, 290, 24]]) { circ(x, y, r, '#8a6a2a'); circ(x, y, r * 0.4, '#5a3a1a'); }
+  } else if (kind === 'shroom') {
+    grad(0, 320, '#8fd3e8', '#d4f2c0'); grad(250, 320, '#4fae4a', '#2f7a33');
+    for (const [x, w, h] of [[40, 16, 140], [220, 14, 120]]) { g.fillStyle = '#6b4a2b'; g.fillRect(x - w / 2, 250 - h, w, h); circ(x, 250 - h, 40, '#2f8a3a'); circ(x - 22, 262 - h, 26, '#3f9e45'); }
+    g.fillStyle = '#f4ead0'; g.fillRect(114, 170, 28, 100);
+    g.fillStyle = '#e0303a'; g.beginPath(); g.ellipse(128, 172, 82, 58, 0, Math.PI, 0); g.fill();
+    for (const [x, y, r] of [[100, 148, 10], [140, 132, 12], [168, 158, 9], [120, 160, 7], [80, 164, 6]]) circ(x, y, r, '#ffffff');
+    for (const [x, col] of [[60, '#ffcf3a'], [190, '#ff8ad8'], [96, '#ffffff'], [214, '#ffcf3a']]) circ(x, 286, 6, col);
   } else if (kind === 'rainbow') {
     grad(0, 320, '#6fa8ff', '#ffe0f5');
     ['#ff5a5a', '#ffcf3a', '#4fd67a', '#4a8cff'].forEach((col, i) => { g.strokeStyle = col; g.lineWidth = 16; g.beginPath(); g.arc(128, 260, 150 - i * 16, Math.PI, 0); g.stroke(); });
@@ -1839,7 +1853,7 @@ function buildCastle() {
   const ch = new THREE.Group(); ch.position.set(0, 11.2, 5); root.add(ch);
   const chRing = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.1, 6, 24), M(0xffcf3a, { metalness: 0.6 })); chRing.rotation.x = Math.PI / 2; ch.add(chRing);
   for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff1b0 })); const a = i / 8 * TAU; b.position.set(Math.cos(a) * 1.6, 0.25, Math.sin(a) * 1.6); ch.add(b); }
-  sign('Salta dentro ai quadri\nper entrare nei mondi', 4.6, 0, 12.2, 0);
+  sign('Salta dentro ai quadri\nper entrare nei mondi', 4.6, 0, 6.5, 0);
 
   // east wing (behind the silver-key door)
   box(31, -0.5, 0, 18, 1, 24, FLOORC);
@@ -2384,7 +2398,153 @@ function buildRainbow() {
     tick(dt, t) { carpet.mesh.rotation.z = Math.sin(t * 3) * 0.04; },
   };
 }
-const LEVELS = { ghost: buildGhost, clock: buildClock, rainbow: buildRainbow, island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert, bay: buildBay, castle: buildCastle, fortress: buildFortress };
+// ---------- LEVEL: giant mushroom forest ----------
+function buildShroom() {
+  const SIDE = 0x6b4a2b, BARK = 0x6b4a2b, CAPR = 0xe0303a, STEM = 0xf4ead0, SHELF = 0xe8b86a, LEAF = 0x2f8a3a;
+  cyl(0, 0, 34, -4, 0, [SIDE, GRASS, SIDE], 56);
+  mound(-18, 8, 7, 2, 0, 2.5, GRASS2); mound(16, 16, 6, 1.5, 0, 2, GRASS2);
+  // mushroom with a polka-dot cap; bouncy ones launch Tino upwards
+  const spotGeo = new THREE.SphereGeometry(1, 8, 6);
+  function shroom(x, z, r, top, bouncy, col = CAPR) {
+    const stem = add(new THREE.Mesh(new THREE.CylinderGeometry(r * 0.32, r * 0.4, top + 0.5, 12), M(STEM))); stem.position.set(x, top / 2 - 0.25, z);
+    const s = cyl(x, z, r, top - 0.6, top, col, 20);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 8, 0, TAU, 0, Math.PI / 2), M(col)); dome.scale.y = 0.18; dome.position.y = 0.05; dome.castShadow = true; s.mesh.add(dome);
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * TAU + r, rr = r * (i % 2 ? 0.55 : 0.8), dot = new THREE.Mesh(spotGeo, M(0xffffff));
+      dot.scale.set(r * 0.13, r * 0.05, r * 0.13); dot.position.set(Math.cos(a) * rr, 0.3 + 0.1 * (1 - rr / r) * r * 0.9, Math.sin(a) * rr); s.mesh.add(dot);
+    }
+    if (bouncy) { s.shroom = true; s.squish = 0; }
+    return s;
+  }
+  // east: bouncing mushrooms spiralling around the giant one
+  const C = new V3(20, 0, -4);
+  const giant = shroom(C.x, C.z, 4.6, 20.5, false, 0xd8283a);
+  const bouncers = [2.4, 1.6, 0.8, 0].map((a, i) => shroom(C.x + Math.cos(a) * 9, C.z + Math.sin(a) * 9, 2, 1.2 + i * 5, true, [0xff6a3a, 0xff4a8a, 0xb84aff, 0x3a8aff][i]));
+  addStar('funghi', C.x, 23, C.z);
+  // north: the great tree with shelf fungi around the trunk
+  const T = new V3(0, 0, -18);
+  cyl(T.x, T.z, 3.2, -0.5, 24, BARK, 16);
+  const canopy = cyl(T.x, T.z, 4.4, 23.4, 24, LEAF, 18);
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * TAU, lf = add(new THREE.Mesh(new THREE.IcosahedronGeometry(2.6 + (i % 3) * 0.6, 0), M(i % 2 ? LEAF : 0x3f9e45)), true, false);
+    lf.scale.y = 0.6; lf.position.set(T.x + Math.cos(a) * 8.8, 25 + (i % 2) * 0.8, T.z + Math.sin(a) * 8.8);
+  }
+  const shelves = [];
+  for (let i = 0; i < 10; i++) {
+    const a = 1.9 + i * 0.95, y = 2 + i * 2.2, x = T.x + Math.cos(a) * 5.2, z = T.z + Math.sin(a) * 5.2;
+    shelves.push(cyl(x, z, 1.7, y - 0.4, y, SHELF, 14));
+  }
+  addStar('albero', T.x, 26.3, T.z);
+  // vine to skip the first shelves
+  const va = 1.9 + 4 * 0.95; cyl(T.x + Math.cos(va) * 7.6, T.z + Math.sin(va) * 7.6, 0.28, -0.5, 9.2, 0x3f7a2a, 7).pole = true;
+  // decor: forest ring, little mushrooms, flowers
+  for (let i = 0; i < 30; i++) {
+    const a = i / 30 * TAU + 0.1, r = 31 + (i % 3), x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (z > 20 && Math.abs(x) < 9) continue;
+    const tr = add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 4, 7), M(BARK))); tr.position.set(x, 2, z);
+    const cn = add(new THREE.Mesh(new THREE.ConeGeometry(2.4 + (i % 2), 6, 8), M(i % 2 ? LEAF : 0x3f9e45))); cn.position.set(x, 6.5, z);
+  }
+  for (let i = 0; i < 26; i++) {
+    const x = Math.sin(i * 12.9898) * 26, z = Math.cos(i * 78.233) * 26; if (Math.hypot(x - T.x, z - T.z) < 8 || Math.hypot(x - C.x, z - C.z) < 12) continue;
+    if (i % 2) { const st = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.5, 6), M(STEM)), false); st.position.set(x, gy(x, z) + 0.25, z);
+      const cp = add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 6, 0, TAU, 0, Math.PI / 2), M([CAPR, 0xffcf3a, 0xb84aff][i % 3])), false); cp.position.set(x, gy(x, z) + 0.45, z); }
+    else { const fl = add(new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), new THREE.MeshBasicMaterial({ color: [0xffffff, 0xffcf3a, 0xff8ad8][i % 3] })), false, false); fl.position.set(x, gy(x, z) + 0.2, z); }
+  }
+  // the runaway rabbit
+  const rg = new THREE.Group(); root.add(rg);
+  const RW = 0xf4efe6, RP = 0xffb0c0;
+  const rbody = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 10), M(RW)); rbody.scale.set(0.9, 0.85, 1.15); rbody.position.y = 0.45; rg.add(rbody); outline(rbody, 1.06);
+  const rhead = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), M(RW)); rhead.position.set(0, 0.85, 0.42); rg.add(rhead); outline(rhead, 1.06);
+  const ears = [-1, 1].map(sx => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), M(RW)); e.scale.set(1, 4, 0.6); e.position.set(sx * 0.13, 1.3, 0.35); e.rotation.z = -sx * 0.15;
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), M(RP)); inner.scale.set(1, 0.8, 0.5); inner.position.z = 0.06; e.add(inner); rg.add(e); return e; });
+  for (const sx of [-1, 1]) { const ey = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), M(0x16213e)); ey.position.set(sx * 0.14, 0.92, 0.68); rg.add(ey); }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), M(RP)); nose.position.set(0, 0.82, 0.74); rg.add(nose);
+  const puff = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), M(0xffffff)); puff.position.set(0, 0.5, -0.52); rg.add(puff);
+  const HOME = new V3(-10, 0, 8), HOMER = 16;
+  const rab = { pos: new V3(-12, 0, 10), dir: 0, state: 'idle', t: 0, run: 0, hop: 0, sp: 0 };
+  rg.position.copy(rab.pos);
+
+  // coins
+  ring(0, 14, 4, 8, 1); lineOn(-6, 20, -20, 20, 6, 1); ringOn(HOME.x, HOME.z, 9, 10, 1);
+  bouncers.forEach((b, i) => { if (i % 2 === 0) ring(b.x, b.z, 1.2, 5, b.top + 1); });
+  ring(C.x, C.z, 3, 8, 21.5); ring(T.x, T.z, 6.5, 10, 1);
+  shelves.forEach((sh, i) => { if (i % 2) addCoin(sh.x, sh.top + 1, sh.z); });
+  lineOn(26, 12, 26, 24, 4, 1); lineOn(-24, -4, -16, -20, 5, 1);
+  [[bouncers[1].x, bouncers[1].top + 1, bouncers[1].z], [bouncers[3].x, bouncers[3].top + 1, bouncers[3].z],
+   [shelves[3].x, shelves[3].top + 1, shelves[3].z], [shelves[8].x, shelves[8].top + 1, shelves[8].z],
+   [-18, 3.5, 8], [0, 1, -28], [-27, 1, -8], [27, 1, 16]].forEach(([x, y, z]) => addCoin(x, y, z, true));
+  addStar('coniglio', HOME.x, 2, HOME.z, true);
+  addStar('rosse', 0, 2.5, 8, true);
+  addEnemy(-10, 0, -6, 5); addEnemy(10, 0, 18, 5); addEnemy(-20, 0, -14, 5); addEnemy(8, 0, -8, 4);
+  addHeart(4, 1.4, 22); addItemBox(-6, 2.6, 23, 'coins'); addItemBox(24, 2.6, 8, 'life');
+  sign('Funghi a pois:\nsaltaci sopra!', 9, 0, 11, -0.6);
+  addPortal(-5, 0, 27, Math.PI / 2, 'castle', 'shroom');
+
+  return {
+    sky: 0x9fd8e8, fogNear: 60, fogFar: 170, hemi: [0xfff6e0, 0x3a5a2a, 0.9], sun: [0xfff0c8, 0.9],
+    music: 'shroom', deathY: -15, hazardY: null, seaY: null,
+    spawn: { pos: new V3(0, 0, 26), yaw: 0 }, entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Nella radura davanti alla partenza',
+    update(dt) {
+      // bouncy caps
+      if (P.onGround && P.ground && P.ground.shroom && !P.pound) {
+        const b = P.ground; b.squish = 1;
+        P.vel.y = 22; P.onGround = false; P.ground = null; P.bounceT = 0.9; P.longJump = P.backflip = false; P.chain = 0;
+        sfx.jump(2); burst(P.pos.clone(), 0xffffff, 6, 3);
+      } else if (P.onGround && P.ground && P.ground.shroom && P.pound) { P.ground.squish = 1; }
+      if (P.bounceT > 0) P.bounceT -= dt;
+      // rabbit
+      if (rab.state === 'gone') return;
+      const dx = rab.pos.x - P.pos.x, dz = rab.pos.z - P.pos.z, d = Math.hypot(dx, dz) || 0.01;
+      rab.t -= dt;
+      if (rab.state === 'caught') {
+        rg.scale.setScalar(Math.max(0.01, rab.t / 0.6)); rg.position.y += dt * 2;
+        if (rab.t <= 0) { rab.state = 'gone'; root.remove(rg); }
+        return;
+      }
+      if (d < 1.2 && Math.abs(P.pos.y - rab.pos.y) < 1.6) {
+        rab.state = 'caught'; rab.t = 0.6; sfx.cry(); burst(rab.pos.clone().add(new V3(0, 0.6, 0)), 0xffffff, 18, 5);
+        banner('Preso!<small>Il coniglio ti regala una stella</small>', 1.8);
+        reveal(starById('coniglio'), 'Il coniglio te l\'ha lasciata', rab.pos.clone().add(new V3(0, 1.8, 0)));
+        return;
+      }
+      if (rab.state === 'tired') { if (rab.t <= 0) { rab.state = 'idle'; rab.run = 0; } rab.sp = 0; }
+      else if (d < 9) {
+        if (rab.state !== 'flee') { rab.state = 'flee'; sfx.cry(); }
+        rab.run += dt;
+        if (rab.run > 4.5) { rab.state = 'tired'; rab.t = 1.6; rab.sp = 0; }
+        else {
+          let fx = dx / d, fz = dz / d;
+          const ox = rab.pos.x - HOME.x, oz = rab.pos.z - HOME.z, od = Math.hypot(ox, oz) || 1;
+          if (od > HOMER - 3) { const nx = ox / od, nz = oz / od, out = fx * nx + fz * nz; if (out > 0) { fx -= nx * out * 1.6; fz -= nz * out * 1.6; } }
+          const fl = Math.hypot(fx, fz) || 1; rab.dir = lerpAngle(rab.dir, Math.atan2(fx / fl, fz / fl), 1 - Math.exp(-8 * dt)); rab.sp = 8.2;
+        }
+      } else {
+        if (rab.state === 'flee') { rab.state = 'idle'; rab.run = 0; }
+        if (rab.t <= 0) { rab.t = 1 + Math.random() * 2; rab.dir += (Math.random() - 0.5) * 2.5; rab.sp = Math.random() < 0.5 ? 0 : 2; }
+        rab.run = Math.max(0, rab.run - dt);
+      }
+      rab.pos.x += Math.sin(rab.dir) * rab.sp * dt; rab.pos.z += Math.cos(rab.dir) * rab.sp * dt;
+      const ox = rab.pos.x - HOME.x, oz = rab.pos.z - HOME.z, od = Math.hypot(ox, oz);
+      if (od > HOMER) { rab.pos.x = HOME.x + ox / od * HOMER; rab.pos.z = HOME.z + oz / od * HOMER; }
+      rab.pos.y = Math.max(0, groundHeight(rab.pos.x, rab.pos.z, rab.pos.y + 1.5, 0.3));
+      if (rab.sp > 0) rab.hop += dt * (rab.sp > 4 ? 11 : 7);
+      rg.position.set(rab.pos.x, rab.pos.y + (rab.sp > 0 ? Math.abs(Math.sin(rab.hop)) * (rab.sp > 4 ? 0.7 : 0.3) : 0), rab.pos.z);
+      rg.rotation.y = rab.dir;
+      const tired = rab.state === 'tired';
+      ears.forEach((e, i) => { e.rotation.x = tired ? -1.1 : -0.2 - Math.sin(rab.hop) * 0.25; });
+      rbody.scale.y = 0.85 + (tired ? Math.sin(gameTime * 10) * 0.05 : 0);
+    },
+    tick(dt, t) {
+      for (const b of bouncers.concat([giant])) {
+        if (!b.squish) continue;
+        b.squish = Math.max(0, b.squish - dt * 3);
+        const k = Math.sin(b.squish * Math.PI * 2) * b.squish * 0.25; b.mesh.scale.set(1 + k, 1 - k, 1 + k);
+      }
+      canopy.mesh.rotation.y = Math.sin(t * 0.3) * 0.02;
+    },
+  };
+}
+const LEVELS = { shroom: buildShroom, ghost: buildGhost, clock: buildClock, rainbow: buildRainbow, island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert, bay: buildBay, castle: buildCastle, fortress: buildFortress };
 
 // ---------- player (Tino) ----------
 const H = 1.6, R = 0.45, STEP = 0.45;
@@ -2535,6 +2695,9 @@ const TRACKS = {
   rainbow: { bpm: 140, lead: [79,0,84,0,88,0,84,0, 81,0,86,0,89,0,86,0, 79,0,84,0,88,91,88,84, 86,0,0,0,79,0,0,0,
                              76,0,79,0,84,0,88,86, 84,0,81,0,77,0,81,84, 83,81,79,77,76,74,72,71, 72,0,0,0,60,0,0,0],
              roots: [48,53,48,55,48,53,55,48], leadType: 'triangle', leadVol: 0.07, bassType: 'sine', bassVol: 0.12 },
+  shroom: { bpm: 116, lead: [67,0,71,74,0,71,76,0, 74,0,71,0,69,0,67,0, 69,0,72,76,0,72,77,0, 76,74,72,0,71,0,0,0,
+                            67,0,71,74,0,79,78,76, 74,0,76,0,71,0,69,0, 67,69,71,72,74,76,78,79, 79,0,0,0,67,0,0,0],
+             roots: [43,48,45,50,43,48,50,43], leadType: 'square', leadVol: 0.03, bassType: 'triangle', bassVol: 0.12 },
   castle: { bpm: 88, lead: [67,0,71,0,74,0,79,0, 78,0,76,0,74,0,0,0, 72,0,76,0,79,0,84,0, 83,0,81,0,79,0,0,0,
                           76,0,79,0,83,0,81,79, 78,0,74,0,76,0,78,0, 79,0,74,0,71,0,74,0, 67,0,0,0,55,0,0,0],
             roots: [43,40,36,38,40,38,43,43], leadType: 'triangle', leadVol: 0.07, bassType: 'sine', bassVol: 0.12, hat: false },
@@ -2610,6 +2773,10 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// app in background (tab hidden or Android app paused): pause the game and silence the audio
+window.gameSleep = () => { if (G.running && !G.paused && !G.cut && !G.over && !G.selecting) togglePause(); if (actx) actx.suspend(); };
+window.gameWake = () => { if (actx) actx.resume(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) gameSleep(); else gameWake(); });
 
 const cam = { yaw: 0, pitch: 0.36, dist: 12, t: new V3(0, 1.4, 24) };
 let dragId = null, dragX = 0, dragY = 0;
@@ -2709,7 +2876,7 @@ $('bKeep').addEventListener('click', () => {
 // ---------- level loading / transitions ----------
 function placePlayer(sp) {
   P.pos.copy(sp.pos); P.vel.set(0, 0, 0); P.onGround = false; P.ground = null;
-  P.pound = P.longJump = P.backflip = false; P.lockT = 0; P.facing = sp.yaw + Math.PI; P.inSand = false; P.sink = 0; P.spinT = 0;
+  P.pound = P.longJump = P.backflip = false; P.lockT = 0; P.facing = sp.yaw + Math.PI; P.inSand = false; P.sink = 0; P.spinT = 0; P.bounceT = 0;
   P.fly = false; P.hang = null; P.pole = null; P.dive = false; P.bellyT = 0; P.holding = false; P.cannon = null; P.shot = false;
   $('reticle').hidden = true;
   cam.yaw = sp.camYaw !== undefined ? sp.camYaw : sp.yaw; cam.t.set(sp.pos.x, sp.pos.y + 1.4, sp.pos.z);
@@ -2927,7 +3094,7 @@ function afterDance() {
   const s = G.lastStar; G.lastStar = null;
   if (s && L.id === 'fortress' && s.id === 'grande') { showEnding(); return; }
   if (G.stars >= TOTAL && !G.won) { G.won = true; gameOver(true); return; }
-  if (s && s.id !== 'cento' && ['volcano', 'snow', 'desert', 'bay', 'ghost', 'clock', 'rainbow', 'fortress'].includes(L.id)) { const from = L.id; irisTo(() => loadLevel('castle', from, true)); }
+  if (s && s.id !== 'cento' && ['volcano', 'snow', 'desert', 'bay', 'ghost', 'clock', 'rainbow', 'shroom', 'fortress'].includes(L.id)) { const from = L.id; irisTo(() => loadLevel('castle', from, true)); }
 }
 
 let gameTime = 0, splashed = false;
@@ -3065,7 +3232,7 @@ function updatePlayer(dt) {
       }
     }
     let g = p.longJump ? 26 : heavy ? 22 : 34;
-    if (!(keys.Space || touchJump) && p.vel.y > 0 && !p.longJump && !p.backflip && !(p.spinT > 0) && !p.shot) g *= 2.2;
+    if (!(keys.Space || touchJump) && p.vel.y > 0 && !p.longJump && !p.backflip && !(p.spinT > 0) && !(p.bounceT > 0) && !p.shot) g *= 2.2;
     p.vel.y = Math.max(p.vel.y - g * dt, -40);
   }
   jumpBuf -= dt;
@@ -3573,6 +3740,7 @@ if (location.hash === '#fortezza') loadLevel('fortress');
 if (location.hash === '#fantasmi') loadLevel('ghost');
 if (location.hash === '#orologio') loadLevel('clock');
 if (location.hash === '#arcobaleno') loadLevel('rainbow');
+if (location.hash === '#funghi') loadLevel('shroom');
 })();
 </script>
 </body></html>

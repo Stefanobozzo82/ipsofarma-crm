@@ -129,7 +129,7 @@ body.touch .keys.touch-only{display:grid!important}
       <kbd>J</kbd><span>Pugno. Correndo o in aria: tuffo. In aria da fermo: calcio</span>
       <kbd>Bordi e tronchi</kbd><span>Saltaci contro per aggrapparti e arrampicarti</span>
       <kbd>Cannone</kbd><span>Entra nel buco, mira con WASD, Spazio per sparare</span>
-      <kbd>Trascina / Q E</kbd><span>Telecamera. Rotellina per lo zoom</span>
+      <kbd>Trascina / Q E</kbd><span>Telecamera (segue Tino da dietro). C la rimette alle spalle, rotellina per lo zoom</span>
       <kbd>P / M</kbd><span>Pausa (indizi, audio e grafica) / audio</span>
     </div>
     <div class="keys touch-only">
@@ -137,7 +137,7 @@ body.touch .keys.touch-only{display:grid!important}
       <kbd>Salta</kbd><span>Risalta appena atterri per il triplo salto; in aria contro un muro per il salto a muro</span>
       <kbd>Pesta</kbd><span>In aria: schianto. A terra tienilo premuto e salta: salto lungo o all'indietro</span>
       <kbd>Pugno</kbd><span>Colpisce i nemici. Correndo o in aria: tuffo</span>
-      <kbd>Trascina</kbd><span>Ruota la telecamera</span>
+      <kbd>Trascina</kbd><span>Ruota la telecamera; da sola torna alle spalle di Tino</span>
     </div>
     <div class="btns">
       <button class="btn" id="bPlay" type="button">Gioca</button>
@@ -153,6 +153,7 @@ body.touch .keys.touch-only{display:grid!important}
     <div class="settings">
       <button class="btn ghost" id="bMute" type="button">Audio sì</button>
       <button class="btn ghost" id="bGfx" type="button">Grafica alta</button>
+      <button class="btn ghost" id="bCam" type="button">Visuale automatica</button>
     </div>
     <p id="keysInfo" style="margin:0 0 10px;font-size:14px"></p>
     <div class="pscroll" id="starList"></div>
@@ -3134,13 +3135,16 @@ window.gameSleep = () => { if (G.running && !G.paused && !G.cut && !G.over && !G
 window.gameWake = () => { if (actx) actx.resume(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) gameSleep(); else gameWake(); });
 
-const cam = { yaw: 0, pitch: 0.36, dist: 12, t: new V3(0, 1.4, 24) };
+const cam = { yaw: 0, pitch: 0.36, dist: 12, t: new V3(0, 1.4, 24), manual: -9, recenter: 0, auto: true };
+try { cam.auto = localStorage.getItem('super-tino-cam') !== 'libera'; } catch (e) {}
+const camNow = () => performance.now() / 1000;
 let dragId = null, dragX = 0, dragY = 0;
 const cv = renderer.domElement;
 cv.addEventListener('pointerdown', e => { if (dragId !== null) return; dragId = e.pointerId; dragX = e.clientX; dragY = e.clientY; cv.setPointerCapture(e.pointerId); });
 cv.addEventListener('pointermove', e => {
   if (e.pointerId !== dragId) return;
   cam.yaw -= (e.clientX - dragX) * 0.006; cam.pitch = clamp(cam.pitch + (e.clientY - dragY) * 0.004, 0.05, 1.25);
+  if (Math.abs(e.clientX - dragX) + Math.abs(e.clientY - dragY) > 1) cam.manual = camNow();
   dragX = e.clientX; dragY = e.clientY;
 });
 const endDrag = e => { if (e.pointerId === dragId) dragId = null; };
@@ -3172,6 +3176,9 @@ $('bPunch').addEventListener('pointerdown', e => { e.preventDefault(); punchReq 
 function cycleAudio() { audioMode = (audioMode + 1) % 3; applyAudio(); }
 $('bMute').addEventListener('click', cycleAudio);
 $('bPause').addEventListener('click', togglePause);
+const camLabel = () => { $('bCam').textContent = cam.auto ? 'Visuale automatica' : 'Visuale libera'; };
+camLabel();
+$('bCam').addEventListener('click', () => { cam.auto = !cam.auto; try { localStorage.setItem('super-tino-cam', cam.auto ? 'auto' : 'libera'); } catch (e) {} camLabel(); });
 $('bGfx').addEventListener('click', () => { gfxHigh = !gfxHigh; try { localStorage.setItem(GFX_KEY, gfxHigh ? 'alta' : 'leggera'); } catch (e) {} applyQuality(); });
 function starListHtml() {
   return Object.entries(CATALOG).map(([lid, lv]) =>
@@ -4019,14 +4026,34 @@ function updateCamera(dt) {
     return;
   }
   if (P.fly || P.shot) cam.yaw = lerpAngle(cam.yaw, P.facing + Math.PI, 1 - Math.exp(-2.5 * dt));
-  if (keys.KeyQ) cam.yaw += 2.2 * dt;
-  if (keys.KeyE) cam.yaw -= 2.2 * dt;
+  if (keys.KeyQ) { cam.yaw += 2.2 * dt; cam.manual = camNow(); }
+  if (keys.KeyE) { cam.yaw -= 2.2 * dt; cam.manual = camNow(); }
+  if (keys.KeyC && cam.recenter <= 0) { cam.recenter = 0.5; cam.manual = -9; }
+  const hsp = Math.hypot(P.vel.x, P.vel.z);
+  // follow cam: swing behind Tino as he runs, unless the player just turned the camera by hand
+  if (G.running && !P.fly && !P.shot) {
+    const behind = P.facing + Math.PI, diff = ((behind - cam.yaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
+    let rate = 0;
+    if (cam.recenter > 0) { cam.recenter -= dt; rate = 9; }
+    else if (cam.auto && camNow() - cam.manual > 1.5) {
+      if (P.pole || P.hang || P.carry) rate = 1.6;
+      else if (hsp > 1.2 && Math.abs(diff) < 2.3) rate = clamp(hsp / 9.5, 0.3, 1.4) * (P.swim ? 1.2 : 2.0) * (0.45 + 0.55 * Math.cos(diff * 0.5));
+    }
+    cam.yaw += diff * (1 - Math.exp(-rate * dt));
+    if (cam.auto && camNow() - cam.manual > 1.5) {
+      const fall = !P.onGround && !P.swim && P.vel.y < -14;
+      const tp = fall ? 0.75 : P.swim ? 0.24 : 0.36;
+      cam.pitch += (tp - cam.pitch) * (1 - Math.exp(-(fall ? 2 : 0.8) * dt));
+    }
+  }
   const tx = P.pos.x, ty = P.pos.y + 1.4, tz = P.pos.z;
   const kh = 1 - Math.exp(-10 * dt), kv = 1 - Math.exp(-(P.onGround || P.swim ? 6 : 2.5) * dt);
   cam.t.x += (tx - cam.t.x) * kh; cam.t.z += (tz - cam.t.z) * kh;
   cam.t.y += (Math.max(ty, L.waterY != null ? -40 : -1) - cam.t.y) * kv;
   const cp = Math.cos(cam.pitch);
-  const title = !G.running && !G.over, dist = title ? 7 : cam.dist;
+  const title = !G.running && !G.over;
+  cam.dz = (cam.dz || 0) + ((cam.auto ? Math.min(hsp, 12) * 0.18 : 0) - (cam.dz || 0)) * (1 - Math.exp(-1.5 * dt));
+  const dist = title ? 7 : cam.dist + cam.dz;
   if (title && innerWidth >= 900) camera.setViewOffset(innerWidth, innerHeight, -innerWidth * 0.22, 0, innerWidth, innerHeight);
   else if (camera.view && camera.view.enabled) camera.clearViewOffset();
   camera.position.set(cam.t.x + Math.sin(cam.yaw) * cp * dist, cam.t.y + Math.sin(cam.pitch) * dist, cam.t.z + Math.cos(cam.yaw) * cp * dist);

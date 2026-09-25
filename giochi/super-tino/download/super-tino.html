@@ -1173,6 +1173,2246 @@ body.touch .keys.touch-only{display:grid!important}
 
 } )();
 </script>
+<script>( function () {
+
+	// Ported from Stefan Gustavson's java implementation
+	// http://staffwww.itn.liu.se/~stegu/simplexnoise/simplexnoise.pdf
+	// Read Stefan's excellent paper for details on how this code works.
+	//
+	// Sean McCullough banksean@gmail.com
+	//
+	// Added 4D noise
+
+	/**
+ * You can pass in a random number generator object if you like.
+ * It is assumed to have a random() method.
+ */
+	class SimplexNoise {
+
+		constructor( r = Math ) {
+
+			this.grad3 = [[ 1, 1, 0 ], [ - 1, 1, 0 ], [ 1, - 1, 0 ], [ - 1, - 1, 0 ], [ 1, 0, 1 ], [ - 1, 0, 1 ], [ 1, 0, - 1 ], [ - 1, 0, - 1 ], [ 0, 1, 1 ], [ 0, - 1, 1 ], [ 0, 1, - 1 ], [ 0, - 1, - 1 ]];
+			this.grad4 = [[ 0, 1, 1, 1 ], [ 0, 1, 1, - 1 ], [ 0, 1, - 1, 1 ], [ 0, 1, - 1, - 1 ], [ 0, - 1, 1, 1 ], [ 0, - 1, 1, - 1 ], [ 0, - 1, - 1, 1 ], [ 0, - 1, - 1, - 1 ], [ 1, 0, 1, 1 ], [ 1, 0, 1, - 1 ], [ 1, 0, - 1, 1 ], [ 1, 0, - 1, - 1 ], [ - 1, 0, 1, 1 ], [ - 1, 0, 1, - 1 ], [ - 1, 0, - 1, 1 ], [ - 1, 0, - 1, - 1 ], [ 1, 1, 0, 1 ], [ 1, 1, 0, - 1 ], [ 1, - 1, 0, 1 ], [ 1, - 1, 0, - 1 ], [ - 1, 1, 0, 1 ], [ - 1, 1, 0, - 1 ], [ - 1, - 1, 0, 1 ], [ - 1, - 1, 0, - 1 ], [ 1, 1, 1, 0 ], [ 1, 1, - 1, 0 ], [ 1, - 1, 1, 0 ], [ 1, - 1, - 1, 0 ], [ - 1, 1, 1, 0 ], [ - 1, 1, - 1, 0 ], [ - 1, - 1, 1, 0 ], [ - 1, - 1, - 1, 0 ]];
+			this.p = [];
+
+			for ( let i = 0; i < 256; i ++ ) {
+
+				this.p[ i ] = Math.floor( r.random() * 256 );
+
+			} // To remove the need for index wrapping, double the permutation table length
+
+
+			this.perm = [];
+
+			for ( let i = 0; i < 512; i ++ ) {
+
+				this.perm[ i ] = this.p[ i & 255 ];
+
+			} // A lookup table to traverse the simplex around a given point in 4D.
+			// Details can be found where this table is used, in the 4D noise method.
+
+
+			this.simplex = [[ 0, 1, 2, 3 ], [ 0, 1, 3, 2 ], [ 0, 0, 0, 0 ], [ 0, 2, 3, 1 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 1, 2, 3, 0 ], [ 0, 2, 1, 3 ], [ 0, 0, 0, 0 ], [ 0, 3, 1, 2 ], [ 0, 3, 2, 1 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 1, 3, 2, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 1, 2, 0, 3 ], [ 0, 0, 0, 0 ], [ 1, 3, 0, 2 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 2, 3, 0, 1 ], [ 2, 3, 1, 0 ], [ 1, 0, 2, 3 ], [ 1, 0, 3, 2 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 2, 0, 3, 1 ], [ 0, 0, 0, 0 ], [ 2, 1, 3, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 2, 0, 1, 3 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 3, 0, 1, 2 ], [ 3, 0, 2, 1 ], [ 0, 0, 0, 0 ], [ 3, 1, 2, 0 ], [ 2, 1, 0, 3 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 0, 0, 0, 0 ], [ 3, 1, 0, 2 ], [ 0, 0, 0, 0 ], [ 3, 2, 0, 1 ], [ 3, 2, 1, 0 ]];
+
+		}
+
+		dot( g, x, y ) {
+
+			return g[ 0 ] * x + g[ 1 ] * y;
+
+		}
+
+		dot3( g, x, y, z ) {
+
+			return g[ 0 ] * x + g[ 1 ] * y + g[ 2 ] * z;
+
+		}
+
+		dot4( g, x, y, z, w ) {
+
+			return g[ 0 ] * x + g[ 1 ] * y + g[ 2 ] * z + g[ 3 ] * w;
+
+		}
+
+		noise( xin, yin ) {
+
+			let n0; // Noise contributions from the three corners
+
+			let n1;
+			let n2; // Skew the input space to determine which simplex cell we're in
+
+			const F2 = 0.5 * ( Math.sqrt( 3.0 ) - 1.0 );
+			const s = ( xin + yin ) * F2; // Hairy factor for 2D
+
+			const i = Math.floor( xin + s );
+			const j = Math.floor( yin + s );
+			const G2 = ( 3.0 - Math.sqrt( 3.0 ) ) / 6.0;
+			const t = ( i + j ) * G2;
+			const X0 = i - t; // Unskew the cell origin back to (x,y) space
+
+			const Y0 = j - t;
+			const x0 = xin - X0; // The x,y distances from the cell origin
+
+			const y0 = yin - Y0; // For the 2D case, the simplex shape is an equilateral triangle.
+			// Determine which simplex we are in.
+
+			let i1; // Offsets for second (middle) corner of simplex in (i,j) coords
+
+			let j1;
+
+			if ( x0 > y0 ) {
+
+				i1 = 1;
+				j1 = 0; // lower triangle, XY order: (0,0)->(1,0)->(1,1)
+
+			} else {
+
+				i1 = 0;
+				j1 = 1;
+
+			} // upper triangle, YX order: (0,0)->(0,1)->(1,1)
+			// A step of (1,0) in (i,j) means a step of (1-c,-c) in (x,y), and
+			// a step of (0,1) in (i,j) means a step of (-c,1-c) in (x,y), where
+			// c = (3-sqrt(3))/6
+
+
+			const x1 = x0 - i1 + G2; // Offsets for middle corner in (x,y) unskewed coords
+
+			const y1 = y0 - j1 + G2;
+			const x2 = x0 - 1.0 + 2.0 * G2; // Offsets for last corner in (x,y) unskewed coords
+
+			const y2 = y0 - 1.0 + 2.0 * G2; // Work out the hashed gradient indices of the three simplex corners
+
+			const ii = i & 255;
+			const jj = j & 255;
+			const gi0 = this.perm[ ii + this.perm[ jj ] ] % 12;
+			const gi1 = this.perm[ ii + i1 + this.perm[ jj + j1 ] ] % 12;
+			const gi2 = this.perm[ ii + 1 + this.perm[ jj + 1 ] ] % 12; // Calculate the contribution from the three corners
+
+			let t0 = 0.5 - x0 * x0 - y0 * y0;
+			if ( t0 < 0 ) n0 = 0.0; else {
+
+				t0 *= t0;
+				n0 = t0 * t0 * this.dot( this.grad3[ gi0 ], x0, y0 ); // (x,y) of grad3 used for 2D gradient
+
+			}
+
+			let t1 = 0.5 - x1 * x1 - y1 * y1;
+			if ( t1 < 0 ) n1 = 0.0; else {
+
+				t1 *= t1;
+				n1 = t1 * t1 * this.dot( this.grad3[ gi1 ], x1, y1 );
+
+			}
+
+			let t2 = 0.5 - x2 * x2 - y2 * y2;
+			if ( t2 < 0 ) n2 = 0.0; else {
+
+				t2 *= t2;
+				n2 = t2 * t2 * this.dot( this.grad3[ gi2 ], x2, y2 );
+
+			} // Add contributions from each corner to get the final noise value.
+			// The result is scaled to return values in the interval [-1,1].
+
+			return 70.0 * ( n0 + n1 + n2 );
+
+		} // 3D simplex noise
+
+
+		noise3d( xin, yin, zin ) {
+
+			let n0; // Noise contributions from the four corners
+
+			let n1;
+			let n2;
+			let n3; // Skew the input space to determine which simplex cell we're in
+
+			const F3 = 1.0 / 3.0;
+			const s = ( xin + yin + zin ) * F3; // Very nice and simple skew factor for 3D
+
+			const i = Math.floor( xin + s );
+			const j = Math.floor( yin + s );
+			const k = Math.floor( zin + s );
+			const G3 = 1.0 / 6.0; // Very nice and simple unskew factor, too
+
+			const t = ( i + j + k ) * G3;
+			const X0 = i - t; // Unskew the cell origin back to (x,y,z) space
+
+			const Y0 = j - t;
+			const Z0 = k - t;
+			const x0 = xin - X0; // The x,y,z distances from the cell origin
+
+			const y0 = yin - Y0;
+			const z0 = zin - Z0; // For the 3D case, the simplex shape is a slightly irregular tetrahedron.
+			// Determine which simplex we are in.
+
+			let i1; // Offsets for second corner of simplex in (i,j,k) coords
+
+			let j1;
+			let k1;
+			let i2; // Offsets for third corner of simplex in (i,j,k) coords
+
+			let j2;
+			let k2;
+
+			if ( x0 >= y0 ) {
+
+				if ( y0 >= z0 ) {
+
+					i1 = 1;
+					j1 = 0;
+					k1 = 0;
+					i2 = 1;
+					j2 = 1;
+					k2 = 0; // X Y Z order
+
+				} else if ( x0 >= z0 ) {
+
+					i1 = 1;
+					j1 = 0;
+					k1 = 0;
+					i2 = 1;
+					j2 = 0;
+					k2 = 1; // X Z Y order
+
+				} else {
+
+					i1 = 0;
+					j1 = 0;
+					k1 = 1;
+					i2 = 1;
+					j2 = 0;
+					k2 = 1;
+
+				} // Z X Y order
+
+			} else {
+
+				// x0<y0
+				if ( y0 < z0 ) {
+
+					i1 = 0;
+					j1 = 0;
+					k1 = 1;
+					i2 = 0;
+					j2 = 1;
+					k2 = 1; // Z Y X order
+
+				} else if ( x0 < z0 ) {
+
+					i1 = 0;
+					j1 = 1;
+					k1 = 0;
+					i2 = 0;
+					j2 = 1;
+					k2 = 1; // Y Z X order
+
+				} else {
+
+					i1 = 0;
+					j1 = 1;
+					k1 = 0;
+					i2 = 1;
+					j2 = 1;
+					k2 = 0;
+
+				} // Y X Z order
+
+			} // A step of (1,0,0) in (i,j,k) means a step of (1-c,-c,-c) in (x,y,z),
+			// a step of (0,1,0) in (i,j,k) means a step of (-c,1-c,-c) in (x,y,z), and
+			// a step of (0,0,1) in (i,j,k) means a step of (-c,-c,1-c) in (x,y,z), where
+			// c = 1/6.
+
+
+			const x1 = x0 - i1 + G3; // Offsets for second corner in (x,y,z) coords
+
+			const y1 = y0 - j1 + G3;
+			const z1 = z0 - k1 + G3;
+			const x2 = x0 - i2 + 2.0 * G3; // Offsets for third corner in (x,y,z) coords
+
+			const y2 = y0 - j2 + 2.0 * G3;
+			const z2 = z0 - k2 + 2.0 * G3;
+			const x3 = x0 - 1.0 + 3.0 * G3; // Offsets for last corner in (x,y,z) coords
+
+			const y3 = y0 - 1.0 + 3.0 * G3;
+			const z3 = z0 - 1.0 + 3.0 * G3; // Work out the hashed gradient indices of the four simplex corners
+
+			const ii = i & 255;
+			const jj = j & 255;
+			const kk = k & 255;
+			const gi0 = this.perm[ ii + this.perm[ jj + this.perm[ kk ] ] ] % 12;
+			const gi1 = this.perm[ ii + i1 + this.perm[ jj + j1 + this.perm[ kk + k1 ] ] ] % 12;
+			const gi2 = this.perm[ ii + i2 + this.perm[ jj + j2 + this.perm[ kk + k2 ] ] ] % 12;
+			const gi3 = this.perm[ ii + 1 + this.perm[ jj + 1 + this.perm[ kk + 1 ] ] ] % 12; // Calculate the contribution from the four corners
+
+			let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+			if ( t0 < 0 ) n0 = 0.0; else {
+
+				t0 *= t0;
+				n0 = t0 * t0 * this.dot3( this.grad3[ gi0 ], x0, y0, z0 );
+
+			}
+
+			let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+			if ( t1 < 0 ) n1 = 0.0; else {
+
+				t1 *= t1;
+				n1 = t1 * t1 * this.dot3( this.grad3[ gi1 ], x1, y1, z1 );
+
+			}
+
+			let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+			if ( t2 < 0 ) n2 = 0.0; else {
+
+				t2 *= t2;
+				n2 = t2 * t2 * this.dot3( this.grad3[ gi2 ], x2, y2, z2 );
+
+			}
+
+			let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+			if ( t3 < 0 ) n3 = 0.0; else {
+
+				t3 *= t3;
+				n3 = t3 * t3 * this.dot3( this.grad3[ gi3 ], x3, y3, z3 );
+
+			} // Add contributions from each corner to get the final noise value.
+			// The result is scaled to stay just inside [-1,1]
+
+			return 32.0 * ( n0 + n1 + n2 + n3 );
+
+		} // 4D simplex noise
+
+
+		noise4d( x, y, z, w ) {
+
+			// For faster and easier lookups
+			const grad4 = this.grad4;
+			const simplex = this.simplex;
+			const perm = this.perm; // The skewing and unskewing factors are hairy again for the 4D case
+
+			const F4 = ( Math.sqrt( 5.0 ) - 1.0 ) / 4.0;
+			const G4 = ( 5.0 - Math.sqrt( 5.0 ) ) / 20.0;
+			let n0; // Noise contributions from the five corners
+
+			let n1;
+			let n2;
+			let n3;
+			let n4; // Skew the (x,y,z,w) space to determine which cell of 24 simplices we're in
+
+			const s = ( x + y + z + w ) * F4; // Factor for 4D skewing
+
+			const i = Math.floor( x + s );
+			const j = Math.floor( y + s );
+			const k = Math.floor( z + s );
+			const l = Math.floor( w + s );
+			const t = ( i + j + k + l ) * G4; // Factor for 4D unskewing
+
+			const X0 = i - t; // Unskew the cell origin back to (x,y,z,w) space
+
+			const Y0 = j - t;
+			const Z0 = k - t;
+			const W0 = l - t;
+			const x0 = x - X0; // The x,y,z,w distances from the cell origin
+
+			const y0 = y - Y0;
+			const z0 = z - Z0;
+			const w0 = w - W0; // For the 4D case, the simplex is a 4D shape I won't even try to describe.
+			// To find out which of the 24 possible simplices we're in, we need to
+			// determine the magnitude ordering of x0, y0, z0 and w0.
+			// The method below is a good way of finding the ordering of x,y,z,w and
+			// then find the correct traversal order for the simplex we’re in.
+			// First, six pair-wise comparisons are performed between each possible pair
+			// of the four coordinates, and the results are used to add up binary bits
+			// for an integer index.
+
+			const c1 = x0 > y0 ? 32 : 0;
+			const c2 = x0 > z0 ? 16 : 0;
+			const c3 = y0 > z0 ? 8 : 0;
+			const c4 = x0 > w0 ? 4 : 0;
+			const c5 = y0 > w0 ? 2 : 0;
+			const c6 = z0 > w0 ? 1 : 0;
+			const c = c1 + c2 + c3 + c4 + c5 + c6; // simplex[c] is a 4-vector with the numbers 0, 1, 2 and 3 in some order.
+			// Many values of c will never occur, since e.g. x>y>z>w makes x<z, y<w and x<w
+			// impossible. Only the 24 indices which have non-zero entries make any sense.
+			// We use a thresholding to set the coordinates in turn from the largest magnitude.
+			// The number 3 in the "simplex" array is at the position of the largest coordinate.
+
+			const i1 = simplex[ c ][ 0 ] >= 3 ? 1 : 0;
+			const j1 = simplex[ c ][ 1 ] >= 3 ? 1 : 0;
+			const k1 = simplex[ c ][ 2 ] >= 3 ? 1 : 0;
+			const l1 = simplex[ c ][ 3 ] >= 3 ? 1 : 0; // The number 2 in the "simplex" array is at the second largest coordinate.
+
+			const i2 = simplex[ c ][ 0 ] >= 2 ? 1 : 0;
+			const j2 = simplex[ c ][ 1 ] >= 2 ? 1 : 0;
+			const k2 = simplex[ c ][ 2 ] >= 2 ? 1 : 0;
+			const l2 = simplex[ c ][ 3 ] >= 2 ? 1 : 0; // The number 1 in the "simplex" array is at the second smallest coordinate.
+
+			const i3 = simplex[ c ][ 0 ] >= 1 ? 1 : 0;
+			const j3 = simplex[ c ][ 1 ] >= 1 ? 1 : 0;
+			const k3 = simplex[ c ][ 2 ] >= 1 ? 1 : 0;
+			const l3 = simplex[ c ][ 3 ] >= 1 ? 1 : 0; // The fifth corner has all coordinate offsets = 1, so no need to look that up.
+
+			const x1 = x0 - i1 + G4; // Offsets for second corner in (x,y,z,w) coords
+
+			const y1 = y0 - j1 + G4;
+			const z1 = z0 - k1 + G4;
+			const w1 = w0 - l1 + G4;
+			const x2 = x0 - i2 + 2.0 * G4; // Offsets for third corner in (x,y,z,w) coords
+
+			const y2 = y0 - j2 + 2.0 * G4;
+			const z2 = z0 - k2 + 2.0 * G4;
+			const w2 = w0 - l2 + 2.0 * G4;
+			const x3 = x0 - i3 + 3.0 * G4; // Offsets for fourth corner in (x,y,z,w) coords
+
+			const y3 = y0 - j3 + 3.0 * G4;
+			const z3 = z0 - k3 + 3.0 * G4;
+			const w3 = w0 - l3 + 3.0 * G4;
+			const x4 = x0 - 1.0 + 4.0 * G4; // Offsets for last corner in (x,y,z,w) coords
+
+			const y4 = y0 - 1.0 + 4.0 * G4;
+			const z4 = z0 - 1.0 + 4.0 * G4;
+			const w4 = w0 - 1.0 + 4.0 * G4; // Work out the hashed gradient indices of the five simplex corners
+
+			const ii = i & 255;
+			const jj = j & 255;
+			const kk = k & 255;
+			const ll = l & 255;
+			const gi0 = perm[ ii + perm[ jj + perm[ kk + perm[ ll ] ] ] ] % 32;
+			const gi1 = perm[ ii + i1 + perm[ jj + j1 + perm[ kk + k1 + perm[ ll + l1 ] ] ] ] % 32;
+			const gi2 = perm[ ii + i2 + perm[ jj + j2 + perm[ kk + k2 + perm[ ll + l2 ] ] ] ] % 32;
+			const gi3 = perm[ ii + i3 + perm[ jj + j3 + perm[ kk + k3 + perm[ ll + l3 ] ] ] ] % 32;
+			const gi4 = perm[ ii + 1 + perm[ jj + 1 + perm[ kk + 1 + perm[ ll + 1 ] ] ] ] % 32; // Calculate the contribution from the five corners
+
+			let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0 - w0 * w0;
+			if ( t0 < 0 ) n0 = 0.0; else {
+
+				t0 *= t0;
+				n0 = t0 * t0 * this.dot4( grad4[ gi0 ], x0, y0, z0, w0 );
+
+			}
+
+			let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1 - w1 * w1;
+			if ( t1 < 0 ) n1 = 0.0; else {
+
+				t1 *= t1;
+				n1 = t1 * t1 * this.dot4( grad4[ gi1 ], x1, y1, z1, w1 );
+
+			}
+
+			let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2 - w2 * w2;
+			if ( t2 < 0 ) n2 = 0.0; else {
+
+				t2 *= t2;
+				n2 = t2 * t2 * this.dot4( grad4[ gi2 ], x2, y2, z2, w2 );
+
+			}
+
+			let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3 - w3 * w3;
+			if ( t3 < 0 ) n3 = 0.0; else {
+
+				t3 *= t3;
+				n3 = t3 * t3 * this.dot4( grad4[ gi3 ], x3, y3, z3, w3 );
+
+			}
+
+			let t4 = 0.6 - x4 * x4 - y4 * y4 - z4 * z4 - w4 * w4;
+			if ( t4 < 0 ) n4 = 0.0; else {
+
+				t4 *= t4;
+				n4 = t4 * t4 * this.dot4( grad4[ gi4 ], x4, y4, z4, w4 );
+
+			} // Sum up and scale the result to cover the range [-1,1]
+
+			return 27.0 * ( n0 + n1 + n2 + n3 + n4 );
+
+		}
+
+	}
+
+	THREE.SimplexNoise = SimplexNoise;
+
+} )();
+</script>
+<script>( function () {
+
+	/**
+ * References:
+ * http://john-chapman-graphics.blogspot.com/2013/01/ssao-tutorial.html
+ * https://learnopengl.com/Advanced-Lighting/SSAO
+ * https://github.com/McNopper/OpenGL/blob/master/Example28/shader/ssao.frag.glsl
+ */
+
+	const SSAOShader = {
+		defines: {
+			'PERSPECTIVE_CAMERA': 1,
+			'KERNEL_SIZE': 32
+		},
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			},
+			'tNormal': {
+				value: null
+			},
+			'tDepth': {
+				value: null
+			},
+			'tNoise': {
+				value: null
+			},
+			'kernel': {
+				value: null
+			},
+			'cameraNear': {
+				value: null
+			},
+			'cameraFar': {
+				value: null
+			},
+			'resolution': {
+				value: new THREE.Vector2()
+			},
+			'cameraProjectionMatrix': {
+				value: new THREE.Matrix4()
+			},
+			'cameraInverseProjectionMatrix': {
+				value: new THREE.Matrix4()
+			},
+			'kernelRadius': {
+				value: 8
+			},
+			'minDistance': {
+				value: 0.005
+			},
+			'maxDistance': {
+				value: 0.05
+			}
+		},
+		vertexShader:
+  /* glsl */
+  `
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+		fragmentShader:
+  /* glsl */
+  `
+
+		uniform sampler2D tDiffuse;
+		uniform sampler2D tNormal;
+		uniform sampler2D tDepth;
+		uniform sampler2D tNoise;
+
+		uniform vec3 kernel[ KERNEL_SIZE ];
+
+		uniform vec2 resolution;
+
+		uniform float cameraNear;
+		uniform float cameraFar;
+		uniform mat4 cameraProjectionMatrix;
+		uniform mat4 cameraInverseProjectionMatrix;
+
+		uniform float kernelRadius;
+		uniform float minDistance; // avoid artifacts caused by neighbour fragments with minimal depth difference
+		uniform float maxDistance; // avoid the influence of fragments which are too far away
+
+		varying vec2 vUv;
+
+		#include <packing>
+
+		float getDepth( const in vec2 screenPosition ) {
+
+			return texture2D( tDepth, screenPosition ).x;
+
+		}
+
+		float getLinearDepth( const in vec2 screenPosition ) {
+
+			#if PERSPECTIVE_CAMERA == 1
+
+				float fragCoordZ = texture2D( tDepth, screenPosition ).x;
+				float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );
+				return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
+
+			#else
+
+				return texture2D( tDepth, screenPosition ).x;
+
+			#endif
+
+		}
+
+		float getViewZ( const in float depth ) {
+
+			#if PERSPECTIVE_CAMERA == 1
+
+				return perspectiveDepthToViewZ( depth, cameraNear, cameraFar );
+
+			#else
+
+				return orthographicDepthToViewZ( depth, cameraNear, cameraFar );
+
+			#endif
+
+		}
+
+		vec3 getViewPosition( const in vec2 screenPosition, const in float depth, const in float viewZ ) {
+
+			float clipW = cameraProjectionMatrix[2][3] * viewZ + cameraProjectionMatrix[3][3];
+
+			vec4 clipPosition = vec4( ( vec3( screenPosition, depth ) - 0.5 ) * 2.0, 1.0 );
+
+			clipPosition *= clipW; // unprojection.
+
+			return ( cameraInverseProjectionMatrix * clipPosition ).xyz;
+
+		}
+
+		vec3 getViewNormal( const in vec2 screenPosition ) {
+
+			return unpackRGBToNormal( texture2D( tNormal, screenPosition ).xyz );
+
+		}
+
+		void main() {
+
+			float depth = getDepth( vUv );
+			float viewZ = getViewZ( depth );
+
+			vec3 viewPosition = getViewPosition( vUv, depth, viewZ );
+			vec3 viewNormal = getViewNormal( vUv );
+
+			vec2 noiseScale = vec2( resolution.x / 4.0, resolution.y / 4.0 );
+			vec3 random = texture2D( tNoise, vUv * noiseScale ).xyz;
+
+			// compute matrix used to reorient a kernel vector
+
+			vec3 tangent = normalize( random - viewNormal * dot( random, viewNormal ) );
+			vec3 bitangent = cross( viewNormal, tangent );
+			mat3 kernelMatrix = mat3( tangent, bitangent, viewNormal );
+
+		 float occlusion = 0.0;
+
+		 for ( int i = 0; i < KERNEL_SIZE; i ++ ) {
+
+				vec3 sampleVector = kernelMatrix * kernel[ i ]; // reorient sample vector in view space
+				vec3 samplePoint = viewPosition + ( sampleVector * kernelRadius ); // calculate sample point
+
+				vec4 samplePointNDC = cameraProjectionMatrix * vec4( samplePoint, 1.0 ); // project point and calculate NDC
+				samplePointNDC /= samplePointNDC.w;
+
+				vec2 samplePointUv = samplePointNDC.xy * 0.5 + 0.5; // compute uv coordinates
+
+				float realDepth = getLinearDepth( samplePointUv ); // get linear depth from depth texture
+				float sampleDepth = viewZToOrthographicDepth( samplePoint.z, cameraNear, cameraFar ); // compute linear depth of the sample view Z value
+				float delta = sampleDepth - realDepth;
+
+				if ( delta > minDistance && delta < maxDistance ) { // if fragment is before sample point, increase occlusion
+
+					occlusion += 1.0;
+
+				}
+
+			}
+
+			occlusion = clamp( occlusion / float( KERNEL_SIZE ), 0.0, 1.0 );
+
+			gl_FragColor = vec4( vec3( 1.0 - occlusion ), 1.0 );
+
+		}`
+	};
+	const SSAODepthShader = {
+		defines: {
+			'PERSPECTIVE_CAMERA': 1
+		},
+		uniforms: {
+			'tDepth': {
+				value: null
+			},
+			'cameraNear': {
+				value: null
+			},
+			'cameraFar': {
+				value: null
+			}
+		},
+		vertexShader: `varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+		fragmentShader: `uniform sampler2D tDepth;
+
+		uniform float cameraNear;
+		uniform float cameraFar;
+
+		varying vec2 vUv;
+
+		#include <packing>
+
+		float getLinearDepth( const in vec2 screenPosition ) {
+
+			#if PERSPECTIVE_CAMERA == 1
+
+				float fragCoordZ = texture2D( tDepth, screenPosition ).x;
+				float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );
+				return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
+
+			#else
+
+				return texture2D( tDepth, screenPosition ).x;
+
+			#endif
+
+		}
+
+		void main() {
+
+			float depth = getLinearDepth( vUv );
+			gl_FragColor = vec4( vec3( 1.0 - depth ), 1.0 );
+
+		}`
+	};
+	const SSAOBlurShader = {
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			},
+			'resolution': {
+				value: new THREE.Vector2()
+			}
+		},
+		vertexShader: `varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+		fragmentShader: `uniform sampler2D tDiffuse;
+
+		uniform vec2 resolution;
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vec2 texelSize = ( 1.0 / resolution );
+			float result = 0.0;
+
+			for ( int i = - 2; i <= 2; i ++ ) {
+
+				for ( int j = - 2; j <= 2; j ++ ) {
+
+					vec2 offset = ( vec2( float( i ), float( j ) ) ) * texelSize;
+					result += texture2D( tDiffuse, vUv + offset ).r;
+
+				}
+
+			}
+
+			gl_FragColor = vec4( vec3( result / ( 5.0 * 5.0 ) ), 1.0 );
+
+		}`
+	};
+
+	THREE.SSAOBlurShader = SSAOBlurShader;
+	THREE.SSAODepthShader = SSAODepthShader;
+	THREE.SSAOShader = SSAOShader;
+
+} )();
+</script>
+<script>( function () {
+
+	class SSAOPass extends THREE.Pass {
+
+		constructor( scene, camera, width, height ) {
+
+			super();
+			this.width = width !== undefined ? width : 512;
+			this.height = height !== undefined ? height : 512;
+			this.clear = true;
+			this.camera = camera;
+			this.scene = scene;
+			this.kernelRadius = 8;
+			this.kernelSize = 32;
+			this.kernel = [];
+			this.noiseTexture = null;
+			this.output = 0;
+			this.minDistance = 0.005;
+			this.maxDistance = 0.1;
+			this._visibilityCache = new Map(); //
+
+			this.generateSampleKernel();
+			this.generateRandomKernelRotations(); // beauty render target
+
+			const depthTexture = new THREE.DepthTexture();
+			depthTexture.type = THREE.UnsignedShortType;
+			this.beautyRenderTarget = new THREE.WebGLRenderTarget( this.width, this.height, {
+				minFilter: THREE.LinearFilter,
+				magFilter: THREE.LinearFilter,
+				format: THREE.RGBAFormat
+			} ); // normal render target with depth buffer
+
+			this.normalRenderTarget = new THREE.WebGLRenderTarget( this.width, this.height, {
+				minFilter: THREE.NearestFilter,
+				magFilter: THREE.NearestFilter,
+				format: THREE.RGBAFormat,
+				depthTexture: depthTexture
+			} ); // ssao render target
+
+			this.ssaoRenderTarget = new THREE.WebGLRenderTarget( this.width, this.height, {
+				minFilter: THREE.LinearFilter,
+				magFilter: THREE.LinearFilter,
+				format: THREE.RGBAFormat
+			} );
+			this.blurRenderTarget = this.ssaoRenderTarget.clone(); // ssao material
+
+			if ( THREE.SSAOShader === undefined ) {
+
+				console.error( 'THREE.SSAOPass: The pass relies on THREE.SSAOShader.' );
+
+			}
+
+			this.ssaoMaterial = new THREE.ShaderMaterial( {
+				defines: Object.assign( {}, THREE.SSAOShader.defines ),
+				uniforms: THREE.UniformsUtils.clone( THREE.SSAOShader.uniforms ),
+				vertexShader: THREE.SSAOShader.vertexShader,
+				fragmentShader: THREE.SSAOShader.fragmentShader,
+				blending: THREE.NoBlending
+			} );
+			this.ssaoMaterial.uniforms[ 'tDiffuse' ].value = this.beautyRenderTarget.texture;
+			this.ssaoMaterial.uniforms[ 'tNormal' ].value = this.normalRenderTarget.texture;
+			this.ssaoMaterial.uniforms[ 'tDepth' ].value = this.normalRenderTarget.depthTexture;
+			this.ssaoMaterial.uniforms[ 'tNoise' ].value = this.noiseTexture;
+			this.ssaoMaterial.uniforms[ 'kernel' ].value = this.kernel;
+			this.ssaoMaterial.uniforms[ 'cameraNear' ].value = this.camera.near;
+			this.ssaoMaterial.uniforms[ 'cameraFar' ].value = this.camera.far;
+			this.ssaoMaterial.uniforms[ 'resolution' ].value.set( this.width, this.height );
+			this.ssaoMaterial.uniforms[ 'cameraProjectionMatrix' ].value.copy( this.camera.projectionMatrix );
+			this.ssaoMaterial.uniforms[ 'cameraInverseProjectionMatrix' ].value.copy( this.camera.projectionMatrixInverse ); // normal material
+
+			this.normalMaterial = new THREE.MeshNormalMaterial();
+			this.normalMaterial.blending = THREE.NoBlending; // blur material
+
+			this.blurMaterial = new THREE.ShaderMaterial( {
+				defines: Object.assign( {}, THREE.SSAOBlurShader.defines ),
+				uniforms: THREE.UniformsUtils.clone( THREE.SSAOBlurShader.uniforms ),
+				vertexShader: THREE.SSAOBlurShader.vertexShader,
+				fragmentShader: THREE.SSAOBlurShader.fragmentShader
+			} );
+			this.blurMaterial.uniforms[ 'tDiffuse' ].value = this.ssaoRenderTarget.texture;
+			this.blurMaterial.uniforms[ 'resolution' ].value.set( this.width, this.height ); // material for rendering the depth
+
+			this.depthRenderMaterial = new THREE.ShaderMaterial( {
+				defines: Object.assign( {}, THREE.SSAODepthShader.defines ),
+				uniforms: THREE.UniformsUtils.clone( THREE.SSAODepthShader.uniforms ),
+				vertexShader: THREE.SSAODepthShader.vertexShader,
+				fragmentShader: THREE.SSAODepthShader.fragmentShader,
+				blending: THREE.NoBlending
+			} );
+			this.depthRenderMaterial.uniforms[ 'tDepth' ].value = this.normalRenderTarget.depthTexture;
+			this.depthRenderMaterial.uniforms[ 'cameraNear' ].value = this.camera.near;
+			this.depthRenderMaterial.uniforms[ 'cameraFar' ].value = this.camera.far; // material for rendering the content of a render target
+
+			this.copyMaterial = new THREE.ShaderMaterial( {
+				uniforms: THREE.UniformsUtils.clone( THREE.CopyShader.uniforms ),
+				vertexShader: THREE.CopyShader.vertexShader,
+				fragmentShader: THREE.CopyShader.fragmentShader,
+				transparent: true,
+				depthTest: false,
+				depthWrite: false,
+				blendSrc: THREE.DstColorFactor,
+				blendDst: THREE.ZeroFactor,
+				blendEquation: THREE.AddEquation,
+				blendSrcAlpha: THREE.DstAlphaFactor,
+				blendDstAlpha: THREE.ZeroFactor,
+				blendEquationAlpha: THREE.AddEquation
+			} );
+			this.fsQuad = new THREE.FullScreenQuad( null );
+			this.originalClearColor = new THREE.Color();
+
+		}
+
+		dispose() {
+
+			// dispose render targets
+			this.beautyRenderTarget.dispose();
+			this.normalRenderTarget.dispose();
+			this.ssaoRenderTarget.dispose();
+			this.blurRenderTarget.dispose(); // dispose materials
+
+			this.normalMaterial.dispose();
+			this.blurMaterial.dispose();
+			this.copyMaterial.dispose();
+			this.depthRenderMaterial.dispose(); // dipsose full screen quad
+
+			this.fsQuad.dispose();
+
+		}
+
+		render( renderer, writeBuffer
+			/*, readBuffer, deltaTime, maskActive */
+		) {
+
+			// render beauty
+			renderer.setRenderTarget( this.beautyRenderTarget );
+			renderer.clear();
+			renderer.render( this.scene, this.camera ); // render normals and depth (honor only meshes, points and lines do not contribute to SSAO)
+
+			this.overrideVisibility();
+			this.renderOverride( renderer, this.normalMaterial, this.normalRenderTarget, 0x7777ff, 1.0 );
+			this.restoreVisibility(); // render SSAO
+
+			this.ssaoMaterial.uniforms[ 'kernelRadius' ].value = this.kernelRadius;
+			this.ssaoMaterial.uniforms[ 'minDistance' ].value = this.minDistance;
+			this.ssaoMaterial.uniforms[ 'maxDistance' ].value = this.maxDistance;
+			this.renderPass( renderer, this.ssaoMaterial, this.ssaoRenderTarget ); // render blur
+
+			this.renderPass( renderer, this.blurMaterial, this.blurRenderTarget ); // output result to screen
+
+			switch ( this.output ) {
+
+				case SSAOPass.OUTPUT.SSAO:
+					this.copyMaterial.uniforms[ 'tDiffuse' ].value = this.ssaoRenderTarget.texture;
+					this.copyMaterial.blending = THREE.NoBlending;
+					this.renderPass( renderer, this.copyMaterial, this.renderToScreen ? null : writeBuffer );
+					break;
+
+				case SSAOPass.OUTPUT.Blur:
+					this.copyMaterial.uniforms[ 'tDiffuse' ].value = this.blurRenderTarget.texture;
+					this.copyMaterial.blending = THREE.NoBlending;
+					this.renderPass( renderer, this.copyMaterial, this.renderToScreen ? null : writeBuffer );
+					break;
+
+				case SSAOPass.OUTPUT.Beauty:
+					this.copyMaterial.uniforms[ 'tDiffuse' ].value = this.beautyRenderTarget.texture;
+					this.copyMaterial.blending = THREE.NoBlending;
+					this.renderPass( renderer, this.copyMaterial, this.renderToScreen ? null : writeBuffer );
+					break;
+
+				case SSAOPass.OUTPUT.Depth:
+					this.renderPass( renderer, this.depthRenderMaterial, this.renderToScreen ? null : writeBuffer );
+					break;
+
+				case SSAOPass.OUTPUT.Normal:
+					this.copyMaterial.uniforms[ 'tDiffuse' ].value = this.normalRenderTarget.texture;
+					this.copyMaterial.blending = THREE.NoBlending;
+					this.renderPass( renderer, this.copyMaterial, this.renderToScreen ? null : writeBuffer );
+					break;
+
+				case SSAOPass.OUTPUT.Default:
+					this.copyMaterial.uniforms[ 'tDiffuse' ].value = this.beautyRenderTarget.texture;
+					this.copyMaterial.blending = THREE.NoBlending;
+					this.renderPass( renderer, this.copyMaterial, this.renderToScreen ? null : writeBuffer );
+					this.copyMaterial.uniforms[ 'tDiffuse' ].value = this.blurRenderTarget.texture;
+					this.copyMaterial.blending = THREE.CustomBlending;
+					this.renderPass( renderer, this.copyMaterial, this.renderToScreen ? null : writeBuffer );
+					break;
+
+				default:
+					console.warn( 'THREE.SSAOPass: Unknown output type.' );
+
+			}
+
+		}
+
+		renderPass( renderer, passMaterial, renderTarget, clearColor, clearAlpha ) {
+
+			// save original state
+			renderer.getClearColor( this.originalClearColor );
+			const originalClearAlpha = renderer.getClearAlpha();
+			const originalAutoClear = renderer.autoClear;
+			renderer.setRenderTarget( renderTarget ); // setup pass state
+
+			renderer.autoClear = false;
+
+			if ( clearColor !== undefined && clearColor !== null ) {
+
+				renderer.setClearColor( clearColor );
+				renderer.setClearAlpha( clearAlpha || 0.0 );
+				renderer.clear();
+
+			}
+
+			this.fsQuad.material = passMaterial;
+			this.fsQuad.render( renderer ); // restore original state
+
+			renderer.autoClear = originalAutoClear;
+			renderer.setClearColor( this.originalClearColor );
+			renderer.setClearAlpha( originalClearAlpha );
+
+		}
+
+		renderOverride( renderer, overrideMaterial, renderTarget, clearColor, clearAlpha ) {
+
+			renderer.getClearColor( this.originalClearColor );
+			const originalClearAlpha = renderer.getClearAlpha();
+			const originalAutoClear = renderer.autoClear;
+			renderer.setRenderTarget( renderTarget );
+			renderer.autoClear = false;
+			clearColor = overrideMaterial.clearColor || clearColor;
+			clearAlpha = overrideMaterial.clearAlpha || clearAlpha;
+
+			if ( clearColor !== undefined && clearColor !== null ) {
+
+				renderer.setClearColor( clearColor );
+				renderer.setClearAlpha( clearAlpha || 0.0 );
+				renderer.clear();
+
+			}
+
+			this.scene.overrideMaterial = overrideMaterial;
+			renderer.render( this.scene, this.camera );
+			this.scene.overrideMaterial = null; // restore original state
+
+			renderer.autoClear = originalAutoClear;
+			renderer.setClearColor( this.originalClearColor );
+			renderer.setClearAlpha( originalClearAlpha );
+
+		}
+
+		setSize( width, height ) {
+
+			this.width = width;
+			this.height = height;
+			this.beautyRenderTarget.setSize( width, height );
+			this.ssaoRenderTarget.setSize( width, height );
+			this.normalRenderTarget.setSize( width, height );
+			this.blurRenderTarget.setSize( width, height );
+			this.ssaoMaterial.uniforms[ 'resolution' ].value.set( width, height );
+			this.ssaoMaterial.uniforms[ 'cameraProjectionMatrix' ].value.copy( this.camera.projectionMatrix );
+			this.ssaoMaterial.uniforms[ 'cameraInverseProjectionMatrix' ].value.copy( this.camera.projectionMatrixInverse );
+			this.blurMaterial.uniforms[ 'resolution' ].value.set( width, height );
+
+		}
+
+		generateSampleKernel() {
+
+			const kernelSize = this.kernelSize;
+			const kernel = this.kernel;
+
+			for ( let i = 0; i < kernelSize; i ++ ) {
+
+				const sample = new THREE.Vector3();
+				sample.x = Math.random() * 2 - 1;
+				sample.y = Math.random() * 2 - 1;
+				sample.z = Math.random();
+				sample.normalize();
+				let scale = i / kernelSize;
+				scale = THREE.MathUtils.lerp( 0.1, 1, scale * scale );
+				sample.multiplyScalar( scale );
+				kernel.push( sample );
+
+			}
+
+		}
+
+		generateRandomKernelRotations() {
+
+			const width = 4,
+				height = 4;
+
+			if ( THREE.SimplexNoise === undefined ) {
+
+				console.error( 'THREE.SSAOPass: The pass relies on THREE.SimplexNoise.' );
+
+			}
+
+			const simplex = new THREE.SimplexNoise();
+			const size = width * height;
+			const data = new Float32Array( size * 4 );
+
+			for ( let i = 0; i < size; i ++ ) {
+
+				const stride = i * 4;
+				const x = Math.random() * 2 - 1;
+				const y = Math.random() * 2 - 1;
+				const z = 0;
+				const noise = simplex.noise3d( x, y, z );
+				data[ stride ] = noise;
+				data[ stride + 1 ] = noise;
+				data[ stride + 2 ] = noise;
+				data[ stride + 3 ] = 1;
+
+			}
+
+			this.noiseTexture = new THREE.DataTexture( data, width, height, THREE.RGBAFormat, THREE.FloatType );
+			this.noiseTexture.wrapS = THREE.RepeatWrapping;
+			this.noiseTexture.wrapT = THREE.RepeatWrapping;
+
+		}
+
+		overrideVisibility() {
+
+			const scene = this.scene;
+			const cache = this._visibilityCache;
+			scene.traverse( function ( object ) {
+
+				cache.set( object, object.visible );
+				if ( object.isPoints || object.isLine ) object.visible = false;
+
+			} );
+
+		}
+
+		restoreVisibility() {
+
+			const scene = this.scene;
+			const cache = this._visibilityCache;
+			scene.traverse( function ( object ) {
+
+				const visible = cache.get( object );
+				object.visible = visible;
+
+			} );
+			cache.clear();
+
+		}
+
+	}
+
+	SSAOPass.OUTPUT = {
+		'Default': 0,
+		'SSAO': 1,
+		'Blur': 2,
+		'Beauty': 3,
+		'Depth': 4,
+		'Normal': 5
+	};
+
+	THREE.SSAOPass = SSAOPass;
+
+} )();
+</script>
+<script>( function () {
+
+	/**
+ * NVIDIA FXAA by Timothy Lottes
+ * http://timothylottes.blogspot.com/2011/06/fxaa3-source-released.html
+ * - WebGL port by @supereggbert
+ * http://www.glge.org/demos/fxaa/
+ */
+
+	const FXAAShader = {
+		uniforms: {
+			'tDiffuse': {
+				value: null
+			},
+			'resolution': {
+				value: new THREE.Vector2( 1 / 1024, 1 / 512 )
+			}
+		},
+		vertexShader:
+  /* glsl */
+  `
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+		fragmentShader: // FXAA 3.11 implementation by NVIDIA, ported to WebGL by Agost Biro (biro@archilogic.com)
+		//----------------------------------------------------------------------------------
+		// File:				es3-kepler\FXAA\assets\shaders/FXAA_DefaultES.frag
+		// SDK Version: v3.00
+		// Email:			 gameworks@nvidia.com
+		// Site:				http://developer.nvidia.com/
+		//
+		// Copyright (c) 2014-2015, NVIDIA CORPORATION. All rights reserved.
+		//
+		// Redistribution and use in source and binary forms, with or without
+		// modification, are permitted provided that the following conditions
+		// are met:
+		//	* Redistributions of source code must retain the above copyright
+		//		notice, this list of conditions and the following disclaimer.
+		//	* Redistributions in binary form must reproduce the above copyright
+		//		notice, this list of conditions and the following disclaimer in the
+		//		documentation and/or other materials provided with the distribution.
+		//	* Neither the name of NVIDIA CORPORATION nor the names of its
+		//		contributors may be used to endorse or promote products derived
+		//		from this software without specific prior written permission.
+		//
+		// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS\'\' AND ANY
+		// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+		// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+		// PURPOSE ARE DISCLAIMED.	IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+		// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+		// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+		// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+		// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+		// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+		// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+		// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+		//
+		//----------------------------------------------------------------------------------
+
+  /* glsl */
+  `
+
+		precision highp float;
+
+		uniform sampler2D tDiffuse;
+
+		uniform vec2 resolution;
+
+		varying vec2 vUv;
+
+		#define FXAA_PC 1
+		#define FXAA_GLSL_100 1
+		#define FXAA_QUALITY_PRESET 12
+
+		#define FXAA_GREEN_AS_LUMA 1
+
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_PC_CONSOLE
+				//
+				// The console algorithm for PC is included
+				// for developers targeting really low spec machines.
+				// Likely better to just run FXAA_PC, and use a really low preset.
+				//
+				#define FXAA_PC_CONSOLE 0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_GLSL_120
+				#define FXAA_GLSL_120 0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_GLSL_130
+				#define FXAA_GLSL_130 0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_HLSL_3
+				#define FXAA_HLSL_3 0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_HLSL_4
+				#define FXAA_HLSL_4 0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_HLSL_5
+				#define FXAA_HLSL_5 0
+		#endif
+		/*==========================================================================*/
+		#ifndef FXAA_GREEN_AS_LUMA
+				//
+				// For those using non-linear color,
+				// and either not able to get luma in alpha, or not wanting to,
+				// this enables FXAA to run using green as a proxy for luma.
+				// So with this enabled, no need to pack luma in alpha.
+				//
+				// This will turn off AA on anything which lacks some amount of green.
+				// Pure red and blue or combination of only R and B, will get no AA.
+				//
+				// Might want to lower the settings for both,
+				//		fxaaConsoleEdgeThresholdMin
+				//		fxaaQualityEdgeThresholdMin
+				// In order to insure AA does not get turned off on colors
+				// which contain a minor amount of green.
+				//
+				// 1 = On.
+				// 0 = Off.
+				//
+				#define FXAA_GREEN_AS_LUMA 0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_EARLY_EXIT
+				//
+				// Controls algorithm\'s early exit path.
+				// On PS3 turning this ON adds 2 cycles to the shader.
+				// On 360 turning this OFF adds 10ths of a millisecond to the shader.
+				// Turning this off on console will result in a more blurry image.
+				// So this defaults to on.
+				//
+				// 1 = On.
+				// 0 = Off.
+				//
+				#define FXAA_EARLY_EXIT 1
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_DISCARD
+				//
+				// Only valid for PC OpenGL currently.
+				// Probably will not work when FXAA_GREEN_AS_LUMA = 1.
+				//
+				// 1 = Use discard on pixels which don\'t need AA.
+				//		 For APIs which enable concurrent TEX+ROP from same surface.
+				// 0 = Return unchanged color on pixels which don\'t need AA.
+				//
+				#define FXAA_DISCARD 0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_FAST_PIXEL_OFFSET
+				//
+				// Used for GLSL 120 only.
+				//
+				// 1 = GL API supports fast pixel offsets
+				// 0 = do not use fast pixel offsets
+				//
+				#ifdef GL_EXT_gpu_shader4
+						#define FXAA_FAST_PIXEL_OFFSET 1
+				#endif
+				#ifdef GL_NV_gpu_shader5
+						#define FXAA_FAST_PIXEL_OFFSET 1
+				#endif
+				#ifdef GL_ARB_gpu_shader5
+						#define FXAA_FAST_PIXEL_OFFSET 1
+				#endif
+				#ifndef FXAA_FAST_PIXEL_OFFSET
+						#define FXAA_FAST_PIXEL_OFFSET 0
+				#endif
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#ifndef FXAA_GATHER4_ALPHA
+				//
+				// 1 = API supports gather4 on alpha channel.
+				// 0 = API does not support gather4 on alpha channel.
+				//
+				#if (FXAA_HLSL_5 == 1)
+						#define FXAA_GATHER4_ALPHA 1
+				#endif
+				#ifdef GL_ARB_gpu_shader5
+						#define FXAA_GATHER4_ALPHA 1
+				#endif
+				#ifdef GL_NV_gpu_shader5
+						#define FXAA_GATHER4_ALPHA 1
+				#endif
+				#ifndef FXAA_GATHER4_ALPHA
+						#define FXAA_GATHER4_ALPHA 0
+				#endif
+		#endif
+
+
+		/*============================================================================
+														FXAA QUALITY - TUNING KNOBS
+		------------------------------------------------------------------------------
+		NOTE the other tuning knobs are now in the shader function inputs!
+		============================================================================*/
+		#ifndef FXAA_QUALITY_PRESET
+				//
+				// Choose the quality preset.
+				// This needs to be compiled into the shader as it effects code.
+				// Best option to include multiple presets is to
+				// in each shader define the preset, then include this file.
+				//
+				// OPTIONS
+				// -----------------------------------------------------------------------
+				// 10 to 15 - default medium dither (10=fastest, 15=highest quality)
+				// 20 to 29 - less dither, more expensive (20=fastest, 29=highest quality)
+				// 39			 - no dither, very expensive
+				//
+				// NOTES
+				// -----------------------------------------------------------------------
+				// 12 = slightly faster then FXAA 3.9 and higher edge quality (default)
+				// 13 = about same speed as FXAA 3.9 and better than 12
+				// 23 = closest to FXAA 3.9 visually and performance wise
+				//	_ = the lowest digit is directly related to performance
+				// _	= the highest digit is directly related to style
+				//
+				#define FXAA_QUALITY_PRESET 12
+		#endif
+
+
+		/*============================================================================
+
+															 FXAA QUALITY - PRESETS
+
+		============================================================================*/
+
+		/*============================================================================
+												 FXAA QUALITY - MEDIUM DITHER PRESETS
+		============================================================================*/
+		#if (FXAA_QUALITY_PRESET == 10)
+				#define FXAA_QUALITY_PS 3
+				#define FXAA_QUALITY_P0 1.5
+				#define FXAA_QUALITY_P1 3.0
+				#define FXAA_QUALITY_P2 12.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 11)
+				#define FXAA_QUALITY_PS 4
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 3.0
+				#define FXAA_QUALITY_P3 12.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 12)
+				#define FXAA_QUALITY_PS 5
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 4.0
+				#define FXAA_QUALITY_P4 12.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 13)
+				#define FXAA_QUALITY_PS 6
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 4.0
+				#define FXAA_QUALITY_P5 12.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 14)
+				#define FXAA_QUALITY_PS 7
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 4.0
+				#define FXAA_QUALITY_P6 12.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 15)
+				#define FXAA_QUALITY_PS 8
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 2.0
+				#define FXAA_QUALITY_P6 4.0
+				#define FXAA_QUALITY_P7 12.0
+		#endif
+
+		/*============================================================================
+												 FXAA QUALITY - LOW DITHER PRESETS
+		============================================================================*/
+		#if (FXAA_QUALITY_PRESET == 20)
+				#define FXAA_QUALITY_PS 3
+				#define FXAA_QUALITY_P0 1.5
+				#define FXAA_QUALITY_P1 2.0
+				#define FXAA_QUALITY_P2 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 21)
+				#define FXAA_QUALITY_PS 4
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 22)
+				#define FXAA_QUALITY_PS 5
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 23)
+				#define FXAA_QUALITY_PS 6
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 24)
+				#define FXAA_QUALITY_PS 7
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 3.0
+				#define FXAA_QUALITY_P6 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 25)
+				#define FXAA_QUALITY_PS 8
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 2.0
+				#define FXAA_QUALITY_P6 4.0
+				#define FXAA_QUALITY_P7 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 26)
+				#define FXAA_QUALITY_PS 9
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 2.0
+				#define FXAA_QUALITY_P6 2.0
+				#define FXAA_QUALITY_P7 4.0
+				#define FXAA_QUALITY_P8 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 27)
+				#define FXAA_QUALITY_PS 10
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 2.0
+				#define FXAA_QUALITY_P6 2.0
+				#define FXAA_QUALITY_P7 2.0
+				#define FXAA_QUALITY_P8 4.0
+				#define FXAA_QUALITY_P9 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 28)
+				#define FXAA_QUALITY_PS 11
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 2.0
+				#define FXAA_QUALITY_P6 2.0
+				#define FXAA_QUALITY_P7 2.0
+				#define FXAA_QUALITY_P8 2.0
+				#define FXAA_QUALITY_P9 4.0
+				#define FXAA_QUALITY_P10 8.0
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_QUALITY_PRESET == 29)
+				#define FXAA_QUALITY_PS 12
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.5
+				#define FXAA_QUALITY_P2 2.0
+				#define FXAA_QUALITY_P3 2.0
+				#define FXAA_QUALITY_P4 2.0
+				#define FXAA_QUALITY_P5 2.0
+				#define FXAA_QUALITY_P6 2.0
+				#define FXAA_QUALITY_P7 2.0
+				#define FXAA_QUALITY_P8 2.0
+				#define FXAA_QUALITY_P9 2.0
+				#define FXAA_QUALITY_P10 4.0
+				#define FXAA_QUALITY_P11 8.0
+		#endif
+
+		/*============================================================================
+												 FXAA QUALITY - EXTREME QUALITY
+		============================================================================*/
+		#if (FXAA_QUALITY_PRESET == 39)
+				#define FXAA_QUALITY_PS 12
+				#define FXAA_QUALITY_P0 1.0
+				#define FXAA_QUALITY_P1 1.0
+				#define FXAA_QUALITY_P2 1.0
+				#define FXAA_QUALITY_P3 1.0
+				#define FXAA_QUALITY_P4 1.0
+				#define FXAA_QUALITY_P5 1.5
+				#define FXAA_QUALITY_P6 2.0
+				#define FXAA_QUALITY_P7 2.0
+				#define FXAA_QUALITY_P8 2.0
+				#define FXAA_QUALITY_P9 2.0
+				#define FXAA_QUALITY_P10 4.0
+				#define FXAA_QUALITY_P11 8.0
+		#endif
+
+
+
+		/*============================================================================
+
+																		API PORTING
+
+		============================================================================*/
+		#if (FXAA_GLSL_100 == 1) || (FXAA_GLSL_120 == 1) || (FXAA_GLSL_130 == 1)
+				#define FxaaBool bool
+				#define FxaaDiscard discard
+				#define FxaaFloat float
+				#define FxaaFloat2 vec2
+				#define FxaaFloat3 vec3
+				#define FxaaFloat4 vec4
+				#define FxaaHalf float
+				#define FxaaHalf2 vec2
+				#define FxaaHalf3 vec3
+				#define FxaaHalf4 vec4
+				#define FxaaInt2 ivec2
+				#define FxaaSat(x) clamp(x, 0.0, 1.0)
+				#define FxaaTex sampler2D
+		#else
+				#define FxaaBool bool
+				#define FxaaDiscard clip(-1)
+				#define FxaaFloat float
+				#define FxaaFloat2 float2
+				#define FxaaFloat3 float3
+				#define FxaaFloat4 float4
+				#define FxaaHalf half
+				#define FxaaHalf2 half2
+				#define FxaaHalf3 half3
+				#define FxaaHalf4 half4
+				#define FxaaSat(x) saturate(x)
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_GLSL_100 == 1)
+			#define FxaaTexTop(t, p) texture2D(t, p, 0.0)
+			#define FxaaTexOff(t, p, o, r) texture2D(t, p + (o * r), 0.0)
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_GLSL_120 == 1)
+				// Requires,
+				//	#version 120
+				// And at least,
+				//	#extension GL_EXT_gpu_shader4 : enable
+				//	(or set FXAA_FAST_PIXEL_OFFSET 1 to work like DX9)
+				#define FxaaTexTop(t, p) texture2DLod(t, p, 0.0)
+				#if (FXAA_FAST_PIXEL_OFFSET == 1)
+						#define FxaaTexOff(t, p, o, r) texture2DLodOffset(t, p, 0.0, o)
+				#else
+						#define FxaaTexOff(t, p, o, r) texture2DLod(t, p + (o * r), 0.0)
+				#endif
+				#if (FXAA_GATHER4_ALPHA == 1)
+						// use #extension GL_ARB_gpu_shader5 : enable
+						#define FxaaTexAlpha4(t, p) textureGather(t, p, 3)
+						#define FxaaTexOffAlpha4(t, p, o) textureGatherOffset(t, p, o, 3)
+						#define FxaaTexGreen4(t, p) textureGather(t, p, 1)
+						#define FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
+				#endif
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_GLSL_130 == 1)
+				// Requires "#version 130" or better
+				#define FxaaTexTop(t, p) textureLod(t, p, 0.0)
+				#define FxaaTexOff(t, p, o, r) textureLodOffset(t, p, 0.0, o)
+				#if (FXAA_GATHER4_ALPHA == 1)
+						// use #extension GL_ARB_gpu_shader5 : enable
+						#define FxaaTexAlpha4(t, p) textureGather(t, p, 3)
+						#define FxaaTexOffAlpha4(t, p, o) textureGatherOffset(t, p, o, 3)
+						#define FxaaTexGreen4(t, p) textureGather(t, p, 1)
+						#define FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
+				#endif
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_HLSL_3 == 1)
+				#define FxaaInt2 float2
+				#define FxaaTex sampler2D
+				#define FxaaTexTop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
+				#define FxaaTexOff(t, p, o, r) tex2Dlod(t, float4(p + (o * r), 0, 0))
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_HLSL_4 == 1)
+				#define FxaaInt2 int2
+				struct FxaaTex { SamplerState smpl; Texture2D tex; };
+				#define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
+				#define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
+		#endif
+		/*--------------------------------------------------------------------------*/
+		#if (FXAA_HLSL_5 == 1)
+				#define FxaaInt2 int2
+				struct FxaaTex { SamplerState smpl; Texture2D tex; };
+				#define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
+				#define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
+				#define FxaaTexAlpha4(t, p) t.tex.GatherAlpha(t.smpl, p)
+				#define FxaaTexOffAlpha4(t, p, o) t.tex.GatherAlpha(t.smpl, p, o)
+				#define FxaaTexGreen4(t, p) t.tex.GatherGreen(t.smpl, p)
+				#define FxaaTexOffGreen4(t, p, o) t.tex.GatherGreen(t.smpl, p, o)
+		#endif
+
+
+		/*============================================================================
+											 GREEN AS LUMA OPTION SUPPORT FUNCTION
+		============================================================================*/
+		#if (FXAA_GREEN_AS_LUMA == 0)
+				FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
+		#else
+				FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.y; }
+		#endif
+
+
+
+
+		/*============================================================================
+
+																 FXAA3 QUALITY - PC
+
+		============================================================================*/
+		#if (FXAA_PC == 1)
+		/*--------------------------------------------------------------------------*/
+		FxaaFloat4 FxaaPixelShader(
+				//
+				// Use noperspective interpolation here (turn off perspective interpolation).
+				// {xy} = center of pixel
+				FxaaFloat2 pos,
+				//
+				// Used only for FXAA Console, and not used on the 360 version.
+				// Use noperspective interpolation here (turn off perspective interpolation).
+				// {xy_} = upper left of pixel
+				// {_zw} = lower right of pixel
+				FxaaFloat4 fxaaConsolePosPos,
+				//
+				// Input color texture.
+				// {rgb_} = color in linear or perceptual color space
+				// if (FXAA_GREEN_AS_LUMA == 0)
+				//		 {__a} = luma in perceptual color space (not linear)
+				FxaaTex tex,
+				//
+				// Only used on the optimized 360 version of FXAA Console.
+				// For everything but 360, just use the same input here as for "tex".
+				// For 360, same texture, just alias with a 2nd sampler.
+				// This sampler needs to have an exponent bias of -1.
+				FxaaTex fxaaConsole360TexExpBiasNegOne,
+				//
+				// Only used on the optimized 360 version of FXAA Console.
+				// For everything but 360, just use the same input here as for "tex".
+				// For 360, same texture, just alias with a 3nd sampler.
+				// This sampler needs to have an exponent bias of -2.
+				FxaaTex fxaaConsole360TexExpBiasNegTwo,
+				//
+				// Only used on FXAA Quality.
+				// This must be from a constant/uniform.
+				// {x_} = 1.0/screenWidthInPixels
+				// {_y} = 1.0/screenHeightInPixels
+				FxaaFloat2 fxaaQualityRcpFrame,
+				//
+				// Only used on FXAA Console.
+				// This must be from a constant/uniform.
+				// This effects sub-pixel AA quality and inversely sharpness.
+				//	 Where N ranges between,
+				//		 N = 0.50 (default)
+				//		 N = 0.33 (sharper)
+				// {x__} = -N/screenWidthInPixels
+				// {_y_} = -N/screenHeightInPixels
+				// {_z_} =	N/screenWidthInPixels
+				// {__w} =	N/screenHeightInPixels
+				FxaaFloat4 fxaaConsoleRcpFrameOpt,
+				//
+				// Only used on FXAA Console.
+				// Not used on 360, but used on PS3 and PC.
+				// This must be from a constant/uniform.
+				// {x__} = -2.0/screenWidthInPixels
+				// {_y_} = -2.0/screenHeightInPixels
+				// {_z_} =	2.0/screenWidthInPixels
+				// {__w} =	2.0/screenHeightInPixels
+				FxaaFloat4 fxaaConsoleRcpFrameOpt2,
+				//
+				// Only used on FXAA Console.
+				// Only used on 360 in place of fxaaConsoleRcpFrameOpt2.
+				// This must be from a constant/uniform.
+				// {x__} =	8.0/screenWidthInPixels
+				// {_y_} =	8.0/screenHeightInPixels
+				// {_z_} = -4.0/screenWidthInPixels
+				// {__w} = -4.0/screenHeightInPixels
+				FxaaFloat4 fxaaConsole360RcpFrameOpt2,
+				//
+				// Only used on FXAA Quality.
+				// This used to be the FXAA_QUALITY_SUBPIX define.
+				// It is here now to allow easier tuning.
+				// Choose the amount of sub-pixel aliasing removal.
+				// This can effect sharpness.
+				//	 1.00 - upper limit (softer)
+				//	 0.75 - default amount of filtering
+				//	 0.50 - lower limit (sharper, less sub-pixel aliasing removal)
+				//	 0.25 - almost off
+				//	 0.00 - completely off
+				FxaaFloat fxaaQualitySubpix,
+				//
+				// Only used on FXAA Quality.
+				// This used to be the FXAA_QUALITY_EDGE_THRESHOLD define.
+				// It is here now to allow easier tuning.
+				// The minimum amount of local contrast required to apply algorithm.
+				//	 0.333 - too little (faster)
+				//	 0.250 - low quality
+				//	 0.166 - default
+				//	 0.125 - high quality
+				//	 0.063 - overkill (slower)
+				FxaaFloat fxaaQualityEdgeThreshold,
+				//
+				// Only used on FXAA Quality.
+				// This used to be the FXAA_QUALITY_EDGE_THRESHOLD_MIN define.
+				// It is here now to allow easier tuning.
+				// Trims the algorithm from processing darks.
+				//	 0.0833 - upper limit (default, the start of visible unfiltered edges)
+				//	 0.0625 - high quality (faster)
+				//	 0.0312 - visible limit (slower)
+				// Special notes when using FXAA_GREEN_AS_LUMA,
+				//	 Likely want to set this to zero.
+				//	 As colors that are mostly not-green
+				//	 will appear very dark in the green channel!
+				//	 Tune by looking at mostly non-green content,
+				//	 then start at zero and increase until aliasing is a problem.
+				FxaaFloat fxaaQualityEdgeThresholdMin,
+				//
+				// Only used on FXAA Console.
+				// This used to be the FXAA_CONSOLE_EDGE_SHARPNESS define.
+				// It is here now to allow easier tuning.
+				// This does not effect PS3, as this needs to be compiled in.
+				//	 Use FXAA_CONSOLE_PS3_EDGE_SHARPNESS for PS3.
+				//	 Due to the PS3 being ALU bound,
+				//	 there are only three safe values here: 2 and 4 and 8.
+				//	 These options use the shaders ability to a free *|/ by 2|4|8.
+				// For all other platforms can be a non-power of two.
+				//	 8.0 is sharper (default!!!)
+				//	 4.0 is softer
+				//	 2.0 is really soft (good only for vector graphics inputs)
+				FxaaFloat fxaaConsoleEdgeSharpness,
+				//
+				// Only used on FXAA Console.
+				// This used to be the FXAA_CONSOLE_EDGE_THRESHOLD define.
+				// It is here now to allow easier tuning.
+				// This does not effect PS3, as this needs to be compiled in.
+				//	 Use FXAA_CONSOLE_PS3_EDGE_THRESHOLD for PS3.
+				//	 Due to the PS3 being ALU bound,
+				//	 there are only two safe values here: 1/4 and 1/8.
+				//	 These options use the shaders ability to a free *|/ by 2|4|8.
+				// The console setting has a different mapping than the quality setting.
+				// Other platforms can use other values.
+				//	 0.125 leaves less aliasing, but is softer (default!!!)
+				//	 0.25 leaves more aliasing, and is sharper
+				FxaaFloat fxaaConsoleEdgeThreshold,
+				//
+				// Only used on FXAA Console.
+				// This used to be the FXAA_CONSOLE_EDGE_THRESHOLD_MIN define.
+				// It is here now to allow easier tuning.
+				// Trims the algorithm from processing darks.
+				// The console setting has a different mapping than the quality setting.
+				// This only applies when FXAA_EARLY_EXIT is 1.
+				// This does not apply to PS3,
+				// PS3 was simplified to avoid more shader instructions.
+				//	 0.06 - faster but more aliasing in darks
+				//	 0.05 - default
+				//	 0.04 - slower and less aliasing in darks
+				// Special notes when using FXAA_GREEN_AS_LUMA,
+				//	 Likely want to set this to zero.
+				//	 As colors that are mostly not-green
+				//	 will appear very dark in the green channel!
+				//	 Tune by looking at mostly non-green content,
+				//	 then start at zero and increase until aliasing is a problem.
+				FxaaFloat fxaaConsoleEdgeThresholdMin,
+				//
+				// Extra constants for 360 FXAA Console only.
+				// Use zeros or anything else for other platforms.
+				// These must be in physical constant registers and NOT immediates.
+				// Immediates will result in compiler un-optimizing.
+				// {xyzw} = float4(1.0, -1.0, 0.25, -0.25)
+				FxaaFloat4 fxaaConsole360ConstDir
+		) {
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat2 posM;
+				posM.x = pos.x;
+				posM.y = pos.y;
+				#if (FXAA_GATHER4_ALPHA == 1)
+						#if (FXAA_DISCARD == 0)
+								FxaaFloat4 rgbyM = FxaaTexTop(tex, posM);
+								#if (FXAA_GREEN_AS_LUMA == 0)
+										#define lumaM rgbyM.w
+								#else
+										#define lumaM rgbyM.y
+								#endif
+						#endif
+						#if (FXAA_GREEN_AS_LUMA == 0)
+								FxaaFloat4 luma4A = FxaaTexAlpha4(tex, posM);
+								FxaaFloat4 luma4B = FxaaTexOffAlpha4(tex, posM, FxaaInt2(-1, -1));
+						#else
+								FxaaFloat4 luma4A = FxaaTexGreen4(tex, posM);
+								FxaaFloat4 luma4B = FxaaTexOffGreen4(tex, posM, FxaaInt2(-1, -1));
+						#endif
+						#if (FXAA_DISCARD == 1)
+								#define lumaM luma4A.w
+						#endif
+						#define lumaE luma4A.z
+						#define lumaS luma4A.x
+						#define lumaSE luma4A.y
+						#define lumaNW luma4B.w
+						#define lumaN luma4B.z
+						#define lumaW luma4B.x
+				#else
+						FxaaFloat4 rgbyM = FxaaTexTop(tex, posM);
+						#if (FXAA_GREEN_AS_LUMA == 0)
+								#define lumaM rgbyM.w
+						#else
+								#define lumaM rgbyM.y
+						#endif
+						#if (FXAA_GLSL_100 == 1)
+							FxaaFloat lumaS = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2( 0.0, 1.0), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaE = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2( 1.0, 0.0), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaN = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2( 0.0,-1.0), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaW = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2(-1.0, 0.0), fxaaQualityRcpFrame.xy));
+						#else
+							FxaaFloat lumaS = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 0, 1), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 1, 0), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaN = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 0,-1), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1, 0), fxaaQualityRcpFrame.xy));
+						#endif
+				#endif
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat maxSM = max(lumaS, lumaM);
+				FxaaFloat minSM = min(lumaS, lumaM);
+				FxaaFloat maxESM = max(lumaE, maxSM);
+				FxaaFloat minESM = min(lumaE, minSM);
+				FxaaFloat maxWN = max(lumaN, lumaW);
+				FxaaFloat minWN = min(lumaN, lumaW);
+				FxaaFloat rangeMax = max(maxWN, maxESM);
+				FxaaFloat rangeMin = min(minWN, minESM);
+				FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
+				FxaaFloat range = rangeMax - rangeMin;
+				FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
+				FxaaBool earlyExit = range < rangeMaxClamped;
+		/*--------------------------------------------------------------------------*/
+				if(earlyExit)
+						#if (FXAA_DISCARD == 1)
+								FxaaDiscard;
+						#else
+								return rgbyM;
+						#endif
+		/*--------------------------------------------------------------------------*/
+				#if (FXAA_GATHER4_ALPHA == 0)
+						#if (FXAA_GLSL_100 == 1)
+							FxaaFloat lumaNW = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2(-1.0,-1.0), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaSE = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2( 1.0, 1.0), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaNE = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2( 1.0,-1.0), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaSW = FxaaLuma(FxaaTexOff(tex, posM, FxaaFloat2(-1.0, 1.0), fxaaQualityRcpFrame.xy));
+						#else
+							FxaaFloat lumaNW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaSE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaNE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2( 1,-1), fxaaQualityRcpFrame.xy));
+							FxaaFloat lumaSW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1, 1), fxaaQualityRcpFrame.xy));
+						#endif
+				#else
+						FxaaFloat lumaNE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(1, -1), fxaaQualityRcpFrame.xy));
+						FxaaFloat lumaSW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1, 1), fxaaQualityRcpFrame.xy));
+				#endif
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat lumaNS = lumaN + lumaS;
+				FxaaFloat lumaWE = lumaW + lumaE;
+				FxaaFloat subpixRcpRange = 1.0/range;
+				FxaaFloat subpixNSWE = lumaNS + lumaWE;
+				FxaaFloat edgeHorz1 = (-2.0 * lumaM) + lumaNS;
+				FxaaFloat edgeVert1 = (-2.0 * lumaM) + lumaWE;
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat lumaNESE = lumaNE + lumaSE;
+				FxaaFloat lumaNWNE = lumaNW + lumaNE;
+				FxaaFloat edgeHorz2 = (-2.0 * lumaE) + lumaNESE;
+				FxaaFloat edgeVert2 = (-2.0 * lumaN) + lumaNWNE;
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat lumaNWSW = lumaNW + lumaSW;
+				FxaaFloat lumaSWSE = lumaSW + lumaSE;
+				FxaaFloat edgeHorz4 = (abs(edgeHorz1) * 2.0) + abs(edgeHorz2);
+				FxaaFloat edgeVert4 = (abs(edgeVert1) * 2.0) + abs(edgeVert2);
+				FxaaFloat edgeHorz3 = (-2.0 * lumaW) + lumaNWSW;
+				FxaaFloat edgeVert3 = (-2.0 * lumaS) + lumaSWSE;
+				FxaaFloat edgeHorz = abs(edgeHorz3) + edgeHorz4;
+				FxaaFloat edgeVert = abs(edgeVert3) + edgeVert4;
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat subpixNWSWNESE = lumaNWSW + lumaNESE;
+				FxaaFloat lengthSign = fxaaQualityRcpFrame.x;
+				FxaaBool horzSpan = edgeHorz >= edgeVert;
+				FxaaFloat subpixA = subpixNSWE * 2.0 + subpixNWSWNESE;
+		/*--------------------------------------------------------------------------*/
+				if(!horzSpan) lumaN = lumaW;
+				if(!horzSpan) lumaS = lumaE;
+				if(horzSpan) lengthSign = fxaaQualityRcpFrame.y;
+				FxaaFloat subpixB = (subpixA * (1.0/12.0)) - lumaM;
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat gradientN = lumaN - lumaM;
+				FxaaFloat gradientS = lumaS - lumaM;
+				FxaaFloat lumaNN = lumaN + lumaM;
+				FxaaFloat lumaSS = lumaS + lumaM;
+				FxaaBool pairN = abs(gradientN) >= abs(gradientS);
+				FxaaFloat gradient = max(abs(gradientN), abs(gradientS));
+				if(pairN) lengthSign = -lengthSign;
+				FxaaFloat subpixC = FxaaSat(abs(subpixB) * subpixRcpRange);
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat2 posB;
+				posB.x = posM.x;
+				posB.y = posM.y;
+				FxaaFloat2 offNP;
+				offNP.x = (!horzSpan) ? 0.0 : fxaaQualityRcpFrame.x;
+				offNP.y = ( horzSpan) ? 0.0 : fxaaQualityRcpFrame.y;
+				if(!horzSpan) posB.x += lengthSign * 0.5;
+				if( horzSpan) posB.y += lengthSign * 0.5;
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat2 posN;
+				posN.x = posB.x - offNP.x * FXAA_QUALITY_P0;
+				posN.y = posB.y - offNP.y * FXAA_QUALITY_P0;
+				FxaaFloat2 posP;
+				posP.x = posB.x + offNP.x * FXAA_QUALITY_P0;
+				posP.y = posB.y + offNP.y * FXAA_QUALITY_P0;
+				FxaaFloat subpixD = ((-2.0)*subpixC) + 3.0;
+				FxaaFloat lumaEndN = FxaaLuma(FxaaTexTop(tex, posN));
+				FxaaFloat subpixE = subpixC * subpixC;
+				FxaaFloat lumaEndP = FxaaLuma(FxaaTexTop(tex, posP));
+		/*--------------------------------------------------------------------------*/
+				if(!pairN) lumaNN = lumaSS;
+				FxaaFloat gradientScaled = gradient * 1.0/4.0;
+				FxaaFloat lumaMM = lumaM - lumaNN * 0.5;
+				FxaaFloat subpixF = subpixD * subpixE;
+				FxaaBool lumaMLTZero = lumaMM < 0.0;
+		/*--------------------------------------------------------------------------*/
+				lumaEndN -= lumaNN * 0.5;
+				lumaEndP -= lumaNN * 0.5;
+				FxaaBool doneN = abs(lumaEndN) >= gradientScaled;
+				FxaaBool doneP = abs(lumaEndP) >= gradientScaled;
+				if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P1;
+				if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P1;
+				FxaaBool doneNP = (!doneN) || (!doneP);
+				if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P1;
+				if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P1;
+		/*--------------------------------------------------------------------------*/
+				if(doneNP) {
+						if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+						if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+						if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+						if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+						doneN = abs(lumaEndN) >= gradientScaled;
+						doneP = abs(lumaEndP) >= gradientScaled;
+						if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P2;
+						if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P2;
+						doneNP = (!doneN) || (!doneP);
+						if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P2;
+						if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P2;
+		/*--------------------------------------------------------------------------*/
+						#if (FXAA_QUALITY_PS > 3)
+						if(doneNP) {
+								if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+								if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+								if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+								if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+								doneN = abs(lumaEndN) >= gradientScaled;
+								doneP = abs(lumaEndP) >= gradientScaled;
+								if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P3;
+								if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P3;
+								doneNP = (!doneN) || (!doneP);
+								if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P3;
+								if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P3;
+		/*--------------------------------------------------------------------------*/
+								#if (FXAA_QUALITY_PS > 4)
+								if(doneNP) {
+										if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+										if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+										if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+										if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+										doneN = abs(lumaEndN) >= gradientScaled;
+										doneP = abs(lumaEndP) >= gradientScaled;
+										if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P4;
+										if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P4;
+										doneNP = (!doneN) || (!doneP);
+										if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P4;
+										if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P4;
+		/*--------------------------------------------------------------------------*/
+										#if (FXAA_QUALITY_PS > 5)
+										if(doneNP) {
+												if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+												if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+												if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+												if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+												doneN = abs(lumaEndN) >= gradientScaled;
+												doneP = abs(lumaEndP) >= gradientScaled;
+												if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P5;
+												if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P5;
+												doneNP = (!doneN) || (!doneP);
+												if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P5;
+												if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P5;
+		/*--------------------------------------------------------------------------*/
+												#if (FXAA_QUALITY_PS > 6)
+												if(doneNP) {
+														if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+														if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+														if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+														if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+														doneN = abs(lumaEndN) >= gradientScaled;
+														doneP = abs(lumaEndP) >= gradientScaled;
+														if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P6;
+														if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P6;
+														doneNP = (!doneN) || (!doneP);
+														if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P6;
+														if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P6;
+		/*--------------------------------------------------------------------------*/
+														#if (FXAA_QUALITY_PS > 7)
+														if(doneNP) {
+																if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+																if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+																if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+																if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+																doneN = abs(lumaEndN) >= gradientScaled;
+																doneP = abs(lumaEndP) >= gradientScaled;
+																if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P7;
+																if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P7;
+																doneNP = (!doneN) || (!doneP);
+																if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P7;
+																if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P7;
+		/*--------------------------------------------------------------------------*/
+				#if (FXAA_QUALITY_PS > 8)
+				if(doneNP) {
+						if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+						if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+						if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+						if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+						doneN = abs(lumaEndN) >= gradientScaled;
+						doneP = abs(lumaEndP) >= gradientScaled;
+						if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P8;
+						if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P8;
+						doneNP = (!doneN) || (!doneP);
+						if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P8;
+						if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P8;
+		/*--------------------------------------------------------------------------*/
+						#if (FXAA_QUALITY_PS > 9)
+						if(doneNP) {
+								if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+								if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+								if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+								if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+								doneN = abs(lumaEndN) >= gradientScaled;
+								doneP = abs(lumaEndP) >= gradientScaled;
+								if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P9;
+								if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P9;
+								doneNP = (!doneN) || (!doneP);
+								if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P9;
+								if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P9;
+		/*--------------------------------------------------------------------------*/
+								#if (FXAA_QUALITY_PS > 10)
+								if(doneNP) {
+										if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+										if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+										if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+										if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+										doneN = abs(lumaEndN) >= gradientScaled;
+										doneP = abs(lumaEndP) >= gradientScaled;
+										if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P10;
+										if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P10;
+										doneNP = (!doneN) || (!doneP);
+										if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P10;
+										if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P10;
+		/*--------------------------------------------------------------------------*/
+										#if (FXAA_QUALITY_PS > 11)
+										if(doneNP) {
+												if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+												if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+												if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+												if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+												doneN = abs(lumaEndN) >= gradientScaled;
+												doneP = abs(lumaEndP) >= gradientScaled;
+												if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P11;
+												if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P11;
+												doneNP = (!doneN) || (!doneP);
+												if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P11;
+												if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P11;
+		/*--------------------------------------------------------------------------*/
+												#if (FXAA_QUALITY_PS > 12)
+												if(doneNP) {
+														if(!doneN) lumaEndN = FxaaLuma(FxaaTexTop(tex, posN.xy));
+														if(!doneP) lumaEndP = FxaaLuma(FxaaTexTop(tex, posP.xy));
+														if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+														if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+														doneN = abs(lumaEndN) >= gradientScaled;
+														doneP = abs(lumaEndP) >= gradientScaled;
+														if(!doneN) posN.x -= offNP.x * FXAA_QUALITY_P12;
+														if(!doneN) posN.y -= offNP.y * FXAA_QUALITY_P12;
+														doneNP = (!doneN) || (!doneP);
+														if(!doneP) posP.x += offNP.x * FXAA_QUALITY_P12;
+														if(!doneP) posP.y += offNP.y * FXAA_QUALITY_P12;
+		/*--------------------------------------------------------------------------*/
+												}
+												#endif
+		/*--------------------------------------------------------------------------*/
+										}
+										#endif
+		/*--------------------------------------------------------------------------*/
+								}
+								#endif
+		/*--------------------------------------------------------------------------*/
+						}
+						#endif
+		/*--------------------------------------------------------------------------*/
+				}
+				#endif
+		/*--------------------------------------------------------------------------*/
+														}
+														#endif
+		/*--------------------------------------------------------------------------*/
+												}
+												#endif
+		/*--------------------------------------------------------------------------*/
+										}
+										#endif
+		/*--------------------------------------------------------------------------*/
+								}
+								#endif
+		/*--------------------------------------------------------------------------*/
+						}
+						#endif
+		/*--------------------------------------------------------------------------*/
+				}
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat dstN = posM.x - posN.x;
+				FxaaFloat dstP = posP.x - posM.x;
+				if(!horzSpan) dstN = posM.y - posN.y;
+				if(!horzSpan) dstP = posP.y - posM.y;
+		/*--------------------------------------------------------------------------*/
+				FxaaBool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
+				FxaaFloat spanLength = (dstP + dstN);
+				FxaaBool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
+				FxaaFloat spanLengthRcp = 1.0/spanLength;
+		/*--------------------------------------------------------------------------*/
+				FxaaBool directionN = dstN < dstP;
+				FxaaFloat dst = min(dstN, dstP);
+				FxaaBool goodSpan = directionN ? goodSpanN : goodSpanP;
+				FxaaFloat subpixG = subpixF * subpixF;
+				FxaaFloat pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
+				FxaaFloat subpixH = subpixG * fxaaQualitySubpix;
+		/*--------------------------------------------------------------------------*/
+				FxaaFloat pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
+				FxaaFloat pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
+				if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
+				if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
+				#if (FXAA_DISCARD == 1)
+						return FxaaTexTop(tex, posM);
+				#else
+						return FxaaFloat4(FxaaTexTop(tex, posM).xyz, lumaM);
+				#endif
+		}
+		/*==========================================================================*/
+		#endif
+
+		void main() {
+			gl_FragColor = FxaaPixelShader(
+				vUv,
+				vec4(0.0),
+				tDiffuse,
+				tDiffuse,
+				tDiffuse,
+				resolution,
+				vec4(0.0),
+				vec4(0.0),
+				vec4(0.0),
+				0.75,
+				0.166,
+				0.0833,
+				0.0,
+				0.0,
+				0.0,
+				vec4(0.0)
+			);
+
+			// TODO avoid querying texture twice for same texel
+			gl_FragColor.a = texture2D(tDiffuse, vUv).a;
+		}`
+	};
+
+	THREE.FXAAShader = FXAAShader;
+
+} )();
+</script>
 <script>
 (() => {
 'use strict';
@@ -1280,12 +3520,15 @@ const CATALOG = {
     ['geode', 'Il cuore del geode', 'Dal varco a nord-ovest salta sui pilastri di cristallo fino al geode, poi sali verso il cuore di cristallo.'],
   ] },
   slide: { name: 'Scivolo Segreto', stars: [
-    ['scivolo', 'In fondo allo scivolo', 'Lasciati scivolare fino al traguardo.'],
-    ['tempo', 'Scivolo da record', 'Arriva al traguardo in meno di 13 secondi.'],
+    ['scivolo', 'In fondo allo scivolo', 'Lasciati scivolare fino al traguardo, tra curve, gallerie e paraboliche.'],
+    ['tempo', 'Scivolo da record', 'Arriva al traguardo in meno di 34 secondi. Dopo la corsia doppia, salta il muretto basso: è una scorciatoia!'],
+    ['nicchia', 'La nicchia nascosta', 'Prendi la corsia delle monete a sinistra e, a metà discesa, sterza contro la parete: c\'è un varco.'],
   ] },
   fortress: { name: 'Fortezza del Re', stars: [
-    ['rosse', 'Otto monete rosse', 'Lungo il percorso sospeso nel buio, fino al tubo.'],
-    ['grande', 'La Grande Stella', 'Oltre il tubo: prendi il Re Grumo per la coda e lancialo contro le mine.'],
+    ['rosse', 'Otto monete rosse', 'Lungo il primo tratto del percorso sospeso nel buio, fino al ponte di fuoco.'],
+    ['torretta', 'La torretta nascosta', 'Dalla piattaforma della sbarra di fuoco salta verso ovest sui blocchi che cadono, fino alla torretta nel buio.'],
+    ['bastione', 'Il bastione orientale', 'Dal secondo punto sicuro percorri la trave stretta verso est tra le fiamme, poi sali i blocchi del bastione.'],
+    ['grande', 'La Grande Stella', 'In fondo al lungo percorso, oltre il tubo: prendi il Re Grumo per la coda e lancialo contro le mine.'],
   ] },
 };
 const TOTAL = Object.values(CATALOG).reduce((n, l) => n + l.stars.length, 0);
@@ -1327,12 +3570,16 @@ sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 220 });
 sun.shadow.bias = -0.0006;
 sun.shadow.camera.updateProjectionMatrix();
-scene.add(sun);
+scene.add(sun); scene.add(sun.target);
+const SUN_OFF = new V3(40, 60, 25);
 
 // ---------- graphics: quality, procedural textures, sky, water, outlines, post-fx ----------
 const GFX_KEY = 'isola-stellata-gfx';
-let gfxHigh = !matchMedia('(pointer: coarse)').matches;
-try { const q = localStorage.getItem(GFX_KEY); if (q) gfxHigh = q === 'alta'; } catch (e) {}
+// 0 = leggera (phones), 1 = alta, 2 = ultra (PC: SSAO, crisp following shadows, dense grass, ambient particles)
+let gfxLevel = matchMedia('(pointer: coarse)').matches ? 0 : 2;
+try { const q = localStorage.getItem(GFX_KEY); if (q) gfxLevel = q === 'ultra' ? 2 : q === 'alta' ? 1 : 0; } catch (e) {}
+let gfxHigh = gfxLevel > 0;
+const GFX_NAMES = ['Grafica leggera', 'Grafica alta', 'Grafica ultra'];
 const maxAniso = renderer.capabilities.getMaxAnisotropy();
 function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 function makeTex(draw, world, seed, size = 256) {
@@ -1482,37 +3729,186 @@ const outlineMat = new THREE.MeshBasicMaterial({ color: 0x16213e, side: THREE.Ba
 function outline(mesh, k = 1.07) { const o = new THREE.Mesh(mesh.geometry, outlineMat); o.scale.setScalar(k); o.userData.outline = true; mesh.add(o); return o; }
 
 // bloom + vignette (optional: falls back to plain rendering if the modules did not load)
-var composer = null, bloomPass = null;
+var composer = null, bloomPass = null, renderPass = null, ssaoPass = null, gradePass = null, fxaaPass = null;
 function setupComposer() {
   if (!THREE.EffectComposer || !THREE.UnrealBloomPass || !THREE.RenderPass || !THREE.ShaderPass) return;
   try {
-    composer = new THREE.EffectComposer(renderer);
-    composer.addPass(new THREE.RenderPass(scene, camera));
+    // multisampled target: without it the post-processing chain loses antialiasing
+    let rt;
+    if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) {
+      rt = new THREE.WebGLMultisampleRenderTarget(innerWidth, innerHeight, { format: THREE.RGBAFormat }); rt.samples = 4;
+    }
+    composer = new THREE.EffectComposer(renderer, rt);
+    renderPass = new THREE.RenderPass(scene, camera); composer.addPass(renderPass);
+    if (THREE.SSAOPass && THREE.SSAOShader && THREE.SimplexNoise) {
+      try {
+        ssaoPass = new THREE.SSAOPass(scene, camera, innerWidth, innerHeight);
+        ssaoPass.kernelRadius = 1.1; ssaoPass.minDistance = 0.0008; ssaoPass.maxDistance = 0.05;
+        composer.addPass(ssaoPass);
+      } catch (e) { ssaoPass = null; }
+    }
     bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.45, 0.85);
     composer.addPass(bloomPass);
-    composer.addPass(new THREE.ShaderPass({
-      uniforms: { tDiffuse: { value: null }, amount: { value: 0.35 } },
+    // colour grade + vignette
+    gradePass = new THREE.ShaderPass({
+      uniforms: { tDiffuse: { value: null }, amount: { value: 0.35 }, sat: { value: 1.08 }, con: { value: 1.04 }, warm: { value: 0.02 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform sampler2D tDiffuse; uniform float amount; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); float d = distance(vUv, vec2(0.5)); c.rgb *= 1.0 - amount * smoothstep(0.35, 0.85, d); gl_FragColor = c; }',
-    }));
+      fragmentShader: 'uniform sampler2D tDiffuse; uniform float amount, sat, con, warm; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); float l = dot(c.rgb, vec3(0.299, 0.587, 0.114)); c.rgb = mix(vec3(l), c.rgb, sat); c.rgb = (c.rgb - 0.5) * con + 0.5; c.rgb += vec3(warm, warm * 0.4, -warm); float d = distance(vUv, vec2(0.5)); c.rgb *= 1.0 - amount * smoothstep(0.35, 0.85, d); gl_FragColor = vec4(clamp(c.rgb, 0.0, 1.0), c.a); }',
+    });
+    composer.addPass(gradePass);
+    if (THREE.FXAAShader) { fxaaPass = new THREE.ShaderPass(THREE.FXAAShader); composer.addPass(fxaaPass); }
   } catch (e) { composer = null; }
 }
 function applyQuality() {
-  renderer.setPixelRatio(gfxHigh ? Math.min(devicePixelRatio || 1, 2) : 1);
+  gfxHigh = gfxLevel > 0;
+  renderer.setPixelRatio(gfxLevel === 2 ? Math.min((devicePixelRatio || 1) * 1.25, 2.5) : gfxHigh ? Math.min(devicePixelRatio || 1, 2) : 1);
   sun.castShadow = gfxHigh;
+  const ms = gfxLevel === 2 ? 4096 : 2048;
+  if (sun.shadow.mapSize.x !== ms) { sun.shadow.mapSize.set(ms, ms); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  const ext = gfxLevel === 2 ? 55 : 75;
+  Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext }); sun.shadow.camera.updateProjectionMatrix();
+  sun.shadow.bias = gfxLevel === 2 ? -0.0003 : -0.0006; sun.shadow.normalBias = gfxLevel === 2 ? 0.02 : 0;
   if (composer) composer.setPixelRatio(renderer.getPixelRatio());
   resize();
-  const b = document.getElementById('bGfx'); if (b) b.textContent = gfxHigh ? 'Grafica alta' : 'Grafica leggera';
+  const b = document.getElementById('bGfx'); if (b) b.textContent = GFX_NAMES[gfxLevel];
+  if (typeof decorateLevel === 'function' && L && L.id) { decorateLevel(); setAmbient(L.id); }
+}
+// shadows follow the action (snapped to texels so they do not shimmer)
+const sunFocus = new V3();
+function updateSun() {
+  if (!sun.castShadow) return;
+  const ms = sun.shadow.mapSize.x, ext = sun.shadow.camera.right, texel = ext * 2 / ms;
+  const fx = G.running ? P.pos.x : cam.t.x, fz = G.running ? P.pos.z : cam.t.z, fy = G.running ? P.pos.y : cam.t.y;
+  sunFocus.set(Math.round(fx / texel) * texel, Math.round(fy / 4) * 4, Math.round(fz / texel) * texel);
+  sun.target.position.copy(sunFocus); sun.position.copy(sunFocus).add(SUN_OFF);
+  sun.target.updateMatrixWorld();
 }
 // bloom strength and threshold per world: bright, pale worlds get almost none
 const BLOOM = { ghost: [0.6, 0.8], clock: [0.35, 0.9], rainbow: [0.18, 0.96], shroom: [0.22, 0.95], cave: [0.85, 0.7], slide: [0.2, 0.95], island: [0.35, 0.92], volcano: [0.7, 0.8], snow: [0.05, 0.99], desert: [0.12, 0.98], bay: [0.15, 0.97], castle: [0.3, 0.93], fortress: [0.8, 0.72] };
 function renderFrame() {
   skyMesh.position.copy(camera.position);
+  updateSun();
   if (composer && gfxHigh) {
     const bl = BLOOM[L.id] || [0.4, 0.9];
     if (bloomPass) { bloomPass.strength = bl[0]; bloomPass.threshold = bl[1]; bloomPass.radius = 0.35; }
+    const ultra = gfxLevel === 2;
+    if (ssaoPass) { ssaoPass.enabled = ultra; renderPass.enabled = !ultra; }
+    if (fxaaPass) {
+      fxaaPass.enabled = ultra && !!ssaoPass;
+      const pr = renderer.getPixelRatio(); fxaaPass.material.uniforms.resolution.value.set(1 / (innerWidth * pr), 1 / (innerHeight * pr));
+    }
+    if (gradePass) { gradePass.uniforms.sat.value = ultra ? 1.12 : 1.05; gradePass.uniforms.con.value = ultra ? 1.06 : 1.03; }
     composer.render();
   } else renderer.render(scene, camera);
+}
+
+// ---------- level dressing: wind-swept grass and flowers on grassy tops, ambient particles ----------
+const windU = { value: 0 };
+let grassMesh = null, flowerMesh = null;
+const GRASSY = [0x4a9e3a, 0x3f8c31]; // GRASS, GRASS2 (declared later)
+function topMatColor(sd) {
+  const m = sd.mesh && sd.mesh.material; if (!m) return null;
+  const mm = Array.isArray(m) ? m[sd.type === 'cyl' ? 1 : 2] : m;
+  return mm && mm.color ? mm.color.getHex() : null;
+}
+function decorateLevel() {
+  for (const m of [grassMesh, flowerMesh]) if (m) { root.remove(m); m.geometry.dispose(); }
+  grassMesh = flowerMesh = null;
+  if (gfxLevel === 0) return;
+  const dens = gfxLevel === 2 ? 1.5 : 0.5, cap = gfxLevel === 2 ? 11000 : 3500, r = rng(L.id.length * 131 + 7);
+  const moving = new Set(movers.map(m => m.s).concat(sinkers.map(k => k.s || k)));
+  const pts = [], fl = [];
+  for (const sd of solids) {
+    if (sd.pole || sd.slide || moving.has(sd) || !sd.mesh || !sd.mesh.visible) continue;
+    const col = topMatColor(sd); if (!GRASSY.includes(col)) continue;
+    let area, pick;
+    if (sd.type === 'box' || sd.type === 'ramp') { area = 4 * sd.hx * sd.hz; pick = () => [sd.cx + (r() - 0.5) * 2 * sd.hx, sd.cz + (r() - 0.5) * 2 * sd.hz]; }
+    else { area = Math.PI * sd.r * sd.r; pick = () => { const a = r() * TAU, d = Math.sqrt(r()) * sd.r; return [sd.x + Math.cos(a) * d, sd.z + Math.sin(a) * d]; }; }
+    if (area < 2) continue;
+    const n = Math.min(Math.round(area * dens), 2500);
+    for (let i = 0; i < n; i++) {
+      const [x, z] = pick(), y = topAt(sd, x, z);
+      if (L.waterY != null && y < L.waterY + 0.05) continue;
+      let covered = false;
+      for (const o of solids) if (o !== sd && o.bottom < y + 1 && topAt(o, x, z) > y + 0.05 && overlap(o, x, z, 0.15)) { covered = true; break; }
+      if (covered) continue;
+      pts.push([x, y, z, col]);
+      if (r() < 0.05) fl.push([x, y, z]);
+    }
+  }
+  while (pts.length > cap) pts.splice(Math.floor(r() * pts.length), 1);
+  if (!pts.length) return;
+  const gmat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true });
+  gmat.onBeforeCompile = sh => {
+    sh.uniforms.uTime = windU;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float hh = max(position.y + 0.25, 0.0);
+      #ifdef USE_INSTANCING
+        vec2 ip = vec2(instanceMatrix[3][0], instanceMatrix[3][2]);
+      #else
+        vec2 ip = vec2(0.0);
+      #endif
+      transformed.x += sin(uTime * 2.1 + ip.x * 0.35 + ip.y * 0.21) * 0.16 * hh;
+      transformed.z += cos(uTime * 1.6 + ip.y * 0.31 + ip.x * 0.12) * 0.1 * hh;`);
+  };
+  const geo = new THREE.ConeGeometry(0.07, 0.5, 3); geo.translate(0, 0.25, 0);
+  grassMesh = new THREE.InstancedMesh(geo, gmat, pts.length); grassMesh.receiveShadow = true;
+  const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color(), base = new THREE.Color();
+  pts.forEach(([x, y, z, col], i) => {
+    const sc = 0.6 + r() * 0.9; e.set((r() - 0.5) * 0.4, r() * TAU, (r() - 0.5) * 0.4); q.setFromEuler(e);
+    mtx.compose(new V3(x, y - 0.03, z), q, new V3(sc, sc * (0.8 + r() * 0.6), sc)); grassMesh.setMatrixAt(i, mtx);
+    base.setHex(col); c.copy(base).offsetHSL((r() - 0.5) * 0.04, 0.05, 0.08 + r() * 0.14); grassMesh.setColorAt(i, c);
+  });
+  root.add(grassMesh);
+  if (fl.length) {
+    const fg = new THREE.IcosahedronGeometry(0.11, 0); fg.translate(0, 0.32, 0);
+    flowerMesh = new THREE.InstancedMesh(fg, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, flatShading: true, emissive: 0x222222 }), fl.length);
+    const FC = [0xffffff, 0xffcf3a, 0xff7ab0, 0xb58cff, 0xff6b5a, 0x7ad0ff];
+    fl.forEach(([x, y, z], i) => { mtx.compose(new V3(x, y, z), q.identity(), new V3(1, 1, 1)); flowerMesh.setMatrixAt(i, mtx); flowerMesh.setColorAt(i, c.setHex(FC[Math.floor(r() * FC.length)])); });
+    root.add(flowerMesh);
+  }
+}
+// ambient particles around the camera, one mood per world
+const AMB = {
+  island: { n: 160, col: 0xfff3b0, size: 0.14, kind: 'float' }, bay: { n: 140, col: 0xffffff, size: 0.12, kind: 'float' },
+  volcano: { n: 260, col: 0xff8a2a, size: 0.2, kind: 'rise', add: true }, snow: { n: 700, col: 0xffffff, size: 0.22, kind: 'fall' },
+  desert: { n: 260, col: 0xf0d8a0, size: 0.12, kind: 'wind' }, ghost: { n: 120, col: 0xb89aff, size: 0.28, kind: 'glow', add: true },
+  clock: { n: 220, col: 0xffe0a0, size: 0.1, kind: 'float', add: true }, rainbow: { n: 180, col: 0xffd6f6, size: 0.18, kind: 'glow', add: true },
+  shroom: { n: 180, col: 0xd8ff7a, size: 0.24, kind: 'glow', add: true }, cave: { n: 240, col: 0x7ae8ff, size: 0.16, kind: 'glow', add: true },
+  castle: { n: 140, col: 0xfff0c0, size: 0.09, kind: 'float', add: true }, fortress: { n: 240, col: 0xff4a3a, size: 0.2, kind: 'rise', add: true },
+  slide: { n: 160, col: 0xffffff, size: 0.2, kind: 'glow', add: true },
+};
+const AMB_BOX = new V3(70, 26, 70);
+let amb = null;
+const ambSprite = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); t.isShared = true; return t; })();
+function setAmbient(id) {
+  if (amb) { scene.remove(amb.pts); amb.pts.geometry.dispose(); amb.pts.material.dispose(); amb = null; }
+  const d = AMB[id]; if (!d || gfxLevel === 0) return;
+  const n = d.n * (gfxLevel === 2 ? 2 : 1), pos = new Float32Array(n * 3), ph = new Float32Array(n);
+  for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * AMB_BOX.x; pos[i * 3 + 1] = (Math.random() - 0.5) * AMB_BOX.y; pos[i * 3 + 2] = (Math.random() - 0.5) * AMB_BOX.z; ph[i] = Math.random() * TAU; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({ color: d.col, size: d.size, map: ambSprite, transparent: true, depthWrite: false, opacity: d.kind === 'glow' ? 0.9 : 0.75, blending: d.add ? THREE.AdditiveBlending : THREE.NormalBlending, sizeAttenuation: true });
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
+  amb = { pts, d, ph, n };
+}
+function updateAmbient(dt, t) {
+  windU.value = t;
+  if (!amb) return;
+  const a = amb.pts.geometry.attributes.position.array, c = camera.position, k = amb.d.kind, hx = AMB_BOX.x / 2, hy = AMB_BOX.y / 2, hz = AMB_BOX.z / 2;
+  for (let i = 0; i < amb.n; i++) {
+    const j = i * 3, p = amb.ph[i];
+    let vx = Math.sin(t * 0.4 + p) * 0.3, vy = Math.cos(t * 0.5 + p * 1.3) * 0.15, vz = Math.cos(t * 0.35 + p) * 0.3;
+    if (k === 'fall') { vy = -1.6 - (p % 1); vx += Math.sin(t + p) * 0.6; }
+    else if (k === 'rise') { vy = 1.2 + (p % 1.5); vx *= 2; }
+    else if (k === 'wind') { vx = 5 + Math.sin(t + p) * 2; vy *= 0.5; }
+    else if (k === 'glow') { vx *= 1.6; vy *= 2; vz *= 1.6; }
+    a[j] += vx * dt; a[j + 1] += vy * dt; a[j + 2] += vz * dt;
+    if (a[j] - c.x > hx) a[j] -= AMB_BOX.x; else if (a[j] - c.x < -hx) a[j] += AMB_BOX.x;
+    if (a[j + 1] - c.y > hy) a[j + 1] -= AMB_BOX.y; else if (a[j + 1] - c.y < -hy) a[j + 1] += AMB_BOX.y;
+    if (a[j + 2] - c.z > hz) a[j + 2] -= AMB_BOX.z; else if (a[j + 2] - c.z < -hz) a[j + 2] += AMB_BOX.z;
+  }
+  amb.pts.geometry.attributes.position.needsUpdate = true;
+  if (amb.d.kind === 'glow') amb.pts.material.opacity = 0.7 + Math.sin(t * 2.3) * 0.2;
 }
 
 const matCache = {};
@@ -3685,8 +6081,8 @@ function buildFortress() {
   [-12, -15.5, -19, -22.5].forEach(z => { const s = box(0, 4.2, z, 2.6, 0.6, 2.6, 0x8a5a6a); sinkers.push({ s, baseTop: s.top, state: 'idle', t: 0, speed: 6 }); });
   box(0, 4, -28, 6, 1, 6, DS);
   box(0, 4, -42.5, 8, 1, 8, DS);
-  const pipe = cyl(0, -43.5, 1.2, 4.5, 6.2, 0x2f9a9a, 16);
-  const rim = add(new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.18, 8, 20), M(0x3fbfbf))); rim.rotation.x = Math.PI / 2; rim.position.set(0, 6.2, -43.5);
+  const pipe = cyl(0, -177.5, 1.2, 16, 17.7, 0x2f9a9a, 16);
+  const rim = add(new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.18, 8, 20), M(0x3fbfbf))); rim.rotation.x = Math.PI / 2; rim.position.set(0, 17.7, -177.5);
   addEnemy(0, 4.5, -27, 1.5); addEnemy(0, 0, 22, 1.5);
   addPortal(-3, 0, 42.5, Math.PI / 2, 'castle', 'fortress');
   sign('Il Re Grumo ti aspetta\noltre il tubo', 2.6, 0, 38.4, 0);
@@ -3697,14 +6093,167 @@ function buildFortress() {
 
   // flame jets
   const flameMat = new THREE.MeshStandardMaterial({ color: 0xff8a1a, emissive: 0xff4a00, transparent: true, opacity: 0.85, flatShading: true });
-  const flames = [[0, 22, 0, 0], [-1.8, -28, 4.5, 0], [1.8, -28, 4.5, 1.5]].map(([x, z, y, ph]) => {
+  const flames = [[0, 22, 0, 0], [-1.8, -28, 4.5, 0], [1.8, -28, 4.5, 1.5], [0, -50, 4.5, 0], [0, -59, 4.5, 1.5], [9.5, -122, 10, 0.8], [0, -158.5, 16, 0], [0, -167.5, 16, 1.5]].map(([x, z, y, ph]) => {
     const base = add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 0.3, 10), M(0x222222)), false); base.position.set(x, y + 0.15, z);
     const f = new THREE.Mesh(new THREE.ConeGeometry(0.8, 4, 10), flameMat); f.position.set(x, y + 2, z); root.add(f);
     return { f, x, z, y, ph, on: false };
   });
 
-  // boss arena
-  const AZ = -110, AR = 14;
+  // ===== the long road to the King: fire bridge, lifts, fire bar, moving floors, rolling mines, flame pillars =====
+  const PATHC = 0x4a4258, SAFE = 0x6a5a88;
+  // fire bridge (two flame jets, take turns)
+  box(0, 4.25, -55, 2.4, 0.5, 17, DS);
+  line(0, -47.5, 0, -62.5, 6, 5.6);
+  // checkpoint lamp: turns green and becomes the restart point
+  const cps = [];
+  function checkpoint(x, top, z, sx) {
+    const s = box(x, top - 0.5, z, sx, 1, sx, SAFE);
+    const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 2.2, 8), M(0x2a2233))); post.position.set(x + sx / 2 - 0.6, top + 1.1, z + sx / 2 - 0.6);
+    const lamp = add(new THREE.Mesh(new THREE.OctahedronGeometry(0.36, 0), new THREE.MeshStandardMaterial({ color: 0xff4a4a, emissive: 0x8a0000, flatShading: true })), false, false);
+    lamp.position.set(x + sx / 2 - 0.6, top + 2.45, z + sx / 2 - 0.6);
+    cps.push({ s, lamp, p: new V3(x, top + 0.1, z), on: false });
+    return s;
+  }
+  checkpoint(0, 4.5, -67.5, 7);
+  addHeart(-2.2, 5.9, -69.5); ring(0, -67.5, 2, 6, 5.6);
+  // rising and falling lifts
+  [[-75, 5.5, 0], [-79.5, 7, 0.5], [-84, 8.5, 1]].forEach(([z, t, ph]) => {
+    const l = box(0, t - 0.3, z, 3, 0.6, 3, 0x8a7aa8);
+    movers.push({ s: l, base: new V3(0, t - 0.3, z), axis: new V3(0, 1, 0), amp: 1.1, period: 3.5, phase: ph });
+    addCoin(0, t + 1.2, z);
+  });
+  // landing with a walking mine
+  box(0, 9.5, -90.5, 7, 1, 6, DS);
+  // round platform with the rotating fire bar
+  cyl(0, -102, 6, 5, 10, [0x3a3448, 0x5a4a68, 0x3a3448], 32);
+  cyl(0, -102, 0.5, 10, 11.3, 0x222222, 10);
+  const bar = new THREE.Group(); bar.position.set(0, 10.7, -102); root.add(bar);
+  const barMat = new THREE.MeshStandardMaterial({ color: 0xff8a1a, emissive: 0xff4a00, flatShading: true });
+  const barGeo = new THREE.IcosahedronGeometry(0.42, 0);
+  const BAR_R = [1.3, 2.3, 3.3, 4.3, 5.3];
+  BAR_R.forEach(r => { const m = new THREE.Mesh(barGeo, barMat); m.position.set(0, 0, r); bar.add(m); });
+  let barA = 0;
+  ring(0, -102, 4.8, 8, 11.2);
+  // west side path: crumbling blocks to the hidden turret
+  [-9.2, -12.8, -16.4].forEach(x => { const sk = box(x, 9.7, -102, 2.6, 0.6, 2.6, 0x8a5a6a); sinkers.push({ s: sk, baseTop: sk.top, state: 'idle', t: 0, speed: 3 }); addCoin(x, 11.2, -102); });
+  cyl(-23, -102, 3.2, 3, 11.5, [0x3a3448, 0x6a6478, 0x3a3448], 16);
+  cyl(-23, -102, 1.1, 11.5, 13.3, [0x3a3448, 0x8a7aa8, 0x3a3448], 12);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; box(-23 + Math.cos(a) * 2.8, 12, -102 + Math.sin(a) * 2.8, 0.7, 1, 0.7, 0x6a6478); }
+  addStar('torretta', -23, 14.9, -102);
+  // sliding floors
+  const z1 = box(0, 9.7, -111.5, 3, 0.6, 3, 0x8a7aa8), z2 = box(0, 9.7, -116, 3, 0.6, 3, 0x8a7aa8);
+  movers.push({ s: z1, base: new V3(0, 9.7, -111.5), axis: new V3(1, 0, 0), amp: 3.5, period: 5, phase: 0 });
+  movers.push({ s: z2, base: new V3(0, 9.7, -116), axis: new V3(1, 0, 0), amp: 3.5, period: 5, phase: Math.PI });
+  // checkpoint 2
+  checkpoint(0, 10, -122, 8);
+  addHeart(-2.8, 11.4, -124.5); ring(0, -122, 2.4, 8, 11.1);
+  // east side path: narrow beam through a flame, then the bastion blocks
+  box(9.5, 9.75, -122, 11, 0.5, 1.4, 0x8a5a6a);
+  box(18, 9.5, -122, 6, 1, 6, DS);
+  [[18, -127.5, 12, 3], [21.5, -130.5, 14, 3], [18, -134, 16, 4]].forEach(([x, z, t, w]) => box(x, (3 + t) / 2, z, w, t - 3, w, [0x3a3448, 0x6a6478, 0x3a3448, 0x3a3448, 0x3a3448, 0x3a3448]));
+  addStar('bastione', 18, 17.7, -134);
+  line(5, -122, 14, -122, 4, 11.1); addCoin(18, 13.3, -127.5); addCoin(21.5, 15.3, -130.5);
+  // the ramp of rolling spiked mines
+  const RAMP = ramp(0, -135, 5, 18, 'z', 16, 10, PATHC);
+  const rollGeo = new THREE.IcosahedronGeometry(0.9, 0), rollMat = M(0x1a1a22, { emissive: 0x4a0000, metalness: 0.4 });
+  const rollers = []; let rollT = 0, rollLane = 0;
+  lineOn(-1.2, -128, -1.2, -142, 4, 1); lineOn(1.2, -128, 1.2, -142, 4, 1);
+  // upper landing, flame pillars, pipe platform
+  box(0, 15.5, -149, 9, 1, 10, DS);
+  [-158.5, -163, -167.5].forEach(z => cyl(0, z, 1.6, 8, 16, [0x3a3448, 0x5a4a68, 0x3a3448], 14));
+  addCoin(0, 17.4, -163);
+  box(0, 15.5, -176, 8, 1, 8, DS);
+  sign('Il tubo porta\ndal Re Grumo', 2.6, 16, -173.5, 0);
+  ring(0, -176, 2.8, 8, 17.2);
+  // distant broken columns floating in the dark
+  [[-18, -60, 0], [16, -80, 2], [-14, -140, 6], [22, -165, 8], [-26, -175, 4], [12, -40, -2]].forEach(([x, z, y], i) => {
+    const c = add(new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.8, 9 + i % 3 * 3, 8), M(0x3a3448)), false, false); c.position.set(x, y, z); c.rotation.z = (i % 2 ? 0.25 : -0.2);
+  });
+  // walking mines: wander on their platform, chase Tino with a lit fuse and blow up; stomp or punch them first!
+  const walkers = [];
+  const wBody = M(0x1a1a22, { metalness: 0.4 }), wFoot = M(0xffb000), wKey = M(0xcfcfd8, { metalness: 0.6 });
+  function addWalker(x, y, z, x0, x1, z0, z1) {
+    const g = new THREE.Group(); root.add(g);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 10), wBody); b.position.y = 0.75; b.castShadow = true; g.add(b);
+    const key = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 6, 12), wKey); key.position.set(0, 0.8, -0.66); g.add(key);
+    const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.32, 6), M(0xd8c8a0)); fuse.position.y = 1.47; g.add(fuse);
+    const spark = new THREE.Mesh(new THREE.SphereGeometry(0.13, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffd23a })); spark.position.y = 1.68; spark.visible = false; g.add(spark);
+    for (const ex of [-0.2, 0.2]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.24, 0.05), M(0xffffff)); e.position.set(ex, 0.86, 0.56); g.add(e); }
+    const ft = [-0.28, 0.28].map(fx => { const f = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), wFoot); f.position.set(fx, 0.15, 0.05); g.add(f); return f; });
+    const w = { g, b, key, spark, ft, home: new V3(x, y, z), pos: new V3(x, y, z), dir: Math.random() * TAU, st: 'walk', t: 0, turnT: 1, ph: Math.random() * TAU, bx: [x0, x1, z0, z1] };
+    g.position.copy(w.pos); walkers.push(w);
+  }
+  addWalker(0, 10, -90.5, -3, 3, -93, -88);
+  addWalker(-2, 16, -147, -4, 4, -153.5, -144.5);
+  addWalker(2, 16, -151, -4, 4, -153.5, -144.5);
+  addWalker(18, 10, -121, 15.6, 20.4, -124.4, -119.6);
+  addWalker(0, 4.5, -42.5, -3.5, 3.5, -46, -39);
+  function boom(w, harmful) {
+    const c = w.pos.clone().add(new V3(0, 0.8, 0));
+    burst(c, 0xff8a1a, 22, 9); burst(c, 0x222222, 10, 5); sfx.pound(); G.shake = Math.max(G.shake || 0, 0.3);
+    if (harmful && Math.hypot(P.pos.x - w.pos.x, P.pos.z - w.pos.z) < 2.7 && Math.abs(P.pos.y - w.pos.y) < 2.5) { P.burnT = 1; hurt(w.pos, 2); }
+    if (!harmful) addCoin(w.pos.x, w.pos.y + 1, w.pos.z);
+    w.st = 'gone'; w.t = 5; w.g.visible = false;
+  }
+  function updateCourse(dt) {
+    // checkpoints
+    for (const c of cps) if (!c.on && P.onGround && P.ground === c.s) {
+      c.on = true; L.spawn = { pos: c.p.clone(), yaw: 0 };
+      c.lamp.material.color.setHex(0x5aff8a); c.lamp.material.emissive.setHex(0x1a8a3a); sfx.reveal();
+      banner('Punto sicuro!<small>Se cadi, ripartirai da qui</small>', 2);
+    }
+    // fire bar
+    barA += dt * 1.25; bar.rotation.y = barA;
+    if (Math.abs(P.pos.z + 102) < 7 && P.pos.y > 8.8 && P.pos.y < 11.5) {
+      const sa = Math.sin(barA), ca = Math.cos(barA);
+      for (const r of BAR_R) if (Math.hypot(P.pos.x - sa * r, P.pos.z - (-102 + ca * r)) < 0.85) { P.burnT = 1; hurt({ x: sa * r, z: -102 + ca * r }, 3); break; }
+    }
+    // rolling spiked mines
+    rollT -= dt;
+    if (rollT <= 0 && P.pos.z < -100) {
+      rollT = 1.9; rollLane ^= 1;
+      const m = new THREE.Mesh(rollGeo, rollMat); m.castShadow = true; root.add(m);
+      rollers.push({ m, x: rollLane ? 1.2 : -1.2, z: -143.6 });
+    }
+    for (let i = rollers.length - 1; i >= 0; i--) {
+      const r = rollers[i]; r.z += 6.5 * dt;
+      const y = topAt(RAMP, r.x, r.z) + 0.9;
+      r.m.position.set(r.x, y, r.z); r.m.rotation.x += 6.5 * dt / 0.9;
+      if (r.z > -126.3) { burst(r.m.position, 0x444444, 8, 4); root.remove(r.m); rollers.splice(i, 1); continue; }
+      if (Math.hypot(P.pos.x - r.x, P.pos.z - r.z) < 1.3 && P.pos.y < y + 0.8 && P.pos.y + 1.6 > y - 0.9) hurt({ x: r.x, z: r.z }, 2);
+    }
+    // walking mines
+    for (const w of walkers) {
+      w.ph += dt * 9;
+      if (w.st === 'gone') { w.t -= dt; if (w.t <= 0) { w.st = 'walk'; w.pos.copy(w.home); w.g.visible = true; w.g.scale.setScalar(1); w.spark.visible = false; } continue; }
+      const dx = P.pos.x - w.pos.x, dz = P.pos.z - w.pos.z, d = Math.hypot(dx, dz) || 1, dy = P.pos.y - w.pos.y;
+      if (!P.onGround && P.vel.y < 0 && d < 1.2 && dy > 0.5 && dy < 1.9) { P.vel.y = 11; boom(w, false); continue; }
+      if (P.punchT > 0 && d < 1.7 && Math.abs(dy) < 1.2) { sfx.punch(); boom(w, false); continue; }
+      if (w.st === 'walk') {
+        w.turnT -= dt; if (w.turnT <= 0) { w.turnT = 1.5 + Math.random() * 2; w.dir += (Math.random() - 0.5) * 2.5; }
+        w.pos.x += Math.sin(w.dir) * 1.3 * dt; w.pos.z += Math.cos(w.dir) * 1.3 * dt;
+        if (d < 6 && Math.abs(dy) < 2) { w.st = 'fuse'; w.t = 3; w.spark.visible = true; tone(700, 0.2, 'square', 0.04, 1400); }
+      } else {
+        w.dir = lerpAngle(w.dir, Math.atan2(dx, dz), 1 - Math.exp(-4 * dt));
+        w.pos.x += Math.sin(w.dir) * 3.3 * dt; w.pos.z += Math.cos(w.dir) * 3.3 * dt;
+        w.t -= dt;
+        w.spark.visible = Math.floor(w.t * 12) % 2 === 0;
+        w.g.scale.setScalar(w.t < 1 ? 1 + Math.sin(w.t * 40) * 0.08 + (1 - w.t) * 0.15 : 1);
+        if (w.t <= 0 || (d < 0.95 && Math.abs(dy) < 1.5)) { boom(w, true); continue; }
+      }
+      const b = w.bx, cx = clamp(w.pos.x, b[0], b[1]), cz = clamp(w.pos.z, b[2], b[3]);
+      if (cx !== w.pos.x || cz !== w.pos.z) { w.pos.x = cx; w.pos.z = cz; if (w.st === 'walk') { w.dir += Math.PI; w.turnT = 1.2; } }
+      w.g.position.set(w.pos.x, w.pos.y + Math.abs(Math.sin(w.ph)) * 0.08, w.pos.z); w.g.rotation.y = w.dir;
+      w.key.rotation.z += dt * 5; w.ft[0].position.z = 0.05 + Math.sin(w.ph) * 0.15; w.ft[1].position.z = 0.05 - Math.sin(w.ph) * 0.15;
+    }
+  }
+  function resetCourse() {
+    rollers.forEach(r => root.remove(r.m)); rollers.length = 0;
+    walkers.forEach(w => { w.st = 'walk'; w.pos.copy(w.home); w.g.visible = true; w.g.scale.setScalar(1); w.spark.visible = false; });
+  }
+
+  // boss arena (far beyond the course, reached through the pipe)
+  const AZ = -300, AR = 14;
   cyl(0, AZ, AR, -3, 0, [0x3a3448, 0x5a4a68, 0x3a3448], 40);
   const tile = add(new THREE.Mesh(new THREE.RingGeometry(5, 5.4, 40), new THREE.MeshBasicMaterial({ color: 0x8a6ab8 })), false, false);
   tile.rotation.x = -Math.PI / 2; tile.position.set(0, 0.02, AZ);
@@ -3740,9 +6289,10 @@ function buildFortress() {
     sky: 0x1a0f24, fogNear: 40, fogFar: 150, hemi: [0x9a7ab8, 0x2a1030, 0.8], sun: [0xffc0e0, 0.7],
     music: 'fortress', deathY: -20, hazardY: null, seaY: null,
     spawn: { pos: new V3(0, 0, 42), yaw: 0 }, entries: {}, doors: [], redTotal: 8, coinStar: false,
-    redMsg: "Sull'ultima piattaforma, accanto al tubo",
-    fb, onDie() { resetBoss(); },
+    redMsg: 'Sulla piattaforma prima del ponte di fuoco',
+    fb, onDie() { resetBoss(); resetCourse(); },
     update(dt) {
+      if (!arena) updateCourse(dt);
       // flames: on 1.2 s every 3 s
       for (const f of flames) {
         const k = ((gameTime + f.ph) % 3) / 3;
@@ -4970,29 +7520,106 @@ function buildCave() {
 // ---------- LEVEL: secret slide ----------
 function buildSlide() {
   const COLS = [0xff4fae, 0x2f9cff], WALLS = 0x7a4ac8;
-  const start = box(0, 59, 0, 8, 2, 8, 0xffcf3a);
-  const DIRS = [[0, -1], [1, 0], [0, -1], [-1, 0], [0, -1], [1, 0], [0, -1]];
-  const LENS = [26, 18, 22, 26, 20, 22, 18], DROPS = [9, 6, 8, 9, 7, 8, 6];
-  const pieces = [];
-  let E = null, prev = null, S = new V3(0, 60, -4), total = 0;
+  const Y0 = 118;
+  const start = box(0, Y0 - 1, 0, 8, 2, 8, 0xffcf3a);
+  // [dx, dz, length, drop, flags] -- flags describe the corner before the chute and the chute itself:
+  //   bank: banked outer curve, tunnel: arches over the chute, wide: split coin lane on the outer side,
+  //   merge: the two lanes join again, fork: low wall with a shortcut behind it, join: the shortcut lands here
+  const SEG = [
+    [0, -1, 26, 9, ''], [1, 0, 18, 6, 'bank'], [0, -1, 24, 8, 'tunnel'], [-1, 0, 26, 9, 'bank'],
+    [0, -1, 24, 8, 'wide'], [1, 0, 22, 7, 'merge'], [0, -1, 18, 6, ''], [1, 0, 20, 3, 'fork'],
+    [0, -1, 30, 7, ''], [-1, 0, 20, 3, ''], [0, -1, 24, 8, 'join tunnel'], [-1, 0, 22, 8, 'bank'],
+    [0, -1, 26, 9, ''], [1, 0, 18, 6, 'bank'], [0, -1, 20, 7, 'tunnel'],
+  ];
+  const pieces = [], chutes = [], arches = [];
+  let E = null, prev = null, S = new V3(0, Y0, -4), fork = null;
   const slope = (cx, cz, dx, dz, along, across, yHi, yLo, col, opts) => {
     const axis = dx ? 'x' : 'z', sgn = dx || dz;
     const sx = dx ? along : across, sz = dx ? across : along;
     const y0 = sgn > 0 ? yHi : yLo, y1 = sgn > 0 ? yLo : yHi;
     return ramp(cx, cz, sx, sz, axis, y0, y1, col, opts);
   };
-  DIRS.forEach(([dx, dz], i) => {
+  // a wall block: thin across (px,pz), long along the other axis
+  const wallB = (x, y, z, thinX, len, h) => box(x, y, z, thinX ? 0.8 : len, h, thinX ? len : 0.8, WALLS);
+  const archMat = [M(0xffe14a, { emissive: 0x6a5000 }), M(0x5affd8, { emissive: 0x006a50 })];
+  SEG.forEach(([dx, dz, L, h, fl], i) => {
+    const col = COLS[i % 2], ccol = COLS[(i + 1) % 2];
+    let drop = 1;
     if (prev) {
-      const Cc = new V3(E.x + prev[0] * 2.5, E.y, E.z + prev[1] * 2.5);
-      pieces.push(slope(Cc.x, Cc.z, dx, dz, 5, 5, E.y, E.y - 1, COLS[(i + 1) % 2], { slide: true }));
-      box(Cc.x + prev[0] * 2.9, E.y + 0.2, Cc.z + prev[1] * 2.9, prev[0] ? 0.8 : 5.8, 3.6, prev[1] ? 0.8 : 5.8, WALLS);
-      box(Cc.x - dx * 2.9, E.y + 0.2, Cc.z - dz * 2.9, dx ? 0.8 : 5.8, 3.6, dz ? 0.8 : 5.8, WALLS);
-      S = new V3(Cc.x + dx * 2.5, E.y - 1, Cc.z + dz * 2.5); total += 5;
+      const [px, pz] = prev, Cc = new V3(E.x + px * 2.5, E.y, E.z + pz * 2.5);
+      if (fl.includes('wide')) {
+        // the corner opens up towards the outside: two lanes side by side
+        pieces.push(slope(Cc.x + px * 2.9, Cc.z + pz * 2.9, dx, dz, 5, 10.8, E.y, E.y - 1, ccol, { slide: true }));
+        wallB(Cc.x + px * 8.7, E.y + 0.2, Cc.z + pz * 8.7, px, 5.8, 3.6);
+        wallB(Cc.x - dx * 2.9 + px * 2.9, E.y + 0.2, Cc.z - dz * 2.9 + pz * 2.9, dx, 11.6, 3.6);
+      } else if (fl.includes('merge')) {
+        // long corner collecting both lanes (they lie on the -d side)
+        pieces.push(slope(Cc.x - dx * 2.9, Cc.z - dz * 2.9, dx, dz, 10.8, 5, E.y, E.y - 1.6, ccol, { slide: true }));
+        wallB(Cc.x + px * 2.9 - dx * 2.9, E.y + 0.2, Cc.z + pz * 2.9 - dz * 2.9, px, 11.6, 3.6);
+        wallB(Cc.x - dx * 8.7, E.y + 0.2, Cc.z - dz * 8.7, dx, 5.8, 3.6);
+        drop = 1.6;
+      } else {
+        pieces.push(slope(Cc.x, Cc.z, dx, dz, 5, 5, E.y, E.y - 1, ccol, { slide: true }));
+        if (fl.includes('fork')) {
+          // low wall: jump over it to take the shortcut straight ahead
+          box(Cc.x + px * 2.9, E.y - 0.55, Cc.z + pz * 2.9, px ? 0.8 : 5.8, 2.9, pz ? 0.8 : 5.8, 0xffcf3a);
+          fork = { C: Cc.clone(), px, pz };
+        } else if (fl.includes('bank')) {
+          // banked curve: the outer rim rises and pushes you back into the turn
+          slope(Cc.x + px * 3.7, Cc.z + pz * 3.7, -px, -pz, 2.4, 5, E.y + 0.5, E.y - 1, 0xffcf3a, { slide: true });
+          wallB(Cc.x + px * 5.3, E.y + 2.2, Cc.z + pz * 5.3, px, 6.6, 6.4);
+          wallB(Cc.x + dx * 2.9 + px * 3.7, E.y + 2.2, Cc.z + dz * 2.9 + pz * 3.7, dx, 2.4, 6.4);
+        } else wallB(Cc.x + px * 2.9, E.y + 0.2, Cc.z + pz * 2.9, px, 5.8, 3.6);
+        if (fl.includes('bank')) wallB(Cc.x - dx * 2.9 + px * 1.2, E.y + 2.2, Cc.z - dz * 2.9 + pz * 1.2, dx, 8.2, 6.4);
+        else if (!fl.includes('join')) wallB(Cc.x - dx * 2.9, E.y + 0.2, Cc.z - dz * 2.9, dx, 5.8, 3.6);
+        if (fl.includes('join') && fork) {
+          // the shortcut chute, from behind the low wall down to this corner
+          const f = fork, z0 = f.C.z + f.pz * 3.3, z1 = Cc.z - f.pz * 2.5, len = Math.abs(z0 - z1), cz = (z0 + z1) / 2;
+          const sc = slope(f.C.x, cz, f.px, f.pz, len, 5, f.C.y - 0.2, E.y, 0xffcf3a, { slide: true });
+          pieces.push(sc);
+          for (const sd of [-1, 1]) slope(f.C.x + sd * 2.9, cz, f.px, f.pz, len, 0.8, f.C.y + 1.4, E.y + 1.6, WALLS);
+          for (let k = 0; k < 5; k++) { const z = z0 + (z1 - z0) * (k + 0.5) / 5; addCoin(f.C.x, topAt(sc, f.C.x, z) + 1, z); }
+        }
+      }
+      S = new V3(Cc.x + dx * 2.5, E.y - drop, Cc.z + dz * 2.5);
     }
-    const L = LENS[i], h = DROPS[i], cx = S.x + dx * L / 2, cz = S.z + dz * L / 2;
-    pieces.push(slope(cx, cz, dx, dz, L, 5, S.y, S.y - h, COLS[i % 2], { slide: true }));
-    for (const sd of [-1, 1]) slope(cx + (dx ? 0 : sd * 2.9), cz + (dz ? 0 : sd * 2.9), dx, dz, L, 0.8, S.y + 1.6, S.y - h + 1.6, WALLS);
-    E = new V3(S.x + dx * L, S.y - h, S.z + dz * L); prev = [dx, dz]; total += L;
+    const cx = S.x + dx * L / 2, cz = S.z + dz * L / 2;
+    if (fl.includes('wide')) {
+      // two lanes: the inner one (main) and the outer coin lane, split by a low divider
+      const [ox, oz] = prev;
+      const wp = slope(cx + ox * 2.9, cz + oz * 2.9, dx, dz, L, 10.8, S.y, S.y - h, col, { slide: true });
+      pieces.push(wp);
+      slope(cx - ox * 2.9, cz - oz * 2.9, dx, dz, L, 0.8, S.y + 1.6, S.y - h + 1.6, WALLS);
+      const yAt = t => S.y - h * t / L;
+      slope(cx + ox * 2.9 + dx * 1.5, cz + oz * 2.9 + dz * 1.5, dx, dz, L - 3, 0.6, yAt(3) + 1.1, S.y - h + 1.1, 0xffcf3a);
+      // outer wall with a gap leading to the hidden alcove
+      const g0 = L * 0.5 - 1.8, g1 = L * 0.5 + 1.8;
+      slope(S.x + dx * g0 / 2 + ox * 8.7, S.z + dz * g0 / 2 + oz * 8.7, dx, dz, g0, 0.8, S.y + 1.6, yAt(g0) + 1.6, WALLS);
+      slope(S.x + dx * (g1 + L) / 2 + ox * 8.7, S.z + dz * (g1 + L) / 2 + oz * 8.7, dx, dz, L - g1, 0.8, yAt(g1) + 1.6, S.y - h + 1.6, WALLS);
+      const am = L * 0.5 + 0.6, ay = yAt(g1) - 0.35, ax = S.x + dx * am + ox * 10.7, az = S.z + dz * am + oz * 10.7;
+      box(ax, ay - 1, az, ox ? 3.2 : 4.6, 2, oz ? 3.2 : 4.6, 0xffcf3a);
+      wallB(ax + ox * 1.9, ay + 1.2, az + oz * 1.9, ox, 5.4, 4.4);
+      wallB(ax - dx * 2.6, ay + 1.4, az - dz * 2.6, dx, 3.2, 4.8);
+      wallB(ax + dx * 2.6, ay + 1.2, az + dz * 2.6, dx, 3.2, 4.4);
+      addStar('nicchia', ax + ox * 0.4, ay + 1.3, az + oz * 0.4);
+      // the coin lane
+      for (const off of [4.4, 5.8, 7.2]) for (let k = 0; k < 6; k++) {
+        const t = 2 + (L - 4) * k / 5, x = S.x + dx * t + ox * off, z = S.z + dz * t + oz * off;
+        addCoin(x, topAt(wp, x, z) + 1, z);
+      }
+    } else {
+      const ch = slope(cx, cz, dx, dz, L, 5, S.y, S.y - h, col, { slide: true });
+      pieces.push(ch); chutes.push(ch);
+      for (const sd of [-1, 1]) slope(cx + (dx ? 0 : sd * 2.9), cz + (dz ? 0 : sd * 2.9), dx, dz, L, 0.8, S.y + 1.6, S.y - h + 1.6, WALLS);
+    }
+    if (fl.includes('tunnel')) {
+      for (let t = 2, k = 0; t < L - 1; t += 3, k++) {
+        const a = add(new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.3, 6, 18, Math.PI), archMat[k % 2]), false, false);
+        a.position.set(S.x + dx * t, S.y - h * t / L - 0.2, S.z + dz * t); a.rotation.y = dx ? Math.PI / 2 : 0;
+        arches.push(a);
+      }
+    }
+    E = new V3(S.x + dx * L, S.y - h, S.z + dz * L); prev = [dx, dz];
   });
   const [lx, lz] = prev;
   const fc = new V3(E.x + lx * 7, E.y - 0.4, E.z + lz * 7);
@@ -5002,15 +7629,15 @@ function buildSlide() {
   addStar('scivolo', fc.x + lx * 4.5, fc.y + 1.9, fc.z + lz * 4.5);
   addPortal(fc.x + lz * 5, fc.y, fc.z - lx * 5, lx ? 0 : Math.PI / 2, 'castle', 'slide');
   // coins along the slide
-  pieces.forEach((pc, i) => { if (i % 2 === 0) { const n = 3; for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; const x = pc.axis === 'x' ? pc.cx - pc.hx + 2 * pc.hx * t : pc.cx, z = pc.axis === 'z' ? pc.cz - pc.hz + 2 * pc.hz * t : pc.cz; addCoin(x, topAt(pc, x, z) + 1, z); } } });
-  // floating candy clouds below
-  for (let i = 0; i < 26; i++) { const c = add(new THREE.Mesh(new THREE.IcosahedronGeometry(3 + (i % 3) * 1.5, 0), M([0xffffff, 0xffe0f5, 0xe0f0ff][i % 3], { roughness: 1 })), false, false); c.position.set(-40 + (i * 29) % 110, 10 + (i * 7) % 30, -150 + (i * 41) % 170); }
-  const LIMIT = 13;
+  chutes.forEach(pc => { { const n = 3; for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; const x = pc.axis === 'x' ? pc.cx - pc.hx + 2 * pc.hx * t : pc.cx, z = pc.axis === 'z' ? pc.cz - pc.hz + 2 * pc.hz * t : pc.cz; addCoin(x, topAt(pc, x, z) + 1, z); } } });
+  // floating candy clouds around the long descent
+  for (let i = 0; i < 40; i++) { const c = add(new THREE.Mesh(new THREE.IcosahedronGeometry(3 + (i % 3) * 1.5, 0), M([0xffffff, 0xffe0f5, 0xe0f0ff][i % 3], { roughness: 1 })), false, false); c.position.set(-45 + (i * 29) % 115, -5 + (i * 13) % 110, fc.z - 20 + (i * 41) % (40 - fc.z)); }
+  const LIMIT = 34;
   const tm = { state: 'ready', t0: 0, shown: -1 };
   return {
     sky: 0xffd6f2, fogNear: 90, fogFar: 260, hemi: [0xffffff, 0xd8c8f0, 0.9], sun: [0xfffbe8, 0.9],
     music: 'slide', deathY: fc.y - 25, hazardY: null, seaY: null,
-    spawn: { pos: new V3(0, 60, 2.5), yaw: 0 }, entries: {}, doors: [], redTotal: 0, coinStar: false,
+    spawn: { pos: new V3(0, Y0, 2.5), yaw: 0 }, entries: {}, doors: [], redTotal: 0, coinStar: false,
     update() {
       if (tm.state === 'ready' && P.onGround && P.ground && P.ground.slide) { tm.state = 'run'; tm.t0 = gameTime; $('bossBar').hidden = false; $('bossName').textContent = 'Tempo'; }
       if (tm.state === 'run') {
@@ -5024,7 +7651,7 @@ function buildSlide() {
       }
       if (tm.state !== 'ready' && P.onGround && P.ground === start) { tm.state = 'ready'; $('bossBar').hidden = true; }
     },
-    tick(dt, t) { arch.rotation.z = Math.sin(t * 2) * 0.03; },
+    tick(dt, t) { arch.rotation.z = Math.sin(t * 2) * 0.03; for (let k = 0; k < arches.length; k++) arches[k].scale.setScalar(1 + Math.sin(t * 4 - k * 0.7) * 0.04); },
   };
 }
 const LEVELS = { cave: buildCave, slide: buildSlide, shroom: buildShroom, ghost: buildGhost, clock: buildClock, rainbow: buildRainbow, island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert, bay: buildBay, castle: buildCastle, fortress: buildFortress };
@@ -5063,6 +7690,8 @@ for (let i = 0; i < 6; i++) { const seg = new THREE.Mesh(new THREE.SphereGeometr
 const wings = [-1, 1].map(sd => { const w = part(new THREE.BoxGeometry(0.55, 0.06, 0.3), 0xffffff, sd * 0.48, 1.58, -0.12); w.rotation.z = -sd * 0.5; w.visible = false; return w; });
 body.traverse(o => { if (o.isMesh) o.castShadow = true; });
 const metalMat = new THREE.MeshStandardMaterial({ color: 0xc9ced8, metalness: 0.7, roughness: 0.25, emissive: 0x1c2028, flatShading: true });
+// Tino gets smooth shading (the world stays faceted): soft fur look
+tino.traverse(o => { if (o.isMesh && !o.userData.outline && o.material && o.material.isMeshStandardMaterial) { o.material = o.material.clone(); o.material.flatShading = false; o.material.roughness = 0.75; o.geometry.computeVertexNormals(); } });
 const blob = new THREE.Mesh(new THREE.CircleGeometry(0.55, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
 blob.rotation.x = -Math.PI / 2; scene.add(blob);
 
@@ -5345,7 +7974,7 @@ $('bPause').addEventListener('click', togglePause);
 const camLabel = () => { $('bCam').textContent = cam.auto ? 'Visuale automatica' : 'Visuale libera'; };
 camLabel();
 $('bCam').addEventListener('click', () => { cam.auto = !cam.auto; try { localStorage.setItem('super-tino-cam', cam.auto ? 'auto' : 'libera'); } catch (e) {} camLabel(); });
-$('bGfx').addEventListener('click', () => { gfxHigh = !gfxHigh; try { localStorage.setItem(GFX_KEY, gfxHigh ? 'alta' : 'leggera'); } catch (e) {} applyQuality(); });
+$('bGfx').addEventListener('click', () => { gfxLevel = (gfxLevel + 1) % 3; try { localStorage.setItem(GFX_KEY, ['leggera', 'alta', 'ultra'][gfxLevel]); } catch (e) {} applyQuality(); });
 function starListHtml() {
   return Object.entries(CATALOG).map(([lid, lv]) =>
     `<h3>${lv.name}</h3><ul class="stars">` + lv.stars.map(([id, name, hint]) => {
@@ -5425,6 +8054,7 @@ function loadLevel(id, entry, eject) {
   G.coins = 0; G.red = 0; G.foes = 0; G.nextLife = 50;
   $('bossBar').hidden = true; $('bossName').textContent = 'Re Grumo';
   hud();
+  decorateLevel(); setAmbient(id);
   if (G.running) { playTrack(L.music); banner(CATALOG[id] ? CATALOG[id].name : 'Castello', 2); if (L.cutscene) L.cutscene(); }
 }
 // ---------- cutscenes: scripted camera shots with letterbox, dialog and letters ----------
@@ -6315,7 +8945,7 @@ function frame(now) {
   } else if (!G.running && !G.over) cam.yaw += dt * 0.12;
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').classList.remove('show'); }
   animatePlayer(dt);
-  if (!G.paused) animateWorld(dt, now / 1000);
+  if (!G.paused) { animateWorld(dt, now / 1000); updateAmbient(dt, now / 1000); }
   updateCamera(dt);
   renderFrame();
 }

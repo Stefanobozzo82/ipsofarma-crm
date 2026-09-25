@@ -93,7 +93,7 @@ body.touch .keys.touch-only{display:grid!important}
 <div class="overlay" id="startScreen">
   <div class="card">
     <h1>Isola Stellata</h1>
-    <p>Tino è naufragato su un'isola dove sono cadute undici stelle. Sette sono sull'isola. Le porte del castello portano al Vulcano Rombante, dove regna il Re Grumo, e al Picco Innevato, tra scivoli, ghiaccio e un pinguino smarrito.</p>
+    <p>Tino è naufragato su un'isola dove sono cadute undici stelle. Sette sono sull'isola. Le tre porte del castello portano al Vulcano Rombante, dove regna il Re Grumo, al Picco Innevato, tra scivoli, ghiaccio e un pinguino smarrito, e alle Dune Dorate, tra sabbie mobili, tornado e piramidi.</p>
     <div class="keys desk-only">
       <kbd>WASD / frecce</kbd><span>Muoviti</span>
       <kbd>Spazio</kbd><span>Salta. Risalta appena atterri, correndo, per doppio e triplo salto</span>
@@ -176,9 +176,16 @@ const CATALOG = {
     ['lago', 'Oltre il lago gelato', "A ovest, salta sui lastroni di ghiaccio. L'acqua gela!"],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse sparse nel gelo.'],
   ] },
+  desert: { name: 'Dune Dorate', stars: [
+    ['piramide', 'In cima alla piramide', 'Sali i gradoni della piramide fino alla punta.'],
+    ['obelischi', 'I quattro obelischi', 'Sali su ogni obelisco e premi il pulsante con lo schianto.'],
+    ['ciclone', 'Nel ciclone', 'A est: fatti lanciare in alto dal tornado e atterra sulla piattaforma.'],
+    ['sabbie', 'Oltre le sabbie mobili', 'A ovest: salta sulle rocce che affondano senza fermarti.'],
+    ['rosse', 'Otto monete rosse', 'Otto monete rosse tra dune e rovine.'],
+  ] },
 };
 const TOTAL = Object.values(CATALOG).reduce((n, l) => n + l.stars.length, 0);
-const DOOR_NEED = 3, SNOW_NEED = 6;
+const DOOR_NEED = 3, SNOW_NEED = 6, DESERT_NEED = 10;
 const SAVE_KEY = 'isola-stellata-save-v1';
 let save = { stars: {} };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { const s = JSON.parse(raw); if (s && s.stars) save = s; } } catch (e) {}
@@ -461,6 +468,11 @@ function buildIsland() {
   snowDoor.position.set(7.05, 1.7, -32);
   const emblem2 = new THREE.Mesh(starGeo, starMat); emblem2.scale.setScalar(0.55); emblem2.position.set(7.35, 4.2, -32); root.add(emblem2);
   sign('Porta della neve\nServono ' + SNOW_NEED + ' stelle', 9.4, 0, -35.3, Math.PI / 2);
+  const sandShut = M(0x9a7a3a), sandOpen = M(0xffd27a, { emissive: 0x8a5a10 });
+  const sandDoor = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 2.4), sandShut), false);
+  sandDoor.position.set(-7.05, 1.7, -32);
+  const emblem3 = new THREE.Mesh(starGeo, starMat); emblem3.scale.setScalar(0.55); emblem3.position.set(-7.35, 4.2, -32); root.add(emblem3);
+  sign('Porta del deserto\nServono ' + DESERT_NEED + ' stelle', -9.4, 0, -35.3, -Math.PI / 2);
   cyl(0, -22, 1.3, -1, 0.5, STONE, 16);
 
   // islet + ferry
@@ -540,17 +552,18 @@ function buildIsland() {
     sky: 0x86cdf2, fogNear: 70, fogFar: 190, hemi: [0xe4f6ff, 0x4f7a3a, 0.75], sun: [0xfff0d0, 0.95],
     music: 'island', deathY: -4, hazardY: null, seaY: -0.6,
     spawn: { pos: new V3(0, 0, 24), yaw: 0 },
-    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI }, snow: { pos: new V3(10.5, 0, -32), yaw: -Math.PI / 2 } },
+    entries: { door: { pos: new V3(0, 0, -24.5), yaw: Math.PI }, snow: { pos: new V3(10.5, 0, -32), yaw: -Math.PI / 2 }, desert: { pos: new V3(-10.5, 0, -32), yaw: Math.PI / 2 } },
     doors: [
       { x0: -1.3, x1: 1.3, z0: -28.6, z1: -27.2, need: DOOR_NEED, to: 'volcano', mesh: door, shut: doorShut, open: doorOpen, msgT: 0 },
       { x0: 7.2, x1: 8.1, z0: -33.3, z1: -30.7, need: SNOW_NEED, to: 'snow', mesh: snowDoor, shut: snowShut, open: snowOpen, msgT: 0 },
+      { x0: -8.1, x1: -7.2, z0: -33.3, z1: -30.7, need: DESERT_NEED, to: 'desert', mesh: sandDoor, shut: sandShut, open: sandOpen, msgT: 0 },
     ],
     redTotal: 8, coinStar: true, redMsg: 'Sul piedistallo davanti al castello',
     foesMsg: 'Davanti alla spiaggia, vicino ai tre alberi',
     tick(dt, t) {
       for (const c of clouds) { c.position.x += dt * 1.2; if (c.position.x > 180) c.position.x = -180; }
       sea.position.y = -0.6 + Math.sin(t * 0.8) * 0.05;
-      emblem.rotation.y = t * 1.2; emblem2.rotation.y = t * 1.2;
+      emblem.rotation.y = t * 1.2; emblem2.rotation.y = t * 1.2; emblem3.rotation.y = t * 1.2;
     },
   };
 }
@@ -864,7 +877,191 @@ function buildSnow() {
     },
   };
 }
-const LEVELS = { island: buildIsland, volcano: buildVolcano, snow: buildSnow };
+// ---------- LEVEL: desert ----------
+function buildDesert() {
+  const ST = 0xe8c27a, SS = 0xc99a55, PY1 = 0xdcb46c, PY2 = 0xc9a058, RK = 0xa8784a, CACT = 0x3f9a4a, GT = 0.3;
+  const qs = add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400, 60, 60), M(0x8f6a38, { roughness: 1 })), false, true);
+  qs.rotation.x = -Math.PI / 2;
+  const qp = qs.geometry.attributes.position;
+  for (let i = 0; i < qp.count; i++) qp.setZ(i, Math.sin(qp.getX(i) * 0.4) * Math.cos(qp.getY(i) * 0.35) * 0.06);
+  qs.geometry.computeVertexNormals();
+
+  // ground areas separated by quicksand
+  cyl(0, 22, 15, -3, GT, [SS, ST, SS], 36);
+  box(0, (GT - 3) / 2, -18, 44, GT + 3, 30, [SS, SS, ST, SS, SS, SS]);
+  box(0, (GT - 3) / 2, 2, 6, GT + 3, 10, [SS, SS, ST, SS, SS, SS]);
+  cyl(34, 8, 10, -3, GT, [SS, ST, SS], 30);
+  cyl(25, -0.5, 1.5, -3, 0.7, [RK, 0xc49060, RK], 10);
+
+  // pyramid
+  for (let i = 0; i < 6; i++) {
+    const sz = 24 - 4 * i, top = GT + 2 * (i + 1);
+    box(0, top - 1, -20, sz, 2, sz, i === 5 ? 0xffcf3a : (i % 2 ? PY2 : PY1));
+    if (i < 5) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) addCoin(dx * (sz / 2 - 1), top + 1, -20 + dz * (sz / 2 - 1));
+  }
+  const doorway = add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.9, 0.1), M(0x3a2410)), false); doorway.position.set(0, GT + 0.95, -7.95);
+  addStar('piramide', 0, 14.6, -20);
+
+  // obelisks with ground-pound buttons
+  let pressed = 0;
+  const obelisks = [[16, -8], [-16, -8], [16, -28], [-16, -28]].map(([x, z]) => {
+    const s = box(x, (GT + 4.6) / 2, z, 2.4, 4.6 - GT, 2.4, [PY2, PY2, PY1, PY2, PY2, PY2]);
+    const btn = add(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.25, 16), M(0xe0453a, { emissive: 0x5a1010 }))); btn.position.set(x, 4.72, z);
+    s.button = { pressed: false, mesh: btn };
+    box(x + Math.sign(x) * 2.4, (GT + 2.3) / 2, z, 2, 2.3 - GT, 2, SS);
+    const cap = add(new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 4), M(0xffcf3a))); cap.position.set(x + Math.sign(x) * 2.4, 2.7, z); cap.visible = false;
+    return s;
+  });
+  sign('Pesta i 4 obelischi\ncon lo schianto', 4.5, GT, -4.6, 0);
+  addStar('obelischi', 0, 2.4, -5.2, true);
+  line(16, -11, 16, -25, 4, 1.3); line(-16, -11, -16, -25, 4, 1.3);
+
+  // tornado zone (east)
+  box(34, 6.6, 3, 4, 0.8, 4, PY1);
+  addStar('ciclone', 34, 9.2, 3);
+  ring(34, 8, 7.5, 10, 1.3);
+  const tw = new THREE.Group(); root.add(tw);
+  const twMat = new THREE.MeshStandardMaterial({ color: 0xe0c08a, transparent: true, opacity: 0.55, side: THREE.DoubleSide, flatShading: true, depthWrite: false });
+  const twCones = [];
+  for (let k = 0; k < 5; k++) {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(0.6 + k * 0.45, 1.6, 10, 1, true), twMat);
+    c.rotation.x = Math.PI; c.position.y = 0.8 + k * 1.3; tw.add(c); twCones.push(c);
+  }
+  const tornado = { x: 34, z: 10, t: 0, cool: 0, dustT: 0 };
+
+  // quicksand crossing (west)
+  sign('Sabbie mobili!\nNon fermarti', -13.2, GT, 25.5, Math.PI / 2);
+  [[-18.5, 19], [-22.5, 17], [-26.5, 14.5]].forEach(([x, z]) => {
+    const s = box(x, 0.5, z, 2.5, 0.6, 2.5, RK);
+    sinkers.push({ s, baseTop: s.top, state: 'idle', t: 0 });
+  });
+  cyl(-34, 10, 4, -3, 0.6, [SS, ST, SS], 20);
+  addStar('sabbie', -34.5, 2.9, 11);
+
+  // oasis
+  const pond = add(new THREE.Mesh(new THREE.CircleGeometry(3.4, 24), M(0x3aa6c9, { roughness: 0.2, emissive: 0x0a3040 })), false, true);
+  pond.rotation.x = -Math.PI / 2; pond.position.set(-6, GT + 0.02, 26);
+  function palm(x, z, h = 3.6) {
+    cyl(x, z, 0.4, -0.5, GT + h, 0x8a5a33, 8);
+    for (let i = 0; i < 6; i++) {
+      const leaf = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 2.6), M(0x3fa34d)), true, false);
+      leaf.position.set(x, GT + h + 0.1, z); leaf.rotation.y = i / 6 * TAU; leaf.rotation.x = 0.35; leaf.translateZ(1.1);
+    }
+  }
+  palm(-10, 23); palm(-3, 30.5); palm(-9.5, 29); palm(10, 14, 3); palm(40, 12, 3.2); palm(-36, 12.5, 3);
+  addHeart(6, 1.5, 24);
+  ring(0, 22, 6, 10, 1.3);
+  line(0, 6, 0, -2, 3, 1.3);
+  addPortal(-5, GT, 33, Math.PI / 2, 'island', 'desert');
+
+  // cacti (segment enemies) and a couple of Grumi
+  const cacti = [];
+  const segGeo = new THREE.SphereGeometry(0.55, 10, 8);
+  function addCactus(x, y, z, homeR) {
+    const g = new THREE.Group(); root.add(g);
+    const segs = [];
+    for (let i = 0; i < 3; i++) {
+      const m = new THREE.Mesh(segGeo, M(CACT)); m.scale.y = 0.85; m.position.y = 0.45 + i * 0.75; m.castShadow = true; g.add(m); segs.push(m);
+      for (let k = 0; k < 4; k++) { const sp = new THREE.Mesh(spikeGeo, M(0xfff3c4)); const a = k / 4 * TAU + i; sp.scale.setScalar(0.5); sp.position.set(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55); sp.rotation.set(Math.sin(a) * 1.5, 0, -Math.cos(a) * 1.5); m.add(sp); }
+    }
+    const face = new THREE.Group(); g.add(face);
+    for (const ex of [-0.2, 0.2]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), M(0xffffff)); e.position.set(ex, 0.1, 0.44); face.add(e);
+      const pu = new THREE.Mesh(new THREE.SphereGeometry(0.065, 6, 5), M(0x16213e)); pu.position.set(ex, 0.1, 0.55); face.add(pu);
+    }
+    const fl = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2, 0), M(0xff6fa8)); fl.position.y = 0.5; face.add(fl);
+    cacti.push({ g, segs, face, pos: new V3(x, y, z), home: new V3(x, y, z), homeR, dir: Math.random() * TAU, turnT: 0, hitT: 0, ph: Math.random() * TAU, alive: true });
+  }
+  [[8, GT, -5, 3], [-16, GT, -18, 3], [16, GT, -18, 3], [6, GT, 20, 4], [-33, 0.6, 8.5, 1.2], [30, GT, 12, 3]].forEach(([x, y, z, r]) => addCactus(x, y, z, r));
+  addEnemy(-8, GT, 17, 4); addEnemy(-7, GT, -5.5, 3);
+
+  // red coins
+  [[16, 5.9, -8], [7, 7.3, -13], [25, 1.8, -0.5], [-22.5, 1.9, 17], [-18, 1.3, -31], [6, 1.3, 31], [38, 1.3, 14], [0, 1.3, 2]]
+    .forEach(([x, y, z]) => addCoin(x, y, z, true));
+  addStar('rosse', 0, 2.6, 14, true);
+
+  // backdrop: dunes, far pyramids, sun
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * TAU, r = 120 + (i % 4) * 20;
+    const d = add(new THREE.Mesh(new THREE.SphereGeometry(30 + (i % 3) * 10, 12, 8), M(i % 2 ? 0xe2b86e : 0xd6a85e)), false, false);
+    d.scale.y = 0.28; d.position.set(Math.cos(a) * r, -4, Math.sin(a) * r);
+  }
+  for (const [x, z, s] of [[-90, -120, 30], [-60, -140, 20], [110, -100, 24]]) {
+    const pz = add(new THREE.Mesh(new THREE.ConeGeometry(s, s, 4), M(PY2)), false, false); pz.position.set(x, s / 2 - 2, z); pz.rotation.y = Math.PI / 4;
+  }
+  const sunDisc = add(new THREE.Mesh(new THREE.CircleGeometry(9, 32), new THREE.MeshBasicMaterial({ color: 0xfff4c8, fog: false })), false, false);
+  sunDisc.position.set(60, 80, -160); sunDisc.lookAt(0, 0, 0);
+
+  function stepWalker(c, speed, dt) {
+    const nx = c.pos.x + Math.sin(c.dir) * speed * dt, nz = c.pos.z + Math.cos(c.dir) * speed * dt;
+    const gh = groundHeight(nx, nz, c.pos.y + 0.3, 0.3);
+    if (gh < c.pos.y - 0.8 || gh === -Infinity) { c.dir += Math.PI * (0.6 + Math.random() * 0.4); c.turnT = 1; return; }
+    c.pos.x = nx; c.pos.z = nz; c.pos.y = gh;
+    for (const s of solids) if (topAt(s, c.pos.x, c.pos.z) > c.pos.y + 0.3 && s.bottom < c.pos.y + 1.2 && overlap(s, c.pos.x, c.pos.z, 0.6)) pushOut(s, c.pos, 0.6);
+  }
+
+  return {
+    sky: 0xf3d7a6, fogNear: 60, fogFar: 180, hemi: [0xfff2d6, 0xc9a060, 0.8], sun: [0xffe6b8, 1.0],
+    music: 'desert', deathY: -10, hazardY: 0, hazard: 'quicksand', seaY: null,
+    spawn: { pos: new V3(0, GT, 28), yaw: 0 },
+    entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Nell\'oasi, davanti alla partenza',
+    onPound(s) {
+      if (!s || !s.button || s.button.pressed) return;
+      s.button.pressed = true; s.button.mesh.position.y -= 0.18; s.button.mesh.material = M(0x4fd67a, { emissive: 0x145a2a });
+      pressed++; sfx.red();
+      if (pressed < obelisks.length) banner(pressed + ' / ' + obelisks.length + '<small>obelischi premuti</small>', 1.4);
+      else reveal(starById('obelischi'), "Davanti all'ingresso della piramide");
+    },
+    update(dt) {
+      // tornado
+      tornado.t += dt; tornado.cool -= dt;
+      tornado.x = 34 + Math.cos(tornado.t * 0.5) * 4 + Math.sin(tornado.t * 1.3) * 0.8;
+      tornado.z = 10 + Math.sin(tornado.t * 0.7) * 2;
+      tw.position.set(tornado.x, GT, tornado.z); tw.rotation.y += dt * 9;
+      twCones.forEach((c, k) => { c.position.x = Math.sin(tornado.t * 3 + k) * 0.25 * k; });
+      tornado.dustT -= dt;
+      if (tornado.dustT <= 0) { tornado.dustT = 0.15; burst(new V3(tornado.x, GT + 0.3, tornado.z), 0xd8b070, 2, 4); }
+      if (tornado.cool <= 0 && Math.hypot(P.pos.x - tornado.x, P.pos.z - tornado.z) < 1.7 && P.pos.y < GT + 6) {
+        P.vel.set(0, 26, 0); P.onGround = false; P.ground = null; P.pound = P.longJump = P.backflip = false;
+        P.lockT = 0.3; P.spinT = 1.1; P.inSand = false; tornado.cool = 1.2; sfx.whoosh();
+      }
+      if (P.spinT > 0) { P.spinT -= dt; P.facing += dt * 20; }
+      // cacti
+      for (const c of cacti) {
+        if (!c.alive) continue;
+        c.hitT -= dt; c.ph += dt * 4;
+        const dx = P.pos.x - c.pos.x, dz = P.pos.z - c.pos.z, dist = Math.hypot(dx, dz);
+        if (dist < 7 && Math.abs(P.pos.y - c.pos.y) < 2.5 && c.pos.distanceTo(c.home) < c.homeR + 3) { c.dir = lerpAngle(c.dir, Math.atan2(dx, dz), 1 - Math.exp(-3 * dt)); stepWalker(c, 1.8, dt); }
+        else {
+          c.turnT -= dt;
+          const hx = c.home.x - c.pos.x, hz = c.home.z - c.pos.z;
+          if (Math.hypot(hx, hz) > c.homeR) c.dir = lerpAngle(c.dir, Math.atan2(hx, hz), 1 - Math.exp(-4 * dt));
+          else if (c.turnT <= 0) { c.dir += (Math.random() - 0.5) * 2.5; c.turnT = 2 + Math.random() * 2; }
+          stepWalker(c, 1, dt);
+        }
+        c.g.position.copy(c.pos); c.g.rotation.y = c.dir;
+        c.segs.forEach((m, i) => { m.position.x = Math.sin(c.ph + i * 0.9) * 0.08 * i; });
+        const n = c.segs.length, topSeg = c.segs[n - 1];
+        c.face.position.set(topSeg.position.x, topSeg.position.y, 0);
+        const top = c.pos.y + 0.45 + (n - 1) * 0.75 + 0.5;
+        const hd = Math.hypot(P.pos.x - c.pos.x, P.pos.z - c.pos.z);
+        if (hd < 1.05 && P.pos.y < top && P.pos.y + H > c.pos.y && c.hitT <= 0) {
+          if ((P.vel.y < 0 && P.pos.y > top - 0.55) || P.pound || P.punchT > 0) {
+            const m = c.segs.pop(); c.g.remove(m); c.hitT = 0.35; sfx.stomp();
+            burst(c.pos.clone().add(new V3(0, top - c.pos.y - 0.4, 0)), CACT, 8, 4);
+            if (P.vel.y < 0 || P.pound) { P.vel.y = (keys.Space || touchJump) ? 15 : 11; P.pound = false; P.onGround = false; }
+            if (!c.segs.length) { c.alive = false; root.remove(c.g); addCoin(c.pos.x, c.pos.y + 1, c.pos.z); addCoin(c.pos.x + 1, c.pos.y + 1, c.pos.z); }
+          } else hurt(c.pos);
+        }
+      }
+    },
+    tick(dt, t) {
+      qs.position.y = Math.sin(t * 0.5) * 0.02;
+      qs.rotation.z = t * 0.01;
+    },
+  };
+}
+const LEVELS = { island: buildIsland, volcano: buildVolcano, snow: buildSnow, desert: buildDesert };
 
 // ---------- player (Tino) ----------
 const H = 1.6, R = 0.45, STEP = 0.45;
@@ -969,6 +1166,8 @@ const sfx = {
   bossHit: () => seq([200, 150, 100], 90, 'sawtooth', 0.08, 0.2),
   freeze: () => { tone(1600, 0.5, 'sine', 0.07, 300); tone(2400, 0.3, 'triangle', 0.03, 800); },
   pickup: () => seq([784, 988, 1175], 60, 'triangle', 0.07, 0.12),
+  sand: () => tone(160, 0.4, 'triangle', 0.08, 70),
+  whoosh: () => { tone(200, 0.6, 'sawtooth', 0.04, 1200); tone(300, 0.6, 'triangle', 0.04, 1600); },
   cry: () => seq([1100, 900], 110, 'sine', 0.05, 0.12),
 };
 
@@ -983,6 +1182,9 @@ const TRACKS = {
   snow: { bpm: 108, lead: [77,0,81,0,84,0,81,0, 79,0,82,0,86,0,82,0, 81,0,84,0,89,0,84,81, 79,77,76,74,72,0,0,0,
                           77,0,81,0,84,0,86,84, 82,0,79,0,86,0,84,82, 81,79,77,76,74,76,77,79, 77,0,0,0,65,0,0,0],
           roots: [53,58,48,53,53,58,48,53], leadType: 'triangle', leadVol: 0.07, bassType: 'sine', bassVol: 0.12, hat: false },
+  desert: { bpm: 120, lead: [64,0,65,68,69,0,68,65, 64,0,0,0,62,64,65,0, 64,0,65,68,71,0,69,68, 69,68,65,64,65,0,0,0,
+                            76,0,77,80,81,0,80,77, 76,0,0,0,74,76,77,0, 76,77,76,74,72,71,69,68, 64,0,0,0,52,0,0,0],
+            roots: [40,40,41,40,40,40,41,40], leadType: 'square', leadVol: 0.032, bassType: 'triangle', bassVol: 0.12 },
   boss: { bpm: 172, lead: [69,0,69,70,69,0,76,0, 69,0,69,70,69,0,77,76, 69,0,69,70,69,0,76,0, 72,71,70,69,68,0,64,0],
           roots: [45,45,46,44], leadType: 'sawtooth', leadVol: 0.028, bassType: 'square', bassVol: 0.05 },
 };
@@ -1124,7 +1326,7 @@ $('bKeep').addEventListener('click', () => { $('endScreen').hidden = true; G.ove
 // ---------- level loading / transitions ----------
 function placePlayer(sp) {
   P.pos.copy(sp.pos); P.vel.set(0, 0, 0); P.onGround = false; P.ground = null;
-  P.pound = P.longJump = P.backflip = false; P.lockT = 0; P.facing = sp.yaw + Math.PI;
+  P.pound = P.longJump = P.backflip = false; P.lockT = 0; P.facing = sp.yaw + Math.PI; P.inSand = false; P.sink = 0; P.spinT = 0;
   cam.yaw = sp.yaw; cam.t.set(sp.pos.x, sp.pos.y + 1.4, sp.pos.z);
 }
 function loadLevel(id, entry) {
@@ -1245,6 +1447,7 @@ function updatePlayer(dt) {
     let maxS = 9.5, acc = p.onGround ? 55 : (il > 0.1 ? 22 : 4);
     if (surf && surf.ice) acc = il > 0.1 ? 7 : 1.2;
     if (p.crouch) maxS = 2.5;
+    if (p.inSand) { maxS = 3.5; acc = 30; }
     if (p.longJump) { maxS = 17; acc = il > 0.1 ? 5 : 1.5; }
     if (p.punchT > 0 && p.onGround) acc = 18;
     if (p.sliding) {
@@ -1267,9 +1470,10 @@ function updatePlayer(dt) {
           p.vel.x = -fx * 4; p.vel.z = -fz * 4; p.vel.y = 21; p.backflip = true; p.lockT = 0.45; p.chain = 0; sfx.jump(2);
         } else {
           if (gameTime - p.landT < 0.22 && hs > 5 && p.chain < 2) p.chain++; else p.chain = 0;
-          p.vel.y = [13, 15.5, 19][p.chain]; sfx.jump(p.chain);
+          if (p.inSand) p.chain = 0;
+          p.vel.y = p.inSand ? 11.5 : [13, 15.5, 19][p.chain]; sfx.jump(p.chain);
         }
-        p.onGround = false; p.coyote = 0; jumpBuf = 0; p.airT = 0; p.ground = null;
+        p.onGround = false; p.coyote = 0; jumpBuf = 0; p.airT = 0; p.ground = null; p.inSand = false;
       } else if (gameTime - p.wallT < 0.2 && p.airT > 0.08) {
         p.vel.x = p.wallN.x * 9; p.vel.z = p.wallN.z * 9; p.vel.y = 15.5;
         p.facing = Math.atan2(p.wallN.x, p.wallN.z); p.lockT = 0.22; p.chain = 0; p.longJump = p.backflip = false;
@@ -1278,7 +1482,7 @@ function updatePlayer(dt) {
       }
     }
     let g = p.longJump ? 26 : 34;
-    if (!(keys.Space || touchJump) && p.vel.y > 0 && !p.longJump && !p.backflip) g *= 2.2;
+    if (!(keys.Space || touchJump) && p.vel.y > 0 && !p.longJump && !p.backflip && !(p.spinT > 0)) g *= 2.2;
     p.vel.y = Math.max(p.vel.y - g * dt, -40);
   }
   jumpBuf -= dt;
@@ -1320,13 +1524,20 @@ function updatePlayer(dt) {
     p.landT = gameTime; p.squash = 1; p.longJump = p.backflip = false;
     if (p.pound) {
       p.pound = false; sfx.pound(); burst(p.pos, 0xd8ccb2, 14, 5); G.shake = 0.15;
+      if (L.onPound) L.onPound(p.ground);
       for (const e of enemies) if (e.alive && Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < 3.4 && Math.abs(e.pos.y - p.pos.y) < 1.6) killEnemy(e);
     }
   }
   if (!p.onGround) p.airT += dt;
 
   // hazards
-  if (L.hazardY !== null && p.pos.y <= L.hazardY) {
+  if (L.hazard === 'quicksand' && p.pos.y <= L.hazardY && p.vel.y <= 0) {
+    if (!p.inSand) { p.inSand = true; p.sink = Math.max(0, L.hazardY - p.pos.y); sfx.sand(); p.pound = p.longJump = p.backflip = false; }
+    p.sink += 0.55 * dt; p.pos.y = L.hazardY - p.sink; p.vel.y = 0; p.onGround = true; p.ground = null;
+    if (Math.random() < 0.3) burst(new V3(p.pos.x, L.hazardY + 0.1, p.pos.z), 0xc9a15a, 1, 2);
+    if (p.sink > 1.4) { banner('Inghiottito dalla sabbia!', 1.6); die(); return; }
+  } else if (p.pos.y > (L.hazardY || 0) + 0.02 || p.vel.y > 0) p.inSand = false;
+  if (L.hazardY !== null && L.hazard !== 'quicksand' && p.pos.y <= L.hazardY) {
     const cold = L.hazard === 'cold';
     p.pos.y = L.hazardY + 0.01;
     p.vel.y = 21; p.vel.x *= 0.3; p.vel.z *= 0.3; p.onGround = false; p.pound = p.longJump = p.backflip = false;
@@ -1644,6 +1855,7 @@ requestAnimationFrame(frame);
 // test hook: jump straight to a level from the page's #hash (e.g. #vulcano)
 if (location.hash === '#vulcano') loadLevel('volcano');
 if (location.hash === '#neve') loadLevel('snow');
+if (location.hash === '#deserto') loadLevel('desert');
 })();
 </script>
 </body></html>

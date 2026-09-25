@@ -670,7 +670,7 @@ const ROCKD = 0x3e302e, ROCKT = 0x6e5a4e, BASALT = 0x2e2830;
 // ---------- LEVEL: island ----------
 function buildIsland() {
   const sea = makeWater(640, 80, 0x2b86d9, 0.88, -0.6);
-  const foams = [addFoam(0, 0, 41.8, 43.6, -0.5), addFoam(0, 64, 8.1, 9.4, -0.5)];
+  const foams = [addFoam(0, 0, 41.9, 43.5, -0.55), addFoam(0, 64, 7.6, 8.8, -0.55)];
   // waterfall off a rocky outcrop
   box(-35.5, 3.5, -10, 5, 9, 6, ROCK);
   const pool = add(new THREE.Mesh(new THREE.PlaneGeometry(3.4, 4), M(0x3a9ae0, { roughness: 0.1 })), false, false); pool.rotation.x = -Math.PI / 2; pool.position.set(-36.2, 8.02, -10);
@@ -681,8 +681,8 @@ function buildIsland() {
   const seaFloor = add(new THREE.Mesh(new THREE.CircleGeometry(320, 32), new THREE.MeshBasicMaterial({ color: 0x14507f })), false, false);
   seaFloor.rotation.x = -Math.PI / 2; seaFloor.position.y = -6;
 
-  cyl(0, 0, 42, -5, -0.25, SAND, 44);
-  cyl(0, 0, 39, -5, 0, [DIRT, GRASS, DIRT], 44);
+  mound(0, 0, 47, 41, -4, -0.25, SAND);
+  mound(0, 0, 40.5, 37, -0.3, 0, GRASS);
 
   const HX = 22, HZ = -14;
   mound(HX, HZ, 12, 3.5, 0, 5.4, GRASS);
@@ -718,10 +718,10 @@ function buildIsland() {
   cyl(0, -22, 1.3, -1, 0.5, STONE, 16);
 
   // islet + ferry
-  cyl(0, 64, 8, -5, 0.4, SAND, 24);
-  cyl(0, 64, 6.5, -5, 0.5, [DIRT, GRASS, DIRT], 24);
-  const ferry = box(0, -0.15, 45, 4, 0.6, 4, 0xb07a45);
-  movers.push({ s: ferry, base: new V3(0, -0.15, 49), axis: new V3(0, 0, 1), amp: 6, period: 9, phase: 0 });
+  mound(0, 64, 10, 6.5, -3, 0.4, SAND);
+  mound(0, 64, 7, 5.5, 0.35, 0.5, GRASS);
+  const ferry = box(0, -0.4, 45, 4, 0.6, 4, 0xb07a45);
+  movers.push({ s: ferry, base: new V3(0, -0.4, 49), axis: new V3(0, 0, 1), amp: 6, period: 9, phase: 0 });
   movers.push({ s: skyPlats[2], base: new V3(-16.5, 4.8, 18.5), axis: new V3(1, 0, 0), amp: 2.5, period: 5, phase: 0 });
 
   function tree(x, z, h = 3, palm = false, baseY = 0) {
@@ -1186,11 +1186,13 @@ function buildDesert() {
   qs.geometry.computeVertexNormals();
 
   // ground areas separated by quicksand
-  cyl(0, 22, 15, -3, GT, [SS, ST, SS], 36);
+  mound(0, 22, 16, 14, 0.05, GT, ST);
   box(0, (GT - 3) / 2, -18, 44, GT + 3, 30, [SS, SS, ST, SS, SS, SS]);
   box(0, (GT - 3) / 2, 2, 6, GT + 3, 10, [SS, SS, ST, SS, SS, SS]);
-  cyl(34, 8, 10, -3, GT, [SS, ST, SS], 30);
+  mound(34, 8, 11, 9, 0.05, GT, ST);
   cyl(25, -0.5, 1.5, -3, 0.7, [RK, 0xc49060, RK], 10);
+  // soft dunes to walk over
+  [[9.5, 27.5, 4, 1.4], [-7, 14, 3.5, 1.1], [39, 3, 3, 1.0], [-19.2, -18, 2.5, 1.0], [19.2, -18, 2.5, 1.0]].forEach(([x, z, r, h]) => mound(x, z, r, 0.8, GT, GT + h, ST));
 
   // pyramid
   for (let i = 0; i < 6; i++) {
@@ -1234,7 +1236,7 @@ function buildDesert() {
     const s = box(x, 0.5, z, 2.5, 0.6, 2.5, RK);
     sinkers.push({ s, baseTop: s.top, state: 'idle', t: 0 });
   });
-  cyl(-34, 10, 4, -3, 0.6, [SS, ST, SS], 20);
+  mound(-34, 10, 5, 3.2, 0.05, 0.6, ST);
   addStar('sabbie', -34.5, 2.9, 11);
 
   // oasis
@@ -2292,6 +2294,8 @@ function loadLevel(id, entry, eject) {
   clearLevel();
   L = { id };
   Object.assign(L, LEVELS[id]());
+  for (const c of coins) { const q = c.m.position, g = groundHeight(q.x, q.z, q.y + 1.2, 0.05); if (g > q.y - 0.9) q.y = g + 1; }
+  for (const e of enemies) { const g = groundHeight(e.pos.x, e.pos.z, e.pos.y + 2, 0.2); if (g > e.pos.y) { e.pos.y = g; e.home.y = g; } }
   scene.background.setHex(L.sky); scene.fog.color.setHex(L.sky); applySky(id, L.sky); scene.fog.near = L.fogNear; scene.fog.far = L.fogFar;
   hemi.color.setHex(L.hemi[0]); hemi.groundColor.setHex(L.hemi[1]); hemi.intensity = L.hemi[2];
   sun.color.setHex(L.sun[0]); sun.intensity = L.sun[1];

@@ -19,9 +19,10 @@ html,body{height:100%;margin:0;background:var(--ink);overflow:hidden;font-family
 .meter{--p:1;--hpc:var(--mint);width:clamp(56px,8vw,80px);aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--hpc) calc(var(--p) * 1turn),rgba(22,33,62,.75) 0);border:4px solid var(--ink);display:grid;place-items:center;box-shadow:0 3px 0 rgba(0,0,0,.3);box-sizing:border-box}
 .meter span{font-size:.85em}
 .small{font-size:.72em}
-.tools{display:flex;gap:6px;pointer-events:auto}
-.tool{font-family:Bungee,Impact,sans-serif;font-size:12px;background:rgba(22,33,62,.7);color:var(--paper);border:2px solid rgba(255,248,230,.5);border-radius:8px;padding:5px 8px;cursor:pointer}
-.tool:focus-visible,.btn:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
+.pausebtn{pointer-events:auto;width:34px;height:34px;border-radius:50%;background:rgba(22,33,62,.45);border:2px solid rgba(255,248,230,.55);display:flex;gap:5px;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.pausebtn i{display:block;width:4px;height:13px;border-radius:2px;background:var(--paper)}
+.pausebtn:focus-visible,.btn:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
+.settings{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 16px}
 #bossBar{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-family:Bungee,Impact,sans-serif;font-size:clamp(14px,2.2vw,20px);color:var(--paper);background:rgba(22,33,62,.8);border:3px solid var(--coral);border-radius:12px;padding:6px 14px;display:flex;gap:10px;align-items:center;pointer-events:none;white-space:nowrap}
 #bossHp{color:var(--coral);letter-spacing:.1em}
 #reticle{position:fixed;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border:3px solid var(--paper);border-radius:50%;box-shadow:0 0 0 3px var(--ink);pointer-events:none}
@@ -88,11 +89,7 @@ body.touch .keys.touch-only{display:grid!important}
     <div class="small" id="hTime">0:00</div>
     <div class="small" id="hWing" hidden>Ali 25</div>
     <div class="small" id="hMetal" hidden>Metallo 25</div>
-    <div class="tools">
-      <button class="tool" id="bMute" type="button">Audio sì</button>
-      <button class="tool" id="bPause" type="button">Pausa</button>
-      <button class="tool" id="bGfx" type="button">Grafica alta</button>
-    </div>
+    <button class="pausebtn" id="bPause" type="button" aria-label="Pausa e impostazioni"><i></i><i></i></button>
   </div>
 </div>
 <div id="bossBar" hidden>Re Grumo <span id="bossHp">♥♥♥</span></div>
@@ -119,7 +116,7 @@ body.touch .keys.touch-only{display:grid!important}
       <kbd>Bordi e tronchi</kbd><span>Saltaci contro per aggrapparti e arrampicarti</span>
       <kbd>Cannone</kbd><span>Entra nel buco, mira con WASD, Spazio per sparare</span>
       <kbd>Trascina / Q E</kbd><span>Telecamera. Rotellina per lo zoom</span>
-      <kbd>P / M</kbd><span>Pausa con indizi / audio</span>
+      <kbd>P / M</kbd><span>Pausa (indizi, audio e grafica) / audio</span>
     </div>
     <div class="keys touch-only">
       <kbd>Joystick</kbd><span>Muoviti</span>
@@ -138,6 +135,10 @@ body.touch .keys.touch-only{display:grid!important}
 <div class="overlay" id="pauseScreen" hidden>
   <div class="card">
     <h2>Pausa</h2>
+    <div class="settings">
+      <button class="btn ghost" id="bMute" type="button">Audio sì</button>
+      <button class="btn ghost" id="bGfx" type="button">Grafica alta</button>
+    </div>
     <div class="pscroll" id="starList"></div>
     <div class="btns">
       <button class="btn" id="bResume" type="button">Riprendi</button>
@@ -201,6 +202,7 @@ const CATALOG = {
     ['ponti', 'Ponti sulla lava', 'A ovest le piattaforme affondano: non fermarti.'],
     ['camino', 'Il camino', "Dietro la partenza: rimbalza da un muro all'altro fino in cima."],
     ['re', 'Il Re Grumo', "Sull'arena a est. Saltagli in testa tre volte."],
+    ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
   ] },
   snow: { name: 'Picco Innevato', stars: [
     ['vetta', 'La vetta', 'Sali la strada attorno alla montagna. Occhio alle palle di neve.'],
@@ -208,6 +210,7 @@ const CATALOG = {
     ['pinguino', 'Il pinguino smarrito', 'Il piccolo è sulla vetta: riportalo alla mamma vicino alla partenza.'],
     ['lago', 'Oltre il lago gelato', "A ovest, salta sui lastroni di ghiaccio. L'acqua gela!"],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse sparse nel gelo.'],
+    ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
   ] },
   desert: { name: 'Dune Dorate', stars: [
     ['piramide', 'In cima alla piramide', 'Sali i gradoni della piramide fino alla punta.'],
@@ -215,6 +218,7 @@ const CATALOG = {
     ['ciclone', 'Nel ciclone', 'A est: fatti lanciare in alto dal tornado e atterra sulla piattaforma.'],
     ['sabbie', 'Oltre le sabbie mobili', 'A ovest: salta sulle rocce che affondano senza fermarti.'],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra dune e rovine.'],
+    ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
   ] },
   bay: { name: 'Baia Sommersa', stars: [
     ['relitto', 'Il relitto', 'Nuota fino alla nave affondata: la stella è sulla cabina.'],
@@ -223,6 +227,7 @@ const CATALOG = {
     ['grotta', 'La grotta sommersa', "A est, in fondo al tunnel di roccia. Tieni d'occhio l'aria!"],
     ['rosse', 'Otto monete rosse', 'Otto monete rosse tra il molo e il fondale.'],
     ['corrente', 'La corrente', 'Rompi il blocco verde sulla spiaggia: col metallo cammina sul fondale fin dentro la corrente a nord-ovest.'],
+    ['cento', 'Cento monete', 'Raccogli 100 monete senza uscire da questo mondo.'],
   ] },
   fortress: { name: 'Fortezza del Re', stars: [
     ['rosse', 'Otto monete rosse', 'Lungo il percorso sospeso nel buio, fino al tubo.'],
@@ -521,6 +526,7 @@ function mound(x, z, r, rf, base, top, color) {
   solids.push(s); return s;
 }
 const gy = (x, z) => groundHeight(x, z, 200, 0.05);
+function lineOn(x1, z1, x2, z2, n, dy) { for (let i = 0; i < n; i++) { const t = n > 1 ? i / (n - 1) : 0, x = x1 + (x2 - x1) * t, z = z1 + (z2 - z1) * t; addCoin(x, gy(x, z) + dy, z); } }
 function ringOn(cx, cz, r, n, dy) { for (let i = 0; i < n; i++) { const a = i / n * TAU, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; addCoin(x, gy(x, z) + dy, z); } }
 function topAt(s, x, z) {
   if (s.type === 'mound') return moundH(s, Math.hypot(x - s.x, z - s.z));
@@ -898,6 +904,9 @@ function buildVolcano() {
   ringOn(0, VZ, 10.2, 8, 1);
   ringOn(0, VZ, 7, 6, 1);
   addStar('cratere', 0, 13.9, VZ);
+  addStar('cento', 0, 0, 0, true);
+  ringOn(0, VZ, 17, 14, 1); ringOn(0, VZ, 3, 6, 1);
+  ringOn(0, 28, 4, 10, 1);
   addEnemy(-10, gy(-10, VZ + 10), VZ + 10, 1.5);
   addEnemy(10, gy(10, VZ - 10), VZ - 10, 1.5);
   addEnemy(-7.2, gy(-7.2, VZ + 7.2), VZ + 7.2, 1);
@@ -926,6 +935,7 @@ function buildVolcano() {
     const fire = add(new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 0), M(0xffa200, { emissive: 0xff5a00 })), false, false); fire.position.set(x, 5.3, z);
   }
   addBoss(32, 3, 10, 11);
+  ringOn(32, 10, 6, 10, 1); ringOn(32, 10, 9, 12, 1);
   addStar('re', 32, 5.4, 10, true);
 
   // backdrop
@@ -952,7 +962,7 @@ function buildVolcano() {
     music: 'volcano', deathY: -10, hazardY: 0.05, hazard: 'lava', seaY: null,
     spawn: { pos: new V3(0, 1.5, 26), yaw: 0 },
     entries: {},
-    doors: [], redTotal: 0, coinStar: false,
+    doors: [], redTotal: 0, coinStar: true,
     tick(dt, t) {
       lavaMat.emissiveIntensity = 0.75 + Math.sin(t * 2) * 0.12;
       TEX.lava.offset.set(t * 0.01, Math.sin(t * 0.3) * 0.02);
@@ -1011,6 +1021,8 @@ function buildSnow() {
 
   // summit
   addStar('vetta', -5, 18.2, -13);
+  addStar('cento', 0, 0, 0, true);
+  ringOn(0, -8, 5, 8, 1);
   addHeart(5, 17.4, -3);
   addItemBox(3, 18.3, -12, 'life');
   addEnemy(2, 16, -7, 3);
@@ -1067,6 +1079,8 @@ function buildSnow() {
   [[-18, 1.1, 14], [0, 9.8, -17.75], [9.75, 8, -17.75], [22, 16 - 14.5 / 27.5 * 10 + 1, 3], [-45, 2, 2.5], [0, 1, -28], [14, 17, -13.5], [-26, 1, -10]]
     .forEach(([x, y, z]) => addCoin(x, y, z, true));
   addStar('rosse', 0, 2.3, 12, true);
+  ringOn(-20, -10, 4, 10, 1); ringOn(-20, 20, 4, 10, 1); ringOn(12, 24, 4, 8, 1); ringOn(0, -26, 3, 8, 1);
+  ringOn(-46, 0, 2.5, 6, 1); lineOn(26, -4, 26, 8, 5, 1);
 
   [[12, 0, 8, 6], [-12, 0, -26, 5], [-22, 0, 22, 5], [24, 0, -20, 4]].forEach(([x, y, z, r]) => addEnemy(x, y, z, r));
   addHeart(-4, 1.4, 25);
@@ -1116,7 +1130,7 @@ function buildSnow() {
     sky: 0xcfe3f2, fogNear: 50, fogFar: 170, hemi: [0xffffff, 0x9fb3c8, 0.85], sun: [0xfff6ea, 0.8],
     music: 'snow', deathY: -20, hazardY: -2, hazard: 'cold', seaY: null,
     spawn: { pos: new V3(0, 0, 26), yaw: 0 },
-    entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Al centro della pianura, davanti alla partenza',
+    entries: {}, doors: [], redTotal: 8, coinStar: true, redMsg: 'Al centro della pianura, davanti alla partenza',
     onHurt() { dropBaby(false); },
     onDie() { dropBaby(true); for (const b of balls) root.remove(b.m); balls.length = 0; },
     update(dt) {
@@ -1202,6 +1216,7 @@ function buildDesert() {
   }
   const doorway = add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.9, 0.1), M(0x3a2410)), false); doorway.position.set(0, GT + 0.95, -7.95);
   addStar('piramide', 0, 14.6, -20);
+  addStar('cento', 0, 0, 0, true);
 
   // obelisks with ground-pound buttons
   let pressed = 0;
@@ -1281,6 +1296,8 @@ function buildDesert() {
   [[16, 5.9, -8], [7, 7.3, -13], [25, 1.8, -0.5], [-22.5, 1.9, 17], [-18, 1.3, -31], [6, 1.3, 31], [38, 1.3, 14], [0, 1.3, 2]]
     .forEach(([x, y, z]) => addCoin(x, y, z, true));
   addStar('rosse', 0, 2.6, 14, true);
+  ringOn(34, 8, 4, 8, 1); ringOn(3, 14, 2.5, 6, 1); ringOn(-34, 10, 2, 5, 1);
+  lineOn(-20, -5, -10, -5, 4, 1); lineOn(10, -5, 20, -5, 4, 1);
 
   // backdrop: dunes, far pyramids, sun
   for (let i = 0; i < 16; i++) {
@@ -1306,7 +1323,7 @@ function buildDesert() {
     sky: 0xf3d7a6, fogNear: 60, fogFar: 180, hemi: [0xfff2d6, 0xc9a060, 0.8], sun: [0xffe6b8, 1.0],
     music: 'desert', deathY: -10, hazardY: 0, hazard: 'quicksand', seaY: null,
     spawn: { pos: new V3(0, GT, 28), yaw: 0 },
-    entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Nell\'oasi, davanti alla partenza',
+    entries: {}, doors: [], redTotal: 8, coinStar: true, redMsg: 'Nell\'oasi, davanti alla partenza',
     onPound(s) {
       if (!s || !s.button || s.button.pressed) return;
       s.button.pressed = true; s.button.mesh.position.y -= 0.18; s.button.mesh.material = M(0x4fd67a, { emissive: 0x145a2a });
@@ -1398,6 +1415,9 @@ function buildBay() {
   const sail = add(new THREE.Mesh(new THREE.BoxGeometry(5, 4, 0.12), M(0xe8e0cc)), true, false); sail.position.set(0, -6.5, -3.6); sail.rotation.z = 0.08;
   const bow = add(new THREE.Mesh(new THREE.ConeGeometry(4, 4, 4), M(WOOD))); bow.rotation.x = Math.PI / 2; bow.rotation.y = Math.PI / 4; bow.position.set(0, -16, 5); bow.scale.set(1, 1, 0.7);
   addStar('relitto', 0, -9.2, -15);
+  addStar('cento', 0, 0, 0, true);
+  ring(-20, -20, 4, 10, -10); ring(20, 10, 4, 10, -8); ring(0, -4, 5, 10, -9); ring(-30, 10, 3.5, 8, -5);
+  ring(10, 36, 2.5, 6, 2); ring(25, -25, 4, 10, -14); ring(-30, -30, 2, 6, -16);
   ring(0, -4, 2.6, 6, -13);
 
   // chests: open them in the order shown by bubbles
@@ -1481,7 +1501,7 @@ function buildBay() {
     sky: 0x9fdcf5, fogNear: 60, fogFar: 180, hemi: [0xe4f6ff, 0x3a7a8a, 0.8], sun: [0xfff4e0, 0.95],
     music: 'bay', deathY: -40, hazardY: null, seaY: WY, waterY: WY,
     spawn: { pos: new V3(0, 1, 36), yaw: 0 },
-    entries: {}, doors: [], redTotal: 8, coinStar: false, redMsg: 'Davanti al molo, a mezz\'acqua',
+    entries: {}, doors: [], redTotal: 8, coinStar: true, redMsg: 'Davanti al molo, a mezz\'acqua',
     update(dt) {
       // the current pushes swimmers up and away
       const cdx = P.pos.x - CUR.x, cdz = P.pos.z - CUR.z, cd = Math.hypot(cdx, cdz) || 1;
@@ -2431,7 +2451,7 @@ function afterDance() {
   const s = G.lastStar; G.lastStar = null;
   if (s && L.id === 'fortress' && s.id === 'grande') { showEnding(); return; }
   if (G.stars >= TOTAL && !G.won) { G.won = true; gameOver(true); return; }
-  if (s && ['volcano', 'snow', 'desert', 'bay', 'fortress'].includes(L.id)) { const from = L.id; irisTo(() => loadLevel('castle', from, true)); }
+  if (s && s.id !== 'cento' && ['volcano', 'snow', 'desert', 'bay', 'fortress'].includes(L.id)) { const from = L.id; irisTo(() => loadLevel('castle', from, true)); }
 }
 
 let gameTime = 0, splashed = false;

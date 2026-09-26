@@ -60,16 +60,24 @@ function credentials(role = 'admin') {
 async function signIn(page, { email, password }, query = '') {
   await page.goto('/index.html' + query);
   await page.waitForSelector('#auth-box:not([hidden])', { timeout: 30_000 });
+  // Con ?invite=… la pagina parte in modalità "Crea account": passare ad
+  // "Accedi", altrimenti signUp su un utente esistente "riesce" senza sessione.
+  if ((await page.locator('#auth-submit').textContent()).trim() !== 'Accedi') await page.click('#switch-link');
   if (!(await page.locator('#email').evaluate(el => el.readOnly))) await page.fill('#email', email);
   await page.fill('#password', password);
   await page.click('#auth-submit');
+  // Finito quando: la pagina è cambiata (un invito accettato porta dritti
+  // alla dashboard), il riquadro di accesso è sparito, o c'è un messaggio.
   await page.waitForFunction(() => {
+    const box = document.querySelector('#auth-box');
+    if (!box) return true;
+    const loading = document.querySelector('#loading');
+    if (loading && !loading.hidden) return false;
     const msg = document.querySelector('#auth-msg');
-    return !document.querySelector('#loading') || document.querySelector('#loading').hidden
-      ? (document.querySelector('#auth-box').hidden || (msg && !msg.hidden && msg.textContent.trim()))
-      : false;
-  }, null, { timeout: 15_000 });
-  if (!(await page.locator('#auth-box').isHidden())) {
+    return box.hidden || !!(msg && !msg.hidden && msg.textContent.trim());
+  }, null, { timeout: 30_000 }).catch(e => { if (!/navigat|destroyed/i.test(e.message)) throw e; });
+  await page.waitForLoadState();
+  if (await page.locator('#auth-box').isVisible().catch(() => false)) {
     throw new Error(`Accesso fallito per ${email}: ${await page.locator('#auth-msg').textContent()}`);
   }
 }

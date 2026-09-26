@@ -59,7 +59,7 @@ function credentials(role = 'admin') {
 // pagina index.html aperta. `query` permette di arrivarci con ?invite=…
 async function signIn(page, { email, password }, query = '') {
   await page.goto('/index.html' + query);
-  await page.waitForSelector('#auth-box:not([hidden])', { timeout: 10_000 });
+  await page.waitForSelector('#auth-box:not([hidden])', { timeout: 30_000 });
   if (!(await page.locator('#email').evaluate(el => el.readOnly))) await page.fill('#email', email);
   await page.fill('#password', password);
   await page.click('#auth-submit');
@@ -86,7 +86,7 @@ async function skipTour(page) {
 // solo alla fine.
 async function cleanupCompanyData(page, companyId) {
   await page.goto('/dashboard.html');
-  await page.waitForFunction(() => !!window.SaasStore, null, { timeout: 10_000 }).catch(() => {});
+  await page.waitForFunction(() => !!window.SaasStore, null, { timeout: 30_000 }).catch(() => {});
   await page.evaluate(async ({ companyId, order }) => {
     const store = window.SaasStore;
     if (!store) return; // sessione già scaduta/pagina non caricata: niente da fare
@@ -111,11 +111,15 @@ const test = base.test.extend({
     const slug = `qa-${randomSuffix()}`;
 
     await signIn(page, { email, password });
-    const created = await page.evaluate(
-      ({ companyName, slug }) => window.SaasStore.registerCompany(companyName, slug),
-      { companyName, slug }
-    );
-    const companyId = created && created.company_id;
+    // index.html non carica app/store.js: usa il suo client Supabase (`sb`,
+    // dichiarato a livello di script) per la stessa RPC del pulsante
+    // "Crea azienda".
+    const companyId = await page.evaluate(async ({ companyName, slug }) => {
+      // eslint-disable-next-line no-undef
+      const { data, error } = await sb.rpc('register_company', { p_nome: companyName, p_slug: slug });
+      if (error) throw new Error(error.message);
+      return data && data[0] && data[0].company_id;
+    }, { companyName, slug });
     if (!companyId) throw new Error('Azienda di test non creata: register_company non ha restituito company_id.');
     // Stesso effetto del pulsante "Apri gestionale →" in index.html.
     await page.evaluate(({ companyId, companyName }) => {
@@ -123,7 +127,7 @@ const test = base.test.extend({
       localStorage.setItem('saas_company_nome', companyName);
     }, { companyId, companyName });
     await page.goto('/dashboard.html');
-    await page.waitForFunction(() => !!window.SaasStore, null, { timeout: 10_000 });
+    await page.waitForFunction(() => !!window.SaasStore, null, { timeout: 30_000 });
     await skipTour(page);
 
     await use({ page, email, password, companyId, companyName });

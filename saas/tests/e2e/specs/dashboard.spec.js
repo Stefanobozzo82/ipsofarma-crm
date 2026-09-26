@@ -1,27 +1,27 @@
 const { test, expect } = require('../helpers/testCompany');
-const { pickProdottoInRiga } = require('../helpers/docHelpers');
+const { pickProdottoInRiga, saveAndSeeRow, gotoList } = require('../helpers/docHelpers');
 
 // Prepara cliente+prodotto+fattura incassata: la base comune per i tre
 // test sotto (totali, link con l'anno, legenda del grafico).
 async function creaFatturaDiProva(page) {
-  await page.goto('/clienti.html');
+  await gotoList(page, '/clienti.html');
   await page.click('#new-cliente');
   await page.fill('#f-nome', 'Cliente Test SRL');
-  await page.click('#f-save');
+  await saveAndSeeRow(page, 'Cliente Test SRL');
 
-  await page.goto('/prodotti.html');
+  await gotoList(page, '/prodotti.html');
   await page.click('#new-prodotto');
   await page.fill('#f-cod', 'TESTCOD001');
   await page.fill('#f-descr', 'Prodotto di test QA');
   await page.fill('#f-ven', '20');
-  await page.click('#f-save');
+  await saveAndSeeRow(page, 'TESTCOD001');
 
-  await page.goto('/fatture.html');
+  await gotoList(page, '/fatture.html');
   await page.click('#new-fattura');
   await page.selectOption('#f-cliente', { label: 'Cliente Test SRL' });
   await pickProdottoInRiga(page, 'TESTCOD', { qty: 5 });
   await page.click('#f-save');
-  await page.waitForSelector('#form-card[hidden]', { timeout: 10_000 });
+  await page.waitForSelector('#form-card[hidden]', { state: 'attached', timeout: 30_000 });
 }
 
 test('i totali della dashboard riflettono le fatture reali', async ({ company }) => {

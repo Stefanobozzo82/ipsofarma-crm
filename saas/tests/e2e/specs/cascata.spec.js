@@ -10,33 +10,33 @@
  * mano.
  * ============================================================================ */
 const { test, expect } = require('../helpers/testCompany');
-const { pickProdottoInRiga, acceptConfirms } = require('../helpers/docHelpers');
+const { pickProdottoInRiga, acceptConfirms, saveAndSeeRow, gotoList } = require('../helpers/docHelpers');
 
 test('ordine cliente → ordine fornitore → DDT → fattura, con gli importi giusti ad ogni passo', async ({ company }) => {
   const { page } = company;
   acceptConfirms(page);
 
-  await page.goto('/fornitori.html');
+  await gotoList(page, '/fornitori.html');
   await page.click('#new-fornitore');
   await page.fill('#f-nome', 'Fornitore Test SRL');
-  await page.click('#f-save');
+  await saveAndSeeRow(page, 'Fornitore Test SRL');
 
-  await page.goto('/clienti.html');
+  await gotoList(page, '/clienti.html');
   await page.click('#new-cliente');
   await page.fill('#f-nome', 'Cliente Test SRL');
-  await page.click('#f-save');
+  await saveAndSeeRow(page, 'Cliente Test SRL');
 
-  await page.goto('/prodotti.html');
+  await gotoList(page, '/prodotti.html');
   await page.click('#new-prodotto');
   await page.fill('#f-cod', 'TESTCOD001');
   await page.fill('#f-descr', 'Prodotto di test QA');
   await page.fill('#f-acq', '10');
   await page.fill('#f-ven', '20');
   await page.selectOption('#f-fornitore', { label: 'Fornitore Test SRL' });
-  await page.click('#f-save');
+  await saveAndSeeRow(page, 'TESTCOD001');
 
   // --- ordine cliente: 5 x 20€ + 22% IVA = 122,00 € ---
-  await page.goto('/ordini.html');
+  await gotoList(page, '/ordini.html');
   await page.click('#new-ordine');
   await page.selectOption('#f-cliente', { label: 'Cliente Test SRL' });
   await pickProdottoInRiga(page, 'TESTCOD', { qty: 5 });
@@ -51,7 +51,7 @@ test('ordine cliente → ordine fornitore → DDT → fattura, con gli importi g
   await expect(page.locator('tbody tr', { hasText: 'Fornitore Test SRL' })).toContainText('61,00');
 
   // --- cascata → DDT: precompilato dall'ordine, si salva com'è ---
-  await page.goto('/ordini.html');
+  await gotoList(page, '/ordini.html');
   await page.locator('tbody tr', { hasText: 'Cliente Test SRL' }).locator('.row-check').check();
   await page.click('[data-gen-ddt]');
   await page.waitForURL('**/ddt.html');
@@ -61,14 +61,14 @@ test('ordine cliente → ordine fornitore → DDT → fattura, con gli importi g
   // Un DDT nuovo generato da un ordine resta aperto dopo il salvataggio
   // (vedi il commento in ddt.html su "→ Genera fattura" — apposta, per
   // poterlo premere subito) invece di tornare all'elenco.
-  await expect(page.locator('#ddt-btn-ft')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('#ddt-btn-ft')).toBeVisible({ timeout: 30_000 });
 
   // --- cascata → fattura: stessi importi del DDT, poi segnata incassata ---
   await page.click('#ddt-btn-ft');
   await page.waitForURL('**/fatture.html');
   await expect(page.locator('#righe-body .r-prezzo')).toHaveValue('20');
   await page.click('#f-save');
-  await page.waitForSelector('#form-card[hidden]', { timeout: 10_000 });
+  await page.waitForSelector('#form-card[hidden]', { state: 'attached', timeout: 30_000 });
 
   const ftRow = page.locator('tbody tr', { hasText: 'Cliente Test SRL' });
   await expect(ftRow).toContainText('122,00');

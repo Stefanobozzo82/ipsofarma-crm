@@ -40,4 +40,23 @@ function captureDialogs(page) {
   return messages;
 }
 
-module.exports = { pickProdottoInRiga, acceptConfirms, captureDialogs };
+// Salva il form di un'anagrafica (clienti/fornitori/prodotti) e aspetta che
+// la riga compaia in elenco. Senza questa attesa un page.goto() subito dopo
+// il clic interrompe il salvataggio ancora in volo e il dato non esiste.
+async function saveAndSeeRow(page, text) {
+  await page.click('#f-save');
+  await page.locator('tbody tr', { hasText: text }).first().waitFor({ timeout: 15_000 });
+}
+
+// Apre una pagina con elenco e aspetta che abbia finito di caricare (via
+// "Carico…"): prima di allora i pulsanti "+ Nuovo" trovano le anagrafiche
+// ancora vuote e rispondono "Crea prima almeno un cliente".
+async function gotoList(page, url) {
+  await page.goto(url);
+  await page.waitForFunction(() => {
+    const area = document.querySelector('#list-area');
+    return area && !/^Carico/.test(area.textContent.trim());
+  }, null, { timeout: 20_000 });
+}
+
+module.exports = { pickProdottoInRiga, acceptConfirms, captureDialogs, saveAndSeeRow, gotoList };

@@ -1,9 +1,10 @@
 const { test, expect } = require('../helpers/testCompany');
+const { saveAndSeeRow, gotoList } = require('../helpers/docHelpers');
 
 test.describe('Anagrafiche (clienti, fornitori, prodotti)', () => {
   test('crea, modifica ed elimina un fornitore', async ({ company }) => {
     const { page } = company;
-    await page.goto('/fornitori.html');
+    await gotoList(page, '/fornitori.html');
     await page.click('#new-fornitore');
     await page.fill('#f-nome', 'Fornitore Test SRL');
     await page.fill('#f-piva', '12345678901');
@@ -15,27 +16,27 @@ test.describe('Anagrafiche (clienti, fornitori, prodotti)', () => {
     await page.click('#f-save');
     await expect(page.locator('tbody tr', { hasText: 'Fornitore Test SRL Modificato' })).toBeVisible();
 
+    // "Elimina" è nella riga dell'elenco (non nel form aperto cliccando la riga).
     page.once('dialog', d => d.accept());
-    await page.locator('tbody tr', { hasText: 'Fornitore Test SRL Modificato' }).click();
-    await page.click('button:has-text("Elimina")');
+    await page.locator('tbody tr', { hasText: 'Fornitore Test SRL Modificato' }).locator('button[data-del]').click();
     await expect(page.locator('text=Nessun fornitore ancora')).toBeVisible();
   });
 
   test('crea un cliente e un prodotto con fornitore abituale', async ({ company }) => {
     const { page } = company;
-    await page.goto('/fornitori.html');
+    await gotoList(page, '/fornitori.html');
     await page.click('#new-fornitore');
     await page.fill('#f-nome', 'Fornitore Abituale SRL');
-    await page.click('#f-save');
+    await saveAndSeeRow(page, 'Fornitore Abituale SRL');
 
-    await page.goto('/clienti.html');
+    await gotoList(page, '/clienti.html');
     await page.click('#new-cliente');
     await page.fill('#f-nome', 'Cliente Test SRL');
     await page.fill('#f-piva', '98765432109');
     await page.click('#f-save');
     await expect(page.locator('tbody tr', { hasText: 'Cliente Test SRL' })).toBeVisible();
 
-    await page.goto('/prodotti.html');
+    await gotoList(page, '/prodotti.html');
     await page.click('#new-prodotto');
     await page.fill('#f-cod', 'TESTCOD001');
     await page.fill('#f-descr', 'Prodotto di test QA');

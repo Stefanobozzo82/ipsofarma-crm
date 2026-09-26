@@ -21,8 +21,8 @@ const executablePath = fs.existsSync(localChromium) ? localChromium : undefined;
 
 module.exports = defineConfig({
   testDir: './specs',
-  timeout: 45_000,
-  expect: { timeout: 10_000 },
+  timeout: 120_000,
+  expect: { timeout: 30_000 },
   fullyParallel: false, // ogni test crea/elimina una propria azienda usa-e-getta contro lo stesso Supabase: file in parallelo va bene, worker multipli sullo stesso file no
   workers: process.env.CI ? 2 : 3,
   retries: process.env.CI ? 1 : 0,

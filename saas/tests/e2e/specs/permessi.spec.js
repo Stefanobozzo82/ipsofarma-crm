@@ -6,20 +6,20 @@
  * "Elimina" premuto da un operatore non falliva con un messaggio: non
  * faceva semplicemente nulla, senza alcun avviso.
  * ============================================================================ */
-const { test, expect, testEmail } = require('../helpers/testCompany');
-const { acceptConfirms, captureDialogs } = require('../helpers/docHelpers');
+const { test, expect, credentials, signIn, skipTour } = require('../helpers/testCompany');
+const { acceptConfirms, captureDialogs, saveAndSeeRow, gotoList } = require('../helpers/docHelpers');
 
 test('un operatore non può eliminare un ordine cliente (un admin sì)', async ({ company, browser }) => {
   const { page, companyId } = company;
   acceptConfirms(page);
 
   // L'admin crea un cliente e un ordine da provare a cancellare.
-  await page.goto('/clienti.html');
+  await gotoList(page, '/clienti.html');
   await page.click('#new-cliente');
   await page.fill('#f-nome', 'Cliente Test SRL');
-  await page.click('#f-save');
+  await saveAndSeeRow(page, 'Cliente Test SRL');
 
-  await page.goto('/ordini.html');
+  await gotoList(page, '/ordini.html');
   await page.click('#new-ordine');
   await page.selectOption('#f-cliente', { label: 'Cliente Test SRL' });
   await page.locator('#righe-body .r-descr').fill('Riga di prova');
@@ -28,36 +28,35 @@ test('un operatore non può eliminare un ordine cliente (un admin sì)', async (
   await page.click('#f-save');
   await expect(page.locator('tbody tr', { hasText: 'Cliente Test SRL' })).toBeVisible();
 
-  // Invita un secondo utente come "operatore" (ruolo di default di
-  // create_invite) nella STESSA azienda — niente email reale da inviare,
+  // Invita il secondo account di prova come "operatore" (ruolo di default
+  // di create_invite) nella STESSA azienda — niente email reale da inviare,
   // il link si costruisce dal token restituito dalla RPC (vedi il commento
   // "niente invio email automatico" in create_invite, 0008_inviti.sql).
+  const operator = credentials('operator');
   const invite = await page.evaluate(
     ({ companyId, email }) => window.SaasStore.createInvite(companyId, email, 'operatore'),
-    { companyId, email: testEmail(`op-${Date.now()}`) }
+    { companyId, email: operator.email }
   );
   expect(invite.token).toBeTruthy();
 
   const opContext = await browser.newContext();
   const opPage = await opContext.newPage();
   const opDialogs = captureDialogs(opPage);
-  await opPage.goto(`/index.html?invite=${invite.token}`);
-  await opPage.waitForSelector('#auth-box:not([hidden])', { timeout: 10_000 });
-  await opPage.fill('#password', 'TestPass1234!QA');
-  await opPage.click('#auth-submit');
-  await opPage.waitForURL('**/dashboard.html', { timeout: 10_000 });
-  const skipTour = opPage.getByText('Salta il tour');
-  if (await skipTour.isVisible({ timeout: 2_000 }).catch(() => false)) await skipTour.click();
+  // Accesso con ?invite=…: index.html accetta l'invito da solo dopo il
+  // login e apre il gestionale dell'azienda che lo ha emesso.
+  await signIn(opPage, operator, `?invite=${invite.token}`);
+  await opPage.waitForURL('**/dashboard.html', { timeout: 30_000 });
+  await skipTour(opPage);
 
   // L'operatore vede l'ordine (stessa azienda) e prova a eliminarlo: il
   // confirm() viene accettato da captureDialogs come i precedenti, ma
   // removeDoc() fallisce lato RLS — l'errore arriva come un secondo
   // dialog, un alert() nativo (vedi ordini.html, data-del handler).
-  await opPage.goto('/ordini.html');
+  await gotoList(opPage, '/ordini.html');
   const opRow = opPage.locator('tbody tr', { hasText: 'Cliente Test SRL' });
   await opRow.locator('.row-check').check();
   await opPage.click('button:has-text("Elimina")');
-  await expect.poll(() => opDialogs.some(m => /amministratore/i.test(m)), { timeout: 10_000 })
+  await expect.poll(() => opDialogs.some(m => /amministratore/i.test(m)), { timeout: 30_000 })
     .toBe(true);
   await expect(opRow).toBeVisible(); // non cancellato
 

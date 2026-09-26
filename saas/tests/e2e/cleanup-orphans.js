@@ -5,12 +5,13 @@
  * La fixture `company` (helpers/testCompany.js) cancella già tutto ciò che
  * un admin PUÒ cancellare via RLS a fine test (documenti, clienti,
  * fornitori, prodotti — vedi cleanupCompanyData lì dentro). Quello che non
- * può toccare è la riga dell'azienda stessa, la membership e l'utente
- * Supabase Auth: cancellarle richiede la service_role key, che la suite
- * dei test non usa mai (non è pensata per starci in giro).
+ * può toccare è la riga dell'azienda stessa e la membership: cancellarle
+ * richiede la service_role key, che la suite dei test non usa mai.
  *
  * Questo script sì — va lanciato A PARTE, di tanto in tanto (a mano, o da
- * una pipeline dedicata), MAI come parte della suite stessa:
+ * una pipeline dedicata), MAI come parte della suite stessa. Gli account di
+ * prova (E2E_EMAIL/E2E_OPERATOR_EMAIL, vedi README) non vengono toccati:
+ * sono creati una volta e riusati da ogni esecuzione.
  *
  *   SUPABASE_SERVICE_ROLE_KEY=... node cleanup-orphans.js [--dry-run]
  *
@@ -75,25 +76,7 @@ async function main() {
     console.log(`  cancellata: ${o.nome}`);
   }
 
-  // Gli utenti Auth restano finché non li si cancella esplicitamente (non
-  // sono legati da una FK cancellabile a cascata): via l'endpoint admin,
-  // solo per gli alias "+qa-..." della casella di prova (gli stessi che
-  // crea testEmail() in helpers/testCompany.js) — mai per altre email.
-  const user = process.env.E2E_EMAIL_USER, domain = process.env.E2E_EMAIL_DOMAIN;
-  if(!user || !domain){
-    console.log('\nUtenti Auth non toccati: servono E2E_EMAIL_USER e E2E_EMAIL_DOMAIN per riconoscere gli alias di prova.');
-    return;
-  }
-  const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const testUserRe = new RegExp(`^${escapeRe(user)}\\+qa-[a-z0-9-]+@${escapeRe(domain)}$`, 'i');
-  const users = await sb('/auth/v1/admin/users?per_page=1000');
-  const testUsers = (users.users || []).filter(u => testUserRe.test(u.email || ''));
-  for (const u of testUsers) {
-    await sb(`/auth/v1/admin/users/${u.id}`, { method: 'DELETE', prefer: 'return=minimal' });
-    console.log(`  utente di prova cancellato: ${u.email}`);
-  }
-
-  console.log(`\nFatto: ${orphans.length} aziende e ${testUsers.length} utenti di prova rimossi.`);
+  console.log(`\nFatto: ${orphans.length} aziende di prova rimosse.`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

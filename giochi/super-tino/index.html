@@ -133,7 +133,7 @@ body.touch .keys.touch-only{display:grid!important}
       <kbd>P / M</kbd><span>Pausa (indizi, audio e grafica) / audio</span>
     </div>
     <div class="keys desk-only" id="padHelp">
-      <kbd>🎮 Joypad</kbd><span>Collegalo e premi un tasto: levetta sinistra muove, destra gira la telecamera</span>
+      <kbd>🎮 Joypad</kbd><span>Collegalo e premi un tasto: levetta sinistra muove, destra gira la telecamera. Tasti sbagliati? Pausa → Configura joypad</span>
       <kbd>A / ✕</kbd><span>Salta (e conferma nei menu)</span>
       <kbd>B X / ○ □</kbd><span>Pugno, tuffo e calcio</span>
       <kbd>Grilletti, LB</kbd><span>Accovacciati / schianto (come Shift)</span>
@@ -162,12 +162,27 @@ body.touch .keys.touch-only{display:grid!important}
       <button class="btn ghost" id="bMute" type="button">Audio sì</button>
       <button class="btn ghost" id="bGfx" type="button">Grafica alta</button>
       <button class="btn ghost" id="bCam" type="button">Visuale automatica</button>
+      <button class="btn ghost" id="bPad" type="button">🎮 Configura joypad</button>
     </div>
     <p id="keysInfo" style="margin:0 0 10px;font-size:14px"></p>
     <div class="pscroll" id="starList"></div>
     <div class="btns">
       <button class="btn" id="bResume" type="button">Riprendi</button>
       <button class="btn ghost" id="bExit" type="button" hidden>Esci dal livello</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="padSetup" hidden>
+  <div class="card">
+    <h2>Configura joypad</h2>
+    <p id="padName" style="opacity:.75;font-size:14px"></p>
+    <p id="padStep" style="font-size:22px;font-weight:800;margin:18px 0 6px"></p>
+    <p id="padProg" style="opacity:.75"></p>
+    <div class="btns">
+      <button class="btn ghost" id="bPadSkip" type="button">Salta questo</button>
+      <button class="btn ghost" id="bPadReset" type="button">Ripristina predefiniti</button>
+      <button class="btn" id="bPadDone" type="button">Chiudi</button>
     </div>
   </div>
 </div>
@@ -3836,7 +3851,7 @@ function animateItems(t) {
   for (const b of itemBoxes) if (!b.broken) { b.m.rotation.y = t * 0.8 + b.ph; }
 }
 // ---------- LEVEL: castle interior (hub with paintings) ----------
-const NEED = { volcano: 3, snow: 6, desert: 10, bay: 15, ghost: 10, clock: 20, rainbow: 24, shroom: 12, cave: 16, slide: 1, mountain: 30, giant: 38, flood: 46, fortress: 20 };
+const NEED = { volcano: 3, snow: 6, desert: 10, bay: 15, ghost: 10, clock: 20, rainbow: 24, shroom: 12, cave: 16, slide: 1, mountain: 30, giant: 38, flood: 46, fortress: 50 };
 // wall: which axis the wall faces along; w: wall plane; c: position along the wall; n: normal pointing into the room; fy: floor height
 const PAINTS = [
   { id: 'volcano', wall: 'x', w: -20, c: -6, n: 1, fy: 0 }, { id: 'snow', wall: 'x', w: -20, c: 8, n: 1, fy: 0 },
@@ -8767,7 +8782,63 @@ const joy = { x: 0, y: 0 };
 const pad = { x: 0, y: 0, rx: 0, ry: 0, held: {}, idx: null, sel: 0 };
 const PADMAP = { 0: 'Space', 1: 'KeyJ', 2: 'KeyJ', 3: 'KeyC', 4: 'ShiftLeft', 5: 'KeyC', 6: 'ShiftLeft', 7: 'ShiftLeft', 9: 'Escape', 12: 'ArrowUp', 13: 'ArrowDown', 14: 'ArrowLeft', 15: 'ArrowRight' };
 const padKey = (type, code) => dispatchEvent(new KeyboardEvent(type, { code, key: code }));
-addEventListener('gamepadconnected', e => { pad.idx = e.gamepad.index; if (G.running) banner('Joypad collegato<small>' + (e.gamepad.id.split('(')[0].trim() || 'Pronto a giocare') + '</small>', 2); });
+addEventListener('gamepadconnected', e => {
+  pad.idx = e.gamepad.index;
+  const known = e.gamepad.mapping === 'standard' || padMaps[e.gamepad.id];
+  banner('Joypad collegato<small>' + (known ? (e.gamepad.id.split('(')[0].trim() || 'Pronto a giocare') : 'Se i tasti non vanno bene: Pausa → Configura joypad') + '</small>', known ? 2 : 4);
+});
+// ---------- custom button mapping (for non-standard pads) ----------
+const PAD_KEY = 'super-tino-pad-map';
+let padMaps = {}; try { padMaps = JSON.parse(localStorage.getItem(PAD_KEY)) || {}; } catch (e) {}
+const savePadMaps = () => { try { localStorage.setItem(PAD_KEY, JSON.stringify(padMaps)); } catch (e) {} };
+const SETUP_STEPS = [
+  { k: 'mx', t: 'Muovi la levetta SINISTRA verso DESTRA', axis: true },
+  { k: 'my', t: 'Muovi la levetta SINISTRA verso il BASSO', axis: true },
+  { k: 'Space', t: 'Premi il tasto per SALTARE' },
+  { k: 'KeyJ', t: 'Premi il tasto per il PUGNO (tuffo e calcio)' },
+  { k: 'ShiftLeft', t: 'Premi il tasto per ACCOVACCIARTI (schianto, salto lungo)' },
+  { k: 'Escape', t: 'Premi il tasto della PAUSA (Start)' },
+  { k: 'KeyC', t: 'Premi il tasto per rimettere la TELECAMERA alle spalle' },
+  { k: 'cx', t: 'Muovi la levetta DESTRA verso DESTRA (telecamera)', axis: true },
+  { k: 'cy', t: 'Muovi la levetta DESTRA verso il BASSO (telecamera)', axis: true },
+];
+const padSetup = { on: false, step: 0, base: null, wait: false, map: null, id: '' };
+const btnDown = b => !!b && (b.pressed || b.value > 0.5);
+function setupShow(msg) {
+  const st = SETUP_STEPS[padSetup.step];
+  $('padStep').textContent = msg || (st ? st.t : 'Fatto!');
+  $('padProg').textContent = st ? 'Passo ' + (padSetup.step + 1) + ' di ' + SETUP_STEPS.length + (st.k === 'KeyC' || st.k === 'cx' || st.k === 'cy' ? ' · se non ce l\'hai, premi «Salta questo»' : '') : 'Configurazione salvata: puoi chiudere e giocare.';
+  $('bPadSkip').hidden = !st;
+}
+function setupNext() {
+  padSetup.step++; padSetup.wait = true;
+  if (padSetup.step >= SETUP_STEPS.length) { padMaps[padSetup.id] = padSetup.map; savePadMaps(); sfx.reveal(); }
+  setupShow();
+}
+function openPadSetup() {
+  padSetup.on = true; padSetup.step = 0; padSetup.base = null; padSetup.wait = true; padSetup.map = {}; padSetup.id = '';
+  $('pauseScreen').hidden = true; $('padSetup').hidden = false; $('padName').textContent = '';
+  for (const c in pad.held) if (pad.held[c]) { pad.held[c] = false; padKey('keyup', c); }
+  setupShow('Collega il joypad e premi un tasto qualsiasi…');
+}
+function closePadSetup() { padSetup.on = false; $('padSetup').hidden = true; if (G.paused) $('pauseScreen').hidden = false; }
+$('bPad').addEventListener('click', openPadSetup);
+$('bPadDone').addEventListener('click', closePadSetup);
+$('bPadSkip').addEventListener('click', () => { if (padSetup.id) setupNext(); });
+$('bPadReset').addEventListener('click', () => { if (padSetup.id) { delete padMaps[padSetup.id]; savePadMaps(); } closePadSetup(); banner('Tasti predefiniti ripristinati', 1.6); });
+function setupPoll(gp) {
+  if (!padSetup.id) { padSetup.id = gp.id; $('padName').textContent = gp.id.split('(')[0].trim() || gp.id; padSetup.base = { axes: gp.axes.slice(), btn: gp.buttons.map(btnDown) }; setupShow(); return; }
+  const base = padSetup.base;
+  if (padSetup.wait) {   // wait until everything is released before listening for the next input
+    const idle = gp.buttons.every((b, i) => !btnDown(b) || base.btn[i]) && gp.axes.every((a, i) => Math.abs(a - base.axes[i]) < 0.3);
+    if (idle) padSetup.wait = false; return;
+  }
+  const st = SETUP_STEPS[padSetup.step]; if (!st) return;
+  let got = null;
+  if (!st.axis) gp.buttons.forEach((b, i) => { if (!got && btnDown(b) && !base.btn[i]) got = { b: i }; });
+  gp.axes.forEach((a, i) => { const d = a - base.axes[i]; if (!got && Math.abs(d) > 0.6) got = { a: i, s: Math.sign(d), z: Math.abs(base.axes[i]) < 0.3 ? 0 : base.axes[i] }; });
+  if (got) { padSetup.map[st.k] = got; tone(880, 0.08, 'square', 0.05); setupNext(); }
+}
 addEventListener('gamepaddisconnected', e => { if (pad.idx === e.gamepad.index) { pad.idx = null; pad.x = pad.y = pad.rx = pad.ry = 0; for (const c in pad.held) if (pad.held[c]) { pad.held[c] = false; padKey('keyup', c); } } });
 function rumble(ms, strong = 0.6) {
   try { const gp = pad.idx !== null && navigator.getGamepads()[pad.idx]; if (gp && gp.vibrationActuator) gp.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: strong * 0.6 }); } catch (e) {}
@@ -8777,10 +8848,18 @@ function pollPad() {
   const list = navigator.getGamepads(); let gp = pad.idx !== null ? list[pad.idx] : null;
   if (!gp) for (const g of list) if (g && g.connected) { gp = g; pad.idx = g.index; break; }
   if (!gp) return;
-  const dz = v => Math.abs(v) < 0.2 ? 0 : (v - Math.sign(v) * 0.2) / 0.8;
-  pad.x = dz(gp.axes[0] || 0); pad.y = -dz(gp.axes[1] || 0); pad.rx = dz(gp.axes[2] || 0); pad.ry = dz(gp.axes[3] || 0);
-  const want = {};
-  for (const b in PADMAP) { const btn = gp.buttons[b]; if (btn && (btn.pressed || btn.value > 0.5)) want[PADMAP[b]] = true; }
+  if (padSetup.on) { pad.x = pad.y = pad.rx = pad.ry = 0; setupPoll(gp); return; }
+  const dz = v => Math.abs(v) < 0.2 ? 0 : (clamp(v, -1, 1) - Math.sign(v) * 0.2) / 0.8;
+  const want = {}, mp = padMaps[gp.id];
+  if (mp) {
+    const ax = m => m && m.a !== undefined ? ((gp.axes[m.a] || 0) - (m.z || 0)) * m.s : 0;
+    const on = m => !!m && (m.b !== undefined ? btnDown(gp.buttons[m.b]) : ax(m) > 0.5);
+    pad.x = dz(ax(mp.mx)); pad.y = -dz(ax(mp.my)); pad.rx = dz(ax(mp.cx)); pad.ry = dz(ax(mp.cy));
+    for (const code of ['Space', 'KeyJ', 'ShiftLeft', 'Escape', 'KeyC']) if (on(mp[code])) want[code] = true;
+  } else {
+    pad.x = dz(gp.axes[0] || 0); pad.y = -dz(gp.axes[1] || 0); pad.rx = dz(gp.axes[2] || 0); pad.ry = dz(gp.axes[3] || 0);
+    for (const b in PADMAP) { const btn = gp.buttons[b]; if (btn && (btn.pressed || btn.value > 0.5)) want[PADMAP[b]] = true; }
+  }
   // in the mission list the left stick works like the arrow keys
   const sel = G.selecting ? (pad.y > 0.6 ? -1 : pad.y < -0.6 ? 1 : 0) : 0;
   if (sel && sel !== pad.sel) padKey('keydown', sel > 0 ? 'ArrowDown' : 'ArrowUp');
@@ -8798,6 +8877,7 @@ function pollPad() {
   }
 }
 addEventListener('keydown', e => {
+  if (padSetup.on) return;
   if (G.cut) {
     e.preventDefault();
     if (e.repeat) return;

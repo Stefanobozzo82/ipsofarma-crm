@@ -1054,6 +1054,99 @@
         "totale": 1342.7686
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-28T10:38:07.860Z",
+      "msgId": "1a0e77868147abf8",
+      "file": "5718115027.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718115027",
+        "date": "2026-09-25",
+        "order_ref": "Rif.cliente Vs.ord. 223",
+        "lines": [
+          {
+            "cod": "FO900R",
+            "descr": "PINZA P.SEGARE ANELLI 150MM",
+            "qty": 3,
+            "prezzo": 211.41,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 773.7606
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-28T10:38:07.861Z",
+      "msgId": "1a0e7782899db37f",
+      "file": "5718115026.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A.",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718115026",
+        "date": "2026-09-25",
+        "order_ref": "Rif.cliente Vs.ord. 222",
+        "lines": [
+          {
+            "cod": "4502051-13",
+            "descr": "PENCAN 27GX3 1/2\" (0,4X88MM)",
+            "qty": 4,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F01H8B09",
+            "scad": "2031-06-01"
+          }
+        ],
+        "totale": 414.8
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-09-28T10:38:07.861Z",
+      "msgId": "1a0e777f7604b34c",
+      "file": "5718115025.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718115025",
+        "date": "2026-09-25",
+        "order_ref": "Rif.cliente Vs.ord. 222",
+        "lines": [
+          {
+            "cod": "C3046221",
+            "descr": "NOVOSYN QUICK INC 3/0 (2) 45CM D",
+            "qty": 4,
+            "prezzo": 81.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126275",
+            "scad": "2031-07-03"
+          }
+        ],
+        "totale": 398.79359999999997
+      },
+      "src": "Gmail"
     }
   ]
 }

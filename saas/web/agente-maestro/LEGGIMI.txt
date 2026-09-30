@@ -1,0 +1,24 @@
+AGENTE DI SINCRONIZZAZIONE MAESTRO GOLD -> GESTIONALE IPSOFARMA
+===============================================================
+
+Serve a portare in automatico nel gestionale i documenti registrati in
+Maestro Gold (fatture, DDT, ordini, acquisti, preventivi, clienti, fornitori).
+
+INSTALLAZIONE (una volta sola, sul PC dove gira Maestro)
+1. Estrai questo zip in una cartella qualsiasi.
+2. Nel gestionale: Impostazioni -> Collegamento Maestro -> "Crea chiave di
+   collegamento" e copia la chiave.
+3. Doppio clic su installa.bat. Ti chiede:
+   - il percorso della cartella dati di Maestro (quella con BOLLE.DBF, VENDITE.DBF...)
+   - la chiave copiata al punto 2.
+   Poi fa subito il primo invio e mostra l'esito.
+
+Da quel momento l'agente parte da solo ogni ora, senza finestre, e invia solo
+i file cambiati. Maestro puo' restare aperto: l'agente legge i file senza
+bloccarli e non li modifica mai.
+
+Il programma viene copiato in C:\IpsofarmaMaestroAgent. Il registro delle
+operazioni e' in C:\IpsofarmaMaestroAgent\maestro-agent.log.
+
+Per disinstallare: Utilita' di pianificazione -> elimina l'attivita'
+"Ipsofarma Maestro Sync", poi cancella la cartella C:\IpsofarmaMaestroAgent.

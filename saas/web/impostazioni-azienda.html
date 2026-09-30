@@ -57,6 +57,24 @@
       </div>
     </div>
 
+    <div class="card" id="maestro-card" hidden>
+      <h3 style="margin:0 0 4px">Collegamento Maestro</h3>
+      <p class="ai-intro" style="margin:0 0 14px">Un piccolo programma sul PC dove gira Maestro Gold invia ogni ora al gestionale i documenti nuovi o modificati. Si installa una volta sola.</p>
+      <p id="maestro-status" style="margin:0 0 12px"></p>
+      <div id="maestro-admin-area" hidden>
+        <div class="form-sec">Installazione sul PC di Maestro</div>
+        <ol style="margin:0 0 12px;padding-left:20px;line-height:1.7">
+          <li>Scarica l'agente: <a href="agente-maestro/agente-maestro.zip" download>agente-maestro.zip</a>, ed estrailo in una cartella qualsiasi del PC di Maestro.</li>
+          <li>Crea qui sotto la chiave di collegamento e copiala.</li>
+          <li>Fai doppio clic su <b>installa.bat</b>: chiede il percorso della cartella dati di Maestro e la chiave, poi fa subito il primo invio.</li>
+        </ol>
+        <button type="button" class="ghost" id="maestro-new-key">Crea chiave di collegamento</button>
+        <div class="msg" id="maestro-key-msg" hidden></div>
+      </div>
+      <div class="form-sec">Ultimi invii</div>
+      <div id="maestro-runs"><p class="empty" style="text-align:left">Nessun invio ricevuto finora.</p></div>
+    </div>
+
     <div class="card" id="form-card">
       <p class="empty" id="loading-msg">Carico…</p>
       <div id="form-body" hidden>
@@ -299,6 +317,45 @@
     }
   });
 
+  // ---- Collegamento Maestro (agente sul PC, Edge Function maestro-sync) ------
+  function fmtDateTime(iso){ return iso ? new Date(iso).toLocaleString('it-IT', { dateStyle:'short', timeStyle:'short' }) : '—'; }
+  async function renderMaestro(){
+    $('maestro-card').hidden = false;
+    $('maestro-admin-area').hidden = !isAdmin;
+    try{
+      const [st, runs] = await Promise.all([store.maestroSyncStatus(companyId), store.listMaestroSyncRuns(companyId, 15)]);
+      $('maestro-status').innerHTML = !st.chiave_attiva
+        ? 'Stato: <b>non collegato</b>.'
+        : `Stato: <b>collegato</b> · ultimo contatto dell'agente: <b>${esc(fmtDateTime(st.usata_at))}</b>`;
+      if(runs.length){
+        $('maestro-runs').innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr><th>Quando</th><th>Archivio</th><th>Esito</th></tr></thead><tbody>${runs.map(r => {
+          const rep = r.report || {};
+          const esito = r.stato === 'ok'
+            ? (rep.nuovi || rep.modificati ? `${rep.nuovi || 0} nuovi, ${rep.modificati || 0} modificati` : 'nessuna novità')
+            : r.stato === 'errore' ? 'Errore: ' + (rep.errore || '') : 'in corso…';
+          return `<tr><td>${esc(fmtDateTime(r.created_at))}</td><td>${esc(r.tabella)}</td><td>${esc(esito)}</td></tr>`;
+        }).join('')}</tbody></table></div>`;
+      }
+    }catch(err){
+      $('maestro-status').textContent = 'Stato non disponibile: ' + (err.message || err);
+    }
+  }
+  $('maestro-new-key').addEventListener('click', async () => {
+    const msg = $('maestro-key-msg');
+    const st = await store.maestroSyncStatus(companyId).catch(() => ({}));
+    if(st.chiave_attiva && !confirm('Esiste già una chiave attiva: crearne una nuova la disattiva, e l\'agente già installato smetterà di inviare finché non gli dai la nuova. Continuare?')) return;
+    $('maestro-new-key').disabled = true;
+    try{
+      const key = await store.createMaestroSyncKey(companyId);
+      msg.className = 'msg ok'; msg.hidden = false;
+      msg.innerHTML = `Chiave creata — copiala ora, non verrà più mostrata:<br><code style="user-select:all;word-break:break-all">${esc(key)}</code><br><button type="button" class="ghost" id="maestro-copy" style="margin-top:8px">Copia</button>`;
+      $('maestro-copy').addEventListener('click', () => navigator.clipboard.writeText(key).then(() => { $('maestro-copy').textContent = 'Copiata ✓'; }));
+      renderMaestro();
+    }catch(err){
+      msg.className = 'msg error'; msg.hidden = false; msg.textContent = err.message || String(err);
+    }finally{ $('maestro-new-key').disabled = false; }
+  });
+
   async function doLogout(){
     await store.signOut();
     localStorage.removeItem('saas_company_id');
@@ -334,6 +391,7 @@
       }
       $('team-card').hidden = false;
       renderTeam();
+      renderMaestro();
     }catch(err){
       $('loading-msg').textContent = 'Errore nel caricamento: ' + err.message;
     }

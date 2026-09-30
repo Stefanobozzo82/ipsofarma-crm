@@ -190,6 +190,25 @@
     return data;
   }
 
+  // Collegamento con Maestro Gold (migration 0038): la chiave per l'agente sul
+  // PC di Maestro esce in chiaro solo da createMaestroSyncKey(), una volta.
+  async function createMaestroSyncKey(companyId) {
+    const { data, error } = await client().rpc('create_maestro_sync_key', { p_company_id: companyId });
+    if (error) throw error;
+    return data;
+  }
+  async function maestroSyncStatus(companyId) {
+    const { data, error } = await client().rpc('maestro_sync_status', { p_company_id: companyId });
+    if (error) throw error;
+    return (data && data[0]) || { chiave_attiva: false, creata_at: null, usata_at: null };
+  }
+  async function listMaestroSyncRuns(companyId, limit = 20) {
+    const { data, error } = await client().from('maestro_sync_runs').select('id,tabella,stato,report,created_at,finito_at')
+      .eq('company_id', companyId).order('created_at', { ascending: false }).limit(limit);
+    if (error) throw error;
+    return data;
+  }
+
   async function listInvites(companyId) {
     const { data, error } = await client().from('invites').select('*')
       .eq('company_id', companyId).is('accepted_at', null).order('created_at', { ascending: false });
@@ -881,6 +900,7 @@
     peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, createCustomerInvoice,
     createSupplierDdt, createStandaloneSupplierDdt, changeSupplierDdt, createSupplierInvoice, mutateInvoicePayment, saveCreditNote, cancelCreditNote,
     getCompany, loadPlans, startCheckout, openBillingPortal, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
+    createMaestroSyncKey, maestroSyncStatus, listMaestroSyncRuns,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,
     addMovimento, giacenzeForProdotti, listGiacenze, listMovimentiRecenti,

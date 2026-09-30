@@ -5,3 +5,5 @@
 # Script Windows: fine riga CRLF, come li vuole cmd.exe/wscript.
 *.bat text eol=crlf
 *.vbs text eol=crlf
+# File dell agente Maestro: restano byte per byte come nello zip scaricabile.
+saas/web/agente-maestro/** -text

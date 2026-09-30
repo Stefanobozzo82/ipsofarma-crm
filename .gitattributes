@@ -2,3 +2,6 @@
 # della macchina che li ha toccati): i file già committati con CRLF vengono
 # normalizzati alla prima modifica successiva.
 * text=auto eol=lf
+# Script Windows: fine riga CRLF, come li vuole cmd.exe/wscript.
+*.bat text eol=crlf
+*.vbs text eol=crlf

@@ -39,4 +39,9 @@ Deno.serve(createMaestroSyncHandler({
   async finishRun(runId, stato, report) {
     await db.from('maestro_sync_runs').update({ stato, report, finito_at: new Date().toISOString() }).eq('id', runId);
   },
+  async importDocuments(companyId) {
+    const { data, error } = await db.rpc('maestro_import', { p_company_id: companyId });
+    if (error) throw new Error(error.message);
+    return data;
+  },
 }));

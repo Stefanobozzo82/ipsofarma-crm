@@ -71,6 +71,9 @@
         <button type="button" class="ghost" id="maestro-new-key">Crea chiave di collegamento</button>
         <div class="msg" id="maestro-key-msg" hidden></div>
       </div>
+      <div class="form-sec">Import nei documenti</div>
+      <p id="maestro-import" style="margin:0 0 12px">Ogni invio con novità porta nel gestionale i documenti che mancano (DDT, fatture, ordini, preventivi, fatture fornitori). Quelli già presenti non vengono toccati.</p>
+      <div id="maestro-issues"></div>
       <div class="form-sec">Ultimi invii</div>
       <div id="maestro-runs"><p class="empty" style="text-align:left">Nessun invio ricevuto finora.</p></div>
     </div>
@@ -319,6 +322,16 @@
 
   // ---- Collegamento Maestro (agente sul PC, Edge Function maestro-sync) ------
   function fmtDateTime(iso){ return iso ? new Date(iso).toLocaleString('it-IT', { dateStyle:'short', timeStyle:'short' }) : '—'; }
+  const IMPORT_LABEL = { ddt:'DDT', fatture_cliente:'fatture', note_credito:'note di credito', ordini_cliente:'ordini clienti',
+    ordini_fornitore:'ordini fornitori', preventivi:'preventivi', fatture_fornitore:'fatture fornitori', note_credito_fornitore:'note di credito fornitori' };
+  function importSummary(rep){
+    if(rep.errore) return 'Errore: ' + rep.errore;
+    const parts = Object.entries(rep.importati || {}).map(([k, n]) => `${n} ${IMPORT_LABEL[k] || k}`);
+    const anag = (rep.nuove_anagrafiche || []).length;
+    return (parts.length ? 'importati ' + parts.join(', ') : 'nessun documento nuovo')
+      + (anag ? `, ${anag} nuove anagrafiche` : '')
+      + (rep.da_verificare ? `, ${rep.da_verificare} da verificare` : '');
+  }
   async function renderMaestro(){
     $('maestro-card').hidden = false;
     $('maestro-admin-area').hidden = !isAdmin;
@@ -330,12 +343,19 @@
       if(runs.length){
         $('maestro-runs').innerHTML = `<div class="table-scroll"><table class="elenco-table"><thead><tr><th>Quando</th><th>Archivio</th><th>Esito</th></tr></thead><tbody>${runs.map(r => {
           const rep = r.report || {};
-          const esito = r.stato === 'ok'
+          const esito = r.tabella === 'IMPORT' ? importSummary(rep)
+            : r.stato === 'ok'
             ? (rep.nuovi || rep.modificati ? `${rep.nuovi || 0} nuovi, ${rep.modificati || 0} modificati` : 'nessuna novità')
             : r.stato === 'errore' ? 'Errore: ' + (rep.errore || '') : 'in corso…';
-          return `<tr><td>${esc(fmtDateTime(r.created_at))}</td><td>${esc(r.tabella)}</td><td>${esc(esito)}</td></tr>`;
+          return `<tr><td>${esc(fmtDateTime(r.created_at))}</td><td>${esc(r.tabella === 'IMPORT' ? 'Import documenti' : r.tabella)}</td><td>${esc(esito)}</td></tr>`;
         }).join('')}</tbody></table></div>`;
       }
+      const lastImport = runs.find(r => r.tabella === 'IMPORT');
+      if(lastImport) $('maestro-import').textContent = `Ultimo import: ${fmtDateTime(lastImport.created_at)} — ${importSummary(lastImport.report || {})}.`;
+      const issues = await store.listMaestroImportIssues(companyId).catch(() => []);
+      $('maestro-issues').innerHTML = !issues.length ? '' : `<p style="margin:0 0 8px"><b>Da verificare (${issues.length})</b>: documenti di Maestro non importati per non creare doppioni. Si sistemano da soli al prossimo invio quando il gestionale viene corretto.</p>
+        <div class="table-scroll"><table class="elenco-table"><thead><tr><th>Documento</th><th>Data</th><th>Controparte</th><th>Motivo</th></tr></thead><tbody>${issues.map(i =>
+          `<tr><td>${esc(i.doc_num || '')}</td><td>${esc(i.data ? new Date(i.data).toLocaleDateString('it-IT') : '')}</td><td>${esc(i.controparte || '')}</td><td>${esc(i.motivo || '')}</td></tr>`).join('')}</tbody></table></div>`;
     }catch(err){
       $('maestro-status').textContent = 'Stato non disponibile: ' + (err.message || err);
     }

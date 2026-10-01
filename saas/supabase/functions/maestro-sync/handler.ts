@@ -23,6 +23,8 @@ export type Deps = {
   upsert: (rows: Row[]) => Promise<void>;
   startRun: (companyId: string, tabella: string, meta: Record<string, unknown>) => Promise<string>;
   finishRun: (runId: string, stato: 'ok' | 'errore', report: Record<string, unknown>) => Promise<void>;
+  // Porta nei documenti del gestionale ciò che è cambiato (maestro_import).
+  importDocuments?: (companyId: string) => Promise<Record<string, unknown>>;
 };
 
 export async function sha256hex(data: Uint8Array | string): Promise<string> {
@@ -90,7 +92,14 @@ export function createMaestroSyncHandler(deps: Deps) {
       for (let i = 0; i < rows.length; i += BATCH) await deps.upsert(rows.slice(i, i + BATCH));
       const report = { tabella, record: records.length, nuovi, modificati, invariati: records.length - nuovi - modificati };
       await deps.finishRun(runId, 'ok', report);
-      return json({ ok: true, ...report });
+      // L'import gira solo se il file ha portato novità; un suo errore non fa
+      // fallire l'invio: i record restano salvati e il giro dopo riprova.
+      let importReport: Record<string, unknown> | undefined;
+      if (deps.importDocuments && rows.length) {
+        try { importReport = await deps.importDocuments(companyId); }
+        catch (err) { importReport = { errore: err instanceof Error ? err.message : String(err) }; }
+      }
+      return json({ ok: true, ...report, ...(importReport ? { import: importReport } : {}) });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await deps.finishRun(runId, 'errore', { tabella, errore: message });

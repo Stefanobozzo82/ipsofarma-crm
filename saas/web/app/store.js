@@ -208,6 +208,14 @@
     if (error) throw error;
     return data;
   }
+  // Documenti di Maestro che l'import (migration 0039) non ha potuto portare
+  // nel gestionale: numeri già usati, numerazioni diverse, righe in arrivo.
+  async function listMaestroImportIssues(companyId) {
+    const { data, error } = await client().from('maestro_import_log').select('tabella,esito,doc_num,data,controparte,motivo')
+      .eq('company_id', companyId).in('esito', ['conflitto', 'in_attesa']).order('data', { ascending: false }).limit(200);
+    if (error) throw error;
+    return data;
+  }
 
   async function listInvites(companyId) {
     const { data, error } = await client().from('invites').select('*')
@@ -900,7 +908,7 @@
     peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, createCustomerInvoice,
     createSupplierDdt, createStandaloneSupplierDdt, changeSupplierDdt, createSupplierInvoice, mutateInvoicePayment, saveCreditNote, cancelCreditNote,
     getCompany, loadPlans, startCheckout, openBillingPortal, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
-    createMaestroSyncKey, maestroSyncStatus, listMaestroSyncRuns,
+    createMaestroSyncKey, maestroSyncStatus, listMaestroSyncRuns, listMaestroImportIssues,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,
     addMovimento, giacenzeForProdotti, listGiacenze, listMovimentiRecenti,

@@ -6,8 +6,12 @@ pianificazione ogni ora (vedi installa.bat). Ad ogni avvio:
   1. guarda i file dati di Maestro elencati sotto (documenti, righe,
      anagrafiche) nella cartella indicata in maestro-agent.config.json;
   2. per quelli cambiati dall'ultimo invio (data di modifica o dimensione),
-     li legge senza bloccarli — Maestro può restare aperto —, li comprime
-     e li invia al gestionale (Edge Function maestro-sync);
+     ne fa una copia in memoria in pochi millisecondi e li chiude subito —
+     Maestro può restare aperto —, poi li comprime e li invia al gestionale
+     (Edge Function maestro-sync). Un file modificato da Maestro negli
+     ultimi minuti si salta e si riprende al giro dopo: se Maestro ci sta
+     lavorando, l'agente non gli fa trovare l'archivio occupato ("Table is
+     busy");
   3. termina. Nessuna finestra, nessuna domanda.
 
 Il gestionale riconosce l'azienda dalla chiave di sincronizzazione (creata
@@ -39,17 +43,33 @@ function Write-Log([string]$msg) {
   }
 }
 
-# Legge un file anche se Maestro lo tiene aperto (FileShare.ReadWrite) e lo
-# restituisce compresso gzip.
-function Read-Gzip([string]$path) {
-  $in = [System.IO.File]::Open($path, 'Open', 'Read', 'ReadWrite')
+# Secondi senza modifiche prima di leggere un file: Maestro ci sta lavorando.
+$QUIETE_SECONDI = 120
+
+# Copia il file in memoria anche se Maestro lo tiene aperto (FileShare
+# ReadWrite + Delete) e lo chiude subito: l'archivio resta aperto solo il
+# tempo della copia, la compressione avviene dopo, a file già chiuso.
+function Read-Snapshot([string]$path) {
+  $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+  $in = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
   try {
-    $mem = New-Object System.IO.MemoryStream
-    $gz = New-Object System.IO.Compression.GZipStream($mem, [System.IO.Compression.CompressionMode]::Compress, $true)
-    $in.CopyTo($gz)
-    $gz.Dispose()
-    return $mem.ToArray()
+    $mem = New-Object System.IO.MemoryStream ([int]$in.Length)
+    $in.CopyTo($mem, 1048576)
+    return ,$mem.ToArray()
   } finally { $in.Dispose() }
+}
+
+function Compress-Gzip([byte[]]$bytes) {
+  $mem = New-Object System.IO.MemoryStream
+  $gz = New-Object System.IO.Compression.GZipStream($mem, [System.IO.Compression.CompressionMode]::Compress, $true)
+  $gz.Write($bytes, 0, $bytes.Length)
+  $gz.Dispose()
+  return ,$mem.ToArray()
+}
+
+function Test-InUso([string]$path) {
+  if (-not (Test-Path $path)) { return $false }
+  return ((Get-Date).ToUniversalTime() - (Get-Item $path).LastWriteTimeUtc).TotalSeconds -lt $QUIETE_SECONDI
 }
 
 function Get-Firma([string]$path) {
@@ -68,9 +88,13 @@ function Send-Tabella($cfg, [string]$tabella, [string]$dbf, [string]$dbt) {
   $form.Add((New-Object System.Net.Http.StringContent($tabella)), 'tabella')
   $form.Add((New-Object System.Net.Http.StringContent((Get-Item $dbf).LastWriteTime.ToString('s'))), 'modificato')
   $form.Add((New-Object System.Net.Http.StringContent("$env:COMPUTERNAME")), 'agente')
-  $form.Add((New-Object System.Net.Http.ByteArrayContent(,(Read-Gzip $dbf))), 'dbf', "$tabella.DBF.gz")
-  if ($dbt -and (Test-Path $dbt)) {
-    $form.Add((New-Object System.Net.Http.ByteArrayContent(,(Read-Gzip $dbt))), 'dbt', "$tabella.DBT.gz")
+  # Prima le copie (DBF e memo uno dopo l'altro), poi la compressione.
+  $datiDbf = Read-Snapshot $dbf
+  $datiDbt = $null
+  if ($dbt -and (Test-Path $dbt)) { $datiDbt = Read-Snapshot $dbt }
+  $form.Add((New-Object System.Net.Http.ByteArrayContent(,(Compress-Gzip $datiDbf))), 'dbf', "$tabella.DBF.gz")
+  if ($datiDbt) {
+    $form.Add((New-Object System.Net.Http.ByteArrayContent(,(Compress-Gzip $datiDbt))), 'dbt', "$tabella.DBT.gz")
   }
   try {
     $resp = $client.PostAsync($cfg.url, $form).GetAwaiter().GetResult()
@@ -79,6 +103,12 @@ function Send-Tabella($cfg, [string]$tabella, [string]$dbf, [string]$dbt) {
     return $body
   } finally { $client.Dispose() }
 }
+
+# Un solo agente alla volta: se l'avvio precedente è ancora in corso, si esce.
+$mutex = New-Object System.Threading.Mutex($false, 'Global\IpsofarmaMaestroAgent')
+$haLock = $false
+try { $haLock = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $haLock = $true }
+if (-not $haLock) { exit 0 }
 
 try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -100,6 +130,10 @@ try {
     $firmaMemo = Get-Firma $dbt
     $firmaTot = "$firma/$firmaMemo"
     if ($state[$t] -eq $firmaTot) { continue }
+    if ((Test-InUso $dbf) -or (Test-InUso $dbt)) {
+      Write-Log "$t in uso in Maestro: lo invio al prossimo giro."
+      continue
+    }
     try {
       $esito = Send-Tabella $cfg $t $dbf $dbt
       $state[$t] = $firmaTot
@@ -114,4 +148,7 @@ try {
 } catch {
   Write-Log "ERRORE: $($_.Exception.Message)"
   exit 1
+} finally {
+  if ($haLock) { $mutex.ReleaseMutex() }
+  $mutex.Dispose()
 }

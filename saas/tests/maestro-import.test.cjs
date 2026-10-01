@@ -5,7 +5,7 @@ const { createMaestroSyncHandler, sha256hex } = require('../supabase/functions/m
 const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, users, companies, chiave = 0;
-before(async () => { db = await database(39); ({ users, companies } = await seedTenants(db)); });
+before(async () => { db = await database(40); ({ users, companies } = await seedTenants(db)); });
 after(async () => { if (db) await db.close(); });
 
 // Un record di Maestro come lo salva maestro-sync (chiave = posizione nel file).
@@ -159,4 +159,37 @@ test('the sync endpoint runs the import only when a file brought changes, and an
   const res = await send();
   assert.equal(res.ok, true);
   assert.deepEqual(res.import, { errore: 'boom' });
+});
+
+test('numbers Maestro has twice get the CRM -2 suffix, duplicate parties match by content, and counters continue after the last number', async () => {
+  const cliente = (await uno("select id from clienti where company_id=$1 and piva='01234567890'", [companies.A])).id;
+  // Anagrafica doppia nel gestionale (senza P.IVA) usata per l'ordine 70-2.
+  const doppio = (await uno("insert into clienti(company_id,nome) values($1,'Clinica Uno per immagini') returning id", [companies.A])).id;
+  await db.query(`insert into ordini_cliente(company_id,num,data,cliente_id,righe) values
+    ($1,'OC/2026/0070','2026-09-01',$2,'[{"cod":"C001","qty":1,"prezzo":10,"sconto":""}]'),
+    ($1,'OC/2026/0070-2','2026-06-30',$3,'[{"cod":"C005","qty":3,"prezzo":20,"sconto":""}]')`, [companies.A, cliente, doppio]);
+  await db.query("insert into document_counters(company_id,doc_type,anno,next_value) values($1,'DDT',2026,3) on conflict (company_id,doc_type,anno) do update set next_value=3", [companies.A]);
+
+  // Maestro ha due ordini 70 e due DDT 12 (numeri doppi nel suo archivio).
+  for (const [reg, cod, qty, prezzo] of [[50, 'C001', 1, 10], [51, 'C005', 3, 20]]) {
+    await record('ORDINICL', { NUMREG: reg, TIPO: 'L', NUMFAT: 70, DATAFAT: '01/09/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 1 });
+    await record('ARCART_L', riga(reg, cod, qty, prezzo));
+  }
+  for (const reg of [52, 53]) {
+    await record('BOLLE', { NUMREG: reg, TIPO: 'B', NUMFAT: 12, DATAFAT: '15/09/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: reg });
+    await record('ARCART_B', riga(reg, 'C00' + (reg - 50), 1, reg));
+  }
+
+  const report = await importa();
+  assert.deepEqual(report.importati, { ddt: 2 });
+  const log = Object.fromEntries((await db.query('select numreg, esito, doc_num from maestro_import_log where company_id=$1 and numreg between 50 and 53', [companies.A])).rows.map(r => [r.numreg, r]));
+  assert.deepEqual([log[50].esito, log[50].doc_num], ['presente', 'OC/2026/0070']);
+  assert.deepEqual([log[51].esito, log[51].doc_num], ['presente', 'OC/2026/0070-2']);
+  assert.deepEqual([log[52].doc_num, log[53].doc_num], ['DDT/2026/0012', 'DDT/2026/0012-2']);
+
+  const counters = Object.fromEntries((await db.query('select doc_type, next_value from document_counters where company_id=$1 and anno=2026', [companies.A])).rows.map(r => [r.doc_type, r.next_value]));
+  assert.equal(counters.DDT, 13);
+  assert.equal(counters.FT, 6);
+  assert.equal(counters.OC, 71);
+  assert.equal(counters.PREV, 2);
 });

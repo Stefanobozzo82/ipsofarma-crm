@@ -82,7 +82,7 @@ function Send-Tabella($cfg, [string]$tabella, [string]$dbf, [string]$dbt) {
 
 try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  if (-not (Test-Path $configPath)) { throw "Manca $configPath: esegui di nuovo installa.bat." }
+  if (-not (Test-Path $configPath)) { throw "Manca ${configPath}: esegui di nuovo installa.bat." }
   $cfg = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
   if (-not (Test-Path $cfg.cartella)) { throw "Cartella dati di Maestro non trovata: $($cfg.cartella)" }
 

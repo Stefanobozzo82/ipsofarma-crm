@@ -5,7 +5,7 @@ const { createMaestroSyncHandler, sha256hex } = require('../supabase/functions/m
 const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, users, companies, chiave = 0;
-before(async () => { db = await database(43); ({ users, companies } = await seedTenants(db)); });
+before(async () => { db = await database(44); ({ users, companies } = await seedTenants(db)); });
 after(async () => { if (db) await db.close(); });
 
 // Un record di Maestro come lo salva maestro-sync (chiave = posizione nel file).
@@ -251,4 +251,28 @@ test('orders fulfilled in Maestro are fulfilled in the CRM too, row by row, neve
   const oc = await uno("select righe from ordini_cliente where company_id=$1 and num='OC/2026/0095'", [companies.A]);
   assert.deepEqual(oc.righe.map(r => r.qtyEv), [5, 3, undefined]);
   assert.equal((await importa()).ordini_evasi, 0);
+});
+
+test('DDTs from Maestro are linked to their customer order through the order reference, like DDTs created from the order', async () => {
+  const cliente = (await uno("select id from clienti where company_id=$1 and piva='01234567890'", [companies.A])).id;
+  const ann = 'ORDINE 418 DEL 21/09/2026';
+  await record('ORDINICL', { NUMREG: 110, TIPO: 'L', NUMFAT: 110, DATAFAT: '21/09/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 1, ANNOTAZ: ann });
+  await record('ARCART_L', riga(110, 'C007', 4, 10, { EVASI: 4 }));
+  await record('ARCART_L', riga(110, 'C008', 2, 10));
+  // Altro ordine dello stesso cliente con gli stessi articoli: non va scelto.
+  await record('ORDINICL', { NUMREG: 111, TIPO: 'L', NUMFAT: 111, DATAFAT: '22/09/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 1, ANNOTAZ: 'ORDINE 500' });
+  await record('ARCART_L', riga(111, 'C007', 4, 10));
+  await record('BOLLE', { NUMREG: 112, TIPO: 'B', NUMFAT: 112, DATAFAT: '25/09/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 40, ANNOTAZ: ann, NRIFPERBOL: 113 });
+  await record('ARCART_B', riga(112, 'C007', 4, 10));
+  await record('VENDITE', { NUMREG: 113, TIPO: 'S', NUMFAT: 112, DATAFAT: '25/09/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 48.8 });
+
+  const report = await importa();
+  assert.equal(report.ddt_collegati, 1);
+  const oc = await uno("select id, extra from ordini_cliente where company_id=$1 and num='OC/2026/0110'", [companies.A]);
+  const ddt = await uno("select oc_id, righe from ddt where company_id=$1 and num='DDT/2026/0112'", [companies.A]);
+  assert.equal(ddt.oc_id, oc.id);
+  assert.equal(ddt.righe[0].source_order_index, 0);
+  assert.deepEqual([oc.extra.ddtIds, oc.extra.ftIds], [['DDT/2026/0112'], ['FT/2026/0112']]);
+  assert.equal((await uno("select oc_id from fatture_cliente where company_id=$1 and num='FT/2026/0112'", [companies.A])).oc_id, oc.id);
+  assert.equal((await importa()).ddt_collegati, 0);
 });

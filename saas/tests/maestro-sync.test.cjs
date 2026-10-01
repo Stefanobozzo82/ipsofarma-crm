@@ -173,6 +173,9 @@ test('the downloadable agent zip matches the agent sources and only sends tables
   const tables = ps.slice(ps.indexOf('$TABELLE = @('), ps.indexOf(')', ps.indexOf('$TABELLE = @('))).match(/'([A-Z_]+)'/g).map(s => s.slice(1, -1));
   assert.ok(tables.length >= 10);
   for (const t of tables) assert.ok(TABELLE_AMMESSE.has(t), `${t} non è accettata dalla funzione`);
+  // "$nome: testo" dentro una stringa PowerShell viene letto come variabile
+  // con ambito (es. $env:X) e rende lo script non avviabile: è successo davvero.
+  assert.doesNotMatch(ps, /"[^"\n]*\$(?!env:)[A-Za-z_]+:/, 'usa ${nome}: dentro le stringhe PowerShell');
   const bat = fs.readFileSync(path.join(dir, 'installa.bat'), 'utf8');
   assert.match(bat, /\r\n/, 'installa.bat deve avere fine riga CRLF');
   assert.match(bat, /functions\/v1\/maestro-sync/);

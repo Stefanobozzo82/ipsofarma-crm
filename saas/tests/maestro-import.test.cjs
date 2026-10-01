@@ -5,7 +5,7 @@ const { createMaestroSyncHandler, sha256hex } = require('../supabase/functions/m
 const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, users, companies, chiave = 0;
-before(async () => { db = await database(40); ({ users, companies } = await seedTenants(db)); });
+before(async () => { db = await database(41); ({ users, companies } = await seedTenants(db)); });
 after(async () => { if (db) await db.close(); });
 
 // Un record di Maestro come lo salva maestro-sync (chiave = posizione nel file).
@@ -192,4 +192,29 @@ test('numbers Maestro has twice get the CRM -2 suffix, duplicate parties match b
   assert.equal(counters.FT, 6);
   assert.equal(counters.OC, 71);
   assert.equal(counters.PREV, 2);
+});
+
+test('invoices collected in Maestro get the actual payment date, without touching payments already recorded in the CRM', async () => {
+  const cliente = (await uno("select id from clienti where company_id=$1 and piva='01234567890'", [companies.A])).id;
+  const righe = JSON.stringify([{ cod: 'C001', qty: 1, prezzo: 100, sconto: '' }]);
+  await db.query("insert into fatture_cliente(company_id,num,data,cliente_id,righe) values($1,'FT/2026/0080','2026-07-22',$2,$3)", [companies.A, cliente, righe]);
+  await db.query(`insert into fatture_cliente(company_id,num,data,cliente_id,righe,paid,paid_date,pagamenti) values
+    ($1,'FT/2026/0081','2026-07-23',$2,$3,true,'2026-08-01','[{"data":"2026-08-01","importo":122}]')`, [companies.A, cliente, righe]);
+  // In Maestro: rata saldata, DRATA1 è diventata la data dell'incasso (scadenza era il 21/08).
+  const incassata = { TIPO: 'S', DATAFAT: '22/07/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 122,
+    LRATA1: true, SRATA1: true, DRATA1: '2026-08-05', PRATA1: 122, PSALDO: 100, PAGATO: false };
+  await record('VENDITE', { ...incassata, NUMREG: 80, NUMFAT: 80 });
+  await record('VENDITE', { ...incassata, NUMREG: 81, NUMFAT: 81, DATAFAT: '23/07/2026', DRATA1: '2026-08-09' });
+
+  const report = await importa();
+  assert.equal(report.incassi, 1);
+  const f80 = await uno("select paid, paid_date, pagamenti from fatture_cliente where company_id=$1 and num='FT/2026/0080'", [companies.A]);
+  assert.equal(f80.paid, true);
+  assert.equal(f80.paid_date.toISOString().slice(0, 10), '2026-08-05');
+  assert.deepEqual(f80.pagamenti, [{ data: '2026-08-05', importo: 122 }]);
+  const f81 = await uno("select paid_date, pagamenti from fatture_cliente where company_id=$1 and num='FT/2026/0081'", [companies.A]);
+  assert.deepEqual(f81.pagamenti, [{ data: '2026-08-01', importo: 122 }]);
+  assert.equal((await uno("select count(*)::int n from invoice_payment_operations where company_id=$1 and action='maestro_sync'", [companies.A])).n, 1);
+
+  assert.equal((await importa()).incassi, 0);
 });

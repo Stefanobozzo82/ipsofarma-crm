@@ -5,7 +5,7 @@ const { createMaestroSyncHandler, sha256hex } = require('../supabase/functions/m
 const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, users, companies, chiave = 0;
-before(async () => { db = await database(41); ({ users, companies } = await seedTenants(db)); });
+before(async () => { db = await database(42); ({ users, companies } = await seedTenants(db)); });
 after(async () => { if (db) await db.close(); });
 
 // Un record di Maestro come lo salva maestro-sync (chiave = posizione nel file).
@@ -217,4 +217,22 @@ test('invoices collected in Maestro get the actual payment date, without touchin
   assert.equal((await uno("select count(*)::int n from invoice_payment_operations where company_id=$1 and action='maestro_sync'", [companies.A])).n, 1);
 
   assert.equal((await importa()).incassi, 0);
+});
+
+test('a Maestro credit note kept as a negative invoice is closed too, and VAT rounding cents do not leave a paid invoice open', async () => {
+  const forn = (await uno("select id from fornitori where company_id=$1 and piva='05555555555'", [companies.A])).id;
+  await db.query(`insert into fatture_fornitore(company_id,num,data,fornitore_id,righe) values
+    ($1,'NC-90','2026-06-30',$2,'[{"cod":"C001","qty":1,"prezzo":-46.8,"iva":22,"sconto":""}]'),
+    ($1,'FT-91','2026-02-26',$2,'[{"cod":"C001","qty":3,"prezzo":33.33,"iva":22,"sconto":""}]')`, [companies.A, forn]);
+  const base = { DATAFAT: '30/06/2026', NUMFOR: '3', FORNITORE: 'Nuovo Fornitore SpA', PIVACF: '05555555555', LRATA1: true, SRATA1: true, PSALDO: 100 };
+  await record('ACQUISTI', { ...base, NUMREG: 90, TIPO: 'N', NUMERO: 'NC-90', TOTALE: 57.1, PRATA1: 57.1, DRATA1: '2026-09-25' });
+  await record('ACQUISTI', { ...base, NUMREG: 91, TIPO: 'F', NUMERO: 'FT-91', DATAFAT: '26/02/2026', TOTALE: 122, PRATA1: 122, DRATA1: '2026-03-31' });
+
+  await importa();
+  const nc = await uno("select paid, pagamenti from fatture_fornitore where company_id=$1 and num='NC-90'", [companies.A]);
+  assert.equal(nc.paid, true);
+  assert.deepEqual(nc.pagamenti, [{ data: '2026-09-25', importo: -57.1 }]);
+  const ft = await uno("select paid, pagamenti, invoice_gross_total(righe)::float tot from fatture_fornitore where company_id=$1 and num='FT-91'", [companies.A]);
+  assert.equal(ft.paid, true);
+  assert.equal(ft.pagamenti[0].importo, ft.tot);
 });

@@ -5,7 +5,7 @@ const { createMaestroSyncHandler, sha256hex } = require('../supabase/functions/m
 const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, users, companies, chiave = 0;
-before(async () => { db = await database(42); ({ users, companies } = await seedTenants(db)); });
+before(async () => { db = await database(43); ({ users, companies } = await seedTenants(db)); });
 after(async () => { if (db) await db.close(); });
 
 // Un record di Maestro come lo salva maestro-sync (chiave = posizione nel file).
@@ -235,4 +235,20 @@ test('a Maestro credit note kept as a negative invoice is closed too, and VAT ro
   const ft = await uno("select paid, pagamenti, invoice_gross_total(righe)::float tot from fatture_fornitore where company_id=$1 and num='FT-91'", [companies.A]);
   assert.equal(ft.paid, true);
   assert.equal(ft.pagamenti[0].importo, ft.tot);
+});
+
+test('orders fulfilled in Maestro are fulfilled in the CRM too, row by row, never lowering what the CRM already recorded', async () => {
+  const cliente = (await uno("select id from clienti where company_id=$1 and piva='01234567890'", [companies.A])).id;
+  await db.query(`insert into ordini_cliente(company_id,num,data,cliente_id,righe) values ($1,'OC/2026/0095','2026-09-20',$2,
+    '[{"cod":"C001","qty":5,"prezzo":10,"sconto":""},{"cod":"C002","qty":3,"prezzo":10,"sconto":"","qtyEv":3},{"cod":"C001","qty":2,"prezzo":10,"sconto":""}]')`, [companies.A, cliente]);
+  await record('ORDINICL', { NUMREG: 95, TIPO: 'L', NUMFAT: 95, DATAFAT: '20/09/2026', NUMCLI: '7', CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 1 });
+  await record('ARCART_L', riga(95, 'C001', 5, 10, { EVASI: 5 }));
+  await record('ARCART_L', riga(95, 'C002', 3, 10, { EVASI: 1 }));
+  await record('ARCART_L', riga(95, 'C001', 2, 10, { EVASI: 0 }));
+
+  const report = await importa();
+  assert.equal(report.ordini_evasi, 1);
+  const oc = await uno("select righe from ordini_cliente where company_id=$1 and num='OC/2026/0095'", [companies.A]);
+  assert.deepEqual(oc.righe.map(r => r.qtyEv), [5, 3, undefined]);
+  assert.equal((await importa()).ordini_evasi, 0);
 });

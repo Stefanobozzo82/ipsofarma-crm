@@ -5,7 +5,7 @@ const { createMaestroSyncHandler, sha256hex } = require('../supabase/functions/m
 const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, users, companies, chiave = 0;
-before(async () => { db = await database(44); ({ users, companies } = await seedTenants(db)); });
+before(async () => { db = await database(45); ({ users, companies } = await seedTenants(db)); });
 after(async () => { if (db) await db.close(); });
 
 // Un record di Maestro come lo salva maestro-sync (chiave = posizione nel file).
@@ -275,4 +275,39 @@ test('DDTs from Maestro are linked to their customer order through the order ref
   assert.deepEqual([oc.extra.ddtIds, oc.extra.ftIds], [['DDT/2026/0112'], ['FT/2026/0112']]);
   assert.equal((await uno("select oc_id from fatture_cliente where company_id=$1 and num='FT/2026/0112'", [companies.A])).oc_id, oc.id);
   assert.equal((await importa()).ddt_collegati, 0);
+});
+
+test('supplier invoices get Maestro articles instead of a generic line, and are linked to their supplier order, itself linked to the customer order', async () => {
+  const forn = (await uno("select id from fornitori where company_id=$1 and piva='05555555555'", [companies.A])).id;
+  const cliente = (await uno("select id from clienti where company_id=$1 and piva='01234567890'", [companies.A])).id;
+  await db.query(`insert into ordini_cliente(company_id,num,data,cliente_id,righe) values ($1,'OC/2026/0120','2026-09-01',$2,
+    '[{"cod":"K1","qty":6,"prezzo":20,"sconto":""},{"cod":"K2","qty":2,"prezzo":20,"sconto":""}]')`, [companies.A, cliente]);
+  // Ordine fornitore per quell'ordine cliente, fatturato in due volte; uno più vecchio con K1 già fatturato.
+  await db.query(`insert into ordini_fornitore(company_id,num,data,fornitore_id,righe) values
+    ($1,'OF/2026/0120','2026-09-02',$2,'[{"cod":"K1","qty":6,"prezzo":10,"sconto":""},{"cod":"K2","qty":2,"prezzo":10,"sconto":""}]'),
+    ($1,'OF/2026/0119','2026-08-01',$2,'[{"cod":"K1","qty":4,"prezzo":10,"sconto":""}]')`, [companies.A, forn]);
+  const of119 = (await uno("select id from ordini_fornitore where company_id=$1 and num='OF/2026/0119'", [companies.A])).id;
+  await db.query(`insert into fatture_fornitore(company_id,num,data,fornitore_id,of_id,righe) values
+    ($1,'F-118','2026-08-05',$2,$3,'[{"cod":"K1","qty":4,"prezzo":10,"iva":22,"sconto":""}]'),
+    ($1,'F-121','2026-09-05',$2,null,'[{"cod":"VARIE","qty":1,"prezzo":40,"iva":22,"descr":"Acquisto dispositivi medici"}]'),
+    ($1,'F-122','2026-09-08',$2,null,'[{"cod":"K1","qty":2,"prezzo":10,"iva":22,"sconto":""},{"cod":"K2","qty":2,"prezzo":10,"iva":22,"sconto":""}]')`, [companies.A, forn, of119]);
+  const base = { TIPO: 'F', NUMFOR: '3', FORNITORE: 'Nuovo Fornitore SpA', PIVACF: '05555555555', TOTALE: 1 };
+  await record('ACQUISTI', { ...base, NUMREG: 121, NUMERO: 'F-121', DATAFAT: '05/09/2026' });
+  await record('ARCART_A', riga(121, 'K1', 4, 10));
+  await record('ACQUISTI', { ...base, NUMREG: 122, NUMERO: 'F-122', DATAFAT: '08/09/2026' });
+  await record('ARCART_A', riga(122, 'K1', 2, 10));
+  await record('ARCART_A', riga(122, 'K2', 2, 10));
+
+  const report = await importa();
+  assert.deepEqual(report.fornitori, { righe_fatture_fornitori: 1, fatture_fornitori_collegate: 2, ordini_fornitori_collegati: 1 });
+  const f121 = await uno("select righe, of_id from fatture_fornitore where company_id=$1 and num='F-121'", [companies.A]);
+  assert.deepEqual(f121.righe.map(r => [r.cod, r.qty]), [['K1', 4]]);
+  const of120 = await uno("select id, ftf_ids, extra from ordini_fornitore where company_id=$1 and num='OF/2026/0120'", [companies.A]);
+  assert.equal(f121.of_id, of120.id);
+  assert.deepEqual(of120.ftf_ids, ['F-121', 'F-122']);
+  assert.equal(of120.extra.ocId, 'OC/2026/0120');
+  assert.deepEqual((await uno("select extra from ordini_cliente where company_id=$1 and num='OC/2026/0120'", [companies.A])).extra.ofIds, ['OF/2026/0120']);
+  // Collegamento fatto a mano: non si tocca.
+  assert.equal((await uno("select of_id from fatture_fornitore where company_id=$1 and num='F-118'", [companies.A])).of_id, of119);
+  assert.deepEqual((await importa()).fornitori, { righe_fatture_fornitori: 0, fatture_fornitori_collegate: 0, ordini_fornitori_collegati: 0 });
 });

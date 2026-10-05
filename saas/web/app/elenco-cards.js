@@ -27,10 +27,23 @@
     return (text || '').replace(/[↑↓]\s*$/, '').trim();
   }
 
+  const AMOUNT_RE = /^(?:-?\s?€\s?-?[\d.]+(?:,\d+)?|-?[\d.]+(?:,\d+)?\s?€)$/;
+
   function labelizeTable(table) {
     const heads = Array.from(table.querySelectorAll(':scope > thead > tr > th'));
     if (heads.length === 0) return;
     const labels = heads.map(th => cleanLabel(th.textContent));
+    // Colonne di importi in euro: allineate a destra (theme.css, .is-amount)
+    // così le cifre si incolonnano. Una colonna lo è se tutte le sue celle
+    // non vuote sono un importo ("1.234,56 €" o "€ 12").
+    const rows = Array.from(table.querySelectorAll(':scope > tbody > tr')).filter(tr => tr.children.length === heads.length);
+    const amountCols = new Set();
+    heads.forEach((th, i) => {
+      const vals = rows.map(tr => tr.children[i].textContent.trim()).filter(Boolean);
+      const isAmount = vals.length > 0 && vals.every(v => AMOUNT_RE.test(v));
+      th.classList.toggle('is-amount', isAmount);
+      if (isAmount) amountCols.add(i);
+    });
     table.querySelectorAll(':scope > tbody > tr').forEach(tr => {
       const cells = Array.from(tr.children);
       // Una riga con un'unica cella a colspan pieno è uno stato di
@@ -40,6 +53,7 @@
       if (cells.length === 1 && cells[0].hasAttribute('colspan')) return;
       cells.forEach((td, i) => {
         if (labels[i]) td.setAttribute('data-label', labels[i]);
+        td.classList.toggle('is-amount', amountCols.has(i));
         // Una cella "vuota" nella tabella desktop (es. td.actions quando la
         // riga non è selezionata, vedi fatture/ordini/...) in realtà non è
         // mai davvero vuota nell'HTML generato: il template lascia spazi o

@@ -1,5 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 /* ============================================================================
    theme.css — sistema di design condiviso da tutte le pagine del prodotto.
+
+   Direzione grafica "registro clinico" (ottobre 2026): Ipsofarma distribuisce
+   suture e dispositivi medici, e chi usa il gestionale legge tutto il giorno
+   importi, codici, lotti e scadenze. Quindi: un solo carattere tecnico e
+   leggibile (IBM Plex Sans) con le cifre incolonnate al posto del
+   monospazio per gli importi; il verde Ipsofarma più profondo e sobrio;
+   etichette in tondo minuscolo, non in maiuscolo spaziato; separazione con
+   lo spazio e con filetti sottili invece che con ombre su ogni riquadro.
+   L'unico elemento "forte" è il registro dei totali in dashboard.
 
    Stessa identità grafica del gestionale Ipsofarma esistente (index.html) di
    base — accento verde, badge colorati, font di sistema, numeri in
@@ -24,21 +34,21 @@
  * sempre scuro): quelli restano fissi, cambiare tema non li deve toccare.
  */
 :root{
-  --side:#ffffff; --side2:#f4f6f8; --side-active:#eef2f6; --side-active-txt:#0b855d;
-  --side-txt:#1b2531; --side-muted:#5f6b7a; --side-line:#e5e9ee;
-  --bg:#f4f6f8; --surface:#ffffff; --surface2:#fafbfc;
-  --border:#e5e9ee; --border2:#d6dce3;
-  --txt:#1b2531; --muted:#5f6b7a; --faint:#9aa5b2;
-  --accent:#0ea371; --accent-d:#0b855d; --accent-soft:#0ea3711a;
+  --side:#eef2f0; --side2:#e4eae7; --side-active:#ffffff; --side-active-txt:#0a6249;
+  --side-txt:#17211d; --side-muted:#5e6b66; --side-line:#dde5e1;
+  --bg:#f6f8f7; --surface:#ffffff; --surface2:#f4f7f5;
+  --border:#e1e7e4; --border2:#cdd6d2;
+  --txt:#17211d; --muted:#5e6b66; --faint:#7f8b86;
+  --accent:#0e7a5a; --accent-d:#0a6249; --accent-soft:#0e7a5a14; --on-accent:#ffffff;
   --blue:#2f7fe0; --blue-s:#2f7fe016;
   --amber:#cd8b1f; --amber-s:#cd8b1f1c;
   --violet:#7c5cd6; --violet-s:#7c5cd616;
   --gray:#7a8696; --gray-s:#7a86961a;
   --red:#d85c54; --red-s:#d85c541a; --red-border:#e9c6c3;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
-  --sh: 0 1px 2px #1b25310a, 0 1px 3px #1b25310f;
-  --sh-lg: 0 10px 24px #1b25311f;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sh: 0 1px 0 #17211d08;
+  --sh-lg: 0 12px 28px #17211d24, 0 2px 6px #17211d14;
   --sidebar-w: 236px;
   /* Il grafico della dashboard (SVG disegnato a mano in dashboard.html)
    * legge questi valori via JS a ogni render: le linee guida e le
@@ -47,24 +57,24 @@
    * fissi — sono abbastanza saturi da leggersi bene su sfondo sia
    * chiaro che scuro, e cambiarli avrebbe rotto la fedeltà col grafico
    * del gestionale originale senza un vero bisogno. */
-  --chart-grid:#e5e9ee; --chart-axis:#9aa5b2; --chart-label:#5f6b7a; --chart-dot:#ffffff;
+  --chart-grid:#e1e7e4; --chart-axis:#7f8b86; --chart-label:#5e6b66; --chart-dot:#ffffff;
   color-scheme: light;
 }
 :root[data-theme="dark"]{
-  --side:#141a21; --side2:#1b222b; --side-active:#242e3a; --side-active-txt:#ffffff;
-  --side-txt:#d7dee6; --side-muted:#8b96a3; --side-line:#262f3b;
-  --bg:#0e1116; --surface:#171c23; --surface2:#1d232b;
-  --border:#262f3b; --border2:#333e4a;
-  --txt:#e7ecf1; --muted:#98a3b0; --faint:#6c7683;
-  --accent:#17c98c; --accent-d:#12a877; --accent-soft:#17c98c29;
+  --side:#121916; --side2:#19221e; --side-active:#1f2a25; --side-active-txt:#e4ebe7;
+  --side-txt:#d4ddd8; --side-muted:#8e9c95; --side-line:#24302b;
+  --bg:#0f1513; --surface:#161e1b; --surface2:#1b2521;
+  --border:#26322d; --border2:#33413b;
+  --txt:#e4ebe7; --muted:#9aa8a1; --faint:#748079;
+  --accent:#3db88c; --accent-d:#5cc9a1; --accent-soft:#3db88c24; --on-accent:#08140f;
   --blue:#5b9bf0; --blue-s:#5b9bf029;
   --amber:#e3a84a; --amber-s:#e3a84a29;
   --violet:#a68af0; --violet-s:#a68af029;
   --gray:#96a1ad; --gray-s:#96a1ad29;
   --red:#f0837a; --red-s:#f0837a29; --red-border:#5a3630;
-  --sh: 0 1px 2px #00000050, 0 2px 10px #00000040;
-  --sh-lg: 0 10px 24px #00000060;
-  --chart-grid:#262f3b; --chart-axis:#6c7683; --chart-label:#98a3b0; --chart-dot:#171c23;
+  --sh: none;
+  --sh-lg: 0 12px 28px #00000070;
+  --chart-grid:#26322d; --chart-axis:#748079; --chart-label:#9aa8a1; --chart-dot:#161e1b;
   color-scheme: dark;
 }
 
@@ -77,6 +87,7 @@ body{
   font-family:var(--sans);
   font-size:clamp(14px, 0.25vw + 12.4px, 16px);
   line-height:1.5;
+  font-feature-settings:"tnum" 1;
   -webkit-font-smoothing:antialiased;
   /* Rete di sicurezza: se un blocco (es. .dash-period sotto, con lo
      storico ora fino a 19 anni) sfora la larghezza dello schermo invece di
@@ -118,15 +129,16 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
 .sidebar .brand{ display:flex; align-items:center; gap:10px; padding:16px 16px 14px; }
 .sidebar .brand .mark{
   width:30px; height:30px; flex:0 0 auto; border-radius:7px;
-  background:linear-gradient(135deg,#16c98c,#0c8a5e);
-  display:grid; place-items:center; color:#04231a; font-weight:800; font-size:15px;
+  background:var(--accent);
+  display:grid; place-items:center; color:var(--on-accent); font-weight:700; font-size:15px;
 }
 .sidebar .brand .nm{ font-weight:700; font-size:14.5px; letter-spacing:.2px; line-height:1.3; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .sidebar .brand .nm small{ display:block; font-weight:400; font-size:10.5px; color:var(--side-muted); letter-spacing:.3px; }
 
 .sidebar nav{ flex:1; padding:6px 10px; }
 .sidebar .navgroup{ margin-top:6px; }
-.sidebar .navgroup .label{ font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--side-muted); padding:5px 10px 3px; margin:0; font-weight:700; }
+.sidebar .navgroup{ margin-top:14px; }
+.sidebar .navgroup .label{ font-size:12px; color:var(--side-muted); padding:4px 10px 4px; margin:0; font-weight:600; }
 .sidebar a.navlink{
   display:flex; align-items:center; gap:10px;
   padding:7px 10px; margin-bottom:1px; border-radius:7px;
@@ -134,12 +146,14 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
   transition:background .12s, color .12s;
 }
 .sidebar a.navlink:hover{ background:var(--side2); }
-.sidebar a.navlink.on{ background:var(--side-active); color:var(--side-active-txt); font-weight:600; }
-.sidebar a.navlink .ic{ width:18px; text-align:center; opacity:.85; font-size:15px; flex:0 0 auto; }
+.sidebar a.navlink.on{ background:var(--side-active); color:var(--side-active-txt); font-weight:600; box-shadow:0 0 0 1px var(--side-line); }
+.sidebar a.navlink .ic{ width:18px; height:18px; display:grid; place-items:center; color:var(--side-muted); font-size:15px; flex:0 0 auto; }
+.sidebar a.navlink.on .ic{ color:var(--accent); }
+.ic svg{ width:18px; height:18px; display:block; }
 .overdue-badge{ display:inline-block; background:var(--red); color:#fff; border-radius:10px; font-size:11px; font-weight:700; padding:1px 6px; margin-left:5px; vertical-align:middle; line-height:1.4; }
 
 .sidebar .account{ padding:12px 16px; border-top:1px solid var(--side-line); font-size:10.5px; color:var(--side-muted); }
-.sidebar .account .email{ font-family:var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 8px; }
+.sidebar .account .email{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 8px; }
 .sidebar .account-links{ display:flex; gap:12px; flex-wrap:wrap; }
 .sidebar .account-links a, .sidebar .account-links button{
   font-size:11.5px; color:var(--side-muted); background:none; border:none; cursor:pointer; padding:0; font-family:var(--sans);
@@ -159,7 +173,8 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
   .sidebar{
     position:fixed; left:0; top:0; bottom:0; height:100vh; z-index:40;
     transform:translateX(-100%); transition:transform .22s ease;
-    box-shadow:0 0 40px rgba(0,0,0,.35);
+    /* L'ombra solo a cassetto aperto: da chiuso sbordava sul lato
+       sinistro della pagina come una striscia grigia. */
     /* La barra in basso (.mobile-bottombar, z-index:41 — sopra apposta,
        vedi il commento lì sotto) copre la fascia finale dello schermo
        anche a cassetto aperto: senza questo margine, "Esci"/"Cambia
@@ -168,7 +183,7 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
        scopo in .app-main qui sotto. */
     padding-bottom:calc(78px + env(safe-area-inset-bottom));
   }
-  .sidebar.open{ transform:translateX(0); }
+  .sidebar.open{ transform:translateX(0); box-shadow:0 0 40px rgba(0,0,0,.35); }
   /* Barra fissa in fondo allo schermo — 4 destinazioni + "Altro" (apre lo
      stesso cassetto di sempre), sempre raggiungibile col pollice senza
      dover allungare la mano in cima. z-index più alto del cassetto
@@ -189,6 +204,7 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
     font-family:inherit; cursor:pointer;
   }
   .mobile-bottombar .ic{ font-size:19px; line-height:1; }
+  .mobile-bottombar .ic svg{ width:21px; height:21px; }
   .mobile-bottombar a.on, .mobile-bottombar button.on{ color:var(--accent-d); }
   .app-main{ padding:20px 14px calc(78px + env(safe-area-inset-bottom)); }
 
@@ -247,7 +263,7 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
    * testo anche nella tabella desktop — restano senza etichetta davanti. */
   table.elenco-table td[data-label]::before{
     content:attr(data-label); text-align:left; flex:0 0 auto;
-    font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; font-weight:700; color:var(--faint);
+    font-size:12px; font-weight:500; color:var(--muted);
   }
   /* Casella di selezione: essendo la prima cella della riga, resta in cima
    * alla scheda invece che una riga a sé — solo allineata a destra. */
@@ -300,22 +316,39 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
 
 .stats{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; margin-bottom:14px; }
 @media (max-width:680px){ .stats{ grid-template-columns:1fr; } }
-.stat{ background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:16px 18px; box-shadow:var(--sh); text-decoration:none; display:block; color:inherit; }
-a.stat{ transition:transform .12s, box-shadow .12s, border-color .12s; }
-a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shadow:0 6px 18px #1b25311c; }
-.stat .sl{ font-size:11.5px; color:var(--muted); font-weight:600; }
-.stat .sv{ font-size:25px; font-weight:700; font-family:var(--mono); margin-top:8px; letter-spacing:-.5px; }
-.stat .sx{ font-size:11px; color:var(--faint); margin-top:3px; }
+.stat{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 20px; text-decoration:none; display:block; color:inherit; }
+a.stat{ transition:background-color .12s, border-color .12s; }
+a.stat:hover{ border-color:var(--border2); background:var(--surface2); }
+.stat .sl{ font-size:13px; color:var(--muted); font-weight:500; display:flex; align-items:center; gap:8px; }
+.stat .sl i{ width:8px; height:8px; border-radius:2px; flex:0 0 auto; background:var(--dot, var(--faint)); }
+.stat .sv{ font-size:26px; font-weight:600; margin-top:6px; letter-spacing:-.4px; font-variant-numeric:tabular-nums; color:var(--txt); }
+.stat .sx{ font-size:12px; color:var(--faint); margin-top:2px; }
+
+/* Registro dei totali in dashboard: le sei cifre in un unico pannello
+   diviso da filetti, come le colonne di un registro, invece di sei
+   riquadri uguali con la loro ombra. Il colore resta solo nel quadratino
+   accanto all'etichetta (lo stesso della legenda del grafico). */
+.ledger{ background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:16px; overflow:hidden; }
+.ledger .stats{ gap:0; margin:0; }
+.ledger .stats + .stats{ border-top:1px solid var(--border); }
+.ledger .stat{ border:none; border-radius:0; padding:20px 24px 18px; background:none; }
+.ledger .stat + .stat{ border-left:1px solid var(--border); }
+.ledger a.stat:hover{ background:var(--surface2); }
+.ledger .stats:first-child .stat .sv{ font-size:34px; letter-spacing:-.8px; }
+@media (max-width:680px){
+  .ledger .stat + .stat{ border-left:none; border-top:1px solid var(--border); }
+  .ledger .stats:first-child .stat .sv{ font-size:28px; }
+}
 /* Riquadro-statistica cliccabile ma non un link (es. il toggle "Prodotti in
    arrivo" in evadere.html, porta diretta di .stat-go/.stat-active del
    gestionale originale) — stessa interazione hover di a.stat, con uno stato
    "attivo" quando il filtro è applicato. */
 .stat.stat-go{ cursor:pointer; transition:transform .12s, box-shadow .12s, border-color .12s; }
-.stat.stat-go:hover{ border-color:var(--border2); transform:translateY(-2px); box-shadow:0 6px 18px #1b25311c; }
+.stat.stat-go:hover{ border-color:var(--border2); background:var(--surface2); }
 .stat.stat-active{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft) inset; }
 
-.panel{ background:var(--surface); border:1px solid var(--border); border-radius:11px; box-shadow:var(--sh); }
-.panel-h{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:14px 18px; border-bottom:1px solid var(--border); font-weight:700; font-size:13px; }
+.panel{ background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+.panel-h{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:14px 20px; border-bottom:1px solid var(--border); font-weight:600; font-size:14px; }
 .legend{ margin-left:auto; display:flex; gap:14px; }
 /* .lg è un <button> (dashboard.html: click per includere/escludere quella
    serie dal grafico) invece di un semplice <span> — resetta gli stili di
@@ -336,19 +369,19 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 @keyframes barGrow{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
 .chart-wrap .cbar{ transform-box:fill-box; transform-origin:bottom; animation:barGrow .45s cubic-bezier(.22,1,.36,1) backwards; }
 .hit{ fill:transparent; pointer-events:all; cursor:pointer; }
-.hit:hover{ fill:rgba(14,163,113,.07); }
-.hit.act{ fill:rgba(14,163,113,.10); }
+.hit:hover{ fill:rgba(14,122,90,.06); }
+.hit.act{ fill:rgba(14,122,90,.10); }
 .chart-tip{
-  position:absolute; z-index:6; pointer-events:none; background:#1f2733; color:#fff; border-radius:9px;
+  position:absolute; z-index:6; pointer-events:none; background:#17211d; color:#fff; border-radius:8px;
   padding:9px 11px; font-size:11.5px; line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,.28);
   transform:translate(-50%,-100%); white-space:nowrap; opacity:0; display:none; min-width:150px;
 }
 .chart-tip.show{ opacity:1; display:block; }
-.chart-tip .ct-m{ font-weight:700; margin-bottom:4px; font-size:10.5px; letter-spacing:.4px; text-transform:uppercase; color:#cfd6df; }
+.chart-tip .ct-m{ font-weight:600; margin-bottom:4px; font-size:12px; color:#c9d3ce; }
 .chart-tip .ct-r{ display:flex; align-items:center; gap:10px; justify-content:space-between; }
 .chart-tip .ct-r span{ display:flex; align-items:center; gap:6px; }
 .chart-tip .ct-r i{ width:8px; height:8px; border-radius:2px; display:inline-block; }
-.chart-tip .ct-r b{ font-family:var(--mono); }
+.chart-tip .ct-r b{ font-variant-numeric:tabular-nums; }
 .chart-tip .ct-mg{ border-top:1px solid rgba(255,255,255,.16); margin-top:4px; padding-top:4px; }
 
 /* Storico prezzi al passaggio del mouse sul codice di un prodotto (nella
@@ -361,29 +394,29 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
    colori fissi (scuro su entrambi i temi) di .chart-tip: un tooltip resta
    leggibile allo stesso modo qualunque sia il tema della pagina sotto. */
 .price-hist-tip{
-  position:fixed; z-index:400; pointer-events:none; background:#1f2733; color:#fff; border-radius:9px;
+  position:fixed; z-index:400; pointer-events:none; background:#17211d; color:#fff; border-radius:8px;
   padding:10px 12px; font-size:11.5px; line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,.32);
   opacity:0; display:none; min-width:190px; max-width:260px;
 }
 .price-hist-tip.show{ opacity:1; display:block; }
-.price-hist-tip .pht-h{ font-weight:700; margin-bottom:6px; font-size:10.5px; letter-spacing:.4px; text-transform:uppercase; color:#cfd6df; }
+.price-hist-tip .pht-h{ font-weight:600; margin-bottom:6px; font-size:12px; color:#c9d3ce; }
 .price-hist-tip .pht-r{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:3px 0; }
 .price-hist-tip .pht-r+.pht-r{ border-top:1px solid rgba(255,255,255,.12); }
 .price-hist-tip .pht-r span{ color:#cfd6df; font-size:10.5px; }
-.price-hist-tip .pht-r b{ font-family:var(--mono); white-space:nowrap; }
+.price-hist-tip .pht-r b{ font-variant-numeric:tabular-nums; white-space:nowrap; }
 
 /* ---------------------------------------------------------------------------
    Componenti condivisi dal contenuto delle pagine
 --------------------------------------------------------------------------- */
-.page-head{ margin-bottom:16px; }
-.page-head h2{ font-size:18px; margin:0 0 4px; font-weight:700; color:var(--txt); }
-.page-head .sub{ color:var(--faint); font-size:12.5px; margin:0; }
+.page-head{ margin-bottom:20px; }
+.page-head h2{ font-size:24px; line-height:1.25; margin:0 0 4px; font-weight:600; letter-spacing:-.3px; color:var(--txt); text-wrap:balance; }
+.page-head .sub{ color:var(--muted); font-size:13.5px; margin:0; }
 
-.card{ background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:20px; box-shadow:var(--sh); }
+.card{ background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 22px; }
 .card + .card{ margin-top:16px; }
 
 .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
-.toolbar h3{ font-size:13px; margin:0; font-weight:700; color:var(--txt); }
+.toolbar h3{ font-size:15px; margin:0; font-weight:600; color:var(--txt); }
 .toolbar-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 
 /* Ricerca testuale sopra un elenco: stessa idea della ricerca prodotti del
@@ -391,7 +424,7 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
  * per gli elenchi di anagrafiche/documenti dove nell'originale il filtro
  * testuale su Q esisteva ma senza un campo dedicato in ogni pagina. */
 .search-box{ position:relative; }
-.search-box input{ width:210px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:7px 11px 7px 30px; font-size:13px; color:var(--txt); font-family:inherit; }
+.search-box input{ width:240px; background:var(--surface); border:1px solid var(--border2); border-radius:7px; padding:7px 11px 7px 30px; font-size:13.5px; color:var(--txt); font-family:inherit; }
 .search-box input:focus{ outline:none; border-color:var(--accent); background:var(--surface); }
 .search-box .si{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--faint); font-size:13px; pointer-events:none; }
 @media(max-width:680px){ .search-box input{ width:140px; } }
@@ -399,7 +432,7 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
 /* Barra dei filtri (fornitore, stato, intervallo date) sopra un elenco
  * documenti — porta diretta della .filterbar del gestionale originale. */
 .filterbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
-.filterbar select, .filterbar input[type=date]{ width:auto; font-size:12.5px; padding:7px 10px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--txt); font-family:inherit; box-shadow:var(--sh); }
+.filterbar select, .filterbar input[type=date]{ width:auto; font-size:13px; padding:7px 10px; border:1px solid var(--border2); border-radius:7px; background:var(--surface); color:var(--txt); font-family:inherit; }
 .filterbar .fdate-group{ display:flex; gap:8px; flex-wrap:nowrap; align-items:center; }
 /* margin:0 esplicito: la regola generica "label:first-of-type{margin-top:0}"
  * (pensata per un form con le etichette impilate verticalmente) azzera il
@@ -410,8 +443,8 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
  * visibilmente rispetto a "Dal" (segnalato dall'utente: "la casella AL è
  * più bassa di quella DAL"). Qui il margine non serve mai: sono etichette
  * inline in una riga flex, non campi impilati. */
-.filterbar .fdate{ display:flex; align-items:center; gap:6px; font-size:11px; text-transform:uppercase; letter-spacing:.3px; color:var(--faint); font-weight:700; margin:0; }
-.filterbar .ffclear{ font-size:12px; padding:7px 12px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--muted); cursor:pointer; font-weight:600; font-family:inherit; }
+.filterbar .fdate{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); font-weight:500; margin:0; }
+.filterbar .ffclear{ font-size:13px; padding:7px 12px; border:1px solid var(--border2); border-radius:7px; background:var(--surface); color:var(--muted); cursor:pointer; font-weight:600; font-family:inherit; }
 .filterbar .ffclear:hover{ background:var(--surface2); color:var(--txt); }
 
 /* Selezione multipla e azioni collettive — stessa idea del gestionale
@@ -423,23 +456,23 @@ a.stat:hover{ border-color:var(--border2); transform:translateY(-2px); box-shado
  * un riquadro verde tenue, non un blocco a sé di colore diverso. */
 .check-col{ width:34px; text-align:center !important; }
 .check-col input[type=checkbox]{ width:16px; height:16px; cursor:pointer; accent-color:var(--accent); }
-.bulkbar{ display:flex; align-items:center; gap:9px; background:var(--accent-soft); color:var(--accent-d); border:1px solid var(--accent); border-radius:10px; padding:9px 14px; margin-bottom:12px; font-size:13px; font-weight:600; box-shadow:var(--sh); flex-wrap:wrap; }
+.bulkbar{ display:flex; align-items:center; gap:9px; background:var(--accent-soft); color:var(--accent-d); border:1px solid var(--accent); border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:13.5px; font-weight:600; flex-wrap:wrap; }
 .bulkbar .sp{ flex:1; }
 /* Avanzamento dell'esportazione multipla (app/bulk-export.js). */
 .bulk-export-status{ font-weight:500; font-size:12.5px; }
 .bulkbar button{ font-size:12.5px; padding:6px 12px; border-radius:7px; border:1px solid var(--accent); background:var(--surface); color:var(--accent-d); cursor:pointer; font-weight:600; font-family:inherit; }
-.bulkbar button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.bulkbar button.primary{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
 .bulkbar button:hover{ background:var(--surface2); }
 .bulkbar button.primary:hover{ background:var(--accent-d); }
 
-button.primary{ padding:7px 15px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); transition:background .14s ease, opacity .14s ease, transform .14s ease; }
+button.primary{ padding:8px 16px; border:1px solid var(--accent); border-radius:7px; background:var(--accent); color:var(--on-accent); font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .14s ease, opacity .14s ease, transform .14s ease; }
 button.primary:hover{ background:var(--accent-d); }
 button.primary:disabled{ opacity:.5; cursor:default; }
-button.ghost{ background:var(--surface); color:var(--txt); border:1px solid var(--border2); border-radius:8px; padding:7px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; box-shadow:var(--sh); }
+button.ghost{ background:var(--surface); color:var(--txt); border:1px solid var(--border2); border-radius:7px; padding:8px 16px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:inherit; }
 button.ghost:hover{ border-color:var(--faint); }
 button.ghost:disabled{ opacity:.5; cursor:default; }
 button.ghost:disabled:hover{ border-color:var(--border2); }
-button.linklike{ background:none; border:none; color:var(--accent-d); cursor:pointer; font-size:13px; text-decoration:underline; padding:0; font-family:inherit; }
+button.linklike{ background:none; border:none; color:var(--accent-d); cursor:pointer; font-size:13.5px; text-decoration:underline; padding:0; font-family:inherit; }
 /* Pulsante "← Torna all'elenco" in cima al form di un documento: quando è
  * aperto, l'elenco sotto si nasconde (vedi openForm()/closeForm() nei
  * moduli documento) e questo è l'unico modo per tornarci — niente
@@ -466,8 +499,11 @@ button.linklike.back-link:hover{ text-decoration:underline; }
 .dl-list button{ all:unset; box-sizing:border-box; width:100%; padding:8px 10px; border-radius:6px; font-size:13px; color:var(--txt); cursor:pointer; font-family:inherit; }
 .dl-list button:hover{ background:var(--surface2); }
 
-table{ width:100%; border-collapse:collapse; font-size:13px; }
-th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--faint); font-weight:700; padding:11px 14px; border-bottom:1px solid var(--border); background:var(--surface2); white-space:nowrap; }
+table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+th{ text-align:left; font-size:12.5px; color:var(--muted); font-weight:600; padding:9px 14px; border-bottom:1px solid var(--border2); background:var(--surface); white-space:nowrap; }
+/* Colonne di importi (marcate da app/elenco-cards.js leggendo il
+   contenuto): a destra, così le cifre si incolonnano. */
+th.is-amount, td.is-amount{ text-align:right; }
 /* Intestazioni ordinabili (elenco clienti, ordini, fatture...): stesso
    comportamento del gestionale originale — un clic ordina, un secondo clic
    inverte la direzione, la colonna attiva si evidenzia col colore
@@ -484,18 +520,21 @@ th.thsort.on{ color:var(--accent-d); }
 .col-resize-handle::after{ content:''; position:absolute; right:4px; top:22%; bottom:22%; width:2px; border-radius:2px; background:var(--border2); transition:background .12s; }
 th:hover .col-resize-handle::after{ background:var(--faint); }
 .col-resize-handle:hover::after, .col-resize-handle.active::after{ background:var(--accent-d) !important; }
-td{ padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
+td{ padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
 tbody tr:last-child td{ border-bottom:none; }
 tbody tr:hover{ background:var(--surface2); }
 /* Righe di un elenco documento: l'intera riga apre il documento (come
  * cliccare "Modifica"), non solo il numero — che era già colorato come
  * un link ma, prima di questa aggiunta, non faceva nulla al clic. */
 tbody tr.row-click{ cursor:pointer; }
-td.num-col{ font-family:var(--mono); font-weight:600; color:var(--accent-d); font-size:12.5px; }
+td.num-col{ font-weight:500; color:var(--txt); font-variant-numeric:tabular-nums; white-space:nowrap; }
+/* Il numero del documento (prima colonna dopo la spunta): è il "link"
+   della riga, in verde; gli altri valori numerici restano in inchiostro. */
+td.check-col + td.num-col, tr > td.num-col:first-child{ color:var(--accent-d); font-weight:600; }
 td.actions{ text-align:right; white-space:nowrap; }
 td.actions button{
-  background:var(--surface); border:1px solid var(--border2); border-radius:7px; color:var(--txt);
-  cursor:pointer; font-size:12px; font-weight:600; margin-left:8px; padding:5px 10px; font-family:inherit;
+  background:var(--surface); border:1px solid var(--border2); border-radius:6px; color:var(--txt);
+  cursor:pointer; font-size:12.5px; font-weight:600; margin-left:8px; padding:5px 10px; font-family:inherit;
 }
 td.actions button:hover{ border-color:var(--faint); }
 td.actions button.danger{ color:var(--red); border-color:var(--red-border); }
@@ -511,13 +550,17 @@ button.ghost.danger:hover{ background:var(--red-s); border-color:var(--red); }
    con lo storico importato) supera il limite di righe disegnate a video. */
 .list-cap-notice{ color:var(--muted); font-size:12.5px; padding:9px 2px; margin:0 0 8px; }
 
-label{ display:block; font-size:11.5px; color:var(--muted); margin:12px 0 4px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+label{ display:block; font-size:13px; color:var(--muted); margin:14px 0 5px; font-weight:500; }
 label:first-of-type{ margin-top:0; }
+/* Nelle griglie a due colonne ogni campo ha il suo <div>, quindi la sua
+   etichetta è sempre "la prima": senza questo restava attaccata al campo
+   della riga sopra. */
+.grid2 > div > label:first-child{ margin-top:14px; }
 input, select, textarea{
-  width:100%; padding:9px 11px; border:1px solid var(--border2); border-radius:8px;
-  background:var(--surface); color:var(--txt); font-size:13.5px; font-family:inherit;
+  width:100%; padding:9px 11px; border:1px solid var(--border2); border-radius:7px;
+  background:var(--surface); color:var(--txt); font-size:14px; font-family:inherit;
 }
-input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); }
+input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
 @media (max-width:520px){ .grid2{ grid-template-columns:1fr; } }
 .grid3{ display:grid; grid-template-columns:1fr 1.4fr 72px; gap:0 12px; }
@@ -525,8 +568,8 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 
 /* Sezione "Destinazioni di consegna" nel form cliente — porta diretta di
  * .dest-card/.dest-empty/.form-sec dell'originale. */
-.form-sec{ font-size:11px; text-transform:uppercase; letter-spacing:.7px; color:var(--accent-d); font-weight:700; margin:20px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
-.form-sec .hint{ font-weight:400; color:var(--faint); font-size:10.5px; text-transform:none; letter-spacing:0; }
+.form-sec{ font-size:15px; color:var(--txt); font-weight:600; margin:26px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+.form-sec .hint{ font-weight:400; color:var(--faint); font-size:12.5px; }
 .dest-card{ border:1px solid var(--border2); border-radius:9px; padding:12px; margin-bottom:10px; background:var(--surface2); }
 .dest-card input{ width:100%; background:var(--surface); border:1px solid var(--border2); color:var(--txt); padding:8px 10px; border-radius:7px; font-size:13px; font-family:inherit; margin-bottom:8px; box-sizing:border-box; }
 .dest-card input:focus{ outline:none; border-color:var(--accent); }
@@ -546,7 +589,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .sugg-item:hover, .sugg-item.active{ background:var(--surface2); }
 .sugg-item .code{ flex-shrink:0; font-family:var(--mono); color:var(--blue); font-size:12px; }
 .sugg-d{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; color:var(--txt); }
-.sugg-pr{ margin-left:auto; font-family:var(--mono); color:var(--muted); flex-shrink:0; }
+.sugg-pr{ margin-left:auto; font-variant-numeric:tabular-nums; color:var(--muted); flex-shrink:0; }
 .sugg-empty{ padding:10px 12px; color:var(--faint); font-size:12px; }
 
 /* Stesso autocompletamento, ma dentro il campo "Codice" di una riga già
@@ -602,7 +645,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .pay-bar-fill{ height:100%; border-radius:4px; transition:width .2s ease; }
 .pay-row{ display:flex; align-items:center; gap:10px; padding:9px 18px; border-top:1px solid var(--border); font-size:13px; }
 .pay-row .pay-date{ color:var(--faint); min-width:88px; }
-.pay-row .pay-amt{ font-family:var(--mono); font-weight:600; color:var(--accent-d); }
+.pay-row .pay-amt{ font-variant-numeric:tabular-nums; font-weight:600; color:var(--accent-d); }
 .pay-row button{ margin-left:auto; background:none; border:none; color:var(--red); cursor:pointer; font-size:16px; line-height:1; padding:2px 6px; }
 .pay-form{ display:flex; gap:8px; align-items:center; padding:12px 18px; background:var(--surface2); border-top:1px solid var(--border); flex-wrap:wrap; }
 .pay-form input{ padding:7px 10px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--txt); font-family:inherit; font-size:13px; }
@@ -615,7 +658,8 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 .righe-table .drag-handle:active{ cursor:grabbing; }
 .righe-table tbody tr.dragging{ opacity:.4; }
 .righe-total{ text-align:right; font-size:13.5px; margin-top:8px; }
-.righe-total b{ font-variant-numeric:tabular-nums; font-family:var(--mono); }
+.righe-total{ font-size:15px; }
+.righe-total b{ font-variant-numeric:tabular-nums; font-weight:600; }
 
 /* Box "Documenti collegati" (app/lineage.js) — porta diretta delle stesse
  * classi dal vecchio gestionale: un diagramma a nodi cliccabili che mostra
@@ -624,12 +668,12 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
  * tratteggiato "— non generato" per i passaggi ancora mancanti. */
 .flow{ padding:18px; }
 .flow-row{ display:flex; align-items:center; gap:0; flex-wrap:wrap; }
-.fnode{ display:flex; flex-direction:column; gap:2px; border:1px solid var(--border2); background:var(--surface); border-radius:9px; padding:9px 13px; min-width:128px; cursor:pointer; box-shadow:var(--sh); }
+.fnode{ display:flex; flex-direction:column; gap:2px; border:1px solid var(--border2); background:var(--surface); border-radius:8px; padding:9px 13px; min-width:128px; cursor:pointer; }
 .fnode:hover{ border-color:var(--accent); }
 .fnode.cur{ border-color:var(--accent); background:var(--accent-soft); }
 .fnode.ghost{ border-style:dashed; background:var(--surface2); cursor:default; color:var(--faint); box-shadow:none; }
-.fnode .fl{ font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--faint); font-weight:700; }
-.fnode .fv{ font-family:var(--mono); font-size:12.5px; font-weight:600; color:var(--txt); }
+.fnode .fl{ font-size:12px; color:var(--muted); font-weight:500; }
+.fnode .fv{ font-size:13.5px; font-weight:600; color:var(--txt); font-variant-numeric:tabular-nums; }
 .fnode.ghost .fv{ color:var(--faint); }
 .farrow{ color:var(--faint); padding:0 12px; font-size:15px; }
 .fbranch{ display:flex; flex-direction:column; gap:12px; }
@@ -668,7 +712,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 @keyframes aiMicPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
 .ai-thread{ display:flex; flex-direction:column; gap:12px; }
 .ai-bubble{ max-width:80%; padding:10px 14px; border-radius:12px; font-size:13.5px; line-height:1.55; white-space:pre-wrap; }
-.ai-bubble.user{ align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:3px; }
+.ai-bubble.user{ align-self:flex-end; background:var(--accent); color:var(--on-accent); border-bottom-right-radius:3px; }
 .ai-bubble.assistant{ align-self:flex-start; background:var(--surface2); color:var(--txt); border:1px solid var(--border); border-bottom-left-radius:3px; }
 .ai-bubble.error{ align-self:flex-start; background:var(--red-s); color:var(--red); border:1px solid var(--red-border); }
 .ai-bubble.pending{ align-self:flex-start; color:var(--faint); font-style:italic; }
@@ -697,14 +741,14 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
 /* Badge/pill: stessa forma del gestionale originale — un pallino colorato
    più il testo, su uno sfondo tenue della stessa tinta, mai un colore
    pieno che gridi più forte del necessario in una lista. */
-.badge{ font-size:11px; padding:2px 9px; border-radius:20px; background:var(--gray-s); border:none; color:var(--gray); font-family:var(--sans); font-weight:600; }
+.badge{ font-size:12px; padding:2px 9px; border-radius:20px; background:var(--gray-s); border:none; color:var(--gray); font-family:var(--sans); font-weight:600; }
 /* Stato di evasione di un ordine (consegnato/ricevuto), vedi ordini.html e
  * ordini-fornitore.html — .ok quando è tutto evaso, .info per un residuo
  * parziale (il badge di default, grigio, resta per i riferimenti neutri
  * come "quale ordine ha generato questo documento"). */
 .badge.ok{ background:var(--accent-soft); color:var(--accent-d); }
 .badge.info{ background:var(--blue-s); color:var(--blue); }
-.pill{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; border:none; cursor:pointer; font-family:var(--sans); }
+.pill{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:3px 9px; border-radius:20px; border:none; cursor:pointer; font-family:var(--sans); }
 .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .pill.paid{ color:var(--accent-d); background:var(--accent-soft); }
 .pill.unpaid{ color:var(--amber); background:var(--amber-s); }
@@ -719,7 +763,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
    gestionale: segnala che prezzo/sconto sono stati ripresi
    dall'ultimo documento con quella controparte, non dal listino.
    Sparisce da sola se l'utente modifica prezzo o sconto a mano. */
-.lastp{ display:inline-block; margin-left:6px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--accent-d); background:var(--accent-soft); border-radius:4px; padding:1px 5px; vertical-align:middle; }
+.lastp{ display:inline-block; margin-left:6px; font-size:11px; font-weight:600; color:var(--accent-d); background:var(--accent-soft); border-radius:4px; padding:1px 5px; vertical-align:middle; }
 
 /* ---------------------------------------------------------------------------
    Micro-interazioni — richiesta: "un modo per rendere tutto più bello
@@ -770,7 +814,7 @@ input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--acce
  * l'aveva ancora. */
 button, .pill, a.navlink, select, input, textarea,
 .dest-card, .fnode, .ai-chip, .sugg-item, td.actions button, .bulkbar button,
-.dash-period a, .filterbar .ffclear, th.thsort, .stat, tbody tr{
+.dash-period a, .filterbar .ffclear, th.thsort, tbody tr{
   transition: background-color .14s ease, border-color .14s ease, color .14s ease, box-shadow .14s ease, opacity .14s ease, transform .14s ease;
 }
 /* tbody tr aveva già lo sfondo hover (tbody tr:hover) ma a scatto — non
@@ -795,7 +839,7 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
 @keyframes pageIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
 .app-main{ animation:pageIn .32s cubic-bezier(.22,1,.36,1) both; }
 
-::selection{ background:var(--accent-soft); }
+::selection{ background:#0e7a5a33; }
 
 /* Tour guidato al primo accesso (app/tour.js) — un'anteprima rapida della
  * sidebar, mostrata una sola volta per dispositivo. Il "buco" nel velo
@@ -805,7 +849,7 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
 .tour-curtain{ position:fixed; background:rgba(10,14,20,.6); z-index:9998; }
 .tour-spotlight{ outline:3px solid var(--accent); outline-offset:2px; border-radius:8px; }
 .tour-card{ position:fixed; z-index:10000; width:320px; max-width:calc(100vw - 24px); background:var(--surface); border:1px solid var(--border2); border-radius:14px; padding:18px 20px; box-shadow:var(--sh-lg); }
-.tour-step{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--accent-d); font-weight:700; margin-bottom:6px; }
+.tour-step{ font-size:12.5px; color:var(--accent-d); font-weight:600; margin-bottom:6px; }
 .tour-card h3{ margin:0 0 8px; font-size:16px; }
 .tour-card p{ margin:0 0 16px; font-size:13.5px; line-height:1.55; color:var(--muted); }
 .tour-actions{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }

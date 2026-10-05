@@ -506,7 +506,7 @@
     const allChecked = elenco.length > 0 && elenco.every(d => PICK.has(d.id));
     // Limita solo il DISEGNO della tabella, non l'elenco vero (usato sopra
     // e sotto per conteggi, check-all e azioni) — vedi app/list-cap.js.
-    const { shown: elencoShown, hidden: elencoHidden } = window.SaasListCap.capForRender(elenco);
+    const { shown: elencoShown, hidden: elencoHidden } = window.SaasListCap.capForRender(elenco, renderResults);
     area.innerHTML = window.SaasListCap.capNoticeHtml(elencoHidden) + `<div class="table-scroll"><table class="elenco-table"><thead><tr>
         <th class="check-col"><input type="checkbox" id="check-all" ${allChecked ? 'checked' : ''}></th>
         ${th('num','Numero')}${th('data','Data')}${th('cliente','Cliente')}${th('ordine','Ordine')}<th></th>

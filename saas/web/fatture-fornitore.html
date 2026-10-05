@@ -123,6 +123,7 @@
 <script src="app/elenco-cards.js"></script>
 <script src="app/list-cap.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
@@ -795,6 +796,7 @@
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'fatture-fornitore-elenco');
     window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'fattureFornitore', partyOf: d => fornitoriById[d.fornitoreId], getCompany: () => company },
       onSpecialRow: tr => { if(tr.dataset.nc !== '1') return false; openNCInOwnPage(tr.dataset.num); return true; } });
     area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
       togglePaid(elenco.find(x => x.id === btn.dataset.toggle));

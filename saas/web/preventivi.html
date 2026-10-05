@@ -98,6 +98,7 @@
 <script src="app/resize.js"></script>
 <script src="app/elenco-cards.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script>
   const $ = id => document.getElementById(id);
@@ -427,7 +428,8 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'preventivi-elenco');
-    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm });
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'preventivi', partyOf: d => clientiById[d.clienteId], getCompany: () => company } });
     area.querySelectorAll('[data-trasforma]').forEach(btn => btn.addEventListener('click', () => {
       trasformaInOrdine(elenco.find(x => x.id === btn.dataset.trasforma));
     }));

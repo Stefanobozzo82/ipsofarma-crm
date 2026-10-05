@@ -98,6 +98,7 @@
 <script src="app/resize.js"></script>
 <script src="app/elenco-cards.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/lineage.js"></script>
 <script>
@@ -358,7 +359,8 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'note-credito-elenco');
-    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm });
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'noteCredito', partyOf: d => clientiById[d.clienteId], getCompany: () => company } });
     area.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', async () => {
       const n = elenco.find(x => x.id === btn.dataset.del);
       if(n.annullato) return;

@@ -136,6 +136,7 @@
 <script src="app/elenco-cards.js"></script>
 <script src="app/list-cap.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
@@ -633,7 +634,8 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ordini-fornitore-elenco');
-    window.SaasDocPage.bindElenco(area, { elenco: ordini, pick: PICK, rerender: renderResults, setSort, openForm });
+    window.SaasDocPage.bindElenco(area, { elenco: ordini, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'ordiniFornitore', partyOf: d => fornitoriById[d.fornitoreId], getCompany: () => company } });
     area.querySelectorAll('[data-email]').forEach(btn => btn.addEventListener('click', () => {
       openEmailForm(ordini.find(x => x.id === btn.dataset.email));
     }));

@@ -128,6 +128,7 @@
 <script src="app/elenco-cards.js"></script>
 <script src="app/list-cap.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
@@ -795,6 +796,17 @@
   </FatturaElettronicaBody>
 </p:FatturaElettronica>`;
   }
+  // XML FatturaPA di una fattura con il suo nome file, o {error} se mancano
+  // dati obbligatori del cliente. Usata dal download del singolo documento
+  // e dall'esportazione multipla (app/bulk-export.js).
+  function fatturaPAXmlFile(ft){
+    const cli = clientiById[ft.clienteId] || {};
+    if(!cli.sdi && !cli.pec) return { error: 'manca il Codice Destinatario o la PEC del cliente' };
+    if(!cli.piva && !cli.cf) return { error: 'manca la Partita IVA o il Codice Fiscale del cliente' };
+    const xml = buildFatturaPAXml(ft, cli, company);
+    const piva = ((company && company.piva) || 'ITXXXXXXXXXXX').replace(/\D/g, '');
+    return { xml, filename: 'IT' + piva + '_' + String(ft.num || '').replace(/\W/g, '') + '.xml' };
+  }
   function downloadFatturaPAXml(ft){
     const cli = clientiById[ft.clienteId] || {};
     if(!cli.sdi && !cli.pec){
@@ -811,9 +823,7 @@
       alert('Manca la Partita IVA o il Codice Fiscale del cliente: aggiungilo alla scheda cliente prima di generare il file.');
       return;
     }
-    const xml = buildFatturaPAXml(ft, cli, company);
-    const piva = ((company && company.piva) || 'ITXXXXXXXXXXX').replace(/\D/g, '');
-    const filename = 'IT' + piva + '_' + String(ft.num || '').replace(/\W/g, '') + '.xml';
+    const { xml, filename } = fatturaPAXmlFile(ft);
     // Nell'app nativa Android (saas/mobile) un <a download> su un blob:
     // non ha alcun effetto (stesso discorso di downloadPDF/downloadExcel
     // in app/print.js) — window.AndroidDownload riceve l'XML come base64
@@ -932,6 +942,7 @@
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'fatture-elenco');
     window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'fattureCliente', partyOf: d => clientiById[d.clienteId], getCompany: () => company, xmlFile: fatturaPAXmlFile },
       onSpecialRow: tr => { if(tr.dataset.nc !== '1') return false; openNCInOwnPage(tr.dataset.num); return true; } });
     area.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
       togglePaid(elenco.find(x => x.id === btn.dataset.toggle));

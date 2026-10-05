@@ -111,6 +111,7 @@
 <script src="app/elenco-cards.js"></script>
 <script src="app/list-cap.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
@@ -524,7 +525,8 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ddt-elenco');
-    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm });
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'ddt', partyOf: d => clientiById[d.clienteId], getCompany: () => company } });
     area.querySelectorAll('[data-gen-ft]').forEach(btn => btn.addEventListener('click', () => {
       localStorage.setItem('saas_gen_ft_from_ddt', btn.dataset.genFt);
       location.href = 'fatture.html';

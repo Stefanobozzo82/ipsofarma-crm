@@ -145,6 +145,7 @@
 <script src="app/resize.js"></script>
 <script src="app/elenco-cards.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/ai-import.js"></script>
 <script src="app/import-menu.js"></script>
@@ -727,7 +728,8 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ordini-elenco');
-    window.SaasDocPage.bindElenco(area, { elenco: ordini, pick: PICK, rerender: renderResults, setSort, openForm });
+    window.SaasDocPage.bindElenco(area, { elenco: ordini, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'ordiniCliente', partyOf: d => clientiById[d.clienteId], getCompany: () => company } });
     area.querySelectorAll('[data-gen-ddt]').forEach(btn => btn.addEventListener('click', () => {
       generaDDT(ordini.find(x => x.id === btn.dataset.genDdt));
     }));

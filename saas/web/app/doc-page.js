@@ -282,6 +282,14 @@
       if(o.onSpecialRow && o.onSpecialRow(tr)) return;
       o.openForm(o.elenco.find(x => x.id === tr.dataset.id));
     }));
+    // "⬇ Esporta" per i documenti spuntati (app/bulk-export.js): o.export =
+    // { coll, partyOf, getCompany, xmlFile? }.
+    if(o.export && window.SaasBulkExport){
+      window.SaasBulkExport.attach(area, Object.assign({}, o.export, {
+        docs: o.elenco.filter(d => o.pick.has(d.id)),
+        deselect: () => { o.pick.clear(); o.rerender(); },
+      }));
+    }
   }
 
   // ---- form: stampa, documenti collegati -----------------------------------------

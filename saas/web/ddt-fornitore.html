@@ -139,6 +139,7 @@
 <script src="app/resize.js"></script>
 <script src="app/elenco-cards.js"></script>
 <script src="app/print.js"></script>
+<script src="app/bulk-export.js"></script>
 <script src="app/prodpicker.js"></script>
 <script src="app/cascade.js"></script>
 <script src="app/lineage.js"></script>
@@ -613,7 +614,8 @@
           </td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'ddt-fornitore-elenco');
-    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm });
+    window.SaasDocPage.bindElenco(area, { elenco, pick: PICK, rerender: renderResults, setSort, openForm,
+      export: { coll: 'ddtFornitore', partyOf: d => fornitoriById[d.fornitoreId], getCompany: () => company } });
     area.querySelectorAll('[data-gen-ft]').forEach(btn => btn.addEventListener('click', () => {
       localStorage.setItem('saas_gen_ftf_from_ddtf', btn.dataset.genFt);
       location.href = 'fatture-fornitore.html';

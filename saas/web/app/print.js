@@ -391,6 +391,11 @@
     list.addEventListener('click', e => { if (e.target.closest('button')) close(); });
   }
 
-  global.SaasPrint = { buildPrintHTML, openPrintWindow, downloadPDF, pdfBase64, downloadExcel, bindDownloadMenu };
+  // Totali di un documento (stessa aritmetica della stampa): usati
+  // dall'esportazione multipla in Excel (app/bulk-export.js).
+  function totals(righe) { return { imp: imp(righe), iva: ivaT(righe), tot: tot(righe) }; }
+
+  global.SaasPrint = { buildPrintHTML, openPrintWindow, downloadPDF, pdfBase64, downloadExcel, bindDownloadMenu,
+    loadXLSX, totals, FORN_COLLS };
 })(window);
 

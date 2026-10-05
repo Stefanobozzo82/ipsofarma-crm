@@ -890,7 +890,7 @@
     combined.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     // Limita solo il DISEGNO della tabella, non l'elenco vero (usato sotto
     // per conteggi e azioni di massa) — vedi app/list-cap.js.
-    const { shown: combinedShown, hidden: combinedHidden } = window.SaasListCap.capForRender(combined);
+    const { shown: combinedShown, hidden: combinedHidden } = window.SaasListCap.capForRender(combined, renderResults);
 
     // Barra delle azioni collettive: compare solo se c'è almeno una riga
     // selezionata (tra quelle attualmente visibili, come nell'originale).

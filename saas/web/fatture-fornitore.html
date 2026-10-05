@@ -750,7 +750,7 @@
     combined.sort((a, b) => sortCmp(sortVal(SORT.key, a), sortVal(SORT.key, b), SORT.dir));
     // Limita solo il DISEGNO della tabella, non l'elenco vero (usato sopra
     // e sotto per conteggi e azioni di massa) — vedi app/list-cap.js.
-    const { shown: combinedShown, hidden: combinedHidden } = window.SaasListCap.capForRender(combined);
+    const { shown: combinedShown, hidden: combinedHidden } = window.SaasListCap.capForRender(combined, renderResults);
 
     const selRows = elenco.filter(f => PICK.has(f.id));
     let bulkHtml = '';

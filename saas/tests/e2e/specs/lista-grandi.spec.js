@@ -1,9 +1,9 @@
 /* ============================================================================
  * lista-grandi.spec.js — app/list-cap.js: un elenco con più di 300 righe
- * disegna solo le prime 300 (con un avviso), invece di ricostruire
- * un'intera tabella enorme ad ogni tasto premuto nella ricerca — il fix di
- * prestazioni nato dall'import storico Maestro Gold (fatture cliente/ddt/
- * ordini fornitore passati da poche centinaia a migliaia di righe).
+ * disegna subito le prime 300, invece di ricostruire un'intera tabella
+ * enorme ad ogni tasto premuto nella ricerca — il fix di prestazioni nato
+ * dall'import storico Maestro Gold. Nessun documento resta nascosto: le
+ * altre righe compaiono scorrendo in fondo, o tutte con "Mostra tutte".
  *
  * I 305 ordini NON vengono scritti nel database: il piano di prova di
  * un'azienda nuova consente 50 documenti al mese (limite applicato lato
@@ -16,9 +16,9 @@ const { test, expect } = require('../helpers/testCompany');
 const { saveAndSeeRow, gotoList } = require('../helpers/docHelpers');
 
 const RENDER_CAP = 300;
-const TOTALE_RIGHE = RENDER_CAP + 5;
+const TOTALE_RIGHE = 2 * RENDER_CAP + 5;
 
-test('un elenco con più di 300 documenti mostra solo le prime 300 righe, con avviso', async ({ company }) => {
+test('un elenco con più di 300 documenti li mostra tutti: 300 subito, gli altri scorrendo o con "Mostra tutte"', async ({ company }) => {
   const { page, companyId } = company;
 
   await gotoList(page, '/fornitori.html');
@@ -51,6 +51,20 @@ test('un elenco con più di 300 documenti mostra solo le prime 300 righe, con av
   });
 
   await gotoList(page, '/ordini-fornitore.html');
-  await expect(page.locator('.list-cap-notice')).toContainText(`prime ${RENDER_CAP}`);
-  await expect(page.locator('#list-area tbody tr')).toHaveCount(RENDER_CAP);
+  const rows = page.locator('#list-area tbody tr');
+  await expect(page.locator('.list-cap-notice')).toContainText(`Mostrate ${RENDER_CAP} righe su ${TOTALE_RIGHE}`);
+  await expect(rows).toHaveCount(RENDER_CAP);
+
+  // Scorrendo in fondo arrivano altre 300 righe da sole.
+  await rows.last().scrollIntoViewIfNeeded();
+  await expect(rows).toHaveCount(2 * RENDER_CAP);
+
+  // "Mostra tutte" disegna anche le ultime, e l'avviso sparisce.
+  await page.click('[data-list-cap-all]');
+  await expect(rows).toHaveCount(TOTALE_RIGHE);
+  await expect(page.locator('.list-cap-notice')).toHaveCount(0);
+
+  // Le righe finte non esistono nel database: la pulizia finale dell'azienda
+  // di prova deve vedere quello vero, non provare a cancellarle una per una.
+  await page.unroute('**/rest/v1/ordini_fornitore?*');
 });

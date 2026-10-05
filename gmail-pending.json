@@ -1463,6 +1463,118 @@
         "totale": 754.5455999999999
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-05T09:36:53.466Z",
+      "msgId": "1a10b33ec582f6d4",
+      "file": "5718116415.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718116415",
+        "date": "2026-10-02",
+        "order_ref": "Rif.cliente Vs.ord. 235",
+        "lines": [
+          {
+            "cod": "C3090042",
+            "descr": "OPTILENE 2/0 (3) 75CM HR26 CV",
+            "qty": 6,
+            "prezzo": 2.5,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626122",
+            "scad": "2031-03-17"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 6,
+            "prezzo": 1.45,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624NN",
+            "scad": "2031-06-13"
+          }
+        ],
+        "totale": 28.914
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-05T09:36:53.466Z",
+      "msgId": "1a10b33ab1becb3a",
+      "file": "5718116414.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718116414",
+        "date": "2026-10-02",
+        "order_ref": "Rif.cliente Vs.ord. 234",
+        "lines": [
+          {
+            "cod": "C3046536",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 45CM D",
+            "qty": 6,
+            "prezzo": 2.82667,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126243",
+            "scad": "2031-06-10"
+          },
+          {
+            "cod": "G0058715",
+            "descr": "NOVOSYN VIOLA 3/0 (2) 250CM AR",
+            "qty": 10,
+            "prezzo": 1.98,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126261",
+            "scad": "2031-06-22"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 8,
+            "prezzo": 1.45,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624NN",
+            "scad": "2031-06-13"
+          },
+          {
+            "cod": "C0068052N1",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 70CM HR3",
+            "qty": 6,
+            "prezzo": 1.65,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "363437",
+            "scad": "2031-08-19"
+          },
+          {
+            "cod": "C0762482",
+            "descr": "SILKAM NERO 0 (3.5) 75CM DS30",
+            "qty": 6,
+            "prezzo": 29.16,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626235,626236",
+            "scad": "2031-06-05,2031-06-06"
+          }
+        ],
+        "totale": 284.5284244
+      },
+      "src": "Gmail"
     }
   ]
 }

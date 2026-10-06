@@ -204,9 +204,9 @@
       <td style="min-width:90px"><input class="r-lotto" type="text" value="${esc(r.lotto || '')}" placeholder="lotto"></td>
       <td style="min-width:130px"><input class="r-scad" type="date" value="${esc(r.scad || '')}"></td>
       <td style="min-width:70px"><input class="r-qty" type="number" min="0" step="1" value="${r.qty}"></td>
-      <td style="min-width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${r.prezzo}"></td>
+      <td style="min-width:90px"><input class="r-prezzo" type="number" min="0" step="0.01" value="${esc(r.prezzo)}"></td>
       <td style="min-width:70px"><input class="r-sconto" type="text" inputmode="decimal" value="${esc(r.sconto || '')}" placeholder="0"></td>
-      <td style="min-width:70px"><input class="r-iva" type="number" min="0" step="1" value="${r.iva}"></td>
+      <td style="min-width:70px"><input class="r-iva" type="number" min="0" step="1" value="${esc(r.iva)}"></td>
       <td class="rm"><button type="button" class="rm-riga" title="rimuovi riga">✕</button></td>
     </tr>`;
   }

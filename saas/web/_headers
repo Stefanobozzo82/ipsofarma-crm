@@ -1,0 +1,12 @@
+# Intestazioni di sicurezza per tutte le pagine (Cloudflare static assets).
+# - frame-ancestors / X-Frame-Options: nessun altro sito può incorporare il
+#   gestionale in un riquadro e farti cliccare comandi senza accorgertene
+#   (clickjacking).
+# - nosniff: il browser non "indovina" il tipo di un file scaricato.
+# - Referrer-Policy: gli indirizzi interni delle pagine non vengono passati
+#   ai siti esterni.
+/*
+  Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

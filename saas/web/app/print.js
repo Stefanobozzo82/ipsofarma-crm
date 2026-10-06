@@ -102,6 +102,15 @@
     document.head.appendChild(style);
   }
 
+  // Indirizzo su due righe (via / CAP città (prov)). Ogni parte passa da
+  // esc(): sono dati scritti a mano o importati da Maestro, e questo HTML
+  // finisce in innerHTML e in una finestra dello stesso sito — un "<" in un
+  // indirizzo non deve mai diventare codice.
+  function addrHtml(a) {
+    const loc = `${a.cap || ''} ${a.citta || ''}${a.prov ? ' (' + a.prov + ')' : ''}`.trim();
+    return [a.via, loc].filter(Boolean).map(esc).join('<br>');
+  }
+
   function buildPrintHTML(coll, it, party, company) {
     ensureCssInjected();
     const az = company || {};
@@ -109,20 +118,20 @@
     const set = az.settings || {};
     const p = party || {};
     const isForn = FORN_COLLS.has(coll);
-    const azLine = [ind.via, `${ind.cap || ''} ${ind.citta || ''}${ind.prov ? ' (' + ind.prov + ')' : ''}`.trim()].filter(Boolean).join('<br>');
-    const azMeta = [az.piva ? 'P.IVA ' + az.piva : '', az.cf && az.cf !== az.piva ? 'C.F. ' + az.cf : '', set.tel ? 'Tel ' + set.tel : '', set.email || '', az.pec ? 'PEC ' + az.pec : '', set.web || ''].filter(Boolean).join(' · ');
-    const pAddr = [p.via, `${p.cap || ''} ${p.citta || ''}${p.prov ? ' (' + p.prov + ')' : ''}`.trim()].filter(Boolean).join('<br>');
+    const azLine = addrHtml(ind);
+    const azMeta = [az.piva ? 'P.IVA ' + az.piva : '', az.cf && az.cf !== az.piva ? 'C.F. ' + az.cf : '', set.tel ? 'Tel ' + set.tel : '', set.email || '', az.pec ? 'PEC ' + az.pec : '', set.web || ''].filter(Boolean).map(esc).join(' · ');
+    const pAddr = addrHtml(p);
     // Destinazione di consegna diversa dalla sede legale, se il documento
     // ne indica una (destId) e il cliente ne ha di registrate — stessa
     // idea di docDest() nell'originale.
     const dst = (!isForn && it.destId && p.dest) ? p.dest.find(x => x.id === it.destId) || null : null;
-    const dstAddr = dst ? [dst.via, `${dst.cap || ''} ${dst.citta || ''}${dst.prov ? ' (' + dst.prov + ')' : ''}`.trim()].filter(Boolean).join('<br>') : '';
+    const dstAddr = dst ? addrHtml(dst) : '';
     const shipBlock = dst ? `<div class="pa-party pa-ship"><div class="pa-pl">Luogo di consegna</div><div class="pa-pn">${esc(dst.nome) || esc(p.nome)}</div><div class="pa-pa">${dstAddr}</div></div>` : '';
     // Col riquadro di consegna separato, quello del cliente indica solo il
     // destinatario (altrimenti i due riquadri si contraddicono, entrambi
     // etichettati "luogo di consegna" ma con indirizzi diversi).
     const partyLabel = isForn ? 'Spettabile fornitore' : (coll === 'ddt' ? (dst ? 'Destinatario' : 'Destinatario / luogo di consegna') : 'Spettabile cliente');
-    const pMeta = [p.piva ? 'P.IVA ' + p.piva : '', p.cf && p.cf !== p.piva ? 'C.F. ' + p.cf : '', p.sdi ? 'Cod. SDI ' + p.sdi : '', p.pec ? 'PEC ' + p.pec : ''].filter(Boolean).join('<br>');
+    const pMeta = [p.piva ? 'P.IVA ' + p.piva : '', p.cf && p.cf !== p.piva ? 'C.F. ' + p.cf : '', p.sdi ? 'Cod. SDI ' + p.sdi : '', p.pec ? 'PEC ' + p.pec : ''].filter(Boolean).map(esc).join('<br>');
     // ddtFornitore incluso: un DDT (cliente o fornitore) non riporta mai
     // prezzi — richiesta reale dopo il primo collaudo con documenti veri
     // ("togli prezzi e sconti e iva perché non ci sono"), estesa qui alla
@@ -132,21 +141,21 @@
     const righe = it.righe || [];
     const hasSc = !isDDT && righe.some(r => scEff(r.sconto) > 0);
     const hasLot = ['ddt', 'ddtFornitore', 'fattureCliente', 'fattureFornitore', 'noteCredito'].includes(coll) && righe.some(r => r.lotto || r.scad);
-    const rows = righe.map(r => `<tr><td>${esc(r.cod)}</td><td>${esc(r.descr)}</td>${hasLot ? `<td>${esc(r.lotto) || '—'}</td><td class="r">${r.scad ? fdate(r.scad) : '—'}</td>` : ''}<td class="r">${r.qty}</td>${isDDT ? '' : `<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc ? `<td class="r">${scLabel(r.sconto)}</td>` : ''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r) * (1 + (r.iva ?? 22) / 100))}</td>`}</tr>`).join('');
+    const rows = righe.map(r => `<tr><td>${esc(r.cod)}</td><td>${esc(r.descr)}</td>${hasLot ? `<td>${esc(r.lotto) || '—'}</td><td class="r">${r.scad ? fdate(r.scad) : '—'}</td>` : ''}<td class="r">${esc(r.qty)}</td>${isDDT ? '' : `<td class="r">${eur(r.prezzo)}</td><td class="r">${eur(lineNet(r))}</td>${hasSc ? `<td class="r">${scLabel(r.sconto)}</td>` : ''}<td class="r">${r.iva}%</td><td class="r">${eur(lineNet(r) * (1 + (r.iva ?? 22) / 100))}</td>`}</tr>`).join('');
     // Solo per il DDT cliente: "Vendita"/"Mittente" ha senso dal nostro
     // punto di vista di chi spedisce — su un DDT fornitore (ricevuto, non
     // emesso da noi) sarebbe fuorviante, per questo resta fuori da isDDT
     // qui sopra (che serve solo a nascondere i prezzi su entrambi).
     let ddtBlock = '';
-    if (coll === 'ddt') ddtBlock = `<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ${it.colli || '____'}</td></tr></table>`;
+    if (coll === 'ddt') ddtBlock = `<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ${esc(it.colli) || '____'}</td></tr></table>`;
     const userNote = it.note ? `<div class="pa-note pa-usernote"><b>Note:</b> ${esc(it.note)}</div>` : '';
     let note = '';
     if (coll === 'fattureCliente' || coll === 'noteCredito') {
       if (p.split === 'si') note += '<div class="pa-note">Operazione soggetta a scissione dei pagamenti — art. 17‑ter DPR 633/72. IVA versata dall\'ente acquirente.</div>';
       if (coll === 'noteCredito' && it.fatturaId) note += `<div class="pa-note">A storno (parziale) della fattura collegata.</div>`;
       if (coll === 'fattureCliente') {
-        const term = p.term ? `Pagamento: ${p.pag || 'Bonifico'} a ${p.term} gg` : '';
-        const iban = set.iban ? ` · IBAN ${set.iban}` : '';
+        const term = p.term ? `Pagamento: ${esc(p.pag || 'Bonifico')} a ${esc(p.term)} gg` : '';
+        const iban = set.iban ? ` · IBAN ${esc(set.iban)}` : '';
         if (term || iban) note += `<div class="pa-note">${term}${iban}</div>`;
       }
       note += '<div class="pa-foot-note">Documento privo di valore fiscale se non trasmesso allo SDI tramite il sistema di fatturazione elettronica.</div>';

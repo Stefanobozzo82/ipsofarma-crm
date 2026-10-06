@@ -85,7 +85,11 @@ public class MainActivity extends BridgeActivity {
                     if (dir != null && !dir.exists()) {
                         dir.mkdirs();
                     }
-                    File file = new File(dir, filename);
+                    // Solo il nome del file, mai un percorso: "../" o "/" nel nome
+                    // non devono poter scrivere fuori dalla cartella Download.
+                    String safeName = filename == null ? "" : filename.replaceAll(".*[/\\\\]", "").replaceAll("^\\.+", "").trim();
+                    if (safeName.isEmpty()) safeName = "documento";
+                    File file = new File(dir, safeName);
                     byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
                     try (FileOutputStream fos = new FileOutputStream(file)) {
                         fos.write(bytes);
@@ -96,12 +100,12 @@ public class MainActivity extends BridgeActivity {
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     try {
-                        activity.startActivity(Intent.createChooser(intent, filename));
+                        activity.startActivity(Intent.createChooser(intent, safeName));
                     } catch (ActivityNotFoundException e) {
                         // Nessuna app sa aprire questo tipo di file (es. un .xml
                         // su un telefono senza lettori XML installati): il file
                         // resta comunque salvato, avvisa solo dov'è finito.
-                        Toast.makeText(activity, "File salvato: " + filename, Toast.LENGTH_LONG).show();
+                        Toast.makeText(activity, "File salvato: " + safeName, Toast.LENGTH_LONG).show();
                     }
                 } catch (IOException e) {
                     Toast.makeText(activity, "Errore nel salvataggio del file: " + e.getMessage(), Toast.LENGTH_LONG).show();

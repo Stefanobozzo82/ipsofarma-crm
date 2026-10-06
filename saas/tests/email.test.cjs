@@ -9,11 +9,16 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const body = { company_id: A, to: 'customer@example.com', subject: 'Ordine', html: '<p>Ordine</p>' };
 function setup(options = {}) {
-  const calls = [], queries = [];
+  const calls = [], queries = [], rpcs = [];
   const handler = createEmailHandler({
     env: key => ({ RESEND_API_KEY: 'test-key', RESEND_FROM: 'sender@example.com', PLATFORM_NAME: 'CRM' })[key],
     client: () => ({
       auth: { getUser: async () => ({ data: { user: options.invalidSession ? null : { id: 'user' } }, error: null }) },
+      async rpc(name, args) {
+        rpcs.push({ name, args });
+        if (options.quotaError) return { data: null, error: { message: 'offline' } };
+        return { data: options.quotaReached ? { allowed: false, reason: 'quota', limit: 100 } : { allowed: true, used: 1, limit: 100 }, error: null };
+      },
       from(table) { return { select() { return this; }, eq(column, id) { queries.push({ table, column, id }); this.id = id; return this; }, async maybeSingle() {
         if (options.databaseError) return { data: null, error: { message: 'offline' } };
         return { error: null, data: this.id !== A ? null : table === 'my_memberships' ? { company_id: A, role: options.role || 'admin' } : { nome: 'Azienda A', settings: { email: 'reply-a@example.com' } } };
@@ -24,7 +29,7 @@ function setup(options = {}) {
   const request = (data = body, extra = {}) => handler(new Request('https://edge.example/send-email', {
     method: 'POST', headers: { Authorization: 'Bearer test', Origin: 'https://app.example', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(data),
   }));
-  return { handler, request, calls, queries };
+  return { handler, request, calls, queries, rpcs };
 }
 test('email identity comes only from the authorized tenant; PDF payload preserved', async () => {
   const s = setup();
@@ -46,6 +51,8 @@ for (const [title, options, data, expected] of [
   ['null body', {}, null, 400],
   ['non-string recipient', {}, { ...body, to: {} }, 400],
   ['header injection', {}, { ...body, subject: 'Order\r\nBcc: evil@example.com' }, 400],
+  ['daily limit reached', { quotaReached: true }, body, 429],
+  ['limit check unavailable', { quotaError: true }, body, 503],
 ]) test(`email refuses ${title} without contacting provider`, async () => {
   const s = setup(options); assert.equal((await s.request(data)).status, expected); assert.equal(s.calls.length, 0);
 });
@@ -65,4 +72,20 @@ test('actual store wrapper binds explicit tenant and refuses missing tenant', as
   await assert.rejects(window.SaasStore.sendEmail(body), /companyId/);
   await window.SaasStore.sendEmail({ ...body, company_id: B }, A);
   assert.equal(sent.length, 1); assert.equal(sent[0].company_id, A);
+});
+
+test('each send reserves one unit of the daily limit for the requested tenant', async () => {
+  const s = setup();
+  assert.equal((await s.request()).status, 200);
+  assert.deepEqual(s.rpcs, [{ name: 'reserve_email_send', args: { p_company_id: A } }]);
+});
+test('daily limit message tells the user when to retry', async () => {
+  const s = setup({ quotaReached: true });
+  const data = await (await s.request()).json();
+  assert.match(data.error, /100 email al giorno.*Riprova domani/);
+});
+test('invalid requests do not consume the daily limit', async () => {
+  const s = setup();
+  assert.equal((await s.request({ ...body, to: 'not-an-email' })).status, 400);
+  assert.equal(s.rpcs.length, 0);
 });

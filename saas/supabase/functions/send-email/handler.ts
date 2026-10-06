@@ -52,6 +52,15 @@ export function createEmailHandler(deps: Dependencies) {
     }
     const resendKey = deps.env('RESEND_API_KEY');
     if (!resendKey) return json({ error: 'invio email non configurato sul server' }, 500);
+    // Limite giornaliero per azienda (0046_limite_email_giornaliero.sql):
+    // conteggiato prima dell'invio, in modo atomico nel database.
+    const { data: quota, error: quotaError } = await supabase.rpc('reserve_email_send', { p_company_id: body.company_id });
+    if (quotaError || !quota) return json({ error: 'controllo limite email non disponibile' }, 503);
+    if (!quota.allowed) {
+      return quota.reason === 'quota'
+        ? json({ error: `Limite di ${quota.limit} email al giorno raggiunto per questa azienda. Riprova domani.` }, 429)
+        : json({ error: 'invio email non consentito per questa azienda' }, 403);
+    }
     const fromAddress = deps.env('RESEND_FROM') || 'onboarding@resend.dev';
     const platform = headerName(deps.env('PLATFORM_NAME') || 'il gestionale');
     const name = headerName(typeof company.nome === 'string' ? company.nome : '');

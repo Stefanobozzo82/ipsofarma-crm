@@ -103,6 +103,8 @@
     <div class="msg" id="email-msg" hidden></div>
   </div>
 
+  <div class="stats" id="stats-riga" style="grid-template-columns:1fr"></div>
+
   <div class="card" id="list-card">
     <div class="toolbar">
       <h3>Elenco</h3>
@@ -381,6 +383,7 @@
     setMsg('', '');
     $('form-card').hidden = false;
     $('list-card').hidden = true;
+    $('stats-riga').hidden = true;
   }
   // Bottone "Segna evaso (senza fattura)" — stesso schema di
   // refreshCascadeActions()/oc-btn-chiudi in ordini.html, qui con un solo
@@ -411,7 +414,7 @@
   });
   // Box "Documenti collegati" (vedi app/lineage.js).
   function renderLineage(doc){ return window.SaasDocPage.renderLineagePanel(store, companyId, $('f-lineage-panel'), $('f-lineage'), 'ordiniFornitore', doc); }
-  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; editingId = null; editingOrder = null; }
+  function closeForm(){ $('form-card').hidden = true; $('list-card').hidden = false; $('stats-riga').hidden = false; editingId = null; editingOrder = null; }
 
   // ---- invio ordine per email al fornitore -------------------------------
   // Stesso schema di openOFEmail/ofEmailSend in index.html, ma con la
@@ -433,8 +436,9 @@
     $('email-msg').hidden = true;
     $('email-card').hidden = false;
     $('list-card').hidden = true;
+    $('stats-riga').hidden = true;
   }
-  function closeEmailForm(){ $('email-card').hidden = true; $('list-card').hidden = false; emailingItem = null; }
+  function closeEmailForm(){ $('email-card').hidden = true; $('list-card').hidden = false; $('stats-riga').hidden = false; emailingItem = null; }
   $('em-back').addEventListener('click', closeEmailForm);
   $('em-cancel').addEventListener('click', closeEmailForm);
   function setEmailMsg(text, kind){
@@ -597,14 +601,29 @@
   // rete — vedi il commento in ordini.html (stessa correzione): prima
   // bastava spuntare una riga per far ripartire l'intera lista da capo
   // (svuotata in "Carico…", riscaricata, ridisegnata).
+  // Totale in cima all'elenco, come "Totale fatturato" in fatture.html:
+  // sempre il totale di quello che si vede sotto (ricerca + filtri), IVA
+  // inclusa; si nasconde insieme all'elenco quando si apre un ordine.
+  function renderStats(elencoFiltrato){
+    const tot = elencoFiltrato.reduce((s, o) => s + docTotale(o.righe || []), 0);
+    const party = FFILT.fornitore ? (fornitoriById[FFILT.fornitore] || {}).nome : '';
+    const periodo = FFILT.from || FFILT.to
+      ? ` dal ${FFILT.from ? new Date(FFILT.from).toLocaleDateString('it-IT') : '…'} al ${FFILT.to ? new Date(FFILT.to).toLocaleDateString('it-IT') : '…'}`
+      : '';
+    const sub = elencoFiltrato.length + ' ordin' + (elencoFiltrato.length === 1 ? 'e' : 'i')
+      + (party ? ' di ' + party : '') + periodo + ' · IVA incl.';
+    $('stats-riga').innerHTML = `<div class="stat"><div class="sl">Totale ordinato</div><div class="sv" style="color:var(--violet)">${eur(tot)}</div><div class="sx">${esc(sub)}</div></div>`;
+  }
   function renderResults(){
     renderFilterbar();
     const area = $('list-area');
     if(ORDINI_ALL.length === 0){
+      renderStats([]);
       area.innerHTML = '<p class="empty">Nessun ordine ancora. Crea prima un fornitore, poi aggiungi un ordine con "+ Nuovo ordine".</p>';
       return;
     }
     let ordini = ORDINI_ALL.filter(matchesQuery).filter(matchesFilter);
+    renderStats(ordini);
     if(ordini.length === 0){
       area.innerHTML = '<p class="empty">Nessun ordine trovato con questi criteri.</p>';
       return;

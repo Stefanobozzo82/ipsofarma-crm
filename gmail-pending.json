@@ -1575,6 +1575,37 @@
         "totale": 284.5284244
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-07T09:07:36.159Z",
+      "msgId": "1a1156c8068c081d",
+      "file": "5718116920.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718116920",
+        "date": "2026-10-06",
+        "order_ref": "Rif.cliente Vs.ord. 237",
+        "lines": [
+          {
+            "cod": "GB600",
+            "descr": "STERILIT POWER SYSTEMS SPRAY D",
+            "qty": 1,
+            "prezzo": 97.64,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "707136710",
+            "scad": "2031-07-13"
+          }
+        ],
+        "totale": 119.1208
+      },
+      "src": "Gmail"
     }
   ]
 }

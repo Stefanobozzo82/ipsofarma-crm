@@ -1606,6 +1606,228 @@
         "totale": 119.1208
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-08T09:07:08.772Z",
+      "msgId": "1a11a9b71a024fb7",
+      "file": "5718117108.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718117108",
+        "date": "2026-10-07",
+        "order_ref": "239",
+        "lines": [
+          {
+            "cod": "G0058716",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 250CM AR",
+            "qty": 48,
+            "prezzo": 1.98,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126265",
+            "scad": "2031-06-26"
+          },
+          {
+            "cod": "C0068542N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 90CM HR2",
+            "qty": 144,
+            "prezzo": 1.96,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3625RC",
+            "scad": "2031-06-19"
+          },
+          {
+            "cod": "B0068563",
+            "descr": "NOVOSYN VIOLA 2 (5) 90CM HR48",
+            "qty": 144,
+            "prezzo": 2.34,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726164",
+            "scad": "2031-04-16"
+          }
+        ],
+        "totale": 871.3728
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-08T09:07:08.773Z",
+      "msgId": "1a11a9b49a716305",
+      "file": "5718117107.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718117107",
+        "date": "2026-10-07",
+        "order_ref": "Rif.cliente Vs.ord. 237",
+        "lines": [
+          {
+            "cod": "GA334",
+            "descr": "ACCULAN 4 SEGA COLTELLARE",
+            "qty": 2,
+            "prezzo": 8000,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "53093643",
+            "scad": ""
+          },
+          {
+            "cod": "GB436R",
+            "descr": "PROTEZIONE LAMA P.LAMA SEGA ST",
+            "qty": 2,
+            "prezzo": 750,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "GB686R",
+            "descr": "ECCOS SUPPORTO P.GB436R",
+            "qty": 2,
+            "prezzo": 94.97,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "GB487R",
+            "descr": "ECCOS SUPPORTO P.GA675",
+            "qty": 2,
+            "prezzo": 127.2,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "GB488R",
+            "descr": "ECCOS SUPPORTO P.GA678",
+            "qty": 2,
+            "prezzo": 127.2,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "GB495R",
+            "descr": "ECCOS SUPPORTO P.ACCULAN MACCH",
+            "qty": 2,
+            "prezzo": 326.3,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "GA676",
+            "descr": "ACCULAN ACCUMULATORE NIMH",
+            "qty": 6,
+            "prezzo": 1300,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "53088917",
+            "scad": ""
+          },
+          {
+            "cod": "GA675",
+            "descr": "ACCULAN COPERCHIO",
+            "qty": 2,
+            "prezzo": 535.6,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "53089662",
+            "scad": ""
+          },
+          {
+            "cod": "GA678",
+            "descr": "ACCULAN IMBUTO STERILE",
+            "qty": 2,
+            "prezzo": 40,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "GA320",
+            "descr": "ACCULAN 4 CARICABATTERIE",
+            "qty": 1,
+            "prezzo": 4000,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "53086107",
+            "scad": ""
+          },
+          {
+            "cod": "GC761R",
+            "descr": "LAMA SEGA STERN.COLTELL.34/7,5",
+            "qty": 50,
+            "prezzo": 90,
+            "sconto": "50+15",
+            "iva": 22,
+            "lotto": "53087817",
+            "scad": "2034-07-12"
+          },
+          {
+            "cod": "JJ700",
+            "descr": "AESCULAP AICON SIGILLO BILU SEN",
+            "qty": 1,
+            "prezzo": 297.3,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "4516846796",
+            "scad": ""
+          },
+          {
+            "cod": "JK342",
+            "descr": "VASCHETTA P.CONTAINER 1/2 ALTE",
+            "qty": 2,
+            "prezzo": 236.4,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JK389",
+            "descr": "1/2-COPERCHIO BASIS ARGENTO",
+            "qty": 2,
+            "prezzo": 297.76,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "JF113R",
+            "descr": "1/2 CESTELLO PERFORATO 243X253",
+            "qty": 2,
+            "prezzo": 165.9,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 46359.95119999999
+      },
+      "src": "Gmail"
     }
   ]
 }

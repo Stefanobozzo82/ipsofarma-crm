@@ -1,6 +1,6 @@
-# Super Tino per Android
+# Fio per Android
 
-App WebView minima che carica `assets/index.html`, cioè la versione offline del gioco (`../download/super-tino.html`).
+App WebView minima che carica `assets/index.html`, cioè la versione offline del gioco (`../download/fio.html`).
 
 Per ricompilare servono Java e l'Android SDK (`platforms;android-34`, `build-tools;34.0.0`):
 
@@ -9,4 +9,4 @@ Per ricompilare servono Java e l'Android SDK (`platforms;android-34`, `build-too
 3. copia il gioco offline in `proj/assets/index.html`;
 4. lancia `bash build.sh`.
 
-Lo script crea una chiave di firma se manca e produce `super-tino.apk`.
+Lo script crea una chiave di firma se manca e produce `fio.apk`.

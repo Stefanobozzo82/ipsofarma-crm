@@ -57,6 +57,13 @@ test('text search and date range', () => {
   assert.equal(api.matchesText('ross', { num: 'FT/1' }, 'Mario Rossi'), true);
   assert.equal(api.matchesText('ft/1', { num: 'FT/1' }, ''), true);
   assert.equal(api.matchesText('x', { num: 'FT/1' }, 'Rossi'), false);
+  const doc = { num: 'FT/2', righe: [{ cod: 'C0762148', descr: 'SILKAM NERO 3/0', lotto: '626261' }, null, { cod: 99000, descr: '.' }] };
+  assert.equal(api.matchesText('626261', doc, 'Rossi'), true);
+  assert.equal(api.matchesText('c0762148', doc, ''), true);
+  assert.equal(api.matchesText('silkam', doc, ''), true);
+  assert.equal(api.matchesText('99000', doc, ''), true);
+  assert.equal(api.matchesText('726052', doc, 'Rossi'), false);
+  assert.equal(api.matchesText('626261', { num: 'FT/3' }, ''), false);
   assert.equal(api.inDateRange({ data: '2026-05-01' }, '2026-01-01', '2026-12-31'), true);
   assert.equal(api.inDateRange({ data: '2025-05-01' }, '2026-01-01', ''), false);
   assert.equal(api.ordineCompleto({ righe: [{ qty: 2, qtyEv: 2 }, { qty: 1, qtyEv: 0 }] }), false);

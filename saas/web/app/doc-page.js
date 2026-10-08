@@ -60,10 +60,14 @@
   function partyOptionsHtml(list){
     return sortByNome(list).map(p => `<option value="${p.id}">${esc(p.nome)}</option>`).join('');
   }
-  // Ricerca testuale sull'elenco: numero documento + nome della controparte.
+  // Ricerca testuale sull'elenco: numero documento, nome della controparte
+  // e, riga per riga, lotto, codice e descrizione del prodotto (es. cercare
+  // un lotto per sapere su quali documenti è passato).
   function matchesText(q, doc, partyName){
     if(!q) return true;
-    return (doc.num || '').toLowerCase().includes(q) || (partyName || '').toLowerCase().includes(q);
+    if((doc.num || '').toLowerCase().includes(q) || (partyName || '').toLowerCase().includes(q)) return true;
+    return (Array.isArray(doc.righe) ? doc.righe : []).some(r => r && ['lotto', 'cod', 'descr']
+      .some(k => String(r[k] == null ? '' : r[k]).toLowerCase().includes(q)));
   }
   function bindSearch(input, onChange){
     let timer = null;

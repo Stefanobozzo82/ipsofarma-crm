@@ -1,0 +1,28 @@
+{
+  "name": "fio-il-faro-delle-mappe",
+  "productName": "Fio - Il Faro delle Mappe",
+  "version": "1.0.0",
+  "description": "Fio: platform 3D. Pacchetto desktop per Steam (Electron + Steamworks).",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack:win": "electron-builder --win dir",
+    "pack:linux": "electron-builder --linux dir"
+  },
+  "dependencies": {
+    "steamworks.js": "^0.4.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "it.fio.faro",
+    "productName": "Fio",
+    "files": ["main.js", "preload.js", "game/**"],
+    "asarUnpack": ["node_modules/steamworks.js/dist/**"],
+    "win": { "target": "dir", "icon": "game/icon-512.png" },
+    "linux": { "target": "dir", "icon": "game/icon-512.png" }
+  }
+}

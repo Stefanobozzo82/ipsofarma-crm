@@ -270,11 +270,22 @@
   // visibili, così nascondere "Acquisti" fa anche ringrandire le barre di
   // "Fatturato" invece di lasciarle piccole per uno spazio tarato su una
   // serie che non si vede più.
+  function chartInnerWidth(){
+    const w = $('chart-wrap'); if(!w) return 0;
+    const cs = getComputedStyle(w);
+    return w.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  }
   function barChart(data, on){
     on = on || { vend:true, acq:true, margin:true };
     if(!data.length) return '<div class="chart-empty">Nessuna fattura registrata. Il grafico si popola man mano che emetti fatture cliente e registri fatture fornitore.</div>';
     const gridColor = cssVar('--chart-grid'), axisColor = cssVar('--chart-axis'), labelColor = cssVar('--chart-label'), dotColor = cssVar('--chart-dot');
-    const W = 760, H = 280, padL = 60, padR = 18, padT = 16, padB = 34;
+    // Larghezza vera del riquadro, non un 760 fisso rimpicciolito: su un
+    // telefono il disegno veniva scalato al 43% e le scritte diventavano di
+    // 4-5px. Così un'unità del disegno è un pixel e le scritte restano a
+    // 11-12px a ogni larghezza (si ridisegna quando la larghezza cambia).
+    const wrapW = Math.round(chartInnerWidth() || 760);
+    const narrow = wrapW < 560;
+    const W = Math.max(280, wrapW), H = narrow ? 230 : 280, padL = narrow ? 40 : 60, padR = narrow ? 8 : 18, padT = 16, padB = 34;
     const plotW = W - padL - padR, plotH = H - padT - padB, base = padT + plotH;
     const scaleVals = [];
     data.forEach(d => {
@@ -283,16 +294,18 @@
       if(on.margin) scaleVals.push(Math.abs(d.vend - d.acq));
     });
     const max = niceMax(Math.max(...scaleVals, 1));
-    const n = data.length, gw = plotW / n, bw = Math.min(36, gw * 0.30), gap = 6;
+    const n = data.length, gw = plotW / n, bw = Math.min(36, gw * 0.30), gap = Math.min(6, gw * 0.12);
     const y = v => base - (v / max) * plotH;
     const fmt = val => val >= 1000 ? (val / 1000).toFixed(val % 1000 ? 1 : 0) + 'k' : Math.round(val);
     let g = '', hits = '';
-    for(let i = 0; i <= 4; i++){ const val = max * i / 4, yy = base - (plotH * i / 4); g += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="${gridColor}"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end" fill="${axisColor}" font-size="10">${fmt(val)}</text>`; }
+    for(let i = 0; i <= 4; i++){ const val = max * i / 4, yy = base - (plotH * i / 4); g += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="${gridColor}"/><text x="${padL - 8}" y="${yy + 4}" text-anchor="end" fill="${axisColor}" font-size="11">${fmt(val)}</text>`; }
     data.forEach((d, i) => {
       const cx = padL + gw * i + gw / 2, x1 = cx - bw - gap / 2, x2 = cx + gap / 2;
       if(on.vend) g += `<rect class="cbar" style="animation-delay:${i * 30}ms" x="${x1}" y="${y(d.vend)}" width="${bw}" height="${base - y(d.vend)}" rx="3" fill="#0ea371"/>`;
       if(on.acq) g += `<rect class="cbar" style="animation-delay:${i * 30 + 15}ms" x="${x2}" y="${y(d.acq)}" width="${bw}" height="${base - y(d.acq)}" rx="3" fill="#7c5cd6"/>`;
-      g += `<text x="${cx}" y="${base + 18}" text-anchor="middle" fill="${labelColor}" font-size="11">${d.label}</text>`;
+      // Mesi stretti: solo il mese ("Gen"), e uno sì e uno no se non ci stanno.
+      const step = gw < 26 ? 2 : 1;
+      if(i % step === 0) g += `<text x="${cx}" y="${base + 18}" text-anchor="middle" fill="${labelColor}" font-size="11">${gw < 44 ? d.label.split(' ')[0] : d.label}</text>`;
       hits += `<rect class="hit" id="hit${i}" x="${padL + gw * i}" y="${padT}" width="${gw}" height="${plotH}" data-i="${i}" onmousemove="chartTip(event,${i})" onmouseleave="chartHide()" onclick="chartTip(event,${i})"/>`;
     });
     if(on.margin){
@@ -304,7 +317,15 @@
     g += `<line x1="${padL}" y1="${base}" x2="${W - padR}" y2="${base}" stroke="${gridColor}"/>` + hits;
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" font-family="inherit" style="font-variant-numeric:tabular-nums">${g}</svg>`;
   }
+  // Ridisegno quando cambia la larghezza (rotazione del telefono, finestra
+  // ridimensionata): il disegno è tarato sulla larghezza vera.
+  let chartW = 0;
+  window.addEventListener('resize', () => {
+    const w = $('chart-wrap') && $('chart-wrap').clientWidth;
+    if(MONTHLY.length && w && Math.abs(w - chartW) > 8) renderChart();
+  });
   function renderChart(){
+    chartW = $('chart-wrap').clientWidth;
     const data = buildMonthly();
     MONTHLY = data;
     $('chart-wrap').innerHTML = barChart(data, CHART_ON) + '<div class="chart-tip" id="chartTip"></div>';

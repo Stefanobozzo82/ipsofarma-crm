@@ -33,18 +33,22 @@
  * suo (es. testo bianco su un pulsante verde, o il tooltip del grafico,
  * sempre scuro): quelli restano fissi, cambiare tema non li deve toccare.
  */
+/* Tema chiaro: --faint, --blue, --amber, --gray e --red scuriti (nel 2026,
+ * revisione su telefono) per arrivare a un contrasto di almeno 4,5:1 sul
+ * bianco — "da incassare" in ambra era a 2,6:1. Gli sfondi tenui (-s)
+ * restano quelli di prima. */
 :root{
   --side:#eef2f0; --side2:#e4eae7; --side-active:#ffffff; --side-active-txt:#0a6249;
   --side-txt:#17211d; --side-muted:#5e6b66; --side-line:#dde5e1;
   --bg:#f6f8f7; --surface:#ffffff; --surface2:#f4f7f5;
   --border:#e1e7e4; --border2:#cdd6d2;
-  --txt:#17211d; --muted:#5e6b66; --faint:#7f8b86;
+  --txt:#17211d; --muted:#5e6b66; --faint:#6b7772;
   --accent:#0e7a5a; --accent-d:#0a6249; --accent-soft:#0e7a5a14; --on-accent:#ffffff;
-  --blue:#2f7fe0; --blue-s:#2f7fe016;
-  --amber:#cd8b1f; --amber-s:#cd8b1f1c;
+  --blue:#2367c4; --blue-s:#2f7fe016;
+  --amber:#9a6200; --amber-s:#cd8b1f1c;
   --violet:#7c5cd6; --violet-s:#7c5cd616;
-  --gray:#7a8696; --gray-s:#7a86961a;
-  --red:#d85c54; --red-s:#d85c541a; --red-border:#e9c6c3;
+  --gray:#5f6b78; --gray-s:#7a86961a;
+  --red:#b8433b; --red-s:#d85c541a; --red-border:#e9c6c3;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --sh: 0 1px 0 #17211d08;
@@ -57,7 +61,7 @@
    * fissi — sono abbastanza saturi da leggersi bene su sfondo sia
    * chiaro che scuro, e cambiarli avrebbe rotto la fedeltà col grafico
    * del gestionale originale senza un vero bisogno. */
-  --chart-grid:#e1e7e4; --chart-axis:#7f8b86; --chart-label:#5e6b66; --chart-dot:#ffffff;
+  --chart-grid:#e1e7e4; --chart-axis:#6b7772; --chart-label:#5e6b66; --chart-dot:#ffffff;
   color-scheme: light;
 }
 :root[data-theme="dark"]{
@@ -1009,4 +1013,44 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
   .bulkbar .sp{ display:none; }
   .bulkbar button{ min-height:40px; flex:1 1 auto; }
   .card:has(.bulkbar){ padding-bottom:150px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Telefono: cassetto "Altro", moduli lunghi, campi con errore.
+--------------------------------------------------------------------------- */
+.drawer-veil{ display:none; }
+.field-error-msg{ margin-top:5px; font-size:13px; font-weight:500; color:var(--red); }
+.field-error, input.field-error, select.field-error, textarea.field-error{
+  border-color:var(--red) !important; box-shadow:0 0 0 3px var(--red-s) !important;
+}
+@media (max-width:860px){
+  /* Velo dietro il cassetto (nav.js): un tocco fuori lo chiude. Sotto il
+     cassetto (40), sopra la pagina; la barra in basso (41) resta sopra. */
+  .drawer-veil{ display:block; position:fixed; inset:0; z-index:39; background:rgba(10,14,20,.45);
+    opacity:0; pointer-events:none; transition:opacity .22s ease; }
+  .drawer-veil.on{ opacity:1; pointer-events:auto; }
+  @media (prefers-reduced-motion: reduce){ .drawer-veil{ transition:none; } }
+
+  /* Voci a misura di dito (44px); l'account (Esci, Cambia azienda) in
+     cima, subito sotto il nome dell'azienda, invece che in fondo a 22 voci
+     da scorrere, con link grandi invece di scritte da 11px. */
+  .sidebar a.navlink{ min-height:44px; padding:10px 12px; font-size:15px; }
+  .sidebar .brand{ order:0; }
+  .sidebar .account{ order:1; border-top:none; border-bottom:1px solid var(--side-line); padding:4px 16px 12px; font-size:12px; }
+  .sidebar nav{ order:2; flex:0 0 auto; }
+  .sidebar .account-links{ gap:8px; }
+  .sidebar .account-links a, .sidebar .account-links button{
+    display:inline-flex; align-items:center; min-height:40px; padding:0 12px; font-size:13.5px; font-weight:600;
+    border:1px solid var(--side-line); border-radius:8px; color:var(--side-txt); text-decoration:none;
+  }
+
+  /* Salva/Annulla sempre a portata nei moduli lunghi (cliente ~2200px,
+     fattura con molte righe): restano incollati sopra la barra in basso
+     finché il modulo è sullo schermo. */
+  .form-actions{
+    position:sticky; bottom:calc(70px + env(safe-area-inset-bottom)); z-index:5;
+    display:flex; gap:10px; padding:10px 0; margin-top:14px;
+    background:var(--surface); border-top:1px solid var(--border);
+  }
+  .form-actions button.primary, .form-actions button.ghost{ flex:1; min-height:48px; font-size:15px; }
 }

@@ -897,3 +897,52 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
   .filterbar .fdate{ flex:1 1 140px; min-width:0; }
   .filterbar .fdate input[type=date]{ flex:1; min-width:0; width:100%; }
 }
+
+/* ---------------------------------------------------------------------------
+   Telefono: righe di un documento come schede. La tabella delle righe è
+   larga 850-1100px: su uno schermo da 390 si vedevano solo Codice e
+   Descrizione, e Qtà/Prezzo/Sconto/IVA restavano nascosti a destra senza
+   alcun segno che si potesse scorrere. Qui ogni riga diventa una scheda:
+   Codice e Descrizione a tutta larghezza, Lotto e Scadenza affiancati,
+   Qtà/Prezzo/Sconto/IVA in una griglia 2×2, "Rimuovi riga" in fondo. Le
+   etichette arrivano dal campo contenuto (:has), uguali per tutti e 9 i
+   moduli documento senza toccarne i template. Il trascinamento per
+   riordinare (solo mouse) sparisce.
+--------------------------------------------------------------------------- */
+@media (max-width:600px){
+  .table-scroll:has(> .righe-table){ overflow:visible; }
+  .table-scroll table.righe-table, .righe-table, .righe-table tbody{ display:block; width:auto; min-width:0; }
+  .righe-table thead, .righe-table td.drag-col{ display:none; }
+  .righe-table tbody tr{
+    display:grid; grid-template-columns:repeat(6, 1fr); gap:10px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:11px;
+    padding:12px; margin-bottom:10px;
+  }
+  .righe-table td, .righe-table th{ display:block; padding:0; border:none; min-width:0 !important; width:auto !important; grid-column:span 3; }
+  .righe-table td:nth-child(2), .righe-table td:nth-child(3){ min-width:0; }
+  .righe-table td:has(.r-cod), .righe-table td:has(.r-descr), .righe-table td.rm{ grid-column:1 / -1; }
+  .righe-table td::before{ display:block; font-size:12px; font-weight:500; color:var(--muted); margin-bottom:4px; }
+  .righe-table td:has(.r-cod)::before{ content:"Codice"; }
+  .righe-table td:has(.r-descr)::before{ content:"Descrizione"; }
+  .righe-table td:has(.r-lotto)::before{ content:"Lotto"; }
+  .righe-table td:has(.r-scad)::before{ content:"Scadenza"; }
+  .righe-table td:has(.r-qty)::before{ content:"Quantità"; }
+  .righe-table td:has(.r-prezzo)::before{ content:"Prezzo €"; }
+  .righe-table td:has(.r-sconto)::before{ content:"Sconto %"; }
+  .righe-table td:has(.r-iva)::before{ content:"IVA %"; }
+  .righe-table td[data-label]::before{ content:attr(data-label); }
+  .righe-table input{ font-size:16px; padding:10px 11px; }
+  /* Consegnata/Residuo/Stato (ordini già salvati): sola lettura, in una
+     fila da tre sotto i campi, invece di mescolarsi alla griglia 2×2. */
+  .righe-table td.ev-col{ grid-column:span 2; order:1; font-variant-numeric:tabular-nums; }
+  .righe-table td.rm{ order:2; }
+  .righe-table:not(.has-evasione) td.ev-col{ display:none; }
+  .righe-table td .prod-pick .prod-sugg{ right:0; min-width:0; }
+  .righe-table td.rm button{
+    width:100%; min-height:44px; border:1px solid var(--border2); border-radius:8px;
+    background:var(--surface); font-size:14px; font-weight:600; font-family:inherit;
+  }
+  .righe-table td.rm button::after{ content:" Rimuovi riga"; }
+  #add-riga{ display:block; width:100%; min-height:44px; text-align:center; text-decoration:none; font-weight:600;
+    border:1px dashed var(--accent); border-radius:8px; }
+}

@@ -34,10 +34,10 @@
       <div><label for="f-tipo">Tipo soggetto</label>
         <select id="f-tipo"><option value="PG">Persona giuridica</option><option value="PF">Persona fisica</option></select>
       </div>
-      <div><label for="f-piva">Partita IVA</label><input id="f-piva" type="text"></div>
+      <div><label for="f-piva">Partita IVA</label><input id="f-piva" type="text" autocapitalize="characters" autocomplete="off"></div>
     </div>
     <label for="f-cf">Codice fiscale</label>
-    <input id="f-cf" type="text">
+    <input id="f-cf" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false">
 
     <div class="form-sec">Recapiti fiscali</div>
     <label for="f-pec">PEC</label>
@@ -47,9 +47,9 @@
     <label for="f-via">Indirizzo</label>
     <input id="f-via" type="text" placeholder="Via e numero civico">
     <div class="grid3">
-      <div><label for="f-cap">CAP</label><input id="f-cap" type="text" maxlength="5"></div>
+      <div><label for="f-cap">CAP</label><input id="f-cap" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code"></div>
       <div><label for="f-citta">Città</label><input id="f-citta" type="text"></div>
-      <div><label for="f-prov">Prov.</label><input id="f-prov" type="text" maxlength="2"></div>
+      <div><label for="f-prov">Prov.</label><input id="f-prov" type="text" maxlength="2" autocapitalize="characters"></div>
     </div>
 
     <div class="form-sec">Pagamento</div>
@@ -57,14 +57,14 @@
       <div><label for="f-pag">Modalità</label>
         <select id="f-pag"><option>Bonifico</option><option>RiBa</option><option>Contanti</option></select>
       </div>
-      <div><label for="f-iban">IBAN</label><input id="f-iban" type="text"></div>
+      <div><label for="f-iban">IBAN</label><input id="f-iban" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
       <div><label for="f-term">Termini gg</label><input id="f-term" type="number"></div>
     </div>
 
     <div class="form-sec">Contatti</div>
     <div class="grid2">
       <div><label for="f-ref">Referente</label><input id="f-ref" type="text"></div>
-      <div><label for="f-tel">Telefono</label><input id="f-tel" type="text"></div>
+      <div><label for="f-tel">Telefono</label><input id="f-tel" type="tel" autocomplete="tel"></div>
     </div>
     <label for="f-email">Email</label>
     <input id="f-email" type="email">

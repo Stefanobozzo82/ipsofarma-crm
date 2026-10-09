@@ -69,6 +69,16 @@
     return (Array.isArray(doc.righe) ? doc.righe : []).some(r => r && ['lotto', 'cod', 'descr']
       .some(k => String(r[k] == null ? '' : r[k]).toLowerCase().includes(q)));
   }
+  // Totale della barra di selezione nelle fatture: le fatture spuntate meno
+  // le note di credito visibili che le stornano (fatturaId tra le spuntate),
+  // o tutte quelle visibili se è spuntato l'intero elenco — così, con
+  // "seleziona tutto", coincide con il "Totale fatturato" in cima.
+  function selectionTotal(selDocs, ncDocs, allSelected, isPicked, totFn){
+    const nc = (ncDocs || []).filter(n => allSelected || (n.fatturaId && isPicked(n.fatturaId)));
+    const totDocs = (selDocs || []).reduce((s, d) => s + totFn(d.righe), 0);
+    const totNC = nc.reduce((s, n) => s + totFn(n.righe), 0);
+    return { tot: totDocs - totNC, nNC: nc.length };
+  }
   function bindSearch(input, onChange){
     let timer = null;
     input.addEventListener('input', () => {
@@ -365,7 +375,7 @@
   window.SaasDocPage = {
     today, esc, eur, itDate,
     scParts, scFactor, scEff, lineNet, rigaTotale, docTotale, impTot, ivaTot,
-    sortCmp, thHtml, toggleSort, sortByNome, partyOptionsHtml, matchesText, bindSearch, inDateRange, ordineCompleto,
+    sortCmp, thHtml, toggleSort, sortByNome, partyOptionsHtml, matchesText, selectionTotal, bindSearch, inDateRange, ordineCompleto,
     showMsg,
     bindRowDrag, markLastBadge, clearLastBadge, evasioneCellsHtml, renderEvasioneSummary,
     lastLinePrice, linePriceHistory, repriceRows,

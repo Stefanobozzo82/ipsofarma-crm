@@ -245,7 +245,7 @@
       ? ` dal ${FFILT.from ? new Date(FFILT.from).toLocaleDateString('it-IT') : '…'} al ${FFILT.to ? new Date(FFILT.to).toLocaleDateString('it-IT') : '…'}`
       : '';
     const sub = elencoFiltrato.length + ' fattur' + (elencoFiltrato.length === 1 ? 'a' : 'e')
-      + (ncFiltrate.length ? ' − ' + ncFiltrate.length + ' nota' + (ncFiltrate.length === 1 ? '' : 'e') + ' di credito' : '')
+      + (ncFiltrate.length ? ' − ' + ncFiltrate.length + (ncFiltrate.length === 1 ? ' nota' : ' note') + ' di credito' : '')
       + (cliente ? ' di ' + cliente : '') + periodo + ' · IVA incl.';
     $('stats-riga').innerHTML = `<div class="stat"><div class="sl">Totale fatturato</div><div class="sv" style="color:var(--accent-d)">${eur(totFatture - totNC)}</div><div class="sx">${esc(sub)}</div></div>`;
   }
@@ -908,8 +908,9 @@
     let bulkHtml = '';
     if(selRows.length){
       const anyUnpaid = selRows.some(f => !f.paid), anyPaid = selRows.some(f => f.paid);
-      const selTot = selRows.reduce((s, f) => s + docTotale(f.righe), 0);
-      bulkHtml = `<div class="bulkbar"><span>${selRows.length} selezionat${selRows.length === 1 ? 'a' : 'e'} · Totale ${eur(selTot)}</span><div class="sp"></div>
+      const sel = window.SaasDocPage.selectionTotal(selRows, ncRows, elenco.every(f => PICK.has(f.id)), id => PICK.has(id), docTotale);
+      const ncNote = sel.nNC ? ` (− ${sel.nNC} ${sel.nNC === 1 ? 'nota' : 'note'} di credito)` : '';
+      bulkHtml = `<div class="bulkbar"><span>${selRows.length} selezionat${selRows.length === 1 ? 'a' : 'e'} · Totale ${eur(sel.tot)}${ncNote}</span><div class="sp"></div>
         ${anyUnpaid ? `<button type="button" class="primary" id="bulk-paid">✓ Segna incassate</button>` : ''}
         ${anyPaid ? `<button type="button" id="bulk-unpaid">↺ Segna da incassare</button>` : ''}
         <button type="button" id="bulk-deselect">✕ Deseleziona</button></div>`;

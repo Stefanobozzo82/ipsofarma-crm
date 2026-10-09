@@ -16,7 +16,7 @@
   qui si nasconde solo il pulsante per chi non lo è, coerenza con
   abbonamento.html.
 -->
-<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<script>(function(){try{var t=localStorage.getItem('saas_theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
 </head>
 <body>
@@ -34,6 +34,7 @@
       <div class="toolbar-right">
         <button type="button" class="ghost" id="theme-light">☀ Chiaro</button>
         <button type="button" class="ghost" id="theme-dark">☾ Scuro</button>
+        <button type="button" class="ghost" id="theme-auto">◐ Come il dispositivo</button>
       </div>
     </div>
 
@@ -160,12 +161,14 @@
   // e modificabile da chiunque (admin o operatore), a differenza del resto
   // di questa pagina — vive apposta fuori da #form-card.
   function refreshThemeButtons(){
-    const t = window.SaasTheme.get();
+    const t = window.SaasTheme.pref();
     $('theme-light').className = t === 'light' ? 'primary' : 'ghost';
     $('theme-dark').className = t === 'dark' ? 'primary' : 'ghost';
+    $('theme-auto').className = t === 'auto' ? 'primary' : 'ghost';
   }
   $('theme-light').addEventListener('click', () => { window.SaasTheme.set('light'); refreshThemeButtons(); });
   $('theme-dark').addEventListener('click', () => { window.SaasTheme.set('dark'); refreshThemeButtons(); });
+  $('theme-auto').addEventListener('click', () => { window.SaasTheme.set('auto'); refreshThemeButtons(); });
   refreshThemeButtons();
 
   // ---- Team: chi c'è già, chi hai invitato -------------------------------

@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0ea371">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<script>(function(){try{var t=localStorage.getItem('saas_theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
 </head>
 <body>
@@ -95,7 +95,7 @@
           <button class="primary" id="new-cliente">+ Nuovo cliente</button>
         </div>
       </div>
-      <div id="list-area"><p class="empty">Carico…</p></div>
+      <div id="list-area"><p class="empty loading">Carico…</p></div>
     </div>
   </main>
 </div>
@@ -279,7 +279,7 @@
   // non questa.
   async function renderList(){
     const area = $('list-area');
-    area.innerHTML = '<p class="empty">Carico…</p>';
+    area.innerHTML = '<p class="empty loading">Carico…</p>';
     try{
       CLIENTI_ALL = await store.loadCollection('clienti', companyId);
     }catch(err){

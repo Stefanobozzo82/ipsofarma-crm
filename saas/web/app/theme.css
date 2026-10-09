@@ -1054,3 +1054,19 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
   }
   .form-actions button.primary, .form-actions button.ghost{ flex:1; min-height:48px; font-size:15px; }
 }
+
+/* Caricamento di un elenco (<p class="empty loading">Carico…</p>): tre
+   schede grigie che pulsano al posto della sola scritta, così si vede che
+   la pagina sta lavorando (1-3 secondi su telefono). */
+.empty.loading{ position:relative; padding:4px 0 0; text-align:left; color:transparent; font-size:0; }
+.empty.loading::before{
+  content:""; display:block; height:188px; border-radius:11px;
+  background:
+    linear-gradient(var(--surface2), var(--surface2)) 0 0 / 100% 56px no-repeat,
+    linear-gradient(var(--surface2), var(--surface2)) 0 66px / 100% 56px no-repeat,
+    linear-gradient(var(--surface2), var(--surface2)) 0 132px / 100% 56px no-repeat;
+  animation:loadPulse 1.2s ease-in-out infinite;
+}
+.empty.loading::after{ content:"Carico…"; display:block; margin-top:10px; text-align:center; font-size:13px; color:var(--faint); }
+@keyframes loadPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+@media (prefers-reduced-motion: reduce){ .empty.loading::before{ animation:none; } }

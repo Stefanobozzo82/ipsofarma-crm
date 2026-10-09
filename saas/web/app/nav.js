@@ -248,6 +248,7 @@
   const SCREENS = [
     { id: 'form-card', back: 'f-back', isOpen: el => !el.hidden, toTop: true },
     { id: 'email-card', back: 'em-back', isOpen: el => !el.hidden, toTop: true },
+    { id: 'movimento-card', back: 'mv-back', isOpen: el => !el.hidden, toTop: true },
     { id: 'sidebar', isOpen: el => el.classList.contains('open'), close: el => el.classList.remove('open') },
   ];
   // Chi scorre: su telefono è il body (html e body alti 100%), altrove la

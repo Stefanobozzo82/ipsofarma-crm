@@ -826,7 +826,10 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
  * rischio di "lampeggiare" mentre si lavora, un unico assestamento
  * leggero all'apertura di ogni pagina. */
 @keyframes pageIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
-.app-main{ animation:pageIn .32s cubic-bezier(.22,1,.36,1) both; }
+/* backwards, non both: finita l'animazione la pagina non deve restare con un
+   transform (anche translateY(0)), che farebbe di .app-main il riferimento
+   degli elementi position:fixed al suo interno (barra della selezione). */
+.app-main{ animation:pageIn .32s cubic-bezier(.22,1,.36,1) backwards; }
 
 ::selection{ background:#0e7a5a33; }
 
@@ -945,4 +948,65 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
   .righe-table td.rm button::after{ content:" Rimuovi riga"; }
   #add-riga{ display:block; width:100%; min-height:44px; text-align:center; text-decoration:none; font-weight:600;
     border:1px dashed var(--accent); border-radius:8px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Telefono: elenchi di documenti compatti. Con un'etichetta per colonna una
+   fattura occupava 316px (meno di due per schermata); qui la scheda è di
+   tre righe:  numero ........ stato
+               cliente / fornitore
+               data ........ totale
+   Imponibile e IVA restano nel documento. Le celle si riconoscono dalla
+   loro etichetta (data-label, scritta da elenco-cards.js), uguale in tutti
+   e 9 gli elenchi. Più sotto: filtri a scomparsa e barra della selezione
+   fissa sopra la barra di navigazione.
+--------------------------------------------------------------------------- */
+.filters-toggle{ display:none; }
+@media (max-width:860px){
+  table.elenco-table.elenco-doc tbody tr{
+    display:grid; grid-template-columns:auto minmax(0,1fr) auto; column-gap:12px; row-gap:3px;
+    grid-template-areas:"chk num stato" "chk party party" "chk data tot" "act act act";
+    align-items:center; padding:12px 14px;
+  }
+  table.elenco-table.elenco-doc td{ display:block; padding:0; border:none; text-align:left; min-width:0; }
+  table.elenco-table.elenco-doc td[data-label]::before{ content:none; }
+  table.elenco-table.elenco-doc td.check-col{ grid-area:chk; align-self:stretch; display:flex; align-items:center; padding:0 2px 0 0; }
+  table.elenco-table.elenco-doc td.check-col input[type=checkbox]{ width:24px; height:24px; }
+  table.elenco-table.elenco-doc td[data-label="Numero"]{ grid-area:num; font-weight:600; font-size:15px; }
+  table.elenco-table.elenco-doc td:is([data-label="Cliente"], [data-label="Fornitore"]){
+    grid-area:party; font-size:14.5px; overflow:hidden; text-overflow:ellipsis;
+  }
+  table.elenco-table.elenco-doc td[data-label="Data"]{ grid-area:data; font-size:13px; color:var(--muted); }
+  table.elenco-table.elenco-doc td:is([data-label="Totale"], [data-label="Importo"]){
+    grid-area:tot; text-align:right; font-weight:600; font-size:15px; font-variant-numeric:tabular-nums;
+  }
+  table.elenco-table.elenco-doc td:is([data-label="Incasso"], [data-label="Pagamento"], [data-label="Stato"], [data-label="Ordine"], [data-label="Fattura"]){
+    grid-area:stato; text-align:right; font-size:13px;
+  }
+  /* DDT e note di credito: "Ordine"/"Fattura" sono un numero, non uno
+     stato — con l'etichetta davanti, piccola. */
+  table.elenco-table.elenco-doc td:is([data-label="Ordine"], [data-label="Fattura"])::before{
+    content:attr(data-label) " "; display:inline; color:var(--muted);
+  }
+  table.elenco-table.elenco-doc td:is([data-label="Imponibile"], [data-label="IVA"]){ display:none; }
+  table.elenco-table.elenco-doc td.actions{ grid-area:act; display:flex; padding-top:8px; }
+  table.elenco-table.elenco-doc td.actions.elenco-blank{ display:none; }
+  table.elenco-table.elenco-doc .pill{ white-space:nowrap; }
+
+  .filters-toggle{ display:inline-block; }
+  .filters-toggle.on{ border-color:var(--accent); color:var(--accent-d); }
+  #filter-area:not(.open){ display:none; }
+
+  /* Selezione multipla: totale e azioni restano sempre a portata, fissi
+     sopra la barra in basso, anche spuntando un documento in fondo
+     all'elenco (prima la barra restava in cima, fuori vista). */
+  .bulkbar{
+    position:fixed; left:10px; right:10px; z-index:39; margin:0;
+    bottom:calc(74px + env(safe-area-inset-bottom));
+    background:var(--surface); box-shadow:var(--sh-lg);
+  }
+  .bulkbar > span{ flex:1 1 100%; }
+  .bulkbar .sp{ display:none; }
+  .bulkbar button{ min-height:40px; flex:1 1 auto; }
+  .card:has(.bulkbar){ padding-bottom:150px; }
 }

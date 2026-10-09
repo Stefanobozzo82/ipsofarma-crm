@@ -33,6 +33,10 @@
     const heads = Array.from(table.querySelectorAll(':scope > thead > tr > th'));
     if (heads.length === 0) return;
     const labels = heads.map(th => cleanLabel(th.textContent));
+    // Elenco di documenti (fatture, ordini, DDT, …): su telefono una scheda
+    // compatta — numero e stato, controparte, data e totale — invece di
+    // una riga con etichetta per ogni colonna (theme.css, .elenco-doc).
+    table.classList.toggle('elenco-doc', labels.includes('Numero') && labels.includes('Data'));
     // Colonne di importi in euro: allineate a destra (theme.css, .is-amount)
     // così le cifre si incolonnano. Una colonna lo è se tutte le sue celle
     // non vuote sono un importo ("1.234,56 €" o "€ 12").
@@ -99,6 +103,34 @@
     }
   });
   mo.observe(document.body, { childList: true, subtree: true });
+
+  // Filtri a scomparsa su telefono: la barra dei filtri (cliente, stato,
+  // Dal/Al) occupava ~250px sopra il primo documento. Sotto gli 860px resta
+  // chiusa dietro un pulsante "Filtri", che dice anche se ce n'è qualcuno
+  // attivo (c'è "Azzera filtri"); da computer il pulsante non si vede e la
+  // barra resta sempre aperta (theme.css, .filters-toggle).
+  function setupFilterToggle() {
+    const area = document.getElementById('filter-area');
+    const right = area && area.parentElement && area.parentElement.querySelector('.toolbar-right');
+    if (!right || right.querySelector('.filters-toggle')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ghost filters-toggle';
+    btn.setAttribute('aria-controls', 'filter-area');
+    const refresh = () => {
+      const active = !!area.querySelector('.ffclear');
+      const open = area.classList.contains('open');
+      btn.textContent = (active ? 'Filtri attivi' : 'Filtri') + (open ? ' ▴' : ' ▾');
+      btn.classList.toggle('on', active);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    btn.addEventListener('click', () => { area.classList.toggle('open'); refresh(); });
+    right.insertBefore(btn, right.querySelector('button.primary'));
+    new MutationObserver(refresh).observe(area, { childList: true, subtree: true });
+    refresh();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setupFilterToggle);
+  else setupFilterToggle();
 
   global.SaasElencoCards = { labelizeAll };
 })(window);

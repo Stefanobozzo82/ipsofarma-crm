@@ -150,8 +150,11 @@
     if (coll === 'ddt') ddtBlock = `<table class="pa-info"><tr><td><b>Causale del trasporto</b><br>Vendita</td><td><b>Trasporto a cura di</b><br>Mittente</td><td><b>Porto</b><br>Franco</td><td><b>Aspetto dei beni</b><br>Colli n. ${esc(it.colli) || '____'}</td></tr></table>`;
     const userNote = it.note ? `<div class="pa-note pa-usernote"><b>Note:</b> ${esc(it.note)}</div>` : '';
     let note = '';
+    // Split payment: la fattura lo dice per sé (campo split); per i documenti
+    // che non lo hanno (es. note di credito) vale l'impostazione del cliente.
+    const splitDoc = coll === 'fattureCliente' ? it.split === true : (coll === 'noteCredito' && p.split === 'si');
     if (coll === 'fattureCliente' || coll === 'noteCredito') {
-      if (p.split === 'si') note += '<div class="pa-note">Operazione soggetta a scissione dei pagamenti — art. 17‑ter DPR 633/72. IVA versata dall\'ente acquirente.</div>';
+      if (splitDoc) note += '<div class="pa-note">Operazione soggetta a scissione dei pagamenti — art. 17‑ter DPR 633/72. IVA versata dall\'ente acquirente.</div>';
       if (coll === 'noteCredito' && it.fatturaId) note += `<div class="pa-note">A storno (parziale) della fattura collegata.</div>`;
       if (coll === 'fattureCliente') {
         const term = p.term ? `Pagamento: ${esc(p.pag || 'Bonifico')} a ${esc(p.term)} gg` : '';
@@ -173,6 +176,8 @@
         <tr><td>Imponibile</td><td class="r">${eur(imp(righe))}</td></tr>
         <tr><td>IVA</td><td class="r">${eur(ivaT(righe))}</td></tr>
         <tr class="g"><td>Totale documento</td><td class="r">${eur(tot(righe))}</td></tr>
+        ${splitDoc ? `<tr><td>IVA in scissione dei pagamenti</td><td class="r">− ${eur(ivaT(righe))}</td></tr>
+        <tr class="g"><td>Netto a pagare</td><td class="r">${eur(imp(righe))}</td></tr>` : ''}
       </table></div>`}
       ${userNote}
       ${note}

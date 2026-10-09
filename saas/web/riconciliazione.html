@@ -154,8 +154,10 @@
   function imp(righe){ return (righe || []).reduce((s, x) => s + lineNet(x), 0); }
   function ivaT(righe){ return (righe || []).reduce((s, x) => s + lineNet(x) * (x.iva || 0) / 100, 0); }
   function tot(righe){ return imp(righe) + ivaT(righe); }
+  // Fattura in split payment: al cliente si incassa solo l'imponibile (vedi docDovuto in app/doc-page.js).
+  function due(d){ return d && d.split === true ? imp(d.righe) : tot(d && d.righe); }
   function payTot(it){
-    if(it.pagamenti == null || it.pagamenti.length === 0) return it.paid ? tot(it.righe) : 0;
+    if(it.pagamenti == null || it.pagamenti.length === 0) return it.paid ? due(it) : 0;
     return it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0);
   }
   function ncCreditoFor(nc, invoice){
@@ -169,7 +171,7 @@
     if(ids.length <= 1) return tot(nc.righe);
     for(const f of ordered){
       if(remaining <= 0) break;
-      const alloc = Math.min(remaining, tot(f.righe));
+      const alloc = Math.min(remaining, due(f));
       if(f.id === invoice.id) return alloc;
       remaining -= alloc;
     }
@@ -182,7 +184,7 @@
   }
 
   function payState(it, isFornitore){
-    const totaleRaw = tot(it.righe);
+    const totaleRaw = due(it);
     const sign = totaleRaw < 0 ? -1 : 1;
     const totale = totaleRaw * sign;
     const creditato = it.num

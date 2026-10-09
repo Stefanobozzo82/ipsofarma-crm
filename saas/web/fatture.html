@@ -60,6 +60,7 @@
       </div>
     </div>
     <div id="f-dest-wrap"><label for="f-dest">Destinazione di consegna</label><select id="f-dest"></select></div>
+    <label class="check-line" style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:14px"><input type="checkbox" id="f-split" style="width:auto;margin:0"> Split payment — scissione dei pagamenti: l'IVA la versa l'ente (art. 17-ter), al cliente si incassa solo l'imponibile</label>
 
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
@@ -172,7 +173,7 @@
   let FFILT = { cliente: '', paid: '', from: `${initialDocumentYear}-01-01`, to: `${initialDocumentYear}-12-31` }; // filtri sopra l'elenco, come FFILT nel gestionale originale
 
   // Funzioni comuni a tutte le pagine documento — vedi app/doc-page.js.
-  const { today, esc, eur, sortCmp, docTotale, impTot, ivaTot, lineNet, scEff } = window.SaasDocPage;
+  const { today, esc, eur, sortCmp, docTotale, docDovuto, impTot, ivaTot, lineNet, scEff } = window.SaasDocPage;
   // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco.
   function destSub(it){ return window.SaasDocPage.destSubHtml(clientiById[it.clienteId], it); }
   function setMsg(text, kind){ window.SaasDocPage.showMsg($('form-msg'), text, kind); }
@@ -183,7 +184,7 @@
     if(key === 'cliente') return (clientiById[f.clienteId] || {}).nome || '';
     if(key === 'imponibile') return impTot(f.righe || []);
     if(key === 'iva') return ivaTot(f.righe || []);
-    if(key === 'totale') return docTotale(f.righe || []);
+    if(key === 'totale') return docDovuto(f);
     if(key === 'incasso') return f.paid ? 1 : 0;
     return '';
   }
@@ -237,7 +238,7 @@
   // nel gestionale originale il "Totale fatturato" le sottrae sempre.
   // Corretto riportando la stessa logica.
   function renderStats(elencoFiltrato){
-    const totFatture = elencoFiltrato.reduce((s, f) => s + docTotale(f.righe), 0);
+    const totFatture = elencoFiltrato.reduce((s, f) => s + docDovuto(f), 0);
     const ncFiltrate = noteCreditoArr.filter(nc => !nc.annullato).filter(matchesQueryNC).filter(matchesFilterNC);
     const totNC = ncFiltrate.reduce((s, n) => s + docTotale(n.righe), 0);
     const cliente = FFILT.cliente ? (clientiById[FFILT.cliente] || {}).nome : '';
@@ -338,7 +339,33 @@
     })).filter(r => r.descr || r.cod);
   }
   // Stessa aritmetica dello sconto per tutte le pagine documento: vedi app/doc-page.js.
-  function updateTotale(){ $('righe-totale').textContent = eur(docTotale(readRighe())); }
+  function updateTotale(){
+    const righe = readRighe();
+    $('righe-totale').textContent = $('f-split').checked
+      ? `${eur(impTot(righe))} (IVA ${eur(ivaTot(righe))} in split payment, versata dall'ente)`
+      : eur(docTotale(righe));
+  }
+  $('f-split').addEventListener('change', async () => {
+    updateTotale();
+    // Fattura collegata a un DDT: righe e dati restano bloccati, ma lo split
+    // payment è un'informazione sul pagamento — si salva subito da solo,
+    // partendo dalla fattura così com'è (il blocco lato database ammette i
+    // cambi di metadati, non di righe/numero/data/cliente).
+    if(!editingFattura || !editingFattura.ddtId) return;
+    const split = $('f-split').checked;
+    try{
+      const doc = Object.assign({}, editingFattura, { split });
+      await store.saveDoc('fattureCliente', doc, companyId);
+      editingFattura = doc;
+      renderPagamenti(editingFattura);
+      await renderList();
+      setMsg(split ? 'Split payment attivato: da incassare solo l\'imponibile.' : 'Split payment disattivato.', 'ok');
+    }catch(err){
+      $('f-split').checked = !split;
+      updateTotale();
+      setMsg('Errore nel salvare lo split payment: ' + (err.message || err), 'error');
+    }
+  });
   // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
   // ordini.html.
   $('add-riga').addEventListener('click', () => {
@@ -377,6 +404,8 @@
     updateTotale();
   }
   $('f-cliente').addEventListener('change', () => {
+    // Nuova fattura: lo split payment parte da quello del cliente.
+    if(!editingId) $('f-split').checked = (clientiById[$('f-cliente').value] || {}).split === 'si';
     refreshLinkedOptions($('f-cliente').value);
     refreshDestOptions($('f-cliente').value);
     repriceForClient($('f-cliente').value);
@@ -425,8 +454,10 @@
       try{ numberPreview = await store.peekNumber(companyId, 'FT', Number($('f-data').value.slice(0, 4))); $('f-num').value = numberPreview; }
       catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
     }
+    $('f-split').checked = fattura ? fattura.split === true : (clientiById[$('f-cliente').value] || {}).split === 'si';
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
+    updateTotale();
     const linkedInvoice = !!(fattura && fattura.ddtId);
     ['f-cliente','f-ordine','f-ddt','f-dest','f-data','f-num','add-riga'].forEach(id => { $(id).disabled = linkedInvoice; });
     $('righe-body').querySelectorAll('input, button').forEach(el => { el.disabled = linkedInvoice; });
@@ -462,7 +493,7 @@
     return noteCreditoArr.filter(nc => !nc.annullato && nc.fatturaId === fattura.id).reduce((s, nc) => s + docTotale(nc.righe), 0);
   }
   function payState(fattura){
-    const totale = docTotale(fattura.righe);
+    const totale = docDovuto(fattura);
     const creditato = creditoNotaCredito(fattura);
     const pagato = payTot(fattura);
     const versato = pagato + creditato;
@@ -578,6 +609,7 @@
     const destId = $('f-dest').value || null;
     const data = $('f-data').value;
     const righe = readRighe();
+    const split = $('f-split').checked;
     if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
     if(!data){ setMsg('Inserisci una data.', 'error'); return; }
     if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }
@@ -593,7 +625,7 @@
       // oggetto vuoto: preserva così stato di incasso (paid/paidDate/
       // pagamenti) esplicitamente, non solo per omissione dall'update —
       // stessa idea già applicata in ordini.html/ddt.html.
-      const doc = editingFattura ? Object.assign({}, editingFattura, { clienteId, ocId, ddtId, destId, data, righe }) : { clienteId, ocId, ddtId, destId, data, righe };
+      const doc = editingFattura ? Object.assign({}, editingFattura, { clienteId, ocId, ddtId, destId, data, righe, split }) : { clienteId, ocId, ddtId, destId, data, righe, split };
       const isNew = !editingId;
       const numInput = $('f-num').value.trim();
       if(isNew && ddtId){
@@ -601,6 +633,7 @@
         if(!ddt) throw new Error('DDT non disponibile: ricarica la pagina.');
         doc.num = numInput && numInput !== numberPreview ? numInput : null;
         const result = await store.createCustomerInvoice(companyId, ddt, doc);
+        if(split) await store.saveDoc('fattureCliente', Object.assign({}, result.fattura, { split: true }), companyId);
         allDdtById[ddtId] = result.ddt;
         if(result.ordine) allOrdiniById[result.ordine.id] = result.ordine;
       }else{
@@ -705,7 +738,7 @@
       gruppi[al].imponibile += netto;
       gruppi[al].imposta += netto * al / 100;
     });
-    const esigibilita = cli.split === 'si' ? 'S' : (cli.esig === 'D' ? 'D' : 'I');
+    const esigibilita = ft.split === true ? 'S' : (cli.esig === 'D' ? 'D' : 'I');
     const n2 = v => Number(v || 0).toFixed(2);
     const righeXml = (ft.righe || []).map((r, i) => `<DettaglioLinee>
         <NumeroLinea>${i + 1}</NumeroLinea>
@@ -789,7 +822,7 @@
       <DettaglioPagamento>
         <ModalitaPagamento>${modPag}</ModalitaPagamento>
         <DataScadenzaPagamento>${scad}</DataScadenzaPagamento>
-        <ImportoPagamento>${n2(docTotale(ft.righe))}</ImportoPagamento>
+        <ImportoPagamento>${n2(docDovuto(ft))}</ImportoPagamento>
         ${set.iban ? `<IBAN>${xmlEsc(set.iban)}</IBAN>` : ''}
       </DettaglioPagamento>
     </DatiPagamento>
@@ -908,7 +941,7 @@
     let bulkHtml = '';
     if(selRows.length){
       const anyUnpaid = selRows.some(f => !f.paid), anyPaid = selRows.some(f => f.paid);
-      const sel = window.SaasDocPage.selectionTotal(selRows, ncRows, elenco.every(f => PICK.has(f.id)), id => PICK.has(id), docTotale);
+      const sel = window.SaasDocPage.selectionTotal(selRows, ncRows, elenco.every(f => PICK.has(f.id)), id => PICK.has(id), docDovuto);
       const ncNote = sel.nNC ? ` (− ${sel.nNC} ${sel.nNC === 1 ? 'nota' : 'note'} di credito)` : '';
       bulkHtml = `<div class="bulkbar"><span>${selRows.length} selezionat${selRows.length === 1 ? 'a' : 'e'} · Totale ${eur(sel.tot)}${ncNote}</span><div class="sp"></div>
         ${anyUnpaid ? `<button type="button" class="primary" id="bulk-paid">✓ Segna incassate</button>` : ''}
@@ -938,7 +971,7 @@
           <td>${esc((clientiById[f.clienteId] || {}).nome) || '(cliente non trovato)'}${destSub(f)}</td>
           <td class="num-col">${eur(impTot(f.righe))}</td>
           <td class="num-col">${eur(ivaTot(f.righe))}</td>
-          <td class="num-col">${eur(docTotale(f.righe))}</td>
+          <td class="num-col">${eur(docDovuto(f))}${f.split === true ? '<div class="sx" style="font-size:11px;color:var(--faint)">split payment</div>' : ''}</td>
           <td><button class="pill ${f.paid ? 'paid' : 'unpaid'}" data-toggle="${f.id}">${f.paid ? ('incassata' + (f.paidDate ? ' · ' + new Date(f.paidDate).toLocaleDateString('it-IT') : '')) : 'da incassare'}</button></td>
         </tr>`).join('')}</tbody></table></div>`;
     window.SaasResize.makeColsResizable(area.querySelector('table'), 'fatture-elenco');

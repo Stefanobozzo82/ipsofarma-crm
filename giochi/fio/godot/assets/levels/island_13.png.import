@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://hl6h4wvxnl3d"
+path="res://.godot/imported/island_13.png-cf5fa6f9bdaafe82f98d9387920b80db.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "e5568176f1b10e43e6ac9d546e83b573"
+}
+
+[deps]
+
+source_file="res://assets/levels/island_13.png"
+dest_files=["res://.godot/imported/island_13.png-cf5fa6f9bdaafe82f98d9387920b80db.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

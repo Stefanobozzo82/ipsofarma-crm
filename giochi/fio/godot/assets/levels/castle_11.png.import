@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://b3k670t0xxhru"
+path="res://.godot/imported/castle_11.png-a27e883def7fd9f9e59c74eb72884249.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "84aca9406f9c2385fb7fc2c4b0c7bf46"
+}
+
+[deps]
+
+source_file="res://assets/levels/castle_11.png"
+dest_files=["res://.godot/imported/castle_11.png-a27e883def7fd9f9e59c74eb72884249.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

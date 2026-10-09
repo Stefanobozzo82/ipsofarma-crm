@@ -129,10 +129,22 @@
     }
     card.style.transform = 'none';
     const r = target.getBoundingClientRect();
-    const cardW = 320, cardH = card.offsetHeight || 200;
-    let left = r.right + 16;
-    if (left + cardW > window.innerWidth - 12) left = Math.max(12, r.left - cardW - 16);
-    let top = Math.min(Math.max(12, r.top), window.innerHeight - cardH - 12);
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const cardW = Math.min(320, vw - 24), cardH = card.offsetHeight || 200;
+    let left = r.right + 16, top;
+    if (left + cardW > vw - 12) left = r.left - cardW - 16;
+    if (left >= 12) {
+      top = Math.min(Math.max(12, r.top), vh - cardH - 12);
+    } else {
+      // Telefono: accanto non ci sta (il cassetto occupa quasi tutto lo
+      // schermo) e la scheda finiva sopra la voce da spiegare. Va sotto la
+      // voce se c'è posto, altrimenti sopra, sempre senza coprirla.
+      left = Math.max(12, (vw - cardW) / 2);
+      const bottomLimit = vh - 84; // sopra la barra di navigazione in basso
+      if (r.bottom + 12 + cardH <= bottomLimit) top = r.bottom + 12;
+      else if (r.top - 12 - cardH >= 12) top = r.top - 12 - cardH;
+      else top = Math.max(12, bottomLimit - cardH);
+    }
     card.style.left = left + 'px';
     card.style.top = top + 'px';
   }

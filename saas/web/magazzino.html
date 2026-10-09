@@ -22,7 +22,7 @@
   Deliberatamente manuale: creare un DDT o una fattura non genera ancora un
   movimento da solo — vedi il commento in cima a 0009_magazzino.sql.
 -->
-<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<script>(function(){try{var t=localStorage.getItem('saas_theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
 </head>
 <body>
@@ -34,16 +34,9 @@
       <p class="sub">Giacenze per deposito e storico movimenti.</p>
     </div>
 
-    <div class="card" id="depositi-card">
-      <div class="toolbar"><h3>Depositi</h3></div>
-      <div id="depositi-area"><p class="empty">Carico…</p></div>
-      <div class="grid2" style="margin-top:12px">
-        <div><label for="dep-nome">Nuovo deposito</label><input id="dep-nome" type="text" placeholder="es. Magazzino secondario"></div>
-      </div>
-      <button class="ghost" id="dep-add" style="margin-top:8px">+ Aggiungi deposito</button>
-      <div class="msg" id="dep-msg" hidden></div>
-    </div>
-
+    <!-- Nuovo movimento: in cima, al posto di depositi e giacenze mentre è
+         aperto — prima compariva sotto la scheda Depositi e su telefono
+         andava cercato scorrendo. -->
     <div class="card" id="movimento-card" hidden>
       <button type="button" class="linklike back-link" id="mv-back">← Torna alle giacenze</button>
       <h3>Nuovo movimento</h3>
@@ -70,6 +63,16 @@
       <div class="msg" id="mv-msg" hidden></div>
     </div>
 
+    <div class="card" id="depositi-card">
+      <div class="toolbar"><h3>Depositi</h3></div>
+      <div id="depositi-area"><p class="empty loading">Carico…</p></div>
+      <div class="grid2" style="margin-top:12px">
+        <div><label for="dep-nome">Nuovo deposito</label><input id="dep-nome" type="text" placeholder="es. Magazzino secondario"></div>
+      </div>
+      <button class="ghost" id="dep-add" style="margin-top:8px">+ Aggiungi deposito</button>
+      <div class="msg" id="dep-msg" hidden></div>
+    </div>
+
     <div class="card" id="list-card">
       <div class="toolbar">
         <h3>Giacenze</h3>
@@ -82,7 +85,7 @@
 
     <div class="card">
       <div class="toolbar"><h3>Movimenti recenti</h3></div>
-      <div id="recent-area"><p class="empty">Carico…</p></div>
+      <div id="recent-area"><p class="empty loading">Carico…</p></div>
     </div>
   </main>
 </div>
@@ -191,8 +194,9 @@
     setMsg('mv-msg', '', '');
     $('movimento-card').hidden = false;
     $('list-card').hidden = true;
+    $('depositi-card').hidden = true;
   }
-  function closeMovimento(){ $('movimento-card').hidden = true; $('list-card').hidden = false; selectedProdotto = null; }
+  function closeMovimento(){ $('movimento-card').hidden = true; $('list-card').hidden = false; $('depositi-card').hidden = false; selectedProdotto = null; }
   $('new-movimento').addEventListener('click', () => openMovimento(null));
   $('mv-back').addEventListener('click', closeMovimento);
   $('mv-cancel').addEventListener('click', closeMovimento);

@@ -20,7 +20,7 @@
   meccanismo (numerazione + righe + collegamento a un cliente), non ancora
   arrivare alla parità completa dei campi con il gestionale attuale.
 -->
-<script>(function(){try{if(localStorage.getItem('saas_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<script>(function(){try{var t=localStorage.getItem('saas_theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <link rel="stylesheet" href="app/theme.css">
 </head>
 <body>
@@ -127,7 +127,7 @@
     </div>
     <p class="msg" id="ai-import-status" hidden></p>
     <div id="filter-area"></div>
-    <div id="list-area"><p class="empty">Carico…</p></div>
+    <div id="list-area"><p class="empty loading">Carico…</p></div>
   </div>
   </main>
 </div>

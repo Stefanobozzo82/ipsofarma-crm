@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Accesso — Gestionale</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0ea371">
+<meta name="theme-color" content="#0e7a5a">
+<script>(function(){try{var t=localStorage.getItem('saas_theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
@@ -13,36 +15,46 @@
      questa pagina resta un file a sé (nessuna sidebar, nessuna azienda
      ancora scelta) ma non deve sembrare un prodotto diverso. */
   :root{
-    --txt:#1b2531; --bg:#f4f6f8; --surface:#ffffff; --border:#e5e9ee; --border2:#d6dce3;
-    --muted:#5f6b7a; --faint:#9aa5b2; --accent:#0ea371; --accent-d:#0b855d;
-    --red:#d85c54; --red-s:#d85c541a;
-    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
-    --sh: 0 1px 2px #1b25310a, 0 1px 3px #1b25310f;
+    --txt:#17211d; --bg:#f6f8f7; --surface:#ffffff; --border:#e1e7e4; --border2:#cdd6d2;
+    --muted:#5e6b66; --faint:#6b7772; --accent:#0e7a5a; --accent-d:#0a6249; --on-accent:#ffffff;
+    --red:#b8433b; --red-s:#d85c541a;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --sh: 0 1px 0 #17211d08;
+    color-scheme: light;
+  }
+  /* Tema scuro come il resto del gestionale: scelto nelle impostazioni o,
+     senza una scelta, quello del telefono (lo script qui sotto). */
+  :root[data-theme="dark"]{
+    --txt:#e4ebe7; --bg:#0f1513; --surface:#161e1b; --border:#26322d; --border2:#33413b;
+    --muted:#9aa8a1; --faint:#748079; --accent:#3db88c; --accent-d:#5cc9a1; --on-accent:#08140f;
+    --red:#f0837a; --red-s:#f0837a29; --sh:none;
+    color-scheme: dark;
   }
   *{box-sizing:border-box;}
   body{ margin:0; background:var(--bg); color:var(--txt); font:16px/1.5 var(--sans); }
   .wrap{ max-width:420px; margin:0 auto; padding:56px 20px; }
   .brand{ display:flex; align-items:center; gap:10px; margin:0 0 28px; }
-  .brand .mark{ width:34px; height:34px; border-radius:8px; background:linear-gradient(135deg,#16c98c,#0c8a5e); display:grid; place-items:center; color:#04231a; font-weight:800; font-size:16px; flex:0 0 auto; }
+  .brand .mark{ width:34px; height:34px; border-radius:8px; background:var(--accent); display:grid; place-items:center; color:var(--on-accent); font-weight:800; font-size:16px; flex:0 0 auto; }
   .brand .nm{ font-weight:700; font-size:16px; }
   h1{ font-size:20px; margin:0 0 22px; font-weight:700; }
   .card{ background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:22px; box-shadow:var(--sh); }
   .card + .card{ margin-top:16px; }
   label{ display:block; font-size:11.5px; color:var(--muted); margin:14px 0 5px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
   label:first-of-type{ margin-top:0; }
-  input{ width:100%; padding:10px 12px; border:1px solid var(--border2); border-radius:8px; background:#fff; color:var(--txt); font-size:14px; font-family:inherit; }
-  input:focus{ outline:none; border-color:var(--accent); }
-  button{ width:100%; margin-top:18px; padding:10px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:#fff; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; }
+  /* 16px: sotto, Safari su iPhone ingrandisce la pagina a ogni tocco su un campo. */
+  input{ width:100%; padding:11px 12px; border:1px solid var(--border2); border-radius:8px; background:var(--surface); color:var(--txt); font-size:16px; font-family:inherit; }
+  input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  button{ width:100%; margin-top:18px; padding:10px; border:1px solid var(--accent); border-radius:8px; background:var(--accent); color:var(--on-accent); font-size:15px; min-height:46px; font-weight:600; cursor:pointer; font-family:inherit; }
   button:hover{ background:var(--accent-d); }
   button:disabled{ opacity:.55; cursor:default; }
-  button.ghost{ background:#fff; color:var(--txt); border:1px solid var(--border2); margin-top:8px; }
+  button.ghost{ background:var(--surface); color:var(--txt); border:1px solid var(--border2); margin-top:8px; }
   .switch{ text-align:center; margin-top:16px; font-size:13.5px; color:var(--muted); }
   .switch a{ color:var(--accent-d); cursor:pointer; text-decoration:underline; }
   .msg{ margin-top:14px; padding:10px 12px; border-radius:8px; font-size:13.5px; }
   .msg.error{ background:var(--red-s); color:var(--red); }
   .msg.ok{ background:var(--surface); border:1px solid var(--accent); color:var(--accent-d); }
   .company{ padding:12px 14px; border:1px solid var(--border); border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
-  .company-open{ width:auto; margin:0; padding:6px 12px; font-size:12.5px; }
+  .company-open{ width:auto; margin:0; padding:6px 12px; font-size:13px; min-height:40px; white-space:nowrap; flex:0 0 auto; }
   .company + .company{ margin-top:8px; }
   .role{ font-size:11px; padding:2px 8px; border-radius:99px; background:var(--bg); border:1px solid var(--border); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
   .hint{ font-size:13px; color:var(--muted); margin-top:6px; }
@@ -56,8 +68,22 @@
 
   <!-- stato: caricamento -->
   <div class="card" id="loading">
-    <p class="hint">Verifico la sessione…</p>
+    <p class="hint" id="loading-text">Verifico la sessione…</p>
+    <button type="button" id="loading-retry" hidden>Riprova</button>
   </div>
+  <script>
+    // Se dopo 12 secondi si è ancora qui (rete assente o lenta, libreria di
+    // accesso non arrivata) lo si dice, con un pulsante per riprovare,
+    // invece di lasciare "Verifico la sessione…" per sempre.
+    setTimeout(function(){
+      var box = document.getElementById('loading');
+      if(!box || box.hidden) return;
+      document.getElementById('loading-text').textContent = 'La connessione è lenta o assente: non riesco a verificare l\'accesso. Controlla la rete e riprova.';
+      var b = document.getElementById('loading-retry');
+      b.hidden = false;
+      b.onclick = function(){ location.reload(); };
+    }, 12000);
+  </script>
 
   <!-- stato: qualcuno ti ha invitato in un'azienda (?invite=<token> nell'URL) -->
   <div class="card" id="invite-box" hidden style="border-color:var(--accent)">

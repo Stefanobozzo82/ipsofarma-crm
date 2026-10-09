@@ -153,7 +153,7 @@
     const residuo = r.residuo != null ? r.residuo : Math.max(0, (r.qty || 0) - consegnato);
     const done = residuo <= 0 && (r.qty || 0) > 0;
     const stato = done ? `<span class="pill paid">${doneLabel}</span>` : consegnato > 0 ? '<span class="pill partial">parziale</span>' : '<span class="pill unpaid">in attesa</span>';
-    return `<td class="ev-col num-col">${consegnato}</td><td class="ev-col num-col">${residuo}</td><td class="ev-col">${stato}</td>`;
+    return `<td class="ev-col num-col" data-label="${doneLabel === 'ricevuta' ? 'Ricevuta' : 'Consegnata'}">${consegnato}</td><td class="ev-col num-col" data-label="Residuo">${residuo}</td><td class="ev-col" data-label="Stato">${stato}</td>`;
   }
   // Barra + percentuale sopra la tabella righe: stesso calcolo delle
   // colonne per riga, aggregato sull'intero ordine.
@@ -374,6 +374,22 @@
       onLogout: () => doLogout(store),
     });
     return { session, companyId, company };
+  }
+
+  // Quantità, prezzo e IVA delle righe sono campi di testo con tastiera
+  // numerica (inputmode), non type=number: su Android la tastiera di un
+  // type=number spesso non ha la virgola, e "4,50" non si riusciva a
+  // scrivere. Qui la virgola diventa punto mentre si scrive, prima di ogni
+  // altro ascoltatore (fase di cattura): le pagine continuano a leggere
+  // Number(campo.value) come prima.
+  if (typeof document !== 'undefined') {
+    document.addEventListener('input', e => {
+      const el = e.target;
+      if (!el || !el.matches || !el.matches('.r-qty, .r-prezzo, .r-iva') || el.value.indexOf(',') < 0) return;
+      const pos = el.selectionStart;
+      el.value = el.value.replace(/,/g, '.');
+      try { el.setSelectionRange(pos, pos); } catch (_) {}
+    }, true);
   }
 
   window.SaasDocPage = {

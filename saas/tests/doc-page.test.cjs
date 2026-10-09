@@ -139,7 +139,7 @@ test('supplier document references resolve only an unambiguous order', () => {
 
 test('evasione cells and summary', () => {
   assert.match(api.evasioneCellsHtml({ qty: 3, consegnato: 3, residuo: 0 }, 'ricevuta'), /pill paid">ricevuta/);
-  assert.match(api.evasioneCellsHtml({ qty: 3, consegnato: 1 }, 'consegnata'), /num-col">1<\/td><td class="ev-col num-col">2<\/td>.*pill partial/);
+  assert.match(api.evasioneCellsHtml({ qty: 3, consegnato: 1 }, 'consegnata'), /data-label="Consegnata">1<\/td><td class="ev-col num-col" data-label="Residuo">2<\/td>.*pill partial/);
   assert.match(api.evasioneCellsHtml({ qty: 3 }, 'consegnata'), /in attesa/);
   const els = { box: {}, pct: {}, fill: { style: {} } };
   const { api: api2, window: w } = load();

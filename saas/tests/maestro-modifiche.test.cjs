@@ -4,7 +4,7 @@ const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, companies, chiave = 0;
 before(async () => {
-  db = await database(50); ({ companies } = await seedTenants(db));
+  db = await database(51); ({ companies } = await seedTenants(db));
   await db.query("insert into clienti(company_id,nome,piva) values($1,'Clinica Uno S.R.L.','01234567890')", [companies.A]);
 });
 after(async () => { if (db) await db.close(); });

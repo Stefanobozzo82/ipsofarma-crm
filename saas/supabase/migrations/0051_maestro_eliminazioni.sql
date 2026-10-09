@@ -1,122 +1,8 @@
--- Import da Maestro: oltre alle righe (0048/0049) si riportano nel gestionale
--- anche data e controparte (cliente o fornitore) cambiate in Maestro, e i
--- documenti eliminati in Maestro.
---
--- Testata. Come per le righe, maestro_import_log ricorda com'era la testata
--- in Maestro l'ultima volta (testata) e com'erano data e controparte del
--- documento nel gestionale in quel momento (doc_data, doc_party). Se la
--- testata cambia in Maestro e il documento nel gestionale ha ancora data e
--- controparte di allora, si aggiornano; se sono state cambiate anche nel
--- gestionale, o la data nuova cambierebbe anno (il numero, es. FT/2026/…,
--- porta l'anno), o il cliente/fornitore nuovo non si riconosce, si segnala
--- da allineare a mano.
---
--- Eliminazioni. Un documento è eliminato in Maestro quando il suo record di
--- testata è marcato eliminato nell'archivio di Maestro e non ne esiste uno
--- valido con lo stesso numero di registrazione (un record che manca e basta
--- non conta: potrebbe essere un file arrivato a metà). Nel gestionale si
--- elimina solo se non ha nulla che ne dipende — incassi, merce evasa,
--- documenti generati da lui, note di credito collegate, invio allo SDI — e
--- se nessun altro documento di Maestro è abbinato allo stesso documento del
--- gestionale (Maestro a volte elimina e ricrea con un'altra registrazione).
--- Altrimenti si segnala.
---
--- In questa migrazione i documenti eliminati in Maestro vengono soltanto
--- segnalati: l'eliminazione automatica nel gestionale è in 0051 (applicata a
--- parte: le istruzioni di cancellazione chiedono una conferma in più).
-
-alter table public.maestro_import_log
-  add column if not exists testata text,
-  add column if not exists doc_data date,
-  add column if not exists doc_party uuid;
-
-create or replace function public.maestro_testata(p_tabella text, d jsonb) returns text
-language sql immutable set search_path = public as $$
-  select md5(coalesce(coalesce(maestro_data(d->>'DATAFAT'),
-                               case when d->>'N_DATAFAT' ~ '^\d{4}-\d{2}-\d{2}$' then (d->>'N_DATAFAT')::date end)::text, '') || '|' ||
-             coalesce(btrim(d->>case when p_tabella in ('ORDINI', 'ACQUISTI') then 'NUMFOR' else 'NUMCLI' end), '') || '|' ||
-             coalesce(maestro_piva(d->>'PIVACF'), '') || '|' ||
-             coalesce(maestro_norm(d->>case when p_tabella in ('ORDINI', 'ACQUISTI') then 'FORNITORE' else 'CLIENTE' end), ''))
-$$;
-
--- Controparte del gestionale per una testata di Maestro: quella già usata
--- dagli altri documenti con lo stesso codice cliente/fornitore di Maestro
--- (la più frequente, senza pareggi), altrimenti per P.IVA, altrimenti per nome.
-create or replace function public.maestro_controparte(p_company_id uuid, p_tabella text, d jsonb) returns uuid
-language plpgsql stable set search_path = public as $$
-declare v_kind text; v_tab text; v_code text; v_id uuid;
-begin
-  v_kind := case when p_tabella in ('ORDINI', 'ACQUISTI') then 'F' else 'C' end;
-  v_tab := case v_kind when 'C' then 'clienti' else 'fornitori' end;
-  v_code := nullif(btrim(d->>case v_kind when 'C' then 'NUMCLI' else 'NUMFOR' end), '');
-  if v_code is not null then
-    -- La più frequente, solo se non è a pari merito con un'altra.
-    select case when count(*) = 1 or (array_agg(n order by n desc))[1] > (array_agg(n order by n desc))[2]
-                then (array_agg(party order by n desc))[1] end
-      into v_id
-    from (select l.doc_party party, count(*) n
-          from maestro_import_log l
-          join maestro_records m on m.company_id = l.company_id and m.tabella = l.tabella and not m.deleted
-                                 and m.dati->>'NUMREG' = l.numreg::text
-          where l.company_id = p_company_id and l.doc_party is not null
-            and not (l.tabella = p_tabella and l.numreg::text = d->>'NUMREG')  -- il documento stesso non conta
-            and (case when l.tabella in ('ORDINI', 'ACQUISTI') then 'F' else 'C' end) = v_kind
-            and btrim(m.dati->>case v_kind when 'C' then 'NUMCLI' else 'NUMFOR' end) = v_code
-          group by l.doc_party) x;
-    if v_id is not null then return v_id; end if;
-  end if;
-  if maestro_piva(d->>'PIVACF') is not null then
-    execute format('select id from public.%I where company_id = $1 and (maestro_piva(piva) = $2 or maestro_piva(cf) = $2) order by created_at limit 1', v_tab)
-      into v_id using p_company_id, maestro_piva(d->>'PIVACF');
-    if v_id is not null then return v_id; end if;
-  end if;
-  if maestro_norm(d->>case v_kind when 'C' then 'CLIENTE' else 'FORNITORE' end) is not null then
-    execute format('select id from public.%I where company_id = $1 and maestro_norm(nome) = $2 order by created_at limit 1', v_tab)
-      into v_id using p_company_id, maestro_norm(d->>case v_kind when 'C' then 'CLIENTE' else 'FORNITORE' end);
-  end if;
-  return v_id;
-end;
-$$;
-
--- Il documento del gestionale ha qualcosa che ne dipende? (allora non si elimina)
-create or replace function public.maestro_documento_vincolato(p_company_id uuid, p_tipo text, p_id uuid) returns text
-language plpgsql stable set search_path = public as $$
-declare v jsonb;
-begin
-  execute format('select to_jsonb(t) from public.%I t where company_id = $1 and id = $2', p_tipo) into v using p_company_id, p_id;
-  if v is null then return null; end if;
-  if p_tipo in ('ordini_cliente', 'ordini_fornitore') and exists (
-       select 1 from jsonb_array_elements(coalesce(v->'righe', '[]')) r where coalesce(maestro_numero(r->>'qtyEv'), 0) > 0) then
-    return 'merce già evasa';
-  end if;
-  if p_tipo = 'preventivi' and exists (select 1 from ordini_cliente where company_id = p_company_id and prev_id = p_id) then
-    return 'trasformato in ordine';
-  end if;
-  if p_tipo = 'ordini_cliente' and (exists (select 1 from ddt where company_id = p_company_id and oc_id = p_id)
-       or exists (select 1 from fatture_cliente where company_id = p_company_id and oc_id = p_id)
-       or exists (select 1 from ordini_fornitore where company_id = p_company_id and extra->>'ocId' = v->>'num')) then
-    return 'ha DDT, fatture o ordini fornitore collegati';
-  end if;
-  if p_tipo = 'ordini_fornitore' and (exists (select 1 from fatture_fornitore where company_id = p_company_id and of_id = p_id)
-       or exists (select 1 from ddt_fornitore where company_id = p_company_id and of_id = p_id)
-       or jsonb_array_length(coalesce(v->'ftf_ids', '[]')) > 0) then
-    return 'ha DDT o fatture fornitore collegati';
-  end if;
-  if p_tipo = 'ddt' and (exists (select 1 from fatture_cliente where company_id = p_company_id and ddt_id = p_id)
-       or coalesce(v#>>'{extra,ftId}', '') <> '') then
-    return 'già fatturato';
-  end if;
-  if p_tipo in ('fatture_cliente', 'fatture_fornitore') then
-    if coalesce((v->>'paid')::boolean, false) or jsonb_array_length(coalesce(v->'pagamenti', '[]')) > 0 then return 'ha incassi o pagamenti'; end if;
-    if exists (select 1 from note_credito where company_id = p_company_id and fattura_id = p_id)
-       or exists (select 1 from note_credito_fornitore where company_id = p_company_id and fattura_id = p_id) then
-      return 'ha note di credito collegate';
-    end if;
-    if p_tipo = 'fatture_cliente' and coalesce(v->>'sdi_progressivo', '') <> '' then return 'già inviata allo SDI'; end if;
-  end if;
-  return null;
-end;
-$$;
+-- Import da Maestro: eliminazione automatica dei documenti eliminati in
+-- Maestro (vedi 0050, dove per ora venivano solo segnalati). Si elimina nel
+-- gestionale solo se nulla ne dipende (maestro_documento_vincolato) e se
+-- nessun'altra registrazione di Maestro è abbinata allo stesso documento;
+-- altrimenti si continua a segnalare.
 
 create or replace function public.maestro_aggiorna_modificati(p_company_id uuid) returns jsonb
 language plpgsql set search_path = public as $$
@@ -158,9 +44,20 @@ begin
         where company_id = l.company_id and tabella = l.tabella and numreg = l.numreg;
         continue;
       end if;
-      -- Per ora si segnala soltanto: l'eliminazione automatica arriva con 0051.
-      v_vinc := coalesce(maestro_documento_vincolato(p_company_id, l.doc_tipo, l.doc_id),
-                         'eliminazione automatica non ancora attiva');
+      v_vinc := maestro_documento_vincolato(p_company_id, l.doc_tipo, l.doc_id);
+      if v_vinc is null then
+        begin
+          execute format('delete from public.%I where company_id = $1 and id = $2', l.doc_tipo) using p_company_id, l.doc_id;
+          update maestro_import_log set esito = 'ignorato', doc_id = null, contenuto = null, testata = null,
+                 motivo = 'eliminato in Maestro il ' || to_char(now() at time zone 'Europe/Rome', 'DD/MM/YYYY HH24:MI')
+                          || ': eliminato anche nel gestionale (' || coalesce(l.doc_num, '') || ')', updated_at = now()
+          where company_id = l.company_id and tabella = l.tabella and numreg = l.numreg;
+          v_eliminati := v_eliminati + 1;
+          continue;
+        exception when others then
+          v_vinc := sqlerrm;
+        end;
+      end if;
       v_motivo := 'eliminato in Maestro, ma non nel gestionale (' || v_vinc || '): da eliminare o tenere a mano';
       update maestro_import_log set motivo = v_motivo, updated_at = now()
       where company_id = l.company_id and tabella = l.tabella and numreg = l.numreg and motivo is distinct from v_motivo;
@@ -273,12 +170,5 @@ begin
   return jsonb_build_object('aggiornati', v_aggiornati, 'eliminati', v_eliminati, 'da_allineare', v_da_vedere);
 end;
 $$;
-revoke all on function public.maestro_testata(text, jsonb) from public, anon, authenticated;
-revoke all on function public.maestro_controparte(uuid, text, jsonb) from public, anon, authenticated;
-revoke all on function public.maestro_documento_vincolato(uuid, text, uuid) from public, anon, authenticated;
-grant execute on function public.maestro_testata(text, jsonb) to service_role;
-grant execute on function public.maestro_controparte(uuid, text, jsonb) to service_role;
-grant execute on function public.maestro_documento_vincolato(uuid, text, uuid) to service_role;
 
--- Punto di partenza della testata per i documenti già importati (nessuna modifica).
 select public.maestro_aggiorna_modificati(c) from (select distinct company_id c from public.maestro_import_log) x;

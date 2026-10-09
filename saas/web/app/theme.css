@@ -208,23 +208,8 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
   .mobile-bottombar a.on, .mobile-bottombar button.on{ color:var(--accent-d); }
   .app-main{ padding:20px 14px calc(78px + env(safe-area-inset-bottom)); }
 
-  /* Tocco: sotto gli 860px il dispositivo è quasi sempre a controllo
-     touch, non mouse — le aree cliccabili crescono, i testi restano
-     leggibili senza dover pizzicare per ingrandire. */
-  button.primary, button.ghost{ padding:10px 16px; }
-  td.actions button{ padding:6px 8px; }
-  /* Voci del menu "⬇ Scarica" (.dl-list, vedi sopra): sono <button> semplici,
-     non .primary/.ghost, quindi non prendono già il bonus riga sopra —
-     qui un'area di tocco più comoda, non i ~32px di altezza che bastano
-     col mouse. */
-  .dl-list button{ padding:12px 14px; font-size:14px; }
-
-  /* iOS Safari ingrandisce automaticamente la pagina quando si mette a
-     fuoco un campo con font-size sotto i 16px: qui sotto gli 860px (dove
-     il dispositivo è quasi sempre un telefono) i campi passano a 16px
-     apposta per evitare lo zoom involontario ad ogni tocco. */
-  input, select, textarea{ font-size:16px; padding:10px 11px; }
-  .righe-table input{ font-size:14px; padding:7px 8px; }
+  /* Aree di tocco e campi a 16px: in fondo al file ("Telefono: tocco"),
+     perché le regole normali che correggono vengono dopo questo blocco. */
   .report-grid{ grid-template-columns:1fr !important; }
 
   /* Tabelle degli elenchi (fatture, ordini, clienti, prodotti...) → schede
@@ -316,6 +301,10 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
 
 .stats{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; margin-bottom:14px; }
 @media (max-width:680px){ .stats{ grid-template-columns:1fr; } }
+/* Tre riquadri in riga (Scadenziario) da tablet in su; su telefono in
+   colonna come gli altri: in riga tagliavano "Scadono in 30 gg". */
+.stats.stats-3{ grid-template-columns:repeat(3,1fr); }
+@media (max-width:680px){ .stats.stats-3{ grid-template-columns:1fr; } }
 .stat{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 20px; text-decoration:none; display:block; color:inherit; }
 a.stat{ transition:background-color .12s, border-color .12s; }
 a.stat:hover{ border-color:var(--border2); background:var(--surface2); }
@@ -869,3 +858,42 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
 .bio-lock-box button.primary{ display:block; width:100%; margin-bottom:10px; padding:11px; }
 .bio-lock-box button.linklike{ font-size:12.5px; }
 .bio-lock-box .msg{ margin-top:14px; }
+
+/* ---------------------------------------------------------------------------
+   Telefono: tocco. Deve restare IN FONDO al file: queste regole correggono
+   quelle normali di pulsanti, campi, ricerca e filtri, che hanno lo stesso
+   peso e, quando stavano nel blocco @media in alto, vincevano perché
+   scritte dopo (campi a 14px, pulsanti alti 36px, tutto rimasto "da mouse").
+--------------------------------------------------------------------------- */
+@media (max-width:860px){
+  /* Tocco: sotto gli 860px il dispositivo è quasi sempre a controllo
+     touch, non mouse — le aree cliccabili crescono, i testi restano
+     leggibili senza dover pizzicare per ingrandire. */
+  button.primary, button.ghost{ padding:10px 16px; }
+  td.actions button{ padding:6px 8px; }
+  /* Voci del menu "⬇ Scarica" (.dl-list, vedi sopra): sono <button> semplici,
+     non .primary/.ghost, quindi non prendono già il bonus riga sopra —
+     qui un'area di tocco più comoda, non i ~32px di altezza che bastano
+     col mouse. */
+  .dl-list button{ padding:12px 14px; font-size:14px; }
+
+  /* iOS Safari ingrandisce automaticamente la pagina quando si mette a
+     fuoco un campo con font-size sotto i 16px: qui sotto gli 860px (dove
+     il dispositivo è quasi sempre un telefono) i campi passano a 16px
+     apposta per evitare lo zoom involontario ad ogni tocco. */
+  input, select, textarea{ font-size:16px; padding:10px 11px; }
+  .righe-table input{ font-size:14px; padding:7px 8px; }
+  button.linklike.back-link{ padding:12px 0; margin:-12px 0 0; }
+  .search-box input{ font-size:16px; padding:10px 11px 10px 32px; }
+  .filterbar select, .filterbar input[type=date], .filterbar .ffclear{ font-size:16px; padding:10px 11px; }
+
+  /* Mai più larga dello schermo: "Dal/Al" su una riga sola (nowrap)
+     allargava la pagina oltre lo schermo e la barra in basso finiva fuori
+     vista sui telefoni da 360px. Le date vanno a capo e si dividono la
+     larghezza; html con overflow-x:clip è la rete di sicurezza (il
+     overflow-x:hidden del body da solo non basta). */
+  html{ overflow-x:clip; }
+  .filterbar .fdate-group{ flex-wrap:wrap; width:100%; }
+  .filterbar .fdate{ flex:1 1 140px; min-width:0; }
+  .filterbar .fdate input[type=date]{ flex:1; min-width:0; width:100%; }
+}

@@ -221,5 +221,80 @@
     }
   }
 
+  // Tasto "indietro" (Android, anche il gesto, e il browser): un documento
+  // aperto o il cassetto del menu sono una "schermata" in più. Senza una
+  // voce nella cronologia il tasto indietro lasciava la pagina intera
+  // (nell'app tornava alla pagina d'accesso) invece di chiudere il
+  // documento. Qui, una volta sola per tutte le pagine: quando un
+  // pannello si apre si aggiunge una voce alla cronologia, l'indietro la
+  // toglie e chiude il pannello col suo stesso pulsante (← Torna
+  // all'elenco / Altro), e se il pannello si chiude dall'app (Salva,
+  // Annulla, ←) la voce si toglie. Aprendo un documento la pagina torna in
+  // cima — prima si apriva a metà modulo, all'altezza a cui si era
+  // scorso l'elenco — e chiudendolo si ritrova l'elenco dove lo si era
+  // lasciato.
+  const SCREENS = [
+    { id: 'form-card', back: 'f-back', isOpen: el => !el.hidden, toTop: true },
+    { id: 'email-card', back: 'em-back', isOpen: el => !el.hidden, toTop: true },
+    { id: 'sidebar', isOpen: el => el.classList.contains('open'), close: el => el.classList.remove('open') },
+  ];
+  // Chi scorre: su telefono è il body (html e body alti 100%), altrove la
+  // finestra — si legge e si imposta su entrambi.
+  const getY = () => Math.max(window.scrollY, document.body.scrollTop);
+  const setY = y => { window.scrollTo(0, y); document.body.scrollTop = y; };
+  function watchScreens() {
+    // popping: chiusura causata dall'indietro (la voce è già tolta);
+    // ownBacks: indietro chiesti da qui, il cui popstate va ignorato (arriva
+    // dopo, e nel frattempo potrebbe essersi aperto un altro documento).
+    let popping = false, ownBacks = 0;
+    // Posizione dell'elenco, annotata mentre si scorre: quando il documento
+    // si apre l'elenco è già nascosto e la pagina, accorciata, ha già perso
+    // la posizione.
+    let lastY = getY();
+    const formOpen = () => SCREENS.some(sc => sc.toTop && document.getElementById(sc.id) && sc.isOpen(document.getElementById(sc.id)));
+    const track = () => { if (!formOpen()) lastY = getY(); };
+    window.addEventListener('scroll', track, { passive: true });
+    document.body.addEventListener('scroll', track, { passive: true });
+    SCREENS.forEach(sc => {
+      const el = document.getElementById(sc.id);
+      if (!el) return;
+      let open = sc.isOpen(el), listY = 0;
+      new MutationObserver(() => {
+        const now = sc.isOpen(el);
+        if (now === open) return;
+        open = now;
+        if (now) {
+          if (sc.toTop) { listY = lastY; setY(0); }
+          history.pushState({ saasScreen: sc.id }, '');
+        } else {
+          if (sc.toTop) {
+            // Due frame: l'elenco può ridisegnarsi subito dopo la chiusura
+            // (dopo un salvataggio) e la pagina deve prima riprendere altezza.
+            const y = listY;
+            requestAnimationFrame(() => requestAnimationFrame(() => setY(y)));
+          }
+          if (!popping && history.state && history.state.saasScreen === sc.id) { ownBacks++; history.back(); }
+        }
+      }).observe(el, { attributes: true, attributeFilter: ['hidden', 'class'] });
+    });
+    window.addEventListener('popstate', () => {
+      if (ownBacks > 0) { ownBacks--; return; }
+      // L'indietro chiude il pannello aperto più in alto: prima il cassetto,
+      // poi il documento.
+      for (const sc of SCREENS.slice().reverse()) {
+        const el = document.getElementById(sc.id);
+        if (!el || !sc.isOpen(el)) continue;
+        popping = true;
+        const btn = sc.back && document.getElementById(sc.back);
+        if (btn) btn.click(); else if (sc.close) sc.close(el);
+        // L'osservatore gira in un microtask: si azzera dopo.
+        setTimeout(() => { popping = false; }, 0);
+        break;
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchScreens);
+  else watchScreens();
+
   global.SaasNav = { render };
 })(window);

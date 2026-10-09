@@ -4,7 +4,7 @@ const { database, seedTenants, asRole } = require('./helpers/database.cjs');
 
 let db, companies, chiave = 0;
 before(async () => {
-  db = await database(48); ({ companies } = await seedTenants(db));
+  db = await database(49); ({ companies } = await seedTenants(db));
   await db.query("insert into clienti(company_id,nome,piva) values($1,'Clinica Uno S.R.L.','01234567890')", [companies.A]);
 });
 after(async () => { if (db) await db.close(); });
@@ -90,4 +90,17 @@ test('a DDT corrected in Maestro keeps the lot recorded in the CRM', async () =>
   await importa();
   const dopo = await uno('select righe from ddt where id=$1', [ddt.id]);
   assert.deepEqual([dopo.righe[0].qty, dopo.righe[0].lotto, dopo.righe[0].scad], [3, 'L9', '2031-01-01']);
+});
+
+test('a deferred invoice follows the changes of the DDT lines it takes from in Maestro', async () => {
+  await record('BOLLE', { NUMREG: 504, TIPO: 'B', NUMFAT: 78, DATAFAT: '07/10/2026', N_DATAFAT: '2026-10-07', NUMCLI: '7',
+    CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 100, NRIFPERBOL: 505 });
+  await record('ARCART_B', riga(504, 'C001', 2, 50));
+  await record('VENDITE', { NUMREG: 505, TIPO: 'S', NUMFAT: 78, DATAFAT: '07/10/2026', N_DATAFAT: '2026-10-07', NUMCLI: '7',
+    CLIENTE: 'CLINICA UNO SRL', PIVACF: '01234567890', TOTALE: 122, PAGATO: false });
+  await importa();
+  await cambiaRighe('ARCART_B', 504, [riga(504, 'C001', 2, 45)]);
+  await importa();
+  const ft = await uno("select righe from fatture_cliente where company_id=$1 and num='FT/2026/0078'", [companies.A]);
+  assert.deepEqual([ft.righe[0].prezzo, ft.righe[0].source_ddt_index], [45, 0]);
 });

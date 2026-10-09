@@ -1,0 +1,300 @@
+{
+	"id": "dump",
+	"title": "La discarica",
+	"mood": "dump",
+	"ambience": "wind",
+	"tint": "#9a9184",
+	"depth": {
+		"y": [560, 930],
+		"scale": [0.78, 1.12]
+	},
+	"spawns": {
+		"start": [260, 840]
+	},
+	"nav": {
+		"polygons": [[[80, 640], [1840, 600], [1860, 905], [1500, 925], [300, 920], [60, 890]]],
+		"holes": [[[880, 640], [1010, 640], [1020, 720], [870, 720]]]
+	},
+	"placeholder": {
+		"sky": ["#3a423b", "#8a7550"],
+		"ground_y": 600,
+		"ground": ["#4b3d2b", "#241c15"],
+		"far": "chimneys",
+		"far_color": "#3b433f",
+		"seed": 3,
+		"sun": {
+			"pos": [330, 250],
+			"r": 90,
+			"color": "#d9b472"
+		},
+		"decor": [
+			{"shape": "heap", "pos": [240, 640], "size": [520, 230], "color": "#5a4630", "layer": "bg"},
+			{"shape": "heap", "pos": [1000, 615], "size": [640, 200], "color": "#4f3f2e", "layer": "bg"},
+			{"shape": "heap", "pos": [1640, 620], "size": [420, 260], "color": "#554531", "layer": "bg"},
+			{"shape": "pillar", "pos": [1100, 600], "size": [50, 170], "color": "#4a3b2a", "layer": "bg"},
+			{"shape": "crate", "pos": [1100, 430], "size": [260, 34], "color": "#5a4630", "layer": "bg"},
+			{"shape": "crate", "pos": [945, 720], "size": [140, 100], "color": "#6b5036", "layer": "mid"},
+			{"shape": "pipe", "pos": [620, 575], "size": [300, 26], "color": "#6a5a46", "layer": "bg"},
+			{"shape": "barrel", "pos": [560, 700], "size": [90, 110], "color": "#7a4a2a", "layer": "mid"},
+			{"shape": "cart", "pos": [1250, 800], "size": [260, 130], "color": "#7a4a2a", "layer": "mid"},
+			{"shape": "pole", "pos": [1420, 820], "size": [90, 330], "color": "#6a5a46", "layer": "mid"},
+			{"shape": "heap", "pos": [110, 1090], "size": [520, 150], "color": "#1d1712", "layer": "fg"},
+			{"shape": "heap", "pos": [1820, 1090], "size": [520, 140], "color": "#1d1712", "layer": "fg"}
+		]
+	},
+	"objects": [
+		{
+			"id": "black1",
+			"type": "npc",
+			"pos": [1100, 430],
+			"walk_to": [1100, 430],
+			"facing": -1,
+			"scale": 0.9,
+			"accessory": "bowler",
+			"voice": 2,
+			"palette": {
+				"body": "#46424e",
+				"wing": "#2f2d36",
+				"beak": "#b87a2a",
+				"accent": "#a2332a",
+				"eye": "#f0e6c8",
+				"feet": "#8a5a24"
+			},
+			"clickable": false,
+			"visible_if": {
+				"not_flags": ["black1_gone"]
+			},
+			"interactions": []
+		},
+		{
+			"id": "rag",
+			"type": "pickup",
+			"poly": [[380, 800], [470, 800], [470, 850], [380, 850]],
+			"walk_to": [420, 870]
+		},
+		{
+			"id": "nonna",
+			"type": "npc",
+			"pos": [760, 800],
+			"walk_to": [690, 815],
+			"facing": 1,
+			"scale": 1,
+			"accessory": "cap",
+			"voice": 2,
+			"palette": {
+				"body": "#b9ad98",
+				"wing": "#8f8672",
+				"accent": "#8a5a3a"
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "rag",
+						"not_flags": ["nonna_warm"]
+					},
+					"do": [
+						{"a": "take", "item": "rag"},
+						{"a": "flag", "flag": "nonna_warm"},
+						{"a": "honk", "who": "nonna"},
+						{"a": "bubble", "who": "nonna", "icons": ["heart", "sun"]},
+						{"a": "give", "item": "knob"}
+					]
+				},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "nonna", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {"flags": ["nonna_warm"]}, "do": [{"a": "bubble", "who": "nonna", "icons": ["heart"], "time": 1.6}]},
+				{"when": {}, "do": [{"a": "bubble", "who": "nonna", "icons": ["cold", "rag"]}]}
+			]
+		},
+		{
+			"id": "rod",
+			"type": "pickup",
+			"poly": [[980, 850], [1060, 850], [1060, 890], [980, 890]],
+			"walk_to": [1020, 905]
+		},
+		{
+			"id": "cog",
+			"type": "pickup",
+			"poly": [[1215, 755], [1285, 755], [1285, 800], [1215, 800]],
+			"walk_to": [1250, 870],
+			"pose": "crouch"
+		},
+		{
+			"id": "oilcan",
+			"type": "pickup",
+			"poly": [[1385, 480], [1455, 480], [1455, 545], [1385, 545]],
+			"walk_to": [1420, 880],
+			"pose": "neck"
+		},
+		{
+			"id": "winch",
+			"type": "hotspot",
+			"poly": [[1500, 640], [1640, 640], [1640, 810], [1500, 810]],
+			"walk_to": [1570, 870],
+			"color": "#5b6460",
+			"icon": "winch",
+			"interactions": [
+				{
+					"when": {
+						"item": "cog",
+						"not_flags": ["winch_cog"]
+					},
+					"do": [
+						{"a": "take", "item": "cog"},
+						{"a": "flag", "flag": "winch_cog"},
+						{"a": "sfx", "name": "clank"},
+						{"a": "bubble", "who": "goose", "icons": ["cog", "heart"], "time": 1.6}
+					]
+				},
+				{
+					"when": {
+						"item": "oilcan",
+						"not_flags": ["winch_oiled"]
+					},
+					"do": [
+						{"a": "flag", "flag": "winch_oiled"},
+						{"a": "sfx", "name": "drip"},
+						{"a": "bubble", "who": "goose", "icons": ["oilcan", "heart"], "time": 1.6}
+					]
+				},
+				{
+					"when": {
+						"item": "crank",
+						"flags": ["winch_cog", "winch_oiled"],
+						"not_flags": ["winch_crank"]
+					},
+					"do": [
+						{"a": "take", "item": "crank"},
+						{"a": "flag", "flag": "winch_crank"},
+						{"a": "sfx", "name": "clank"},
+						{"a": "bubble", "who": "goose", "icons": ["crank", "lever"], "time": 1.8}
+					]
+				},
+				{"when": {"item": "crank"}, "do": [{"a": "bubble", "who": "goose", "icons": ["cog", "oilcan", "crank"]}]},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "goose", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{
+					"when": {
+						"flags": ["winch_crank"],
+						"not_flags": ["gate_open"]
+					},
+					"do": [
+						{
+							"a": "minigame",
+							"id": "gate_levers",
+							"win": [
+								{"a": "flag", "flag": "gate_open"},
+								{"a": "sfx", "name": "gate"},
+								{"a": "shake", "amount": 8, "time": 1.4},
+								{"a": "honk", "who": "goose"},
+								{"a": "bubble", "who": "goose", "icons": ["gate", "arrow_right"]}
+							]
+						}
+					]
+				},
+				{"when": {}, "do": [{"a": "bubble", "who": "goose", "icons": ["cog", "oilcan", "crank"]}]}
+			]
+		},
+		{
+			"id": "gate",
+			"type": "hotspot",
+			"poly": [[1700, 470], [1860, 470], [1860, 800], [1700, 800]],
+			"walk_to": [1760, 860],
+			"color": "#4b5557",
+			"icon": "gate",
+			"visible_if": {
+				"not_flags": ["gate_open"]
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "goose", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {}, "do": [{"a": "bubble", "who": "goose", "icons": ["lock", "lever"]}]}
+			]
+		},
+		{
+			"id": "gate_open",
+			"type": "hotspot",
+			"poly": [[1700, 470], [1860, 470], [1860, 800], [1700, 800]],
+			"walk_to": [1760, 860],
+			"color": "#2b2a24",
+			"icon": "arrow_right",
+			"visible_if": {
+				"flags": ["gate_open"]
+			},
+			"interactions": [
+				{"when": {}, "do": [{"a": "goto", "scene": "canal", "spawn": "from_dump"}]}
+			]
+		}
+	],
+	"lights": [
+		{"pos": [1570, 700], "color": "#ffc870", "energy": 0.9, "scale": 2.4, "flicker": 0.25},
+		{"pos": [1250, 778], "color": "#ffe9a8", "energy": 0.7, "scale": 0.9, "flicker": 0.8, "glint": true},
+		{"pos": [1420, 512], "color": "#ffe9a8", "energy": 0.7, "scale": 0.9, "flicker": 0.8, "glint": true},
+		{"pos": [1700, 560], "color": "#ff9a50", "energy": 0.8, "scale": 2, "flicker": 0.3},
+		{"pos": [330, 250], "color": "#e9c27a", "energy": 0.5, "scale": 5}
+	],
+	"fx": [
+		{"type": "fog", "rect": [0, 600, 1920, 380], "color": [0.75, 0.7, 0.6, 0.16], "amount": 10},
+		{"type": "steam", "pos": [1180, 650], "scale": 1, "color": [0.9, 0.9, 0.85, 0.22]},
+		{"type": "steam", "pos": [330, 640], "scale": 0.8, "color": [0.9, 0.9, 0.85, 0.2]},
+		{"type": "dust", "amount": 40}
+	],
+	"minigames": {
+		"gate_levers": {
+			"type": "lever_sequence",
+			"config": {
+				"levers": 4,
+				"sequence": [2, 0, 3]
+			}
+		}
+	},
+	"on_enter": [
+		{
+			"once": "intro_done",
+			"do": [
+				{"a": "wait", "s": 1.2},
+				{"a": "bubble", "who": "black1", "icons": ["goose_black", "clock", "wave"], "time": 2.8},
+				{"a": "bubble", "who": "goose", "icons": ["exclaim", "home"], "time": 2},
+				{"a": "honk", "who": "black1"},
+				{"a": "bubble", "who": "black1", "icons": ["skull"], "time": 1.4},
+				{"a": "move", "who": "black1", "to": [2150, 430]},
+				{"a": "flag", "flag": "black1_gone"},
+				{"a": "bubble", "who": "goose", "icons": ["home", "arrow_right"], "time": 2.4}
+			]
+		}
+	],
+	"hints": [
+		{"if": {"not_flags": ["got_cog"]}, "icons": ["crouch", "cog"], "target": "cog"},
+		{"if": {"not_flags": ["got_oilcan"]}, "icons": ["neck", "oilcan"], "target": "oilcan"},
+		{"if": {"not_flags": ["winch_cog"]}, "icons": ["cog", "winch"], "target": "winch"},
+		{"if": {"not_flags": ["winch_oiled"]}, "icons": ["oilcan", "winch"], "target": "winch"},
+		{"if": {"not_flags": ["got_rag"]}, "icons": ["rag"], "target": "rag"},
+		{"if": {"not_flags": ["nonna_warm"]}, "icons": ["rag", "goose", "heart"], "target": "nonna"},
+		{"if": {"not_flags": ["got_rod"]}, "icons": ["rod"], "target": "rod"},
+		{"if": {"has": ["rod", "knob"]}, "icons": ["rod", "knob", "crank"], "target": "inventory"},
+		{"if": {"has": ["crank"], "not_flags": ["winch_crank"]}, "icons": ["crank", "winch"], "target": "winch"},
+		{"if": {"not_flags": ["gate_open"]}, "icons": ["lever", "winch"], "target": "winch"},
+		{"if": {}, "icons": ["arrow_right"], "target": "gate_open"}
+	]
+}

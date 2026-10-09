@@ -1,0 +1,18 @@
+{
+ "title": "Il Ritorno dell'Oca",
+ "start_scene": "dump",
+ "start_spawn": "start",
+ "walk_speed": 420,
+ "parallax": true,
+ "scenes": [
+  "dump",
+  "canal",
+  "tower",
+  "clock_room"
+ ],
+ "player_palette": {
+  "body": "#dacfb2",
+  "wing": "#b8a98a",
+  "accent": "#6f8a4b"
+ }
+}

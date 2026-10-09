@@ -1,0 +1,30 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/level.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/scene_backdrop.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/fx/atmosphere.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/core/debug_overlay.gd" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="5"]
+
+[node name="Level" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Backdrop" type="Node2D" parent="."]
+script = ExtResource("2")
+
+[node name="NavRegion" type="NavigationRegion2D" parent="."]
+
+[node name="Entities" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Atmosphere" type="Node2D" parent="."]
+script = ExtResource("3")
+
+[node name="DebugOverlay" type="Node2D" parent="."]
+z_index = 4000
+script = ExtResource("4")
+
+[node name="HudLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="Hud" parent="HudLayer" instance=ExtResource("5")]

@@ -1,0 +1,201 @@
+{
+	"id": "tower",
+	"title": "La torre dell'orologio",
+	"mood": "tower",
+	"ambience": "clock",
+	"tint": "#9b8f7a",
+	"depth": {
+		"y": [600, 930],
+		"scale": [0.8, 1.12]
+	},
+	"spawns": {
+		"start": [200, 850],
+		"from_canal": [200, 850]
+	},
+	"nav": {
+		"polygons": [[[60, 650], [1860, 640], [1880, 905], [1500, 925], [300, 920], [60, 890]]],
+		"holes": []
+	},
+	"placeholder": {
+		"sky": ["#2e261f", "#5a4630"],
+		"ground_y": 640,
+		"ground": ["#4a3a2b", "#201912"],
+		"far": "none",
+		"seed": 11,
+		"decor": [
+			{"shape": "window", "pos": [900, 560], "size": [120, 260], "color": "#3a2f26", "layer": "bg"},
+			{"shape": "window", "pos": [1250, 560], "size": [120, 260], "color": "#3a2f26", "layer": "bg"},
+			{"shape": "pillar", "pos": [60, 640], "size": [90, 640], "color": "#4a3b2d", "layer": "bg"},
+			{"shape": "pillar", "pos": [1860, 640], "size": [90, 640], "color": "#4a3b2d", "layer": "bg"},
+			{"shape": "gear", "pos": [1010, 400], "size": [240, 240], "color": "#6a5a3a", "layer": "bg"},
+			{"shape": "shelf", "pos": [360, 720], "size": [320, 440], "color": "#5a4630", "layer": "mid"},
+			{"shape": "machine", "pos": [1180, 770], "size": [260, 190], "color": "#5b6460", "layer": "mid"},
+			{"shape": "lamp", "pos": [640, 720], "size": [10, 220], "color": "#2b2118", "layer": "mid"}
+		]
+	},
+	"objects": [
+		{
+			"id": "book",
+			"type": "pickup",
+			"poly": [[340, 300], [400, 300], [400, 350], [340, 350]],
+			"walk_to": [370, 880],
+			"pose": "neck"
+		},
+		{
+			"id": "pagina",
+			"type": "npc",
+			"pos": [700, 820],
+			"walk_to": [640, 835],
+			"facing": 1,
+			"scale": 1,
+			"accessory": "glasses",
+			"voice": 1,
+			"palette": {
+				"body": "#e0d6bb",
+				"wing": "#b3a888",
+				"accent": "#8a3b2a"
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "book",
+						"not_flags": ["pagina_happy"]
+					},
+					"do": [
+						{"a": "take", "item": "book"},
+						{"a": "flag", "flag": "pagina_happy"},
+						{"a": "honk", "who": "pagina"},
+						{"a": "bubble", "who": "pagina", "icons": ["heart", "book"]},
+						{"a": "give", "item": "key"}
+					]
+				},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "pagina", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{
+					"when": {
+						"flags": ["pagina_happy"]
+					},
+					"do": [
+						{"a": "bubble", "who": "pagina", "icons": ["heart"], "time": 1.6}
+					]
+				},
+				{"when": {}, "do": [{"a": "bubble", "who": "pagina", "icons": ["book", "question"]}]}
+			]
+		},
+		{
+			"id": "vite",
+			"type": "npc",
+			"pos": [1030, 820],
+			"walk_to": [1090, 835],
+			"facing": -1,
+			"scale": 1.05,
+			"accessory": "apron",
+			"voice": 0,
+			"palette": {
+				"body": "#cdbf9c",
+				"wing": "#9d9070",
+				"accent": "#a2552f"
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "oilcan",
+						"not_flags": ["vite_happy"]
+					},
+					"do": [
+						{"a": "take", "item": "oilcan"},
+						{"a": "flag", "flag": "vite_happy"},
+						{"a": "honk", "who": "vite"},
+						{"a": "bubble", "who": "vite", "icons": ["heart", "oilcan"]},
+						{"a": "give", "item": "big_gear"}
+					]
+				},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "vite", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {"flags": ["vite_happy"]}, "do": [{"a": "bubble", "who": "vite", "icons": ["heart"], "time": 1.6}]},
+				{"when": {}, "do": [{"a": "bubble", "who": "vite", "icons": ["big_gear", "oilcan"]}]}
+			]
+		},
+		{
+			"id": "door",
+			"type": "hotspot",
+			"poly": [[1560, 480], [1730, 480], [1730, 800], [1560, 800]],
+			"walk_to": [1640, 860],
+			"color": "#3b2f26",
+			"icon": "lock",
+			"visible_if": {
+				"not_flags": ["door_open"]
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "key"
+					},
+					"do": [
+						{"a": "take", "item": "key"},
+						{"a": "flag", "flag": "door_open"},
+						{"a": "sfx", "name": "creak"},
+						{"a": "bubble", "who": "goose", "icons": ["key", "heart"], "time": 1.6}
+					]
+				},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "goose", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {}, "do": [{"a": "bubble", "who": "goose", "icons": ["lock", "key"]}]}
+			]
+		},
+		{
+			"id": "door_open",
+			"type": "hotspot",
+			"poly": [[1560, 480], [1730, 480], [1730, 800], [1560, 800]],
+			"walk_to": [1640, 860],
+			"color": "#17110c",
+			"icon": "arrow_up",
+			"visible_if": {
+				"flags": ["door_open"]
+			},
+			"interactions": [
+				{"when": {}, "do": [{"a": "goto", "scene": "clock_room", "spawn": "from_tower"}]}
+			]
+		}
+	],
+	"lights": [
+		{"pos": [640, 505], "color": "#ffc070", "energy": 1, "scale": 3.4, "flicker": 0.3},
+		{"pos": [900, 520], "color": "#ffd890", "energy": 0.9, "scale": 3, "flicker": 0.1},
+		{"pos": [1250, 520], "color": "#ffd890", "energy": 0.9, "scale": 3, "flicker": 0.1},
+		{"pos": [370, 325], "color": "#ffe9a8", "energy": 0.6, "scale": 0.8, "flicker": 0.8, "glint": true},
+		{"pos": [1010, 400], "color": "#ffe0a0", "energy": 0.6, "scale": 1.6, "flicker": 0.6, "glint": true}
+	],
+	"fx": [
+		{"type": "fog", "rect": [0, 700, 1920, 260], "color": [0.8, 0.75, 0.65, 0.1], "amount": 8},
+		{"type": "steam", "pos": [1260, 690], "scale": 0.8, "color": [0.9, 0.9, 0.85, 0.2]},
+		{"type": "dust", "amount": 50}
+	],
+	"hints": [
+		{"if": {"not_flags": ["got_book"]}, "icons": ["neck", "book"], "target": "book"},
+		{"if": {"not_flags": ["pagina_happy"]}, "icons": ["book", "goose", "key"], "target": "pagina"},
+		{"if": {"not_flags": ["vite_happy"]}, "icons": ["oilcan", "goose", "big_gear"], "target": "vite"},
+		{"if": {"not_flags": ["door_open"]}, "icons": ["key", "lock"], "target": "door"},
+		{"if": {}, "icons": ["arrow_up"], "target": "door_open"}
+	]
+}

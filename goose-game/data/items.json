@@ -1,0 +1,48 @@
+{
+ "items": {
+  "cog": {
+   "name": "Ingranaggio"
+  },
+  "oilcan": {
+   "name": "Oliatore"
+  },
+  "rag": {
+   "name": "Straccio"
+  },
+  "rod": {
+   "name": "Asta"
+  },
+  "knob": {
+   "name": "Pomello d'ottone"
+  },
+  "crank": {
+   "name": "Manovella"
+  },
+  "worm": {
+   "name": "Verme"
+  },
+  "fish": {
+   "name": "Pesce"
+  },
+  "rope": {
+   "name": "Corda"
+  },
+  "book": {
+   "name": "Libro perduto"
+  },
+  "key": {
+   "name": "Chiave"
+  },
+  "big_gear": {
+   "name": "Grande ingranaggio"
+  }
+ },
+ "combos": [
+  {
+   "a": "rod",
+   "b": "knob",
+   "result": "crank",
+   "consume": true
+  }
+ ]
+}

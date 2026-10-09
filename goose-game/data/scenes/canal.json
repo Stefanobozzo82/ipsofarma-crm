@@ -1,0 +1,336 @@
+{
+	"id": "canal",
+	"title": "Il canale con le chiuse",
+	"mood": "canal",
+	"ambience": "water",
+	"tint": "#8f9c9a",
+	"depth": {
+		"y": [600, 930],
+		"scale": [0.8, 1.12]
+	},
+	"spawns": {
+		"start": [160, 820],
+		"from_dump": [160, 820]
+	},
+	"nav": {
+		"polygons": [[[60, 700], [1180, 690], [1250, 730], [1860, 700], [1880, 905], [1500, 925], [300, 920], [60, 890]]],
+		"holes": []
+	},
+	"placeholder": {
+		"sky": ["#2d3f40", "#9a8a62"],
+		"ground_y": 690,
+		"ground": ["#4a4a3a", "#232018"],
+		"far": "towers",
+		"far_color": "#34403f",
+		"seed": 8,
+		"sun": {
+			"pos": [1500, 230],
+			"r": 80,
+			"color": "#e6c680"
+		},
+		"decor": [
+			{
+				"shape": "water",
+				"pos": [960, 690],
+				"size": [1920, 120],
+				"color": "#46585a",
+				"layer": "bg",
+				"visible_if": {
+					"not_flags": ["lock_open"]
+				}
+			},
+			{
+				"shape": "water",
+				"pos": [960, 690],
+				"size": [1920, 220],
+				"color": "#4f7478",
+				"layer": "bg",
+				"visible_if": {
+					"flags": ["lock_open"]
+				}
+			},
+			{"shape": "gate", "pos": [1330, 700], "size": [90, 230], "color": "#4a4f4c", "layer": "bg"},
+			{"shape": "gate", "pos": [1870, 700], "size": [90, 230], "color": "#4a4f4c", "layer": "bg"},
+			{"shape": "pillar", "pos": [1010, 700], "size": [40, 190], "color": "#5a5a4c", "layer": "bg"},
+			{"shape": "crane", "pos": [560, 760], "size": [140, 360], "color": "#6a5a46", "layer": "mid"},
+			{"shape": "heap", "pos": [400, 880], "size": [110, 50], "color": "#6a6a5a", "layer": "mid"},
+			{"shape": "lamp", "pos": [1000, 700], "size": [10, 150], "color": "#2b2118", "layer": "mid"},
+			{"shape": "barrel", "pos": [330, 760], "size": [70, 90], "color": "#7a4a2a", "layer": "mid"},
+			{"shape": "heap", "pos": [1800, 1090], "size": [560, 130], "color": "#1d1712", "layer": "fg"}
+		]
+	},
+	"objects": [
+		{
+			"id": "worm",
+			"type": "pickup",
+			"poly": [[370, 835], [430, 835], [430, 875], [370, 875]],
+			"walk_to": [400, 905],
+			"pose": "crouch"
+		},
+		{
+			"id": "berta",
+			"type": "npc",
+			"pos": [780, 790],
+			"walk_to": [710, 805],
+			"facing": 1,
+			"scale": 1,
+			"accessory": "hat",
+			"voice": 1,
+			"palette": {
+				"body": "#d6c9a8",
+				"wing": "#a99b7a",
+				"accent": "#5b8fa8"
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "worm",
+						"not_flags": ["berta_done"]
+					},
+					"do": [
+						{"a": "take", "item": "worm"},
+						{"a": "honk", "who": "berta"},
+						{"a": "bubble", "who": "berta", "icons": ["worm", "heart"], "time": 1.8},
+						{"a": "wait", "s": 1},
+						{"a": "sfx", "name": "splash"},
+						{"a": "bubble", "who": "berta", "icons": ["exclaim", "fish"], "time": 1.8},
+						{"a": "flag", "flag": "berta_done"},
+						{"a": "give", "item": "fish"}
+					]
+				},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "berta", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {"flags": ["berta_done"]}, "do": [{"a": "bubble", "who": "berta", "icons": ["heart"], "time": 1.6}]},
+				{"when": {}, "do": [{"a": "bubble", "who": "berta", "icons": ["worm", "fish"]}]}
+			]
+		},
+		{
+			"id": "otto",
+			"type": "npc",
+			"pos": [1130, 790],
+			"walk_to": [1190, 810],
+			"facing": -1,
+			"scale": 1.1,
+			"accessory": "cap",
+			"voice": 2,
+			"palette": {
+				"body": "#c8bda0",
+				"wing": "#9e9378",
+				"accent": "#a2552f"
+			},
+			"pos_if": [
+				{"if": {"flags": ["otto_gone"]}, "pos": [1700, 860], "walk_to": [1640, 875]}
+			],
+			"interactions": [
+				{
+					"when": {
+						"item": "fish",
+						"not_flags": ["otto_gone"]
+					},
+					"do": [
+						{"a": "take", "item": "fish"},
+						{"a": "honk", "who": "otto"},
+						{"a": "bubble", "who": "otto", "icons": ["fish", "heart"], "time": 1.8},
+						{"a": "move", "who": "otto", "to": [1700, 860]},
+						{"a": "flag", "flag": "otto_gone"}
+					]
+				},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "otto", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {"flags": ["otto_gone"]}, "do": [{"a": "bubble", "who": "otto", "icons": ["heart"], "time": 1.6}]},
+				{"when": {}, "do": [{"a": "bubble", "who": "otto", "icons": ["zzz", "fish"]}]}
+			]
+		},
+		{
+			"id": "fisher3",
+			"type": "npc",
+			"pos": [1800, 830],
+			"walk_to": [1730, 845],
+			"facing": -1,
+			"scale": 0.95,
+			"accessory": "goggles",
+			"voice": 0,
+			"palette": {
+				"body": "#cfc3a3",
+				"wing": "#a09474",
+				"accent": "#7b9650"
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "fisher3", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{
+					"when": {},
+					"do": [
+						{"a": "honk", "who": "fisher3"},
+						{"a": "bubble", "who": "fisher3", "icons": ["fish", "sun"], "time": 1.8}
+					]
+				}
+			]
+		},
+		{
+			"id": "rope",
+			"type": "pickup",
+			"poly": [[670, 470], [720, 470], [720, 540], [670, 540]],
+			"walk_to": [690, 880],
+			"pose": "neck"
+		},
+		{
+			"id": "valve_box",
+			"type": "hotspot",
+			"poly": [[1010, 600], [1100, 600], [1100, 720], [1010, 720]],
+			"walk_to": [1060, 800],
+			"color": "#6b5a3e",
+			"icon": "valve",
+			"interactions": [
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "goose", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {"not_flags": ["otto_gone"]}, "do": [{"a": "bubble", "who": "goose", "icons": ["zzz", "no"]}]},
+				{
+					"when": {
+						"not_flags": ["lock_open"]
+					},
+					"do": [
+						{
+							"a": "minigame",
+							"id": "pipes",
+							"win": [
+								{"a": "flag", "flag": "lock_open"},
+								{"a": "sfx", "name": "splash"},
+								{"a": "shake", "amount": 6, "time": 1.2},
+								{"a": "bubble", "who": "goose", "icons": ["wave", "boat"]}
+							]
+						}
+					]
+				},
+				{"when": {}, "do": [{"a": "bubble", "who": "goose", "icons": ["heart"], "time": 1.4}]}
+			]
+		},
+		{
+			"id": "boat_low",
+			"type": "hotspot",
+			"poly": [[1450, 625], [1720, 625], [1720, 700], [1450, 700]],
+			"walk_to": [1590, 790],
+			"color": "#7a4a2a",
+			"icon": "boat",
+			"visible_if": {
+				"not_flags": ["lock_open"]
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "goose", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{"when": {}, "do": [{"a": "bubble", "who": "goose", "icons": ["wave", "pipe"]}]}
+			]
+		},
+		{
+			"id": "boat",
+			"type": "hotspot",
+			"poly": [[1450, 530], [1720, 530], [1720, 625], [1450, 625]],
+			"walk_to": [1590, 790],
+			"color": "#8a5a30",
+			"icon": "boat",
+			"visible_if": {
+				"flags": ["lock_open"]
+			},
+			"interactions": [
+				{
+					"when": {
+						"item": "rope",
+						"not_flags": ["boat_tied"]
+					},
+					"do": [
+						{"a": "take", "item": "rope"},
+						{"a": "flag", "flag": "boat_tied"},
+						{"a": "sfx", "name": "clank"},
+						{"a": "bubble", "who": "goose", "icons": ["rope", "boat", "heart"], "time": 1.8}
+					]
+				},
+				{
+					"when": {
+						"item": "*"
+					},
+					"do": [
+						{"a": "sfx", "name": "buzz"},
+						{"a": "bubble", "who": "goose", "icons": ["no"], "time": 1.4}
+					]
+				},
+				{
+					"when": {
+						"flags": ["boat_tied"]
+					},
+					"do": [
+						{"a": "bubble", "who": "goose", "icons": ["home", "clock"], "time": 1.8},
+						{"a": "goto", "scene": "tower", "spawn": "from_canal"}
+					]
+				},
+				{"when": {}, "do": [{"a": "bubble", "who": "goose", "icons": ["rope", "boat"]}]}
+			]
+		}
+	],
+	"lights": [
+		{"pos": [1000, 550], "color": "#ffc070", "energy": 1, "scale": 3, "flicker": 0.25},
+		{"pos": [400, 878], "color": "#ffe9a8", "energy": 0.6, "scale": 0.8, "flicker": 0.8, "glint": true},
+		{"pos": [690, 505], "color": "#ffe9a8", "energy": 0.6, "scale": 0.8, "flicker": 0.8, "glint": true},
+		{"pos": [1500, 230], "color": "#e9c27a", "energy": 0.5, "scale": 5}
+	],
+	"fx": [
+		{"type": "fog", "rect": [0, 470, 1920, 330], "color": [0.75, 0.82, 0.8, 0.17], "amount": 12},
+		{"type": "steam", "pos": [1330, 560], "scale": 1, "color": [0.9, 0.95, 0.95, 0.24]},
+		{"type": "steam", "pos": [1870, 560], "scale": 0.9, "color": [0.9, 0.95, 0.95, 0.22]},
+		{"type": "dust", "amount": 30}
+	],
+	"minigames": {
+		"pipes": {
+			"type": "pipe_maze",
+			"config": {
+				"kinds": ["LTILI", "IILTL", "LILII"],
+				"rot": [[0, 1, 2, 3, 1], [0, 0, 0, 1, 2], [1, 2, 3, 0, 0]],
+				"entry_row": 1,
+				"exit_row": 2
+			}
+		}
+	},
+	"hints": [
+		{"if": {"not_flags": ["got_worm"]}, "icons": ["crouch", "worm"], "target": "worm"},
+		{"if": {"not_flags": ["berta_done"]}, "icons": ["worm", "goose", "fish"], "target": "berta"},
+		{"if": {"not_flags": ["otto_gone"]}, "icons": ["fish", "zzz"], "target": "otto"},
+		{"if": {"not_flags": ["got_rope"]}, "icons": ["neck", "rope"], "target": "rope"},
+		{"if": {"not_flags": ["lock_open"]}, "icons": ["pipe", "valve"], "target": "valve_box"},
+		{"if": {"not_flags": ["boat_tied"]}, "icons": ["rope", "boat"], "target": "boat"},
+		{"if": {}, "icons": ["home"], "target": "boat"}
+	]
+}

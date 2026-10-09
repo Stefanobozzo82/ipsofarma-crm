@@ -64,12 +64,16 @@ test('text search and date range', () => {
   assert.equal(api.matchesText('99000', doc, ''), true);
   assert.equal(api.matchesText('726052', doc, 'Rossi'), false);
   assert.equal(api.matchesText('626261', { num: 'FT/3' }, ''), false);
-  const t = righe => righe.reduce((s, r) => s + r.v, 0);
+  const t = d => d.righe.reduce((s, r) => s + r.v, 0);
   const fts = [{ id: 'a', righe: [{ v: 100 }] }, { id: 'b', righe: [{ v: 50 }] }];
   const ncs = [{ fatturaId: 'a', righe: [{ v: 10 }] }, { fatturaId: null, righe: [{ v: 5 }] }];
   assert.deepEqual(api.selectionTotal(fts, ncs, true, () => true, t), { tot: 135, nNC: 2 });
   assert.deepEqual(api.selectionTotal([fts[0]], ncs, false, id => id === 'a', t), { tot: 90, nNC: 1 });
   assert.deepEqual(api.selectionTotal([fts[1]], ncs, false, id => id === 'b', t), { tot: 50, nNC: 0 });
+  const righe = [{ qty: 2, prezzo: 100, sconto: '10', iva: 22 }, { qty: 1, prezzo: 50, iva: 4 }];
+  assert.equal(Math.round(api.docDovuto({ righe }) * 100) / 100, 271.6);
+  assert.equal(Math.round(api.docDovuto({ righe, split: true }) * 100) / 100, 230);
+  assert.equal(api.docDovuto(null), 0);
   assert.equal(api.inDateRange({ data: '2026-05-01' }, '2026-01-01', '2026-12-31'), true);
   assert.equal(api.inDateRange({ data: '2025-05-01' }, '2026-01-01', ''), false);
   assert.equal(api.ordineCompleto({ righe: [{ qty: 2, qtyEv: 2 }, { qty: 1, qtyEv: 0 }] }), false);

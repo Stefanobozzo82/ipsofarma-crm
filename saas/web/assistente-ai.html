@@ -128,10 +128,12 @@
   function scFactor(s){ return String(s == null ? '' : s).split('+').map(x => parseFloat(String(x).trim()) || 0).reduce((f, p) => f * (1 - p / 100), 1); }
   function lineNet(r){ return (r.qty || 0) * (r.prezzo || 0) * scFactor(r.sconto); }
   function tot(righe){ return (righe || []).reduce((s, r) => { const n = lineNet(r); return s + n + n * (r.iva || 0) / 100; }, 0); }
+  // Fattura in split payment: al cliente si incassa solo l'imponibile (vedi docDovuto in app/doc-page.js).
+  function due(d){ return d && d.split === true ? (d.righe || []).reduce((s, r) => s + lineNet(r), 0) : tot(d && d.righe); }
   // Bug reale (vedi dashboard.html): su Supabase "pagamenti" è sempre un
   // array, mai null, per le fatture del vecchio gestionale — un array vuoto
   // va trattato come "nessun pagamento tracciato" (fallback su "paid").
-  function payTot(it){ return (it.pagamenti == null || it.pagamenti.length === 0) ? (it.paid ? tot(it.righe) : 0) : it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0); }
+  function payTot(it){ return (it.pagamenti == null || it.pagamenti.length === 0) ? (it.paid ? due(it) : 0) : it.pagamenti.reduce((s, p) => s + (p.importo || 0), 0); }
   // Quanto di una nota di credito va imputato a UNA specifica fattura —
   // porta diretta di ncCreditoFor() in index.html: se copre più fatture
   // (ftIds con più di un elemento) l'importo si distribuisce a cascata
@@ -147,7 +149,7 @@
     if(ids.length <= 1) return tot(nc.righe);
     for(const f of ordered){
       if(remaining <= 0) break;
-      const alloc = Math.min(remaining, tot(f.righe));
+      const alloc = Math.min(remaining, due(f));
       if(f.id === invoice.id) return alloc;
       remaining -= alloc;
     }
@@ -161,7 +163,7 @@
 
   function residuo(it, noteCreditoColl, fattureColl){
     const creditato = it.num ? (noteCreditoColl || []).reduce((s, nc) => s + ncCreditoFor(nc, it, fattureColl), 0) : 0;
-    return Math.max(0, tot(it.righe) - payTot(it) - creditato);
+    return Math.max(0, due(it) - payTot(it) - creditato);
   }
   // Stessa formula di scadenziario.html: data documento + termini di
   // pagamento della controparte (default 30 giorni) — vale sia per un
@@ -209,7 +211,7 @@
       if(f.pagamenti && f.pagamenti.length){
         f.pagamenti.forEach(p => { if((p.data || '').startsWith(periodo)) s += (p.importo || 0); });
       } else if(f.paid && (f.paidDate || '').startsWith(periodo)){
-        s += tot(f.righe); // stesso fallback di payTot(): pagata ma senza pagamenti tracciati
+        s += due(f); // stesso fallback di payTot(): pagata ma senza pagamenti tracciati
       }
     });
     return s;
@@ -223,7 +225,7 @@
     const tot_ = {};
     fatture.forEach(f => {
       const nome = (partyById[f[idField]] || {}).nome || 'sconosciuto';
-      tot_[nome] = (tot_[nome] || 0) + tot(f.righe);
+      tot_[nome] = (tot_[nome] || 0) + due(f);
     });
     return Object.entries(tot_).sort((a, b) => b[1] - a[1]);
   }
@@ -269,7 +271,7 @@
       // hanno bisogno della cascata multi-fattura (caso non osservato nei
       // dati reali finora), un residuo diretto basta.
       const creditato = f.num ? (noteCreditoFornitore || []).reduce((s, ncf) => s + supplierCreditFor(ncf, f), 0) : 0;
-      const r = Math.max(0, tot(f.righe) - payTot(f) - creditato);
+      const r = Math.max(0, due(f) - payTot(f) - creditato);
       if(r <= 0.01) return;
       const party = fornitoriById[f.fornitoreId];
       const nome = (party || {}).nome || 'fornitore sconosciuto';
@@ -292,10 +294,10 @@
     const ncfMese = noteCreditoFornitore.filter(n => (n.data || '').startsWith(mese)).reduce((s, n) => s + tot(n.righe), 0);
     const ncAnno = noteCredito.filter(n => (n.data || '').startsWith(anno)).reduce((s, n) => s + tot(n.righe), 0);
     const ncfAnno = noteCreditoFornitore.filter(n => (n.data || '').startsWith(anno)).reduce((s, n) => s + tot(n.righe), 0);
-    const fatturatoMese = fattureCliente.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0) - ncMese;
-    const acquistiMese = fattureFornitore.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + tot(f.righe), 0) - ncfMese;
-    const fatturatoAnno = fattureCliente.filter(f => (f.data || '').startsWith(anno)).reduce((s, f) => s + tot(f.righe), 0) - ncAnno;
-    const acquistiAnno = fattureFornitore.filter(f => (f.data || '').startsWith(anno)).reduce((s, f) => s + tot(f.righe), 0) - ncfAnno;
+    const fatturatoMese = fattureCliente.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + due(f), 0) - ncMese;
+    const acquistiMese = fattureFornitore.filter(f => (f.data || '').startsWith(mese)).reduce((s, f) => s + due(f), 0) - ncfMese;
+    const fatturatoAnno = fattureCliente.filter(f => (f.data || '').startsWith(anno)).reduce((s, f) => s + due(f), 0) - ncAnno;
+    const acquistiAnno = fattureFornitore.filter(f => (f.data || '').startsWith(anno)).reduce((s, f) => s + due(f), 0) - ncfAnno;
     // Incassato/pagato REALE (non il fatturato/acquistato, non l'insoluto)
     // — vedi il commento su incassatoInPeriodo() più sopra: era il dato
     // mancante che ha fatto restare senza risposta la domanda originale.
@@ -480,9 +482,9 @@
         (aperte.length ? aperte.map(x => `  - ${x.f.num} del ${x.f.data}: ${eur(x.r)}`).join('\n') : '  (nessuna fattura aperta)'));
       if(mese){
         const delMese = db.fattureCliente.filter(f => f.clienteId === cliente.id && inPeriod(f.data, mese));
-        const totMese = delMese.reduce((s, f) => s + tot(f.righe), 0);
+        const totMese = delMese.reduce((s, f) => s + due(f), 0);
         blocks.push(`Fatturato di "${cliente.nome}" a ${periodLabel(mese)}: ${eur(totMese)} (${delMese.length} fatture, pagate e non).\n` +
-          (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(tot(f.righe))}`).join('\n') : '  (nessuna fattura in quel mese)'));
+          (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(due(f))}`).join('\n') : '  (nessuna fattura in quel mese)'));
       }
     }
     const fornitore = matchParty(db.fornitori);
@@ -493,9 +495,9 @@
         (aperte.length ? aperte.map(x => `  - ${x.f.num} del ${x.f.data}: ${eur(x.r)}`).join('\n') : '  (nessuna fattura aperta)'));
       if(mese){
         const delMese = db.fattureFornitore.filter(f => f.fornitoreId === fornitore.id && inPeriod(f.data, mese));
-        const totMese = delMese.reduce((s, f) => s + tot(f.righe), 0);
+        const totMese = delMese.reduce((s, f) => s + due(f), 0);
         blocks.push(`Acquisti da "${fornitore.nome}" a ${periodLabel(mese)}: ${eur(totMese)} (${delMese.length} fatture, pagate e non).\n` +
-          (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(tot(f.righe))}`).join('\n') : '  (nessuna fattura in quel mese)'));
+          (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(due(f))}`).join('\n') : '  (nessuna fattura in quel mese)'));
       }
     }
     return blocks.length ? blocks.join('\n\n') : null;

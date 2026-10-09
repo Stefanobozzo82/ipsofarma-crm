@@ -36,6 +36,10 @@
   function docTotale(righe){ return (righe || []).reduce((s, r) => s + rigaTotale(r), 0); }
   function impTot(righe){ return (righe || []).reduce((s, r) => s + lineNet(r), 0); }
   function ivaTot(righe){ return (righe || []).reduce((s, r) => s + lineNet(r) * (Number(r.iva) || 0) / 100, 0); }
+  // Quanto il cliente deve pagare: con lo split payment (scissione dei
+  // pagamenti, art. 17-ter) l'IVA la versa l'ente all'Erario, quindi a noi
+  // spetta solo l'imponibile — come la colonna "Totale" di Maestro.
+  function docDovuto(doc){ return doc && doc.split === true ? impTot(doc.righe) : docTotale(doc && doc.righe); }
 
   // ---- ordinamento, ricerca, filtri ------------------------------------------
   function sortCmp(va, vb, dir){
@@ -73,10 +77,10 @@
   // le note di credito visibili che le stornano (fatturaId tra le spuntate),
   // o tutte quelle visibili se è spuntato l'intero elenco — così, con
   // "seleziona tutto", coincide con il "Totale fatturato" in cima.
-  function selectionTotal(selDocs, ncDocs, allSelected, isPicked, totFn){
+  function selectionTotal(selDocs, ncDocs, allSelected, isPicked, docFn){
     const nc = (ncDocs || []).filter(n => allSelected || (n.fatturaId && isPicked(n.fatturaId)));
-    const totDocs = (selDocs || []).reduce((s, d) => s + totFn(d.righe), 0);
-    const totNC = nc.reduce((s, n) => s + totFn(n.righe), 0);
+    const totDocs = (selDocs || []).reduce((s, d) => s + docFn(d), 0);
+    const totNC = nc.reduce((s, n) => s + docFn(n), 0);
     return { tot: totDocs - totNC, nNC: nc.length };
   }
   function bindSearch(input, onChange){
@@ -374,7 +378,7 @@
 
   window.SaasDocPage = {
     today, esc, eur, itDate,
-    scParts, scFactor, scEff, lineNet, rigaTotale, docTotale, impTot, ivaTot,
+    scParts, scFactor, scEff, lineNet, rigaTotale, docTotale, docDovuto, impTot, ivaTot,
     sortCmp, thHtml, toggleSort, sortByNome, partyOptionsHtml, matchesText, selectionTotal, bindSearch, inDateRange, ordineCompleto,
     showMsg,
     bindRowDrag, markLastBadge, clearLastBadge, evasioneCellsHtml, renderEvasioneSummary,

@@ -757,7 +757,7 @@
     let bulkHtml = '';
     if(selRows.length){
       const anyUnpaid = selRows.some(f => !f.paid), anyPaid = selRows.some(f => f.paid);
-      const sel = window.SaasDocPage.selectionTotal(selRows, ncRows, elenco.every(f => PICK.has(f.id)), id => PICK.has(id), docTotale);
+      const sel = window.SaasDocPage.selectionTotal(selRows, ncRows, elenco.every(f => PICK.has(f.id)), id => PICK.has(id), d => docTotale(d.righe));
       const ncNote = sel.nNC ? ` (− ${sel.nNC} ${sel.nNC === 1 ? 'nota' : 'note'} di credito)` : '';
       bulkHtml = `<div class="bulkbar"><span>${selRows.length} selezionat${selRows.length === 1 ? 'a' : 'e'} · Totale ${eur(sel.tot)}${ncNote}</span><div class="sp"></div>
         ${anyUnpaid ? `<button type="button" class="primary" id="bulk-paid">✓ Segna pagate</button>` : ''}

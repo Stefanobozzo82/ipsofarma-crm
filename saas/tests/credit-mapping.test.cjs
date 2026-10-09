@@ -10,6 +10,7 @@ function contextFor(file){
   const end=html.indexOf('\n  function ',html.indexOf('  function supplierCreditFor(',start)+10);
   assert.ok(start>=0&&end>start);
   const c={tot:rows=>rows.reduce((s,r)=>s+r.amount,0),fattureCache:invoices,fattureCliente:invoices,DB:{fattureCliente:invoices}};
+  c.due=d=>c.tot(d.righe);
   vm.createContext(c);vm.runInContext(html.slice(start,end),c);
   c.payTot=()=>0;
   c.noteCredito=[{fatturaId:'uuid-1',righe:[{amount:40}]}];

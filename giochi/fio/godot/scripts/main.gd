@@ -54,6 +54,10 @@ func _ready() -> void:
 	add_child(rig)
 	rig.target = player
 	rig.arm.add_excluded_object(player.get_rid())
+	var touch := CanvasLayer.new()
+	touch.set_script(load("res://scripts/touch_controls.gd"))
+	add_child(touch)
+	touch.rig = rig
 	load_level("island", "")
 	if "--autotest" in OS.get_cmdline_user_args():
 		var at := Node.new()

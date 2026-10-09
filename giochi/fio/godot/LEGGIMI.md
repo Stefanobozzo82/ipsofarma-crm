@@ -8,6 +8,11 @@ Il prototipo contiene Fio, la telecamera che lo segue da dietro, l'**Isola del F
 2. Apri Godot → *Importa* → scegli il file `project.godot` di questa cartella.
 3. Al primo avvio Godot importa i modelli (qualche secondo). Premi **F5** per giocare.
 
+## Android
+L'APK pronto è `../download/fio-godot.apk` (si installa accanto a Fio web, con il nome "Fio Godot").
+Sul telefono: joystick a sinistra, tasti Salta / Pesta / Pugno a destra, trascina sul resto dello schermo per girare la telecamera.
+Per rifarlo dall'editor: *Progetto → Esporta → Android*, con l'SDK Android e una chiave di firma impostati.
+
 ## Comandi
 | Azione | Tastiera | Joypad |
 | --- | --- | --- |

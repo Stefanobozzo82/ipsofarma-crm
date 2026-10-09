@@ -8,6 +8,7 @@ const LEVEL_SCENE := "res://scenes/level.tscn"
 const MENU_SCENE := "res://scenes/main_menu.tscn"
 const ENDING_SCENE := "res://scenes/ending.tscn"
 const SHADER_PATH := "res://shaders/grain_vignette.gdshader"
+const SHADER_LIGHT_PATH := "res://shaders/grain_vignette_light.gdshader"
 
 var fade_rect: ColorRect
 var last_goto: Dictionary = {}  # ultimo cambio scena richiesto (utile ai test)
@@ -23,7 +24,7 @@ func _ready() -> void:
 	var fx := ColorRect.new()
 	fx.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shader: Shader = load(SHADER_PATH)
+	var shader: Shader = load(SHADER_LIGHT_PATH if OS.has_feature("mobile") else SHADER_PATH)
 	if shader != null:
 		var mat := ShaderMaterial.new()
 		mat.shader = shader

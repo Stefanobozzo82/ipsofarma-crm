@@ -17,10 +17,16 @@ func build(data: Dictionary) -> void:
 	var cm := CanvasModulate.new()
 	cm.color = DataUtil.color(data.get("tint", "#b9ad9c"))
 	add_child(cm)
-	for raw in data.get("lights", []):
-		_add_light(raw)
+	# Su mobile: meno luci, meno particelle (GPU piu' deboli).
+	var mobile := OS.has_feature("mobile")
+	var lights: Array = data.get("lights", [])
+	for i in lights.size():
+		if not mobile or i < 3:
+			_add_light(lights[i])
 	for raw in data.get("fx", []):
-		_add_fx(raw)
+		if mobile and str(raw.get("type", "")) == "dust":
+			continue
+		_add_fx(raw, mobile)
 
 
 func _process(delta: float) -> void:
@@ -72,7 +78,7 @@ func _fade_ramp() -> GradientTexture1D:
 	return t
 
 
-func _add_fx(d: Dictionary) -> void:
+func _add_fx(d: Dictionary, light_mode: bool = false) -> void:
 	var kind: String = str(d.get("type", "fog"))
 	var p := GPUParticles2D.new()
 	var m := ParticleProcessMaterial.new()
@@ -97,7 +103,7 @@ func _add_fx(d: Dictionary) -> void:
 			m.scale_min = 3.0
 			m.scale_max = 6.0
 			m.color = Color(col.r, col.g, col.b, col.a)
-			p.amount = int(d.get("amount", 10))
+			p.amount = int(d.get("amount", 10)) / (2 if light_mode else 1)
 			p.lifetime = 16.0
 			p.z_index = 20
 		"steam":

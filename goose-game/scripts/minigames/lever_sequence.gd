@@ -16,6 +16,8 @@ var angles: Array[float] = []   # 0 = leva su, 1 = leva giu
 var showing := true
 var flash := Color(0, 0, 0, 0)
 var _run := 0
+var _locked := false   # true durante l'animazione di vittoria/errore
+var _t := 0.0
 
 
 func _start() -> void:
@@ -42,6 +44,7 @@ func _play_sequence() -> void:
 	_run += 1
 	var rid := _run
 	showing = true
+	_locked = false
 	progress = 0
 	queue_redraw()
 	if not await _sleep(0.7, rid):
@@ -64,8 +67,14 @@ func _content_click(pos: Vector2, _button: int) -> void:
 		if not showing:
 			_play_sequence()
 		return
-	if showing:
+	if _locked:
 		return
+	if showing:
+		# Un tocco durante la dimostrazione la interrompe: tocca subito al giocatore.
+		_run += 1
+		showing = false
+		lamp_on = -1
+		progress = 0
 	for i in n:
 		if Rect2(lever_x(i) - 55.0, BASE_Y - 250.0, 110.0, 290.0).has_point(pos):
 			_pull(i)
@@ -105,6 +114,7 @@ func _clear_lamp() -> void:
 
 func _win() -> void:
 	showing = true
+	_locked = true
 	flash = Color(0.4, 1.0, 0.4, 0.18)
 	AudioManager.play_sfx("win")
 	queue_redraw()
@@ -115,6 +125,7 @@ func _win() -> void:
 
 func _fail() -> void:
 	showing = true
+	_locked = true
 	flash = Color(1.0, 0.25, 0.2, 0.2)
 	AudioManager.play_sfx("buzz")
 	queue_redraw()
@@ -123,6 +134,12 @@ func _fail() -> void:
 		flash = Color(0, 0, 0, 0)
 		lamp_on = -1
 		_play_sequence()
+
+
+func _process(delta: float) -> void:
+	_t += delta
+	if not showing:
+		queue_redraw()  # anelli pulsanti: "tocca a te"
 
 
 func _draw_content() -> void:
@@ -144,6 +161,9 @@ func _draw_content() -> void:
 		if lit:
 			draw_circle(lamp + Vector2(-12, -12), 12, Color(1, 1, 1, 0.55))
 		draw_arc(lamp, 50, 0.0, TAU, 32, IconPainter.BRASS_D, 5.0)
+		if not showing:
+			var pulse := 0.5 + 0.5 * sin(_t * 5.0 + float(i) * 0.7)
+			draw_arc(Vector2(x, BASE_Y - 40.0), 205.0 + pulse * 8.0, -PI * 0.5 - 0.5, -PI * 0.5 + 0.5, 20, Color(1.0, 0.9, 0.5, 0.25 + 0.35 * pulse), 6.0, true)
 		# Leva: guida, base e asta che ruota attorno al perno.
 		draw_rect(Rect2(x - 14, BASE_Y - 230, 28, 250), Color("15100c"))
 		draw_rect(Rect2(x - 55, BASE_Y + 10, 110, 30), IconPainter.STEEL.darkened(0.3))

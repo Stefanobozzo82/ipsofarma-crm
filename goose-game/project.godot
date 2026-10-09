@@ -9,6 +9,7 @@ config/name="Il Ritorno dell'Oca"
 config/description="Point-and-click d'avventura in una citta-fattoria steampunk di oche."
 run/main_scene="res://scenes/main_menu.tscn"
 config/icon="res://icon.svg"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [autoload]

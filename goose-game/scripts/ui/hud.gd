@@ -90,6 +90,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		toggle_pause()
+
+
 func _draw_held() -> void:
 	IconPainter.draw(held, GameState.selected_item, Vector2.ZERO, 84.0)
 

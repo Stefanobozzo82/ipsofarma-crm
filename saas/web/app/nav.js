@@ -218,6 +218,18 @@
     const sidebar = document.getElementById('sidebar');
     if (moreBtn && sidebar) {
       moreBtn.onclick = () => { sidebar.classList.toggle('open'); };
+      // Velo scuro dietro il cassetto aperto: toccarlo lo chiude (prima
+      // toccare fuori non faceva nulla e il cassetto restava aperto).
+      if (!document.getElementById('drawer-veil')) {
+        const veil = document.createElement('div');
+        veil.id = 'drawer-veil';
+        veil.className = 'drawer-veil';
+        veil.addEventListener('click', () => sidebar.classList.remove('open'));
+        document.body.appendChild(veil);
+        const sync = () => veil.classList.toggle('on', sidebar.classList.contains('open'));
+        new MutationObserver(sync).observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+        sync();
+      }
     }
   }
 
@@ -295,6 +307,75 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchScreens);
   else watchScreens();
+
+  // Errori di un modulo: il messaggio ("Seleziona un cliente.", "Il nome è
+  // obbligatorio.", …) compare sotto Salva, spesso lontano dal campo da
+  // correggere e, su telefono, mezzo coperto dalla barra in basso. Quando
+  // compare un messaggio d'errore si porta in vista il campo a cui si
+  // riferisce, bordato di rosso e col cursore dentro; se il campo non si
+  // riconosce, almeno il messaggio. Una volta sola per tutte le pagine: i
+  // campi hanno gli stessi id ovunque (f-cliente, f-data, …).
+  const FIELD_OF_ERROR = [
+    [/nome è obbligatorio|ragione sociale/i, ['f-nome']],
+    [/seleziona un cliente/i, ['f-cliente']],
+    [/seleziona un fornitore/i, ['f-fornitore']],
+    [/inserisci una data/i, ['f-data']],
+    [/numero/i, ['f-num']],
+    [/codice è obbligatorio/i, ['f-cod']],
+    [/descrizione è obbligatoria/i, ['f-descr']],
+    [/almeno una riga/i, ['.r-descr', 'add-riga']],
+    [/completa soggetto/i, ['f-cliente', 'f-fornitore', 'f-data', 'f-num', '.r-descr', 'add-riga']],
+  ];
+  function fieldForError(msg) {
+    const text = msg.textContent || '';
+    const scope = msg.closest('.card') || document;
+    for (const [re, ids] of FIELD_OF_ERROR) {
+      if (!re.test(text)) continue;
+      const found = ids.map(id => id[0] === '.' ? scope.querySelector(id) : document.getElementById(id))
+        .filter(el => el && el.offsetParent !== null);
+      // Più campi possibili: il primo ancora vuoto, altrimenti il primo.
+      return found.find(el => 'value' in el && el.tagName !== 'BUTTON' && !el.value) || found[0] || null;
+    }
+    return null;
+  }
+  function showFormError(msg) {
+    const field = fieldForError(msg);
+    if (!field) { msg.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    if (field.tagName !== 'BUTTON') {
+      field.classList.add('field-error');
+      // Lo stesso testo anche sotto il campo: il messaggio originale resta
+      // sotto Salva, lontano.
+      const anchor = field.closest('.prod-pick') || field;
+      let note = anchor.nextElementSibling;
+      if (!note || !note.classList.contains('field-error-msg')) {
+        note = document.createElement('div');
+        note.className = 'field-error-msg';
+        anchor.insertAdjacentElement('afterend', note);
+      }
+      note.textContent = msg.textContent;
+      const clear = () => { field.classList.remove('field-error'); note.remove(); field.removeEventListener('input', clear); field.removeEventListener('change', clear); };
+      field.addEventListener('input', clear);
+      field.addEventListener('change', clear);
+    }
+    field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    try { field.focus({ preventScroll: true }); } catch (_) {}
+  }
+  function watchFormErrors() {
+    new MutationObserver(muts => {
+      const msgs = new Set();
+      muts.forEach(m => {
+        const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+        const msg = el && el.closest && el.closest('.msg.error');
+        // Solo i messaggi di un modulo (una scheda con dei campi), non
+        // quelli degli elenchi.
+        const card = msg && msg.closest('.card');
+        if (msg && !msg.hidden && card && card.querySelector('input, select, textarea')) msgs.add(msg);
+      });
+      msgs.forEach(showFormError);
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchFormErrors);
+  else watchFormErrors();
 
   global.SaasNav = { render };
 })(window);

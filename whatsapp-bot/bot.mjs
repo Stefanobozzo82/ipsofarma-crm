@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { appendFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 
 // toglie spazi e virgolette che si aggiungono facilmente incollando da telefono
 const clean = (v) => v?.trim().replace(/^["']|["']$/g, '').trim();
@@ -203,5 +204,6 @@ http
   })
   .listen(PORT, () => {
     console.log(`Bot in ascolto su http://localhost:${PORT}/webhook`);
-    console.log(`Controllo config: WA_TOKEN ${WA_TOKEN.length} caratteri, PHONE_ID ${PHONE_ID.length} cifre`);
+    const fp = createHash('sha256').update(WA_TOKEN).digest('hex').slice(0, 8);
+    console.log(`Controllo config: WA_TOKEN ${WA_TOKEN.length} caratteri (impronta ${fp}), PHONE_ID ${PHONE_ID.length} cifre, finisce con ${PHONE_ID.slice(-4)}`);
   });

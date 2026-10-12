@@ -1,0 +1,8 @@
+{
+  "name": "whatsapp-bot-prenotazioni",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bot WhatsApp per prenotazioni sanitarie a domicilio (prototipo)",
+  "scripts": { "start": "node bot.mjs" },
+  "engines": { "node": ">=20.6" }
+}

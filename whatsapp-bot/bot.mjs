@@ -1,7 +1,12 @@
 import http from 'node:http';
 import { appendFileSync } from 'node:fs';
 
-const { PORT = 3000, VERIFY_TOKEN, WA_TOKEN, PHONE_ID } = process.env;
+// toglie spazi e virgolette che si aggiungono facilmente incollando da telefono
+const clean = (v) => v?.trim().replace(/^["']|["']$/g, '').trim();
+const PORT = clean(process.env.PORT) || 3000;
+const VERIFY_TOKEN = clean(process.env.VERIFY_TOKEN);
+const WA_TOKEN = clean(process.env.WA_TOKEN);
+const PHONE_ID = clean(process.env.PHONE_ID);
 if (!VERIFY_TOKEN || !WA_TOKEN || !PHONE_ID) {
   console.error('Mancano variabili: VERIFY_TOKEN, WA_TOKEN, PHONE_ID (vedi env.example)');
   process.exit(1);
@@ -196,4 +201,7 @@ http
     }
     res.writeHead(405).end();
   })
-  .listen(PORT, () => console.log(`Bot in ascolto su http://localhost:${PORT}/webhook`));
+  .listen(PORT, () => {
+    console.log(`Bot in ascolto su http://localhost:${PORT}/webhook`);
+    console.log(`Controllo config: WA_TOKEN ${WA_TOKEN.length} caratteri, PHONE_ID ${PHONE_ID.length} cifre`);
+  });

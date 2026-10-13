@@ -30,7 +30,7 @@ async function send(to, message) {
   if (res.status === 401) {
     console.error('TOKEN DI META SCADUTO: genera un token nuovo su Meta, mettilo in WA_TOKEN nel file .env e riavvia il bot.');
   } else if (!res.ok) {
-    console.error('Errore invio', res.status, await res.text());
+    console.error('Errore invio', res.status, (await res.text()).split(WA_TOKEN).join('[token nascosto]'));
   }
 }
 
@@ -274,6 +274,9 @@ http
   })
   .listen(PORT, () => {
     console.log(`Bot in ascolto su http://localhost:${PORT}/webhook`);
+    if (!/^[A-Za-z0-9_-]+$/.test(WA_TOKEN)) {
+      console.error('ATTENZIONE: WA_TOKEN contiene caratteri strani (spazi, "=" o altre righe). Controlla il file .env: ogni variabile va su una riga a parte.');
+    }
     const fp = createHash('sha256').update(WA_TOKEN).digest('hex').slice(0, 8);
     console.log(`Prenotazioni salvate su: ${SUPABASE_URL && SUPABASE_KEY ? 'Supabase (con ripiego su file)' : 'file locale bookings.jsonl'}`);
     console.log(`Controllo config: WA_TOKEN ${WA_TOKEN.length} caratteri (impronta ${fp}), PHONE_ID ${PHONE_ID.length} cifre, finisce con ${PHONE_ID.slice(-4)}`);

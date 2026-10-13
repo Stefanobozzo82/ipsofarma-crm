@@ -94,7 +94,12 @@
   const BOTTOM_ITEMS = [
     { id: 'dashboard', label: 'Home', href: 'dashboard.html', ic: 'dashboard' },
     { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: 'order' },
-    { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: 'invoice' },
+    // Fatture: un tocco apre un piccolo menu per scegliere tra vendite e
+    // acquisti (ensureMobileBottombar), invece di andare dritto alle
+    // fatture cliente.
+    { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: 'invoice',
+      sub: [{ id: 'fatture', label: 'Fatture vendite', href: 'fatture.html' },
+            { id: 'fatture-fornitore', label: 'Fatture acquisti', href: 'fatture-fornitore.html' }] },
     { id: 'assistente-ai', label: 'Assistente', href: 'assistente-ai.html', ic: 'spark' },
   ];
 
@@ -211,9 +216,40 @@
       bar.className = 'mobile-bottombar';
       document.body.appendChild(bar);
     }
-    const isDirect = BOTTOM_ITEMS.some(it => it.id === currentId);
-    bar.innerHTML = BOTTOM_ITEMS.map(it => `<a class="${it.id === currentId ? 'on' : ''}" href="${it.href}"><span class="ic">${icon(it.ic)}</span>${esc(it.label)}</a>`).join('')
+    const isOn = it => it.id === currentId || (it.sub || []).some(x => x.id === currentId);
+    const isDirect = BOTTOM_ITEMS.some(isOn);
+    bar.innerHTML = BOTTOM_ITEMS.map(it => it.sub
+        ? `<button type="button" class="${isOn(it) ? 'on' : ''}" data-sub="${it.id}" aria-haspopup="menu" aria-expanded="false"><span class="ic">${icon(it.ic)}</span>${esc(it.label)}</button>`
+        : `<a class="${isOn(it) ? 'on' : ''}" href="${it.href}"><span class="ic">${icon(it.ic)}</span>${esc(it.label)}</a>`).join('')
       + `<button type="button" class="${isDirect ? '' : 'on'}" id="nav-more-btn"><span class="ic">${icon('more')}</span>Altro</button>`;
+    // Sottomenu (es. Fatture → vendite / acquisti): un riquadro sopra la
+    // barra, sotto al pulsante; si chiude toccando fuori o di nuovo il
+    // pulsante.
+    bar.querySelectorAll('[data-sub]').forEach(btn => {
+      const it = BOTTOM_ITEMS.find(x => x.id === btn.dataset.sub);
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const open = document.getElementById('bottom-submenu');
+        if (open) { open.remove(); btn.setAttribute('aria-expanded', 'false'); if (open.dataset.for === it.id) return; }
+        const menu = document.createElement('div');
+        menu.id = 'bottom-submenu';
+        menu.className = 'bottom-submenu';
+        menu.dataset.for = it.id;
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = it.sub.map(x => `<a role="menuitem" class="${x.id === currentId ? 'on' : ''}" href="${x.href}">${esc(x.label)}</a>`).join('');
+        document.body.appendChild(menu);
+        const r = btn.getBoundingClientRect();
+        const w = menu.offsetWidth;
+        menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+        btn.setAttribute('aria-expanded', 'true');
+        const close = (ev) => {
+          if (menu.contains(ev.target) || btn.contains(ev.target)) return; // il pulsante richiude da sé
+          menu.remove(); btn.setAttribute('aria-expanded', 'false');
+          document.removeEventListener('click', close, true);
+        };
+        setTimeout(() => document.addEventListener('click', close, true), 0);
+      };
+    });
     const moreBtn = document.getElementById('nav-more-btn');
     const sidebar = document.getElementById('sidebar');
     if (moreBtn && sidebar) {

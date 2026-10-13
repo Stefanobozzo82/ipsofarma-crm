@@ -33,4 +33,4 @@ Consenso al trattamento dei dati, menu dei servizi, per chi è la prestazione, f
 - Avvisi email all'operatore (nuova prenotazione e richiesta di essere richiamati) con Resend: servono `RESEND_API_KEY` e `ALERT_EMAIL_TO` nel `.env`. L'email di prenotazione non contiene dati del paziente. Con il mittente di prova di Resend (`onboarding@resend.dev`) le email arrivano solo all'indirizzo con cui hai aperto l'account Resend: per altri destinatari verifica un dominio e imposta `ALERT_EMAIL_FROM`.
 - Fai scrivere informativa privacy e testo del consenso da chi si occupa di GDPR: sono dati sanitari.
 - Se vuoi inviare promemoria fuori dalle 24 ore, servono template approvati da Meta.
-- Le sessioni sono in memoria: al riavvio si perdono. Per più istanze usa un database.
+- Le sessioni sono in memoria: al riavvio si perdono. Scadono da sole dopo 30 minuti senza messaggi (`SESSION_TTL_MINUTES`, massimo `SESSION_MAX` contemporanee): chi torna dopo riparte dal menu e riaccetta il consenso. Per più istanze usa un database.

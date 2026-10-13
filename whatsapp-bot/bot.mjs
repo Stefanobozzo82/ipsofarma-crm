@@ -194,7 +194,33 @@ function alertCallbackRequest(phone) {
 }
 
 // ---------- logica della conversazione ----------
-const sessions = new Map();
+// Le sessioni vivono solo in memoria. Dopo SESSION_TTL_MINUTES senza messaggi la conversazione si dimentica:
+// al messaggio successivo si riparte dal menu e il consenso va richiesto di nuovo (scelta prudente per dati sanitari).
+// Un tetto massimo (SESSION_MAX) evita che troppi numeri diversi riempiano la memoria: si scarta il meno recente.
+const SESSION_TTL_MS = (Number(process.env.SESSION_TTL_MINUTES) || 30) * 60_000;
+const SESSION_MAX = Number(process.env.SESSION_MAX) || 5000;
+const sessions = new Map(); // l'ordine di inserimento = dal meno al più recente
+
+function getSession(from) {
+  const now = Date.now();
+  let s = sessions.get(from);
+  if (s && now - s.lastSeen > SESSION_TTL_MS) s = undefined; // scaduta
+  if (!s) s = { step: 'start', data: {}, consent: false };
+  s.lastSeen = now;
+  sessions.delete(from); // la rimetto in fondo: è la più recente
+  sessions.set(from, s);
+  while (sessions.size > SESSION_MAX) sessions.delete(sessions.keys().next().value);
+  return s;
+}
+
+// pulizia periodica; il timer non tiene acceso il programma
+setInterval(() => {
+  const now = Date.now();
+  let tolte = 0;
+  for (const [k, s] of sessions) if (now - s.lastSeen > SESSION_TTL_MS) { sessions.delete(k); tolte++; }
+  for (const [k, t] of lastCallbackAlert) if (now - t > 10 * 60_000) lastCallbackAlert.delete(k);
+  if (tolte) console.log(`Sessioni scadute rimosse: ${tolte}`);
+}, Math.max(1000, Math.min(5 * 60_000, SESSION_TTL_MS / 2))).unref();
 
 async function go(to, s, step) {
   s.step = step;
@@ -202,8 +228,7 @@ async function go(to, s, step) {
 }
 
 async function handle(from, input) {
-  let s = sessions.get(from);
-  if (!s) sessions.set(from, (s = { step: 'start', data: {}, consent: false }));
+  const s = getSession(from);
   const raw = input.value ?? '';
   const t = raw.toLowerCase();
   const isText = input.kind === 'text';
@@ -335,6 +360,7 @@ http
       console.error('ATTENZIONE: WA_TOKEN contiene caratteri strani (spazi, "=" o altre righe). Controlla il file .env: ogni variabile va su una riga a parte.');
     }
     const fp = createHash('sha256').update(WA_TOKEN).digest('hex').slice(0, 8);
+    console.log(`Sessioni: scadono dopo ${SESSION_TTL_MS / 60_000} minuti di silenzio (massimo ${SESSION_MAX} contemporanee)`);
     console.log(`Avvisi all'operatore: ${ALERTS_ON ? 'email attive' : 'non attivi (mancano RESEND_API_KEY e ALERT_EMAIL_TO)'}`);
     console.log(`Prenotazioni salvate su: ${SUPABASE_URL && SUPABASE_KEY ? 'Supabase (con ripiego su file)' : 'file locale bookings.jsonl'}`);
     console.log(`Controllo config: WA_TOKEN ${WA_TOKEN.length} caratteri (impronta ${fp}), PHONE_ID ${PHONE_ID.length} cifre, finisce con ${PHONE_ID.slice(-4)}`);

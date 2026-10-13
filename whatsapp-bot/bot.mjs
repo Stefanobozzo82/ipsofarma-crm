@@ -27,7 +27,11 @@ async function send(to, message) {
     headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ messaging_product: 'whatsapp', to, ...message }),
   });
-  if (!res.ok) console.error('Errore invio', res.status, await res.text());
+  if (res.status === 401) {
+    console.error('TOKEN DI META SCADUTO: genera un token nuovo su Meta, mettilo in WA_TOKEN nel file .env e riavvia il bot.');
+  } else if (!res.ok) {
+    console.error('Errore invio', res.status, await res.text());
+  }
 }
 
 const text = (to, body) => send(to, { type: 'text', text: { body } });

@@ -300,6 +300,9 @@ code, .num-col, .tabular{ font-variant-numeric:tabular-nums; }
   max-width:100%; min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
 }
 .dash-period::-webkit-scrollbar{ display:none; }
+/* Scelta dell'anno della dashboard: menu a tendina (dashboard.html). */
+.dash-year{ display:flex; align-items:center; gap:8px; margin:0; font-size:13px; font-weight:600; color:var(--muted); }
+.dash-year select{ width:auto; min-width:110px; font-weight:600; }
 .dash-period a{ border:none; background:none; padding:5px 11px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--muted); text-decoration:none; flex:0 0 auto; white-space:nowrap; }
 .dash-period a.on{ background:var(--surface); color:var(--txt); box-shadow:var(--sh); }
 

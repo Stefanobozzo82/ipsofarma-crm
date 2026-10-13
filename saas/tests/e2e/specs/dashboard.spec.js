@@ -39,7 +39,7 @@ test('il pulsante "Totale fatturato" apre le fatture filtrate sull\'anno selezio
 
   const anno = String(new Date().getFullYear());
   await page.goto('/dashboard.html');
-  await page.click(`.dash-period a[data-y="${anno}"]`);
+  await page.selectOption('#anno-sel', anno);
   await page.click('a.stat >> text=Totale fatturato');
   await expect(page).toHaveURL(new RegExp(`fatture\\.html\\?anno=${anno}`));
   await expect(page.locator('#ff-from')).toHaveValue(`${anno}-01-01`);

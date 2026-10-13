@@ -143,6 +143,16 @@ async function saveBooking({ phone, consentAt, service, patient, slot, addr }) {
   return 'file';
 }
 
+// Lavori che partono senza aspettarli (le email). Prima di rispondere "ok" a Meta li aspetto tutti:
+// su servizi come Cloud Run, dopo la risposta il programma viene rallentato e il lavoro rimasto indietro si bloccherebbe.
+const inVolo = new Set();
+function traccia(promessa) {
+  if (!promessa) return promessa;
+  inVolo.add(promessa);
+  promessa.finally(() => inVolo.delete(promessa));
+  return promessa;
+}
+
 // ---------- avvisi all'operatore (email) ----------
 // Non bloccano mai la conversazione: se l'email non parte, si scrive solo un messaggio nel log
 // (senza dati degli utenti). L'avviso per le prenotazioni non contiene nome, indirizzo né telefono.
@@ -236,7 +246,7 @@ async function handle(from, input) {
   if (isText && URGENT.test(t)) return text(from, MSG_118);
 
   if (input.value === 'op' || (isText && /\boperatore\b/.test(t))) {
-    alertCallbackRequest(from);
+    traccia(alertCallbackRequest(from));
     return text(from, 'Va bene, ti passo a una persona del team.\nTi chiamiamo entro 15 minuti, in orario di servizio.');
   }
 
@@ -281,7 +291,7 @@ async function handle(from, input) {
     case 'confirm':
       if (raw === 'yes') {
         const savedOn = await saveBooking({ phone: from, consentAt: s.consentAt, ...s.data });
-        alertNewBooking(s.data.service, savedOn);
+        traccia(alertNewBooking(s.data.service, savedOn));
         s.step = 'menu';
         s.data = {};
         return text(
@@ -300,6 +310,20 @@ async function handle(from, input) {
 }
 
 // ---------- server webhook ----------
+// Meta ripete lo stesso messaggio se non riceve "ok" in tempo: ricordo gli identificativi già elaborati.
+const visti = new Map();
+function giaVisto(id) {
+  if (!id) return false;
+  if (visti.has(id)) return true;
+  visti.set(id, Date.now());
+  while (visti.size > 10_000) visti.delete(visti.keys().next().value);
+  return false;
+}
+setInterval(() => {
+  const limite = Date.now() - 60 * 60_000;
+  for (const [k, t] of visti) if (t < limite) visti.delete(k);
+}, 10 * 60_000).unref();
+
 // legge il corpo come byte esatti: la firma di Meta si calcola su quelli
 const readBody = (req) =>
   new Promise((resolve) => {
@@ -335,23 +359,23 @@ http
         res.writeHead(401).end();
         return;
       }
-      res.writeHead(200).end();
       try {
         const msg = JSON.parse(raw.toString('utf8')).entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-        if (!msg) return;
-        let input;
-        if (msg.type === 'text') input = { kind: 'text', value: msg.text.body.trim() };
-        else if (msg.type === 'interactive') {
-          const r = msg.interactive.button_reply ?? msg.interactive.list_reply;
-          input = { kind: 'reply', value: r.id };
-        } else {
-          await text(msg.from, 'Per ora capisco solo messaggi scritti e pulsanti. Scrivimi o scrivi "operatore" per parlare con una persona.');
-          return;
+        if (msg && !giaVisto(msg.id)) {
+          let input;
+          if (msg.type === 'text') input = { kind: 'text', value: msg.text.body.trim() };
+          else if (msg.type === 'interactive') {
+            const r = msg.interactive.button_reply ?? msg.interactive.list_reply;
+            input = { kind: 'reply', value: r.id };
+          }
+          if (input) await handle(msg.from, input);
+          else await text(msg.from, 'Per ora capisco solo messaggi scritti e pulsanti. Scrivimi o scrivi "operatore" per parlare con una persona.');
         }
-        await handle(msg.from, input);
       } catch (e) {
         console.error('Errore', e);
       }
+      await Promise.allSettled([...inVolo]); // email comprese
+      res.writeHead(200).end();
       return;
     }
     res.writeHead(405).end();

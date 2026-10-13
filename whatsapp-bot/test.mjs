@@ -361,3 +361,30 @@ test('sessioni: il tetto massimo scarta le meno recenti', async () => {
     assert.match(b.ultimo('C1').body, /Ipsofarma/, 'C1 è stata scartata e riparte dal menu');
   });
 });
+
+test('l\'"ok" a Meta arriva solo dopo aver finito tutto (necessario su Cloud Run)', async () => {
+  await conBot(CON_DB_E_MAIL, async (b) => {
+    await finoAlIndirizzo(b);
+    await b.testo(UTENTE, 'Via Test 99, Torino');
+    const prima = b.inviate(UTENTE).length;
+    const msg = { from: UTENTE, id: 'wamid.conferma', type: 'interactive', interactive: { button_reply: { id: 'yes' } } };
+    const corpo = JSON.stringify({ entry: [{ changes: [{ value: { messages: [msg] } }] }] });
+    assert.equal(await b.posta(corpo, { 'x-hub-signature-256': b.firma(corpo) }), 200);
+    // appena arrivato l'"ok" tutto è già fatto: risposta al paziente, salvataggio ed email
+    assert.equal(b.inviate(UTENTE).length, prima + 1, 'risposta al paziente già inviata');
+    assert.equal(b.db().length, 1, 'prenotazione già salvata');
+    assert.equal(b.mail().length, 1, 'email già inviata');
+  });
+});
+
+test('messaggio ripetuto da Meta: elaborato una volta sola', async () => {
+  await conBot(CON_DB_E_MAIL, async (b) => {
+    const msg = { from: UTENTE, id: 'wamid.uguale', type: 'text', text: { body: 'ciao' } };
+    const corpo = JSON.stringify({ entry: [{ changes: [{ value: { messages: [msg] } }] }] });
+    const h = { 'x-hub-signature-256': b.firma(corpo) };
+    assert.equal(await b.posta(corpo, h), 200);
+    assert.equal(await b.posta(corpo, h), 200, 'Meta riceve comunque "ok"');
+    assert.equal(await b.posta(corpo, h), 200);
+    assert.equal(b.inviate(UTENTE).length, 1, 'una sola risposta');
+  });
+});

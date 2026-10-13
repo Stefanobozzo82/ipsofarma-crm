@@ -420,18 +420,39 @@
     // si cerca una sua parola distintiva (non "farmacia", "srl"...) citata
     // da sola — solo se identifica UNA sola azienda, mai indovinare tra più
     // candidati con la stessa parola.
-    const STOPWORD_NOME = new Set(['farmacia','parafarmacia','ospedale','clinica','studio','ditta','impresa','azienda','group','gruppo','italia','commerciale','commercio','distribuzione','forniture','srl','spa','snc','sas','sapa','soc','cooperativa']);
+    const STOPWORD_NOME = new Set(['farmacia','parafarmacia','ospedale','clinica','studio','ditta','impresa','azienda','group','gruppo','italia','commerciale','commercio','distribuzione','forniture','srl','spa','snc','sas','sapa','soc','cooperativa','socio','unico','milano','roma','napoli','torino','casa','cura','hospital','center','centro','medical','medica']);
     function paroleChiaveNome(nome){
       return String(nome || '').toLowerCase().replace(/[.,]/g, ' ')
         .split(/\s+/).filter(w => w.length > 3 && !STOPWORD_NOME.has(w));
     }
     function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    // Nomi detti a voce o scritti "come si pronunciano" ("B. Brown" per
+    // B.Braun, segnalato): oltre alla parola identica, una parola della
+    // domanda lunga almeno 5 lettere vale se, ridotta a una forma "sonora"
+    // (w→u, k→c, y→i, niente h, niente doppie), differisce per al massimo
+    // una lettera da una parola distintiva del nome.
+    const suono = w => w.toLowerCase().replace(/w/g, 'u').replace(/k/g, 'c').replace(/y/g, 'i').replace(/h/g, '').replace(/(.)\1+/g, '$1');
+    function quasiUguali(a, b){
+      if(Math.abs(a.length - b.length) > 1) return false;
+      let i = 0, j = 0, diff = 0;
+      while(i < a.length && j < b.length){
+        if(a[i] === b[j]){ i++; j++; continue; }
+        if(++diff > 1) return false;
+        if(a.length > b.length) i++; else if(b.length > a.length) j++; else { i++; j++; }
+      }
+      return diff + (a.length - i) + (b.length - j) <= 1;
+    }
+    const paroleDomanda = qLower.replace(/[.,;:!?'"()]/g, ' ').split(/\s+/).filter(w => w.length >= 5).map(suono);
     const matchParty = (elenco) => {
       const esatto = elenco.filter(p => p.nome && p.nome.length > 3 && qLower.includes(p.nome.toLowerCase()))
         .sort((a, b) => b.nome.length - a.nome.length)[0];
       if(esatto) return esatto;
       const candidati = elenco.filter(p => paroleChiaveNome(p.nome).some(w => new RegExp('\\b' + escapeRegExp(w) + '\\b').test(qLower)));
-      return candidati.length === 1 ? candidati[0] : null; // più di un candidato con la stessa parola: ambiguo, meglio non indovinare
+      if(candidati.length === 1) return candidati[0];
+      if(candidati.length > 1) return null; // più di un candidato con la stessa parola: ambiguo, meglio non indovinare
+      const simili = elenco.filter(p => paroleChiaveNome(p.nome).filter(w => w.length >= 5).map(suono)
+        .some(w => paroleDomanda.some(d => quasiUguali(d, w))));
+      return simili.length === 1 ? simili[0] : null;
     };
     // Un mese citato insieme al nome ("il fatturato di [cliente] ad aprile",
     // "quanto ho comprato da [fornitore] il mese scorso") -> in più al
@@ -453,6 +474,8 @@
         const totMese = delMese.reduce((s, f) => s + due(f), 0);
         blocks.push(`Fatturato di "${cliente.nome}" a ${periodLabel(mese)}: ${eur(totMese)} (${delMese.length} fatture, pagate e non).\n` +
           (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(due(f))}`).join('\n') : '  (nessuna fattura in quel mese)'));
+        const aperteMese = aperte.filter(x => inPeriod(x.f.data, mese));
+        blocks.push(`Ancora da incassare da "${cliente.nome}" per le fatture di ${periodLabel(mese)}: ${eur(aperteMese.reduce((s, x) => s + x.r, 0))} (${aperteMese.length} fatture non saldate).`);
       }
     }
     const fornitore = matchParty(db.fornitori);
@@ -466,6 +489,11 @@
         const totMese = delMese.reduce((s, f) => s + due(f), 0);
         blocks.push(`Acquisti da "${fornitore.nome}" a ${periodLabel(mese)}: ${eur(totMese)} (${delMese.length} fatture, pagate e non).\n` +
           (delMese.length ? delMese.map(f => `  - ${f.num} del ${f.data}: ${eur(due(f))}`).join('\n') : '  (nessuna fattura in quel mese)'));
+        // "Quanto devo ancora pagare a X di settembre": il residuo delle sole
+        // fatture di quel mese, già sommato (prima andava ricavato
+        // incrociando le due liste sopra, e la risposta non arrivava).
+        const aperteMese = aperte.filter(x => inPeriod(x.f.data, mese));
+        blocks.push(`Ancora da pagare a "${fornitore.nome}" per le fatture di ${periodLabel(mese)}: ${eur(aperteMese.reduce((s, x) => s + x.r, 0))} (${aperteMese.length} fatture non saldate).`);
       }
     }
     return blocks.length ? blocks.join('\n\n') : null;

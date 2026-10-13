@@ -36,56 +36,24 @@
     <p class="msg" id="ai-limit-banner" hidden></p>
 
     <div class="card ai-wrap">
-      <div class="ai-examples">
-        <button type="button" class="ai-chip" data-fill>Quanto devo ancora pagare ai fornitori?</button>
-        <button type="button" class="ai-chip" data-fill>Quali clienti hanno fatture da incassare?</button>
-        <button type="button" class="ai-chip" data-fill>Quanto ho fatturato questo mese?</button>
-        <button type="button" class="ai-chip" data-fill>Quanto ho incassato questo mese?</button>
-        <button type="button" class="ai-chip" data-fill>Qual è il mio cliente migliore?</button>
-        <button type="button" class="ai-chip" data-fill>Quanti ordini fornitore sono ancora da ricevere?</button>
-        <button type="button" class="ai-chip" data-fill>Qual è il valore del magazzino?</button>
-      </div>
-
       <div class="ai-thread" id="thread"></div>
 
       <div class="ai-inputrow" style="margin-top:14px">
-        <textarea id="ai-q" rows="2" placeholder="Scrivi qui la tua domanda…"></textarea>
+        <textarea id="ai-q" rows="2" placeholder="Chiedi qualcosa o di fare qualcosa…"></textarea>
         <button type="button" class="ai-mic-btn" id="ai-mic" title="Detta con il microfono" aria-label="Detta con il microfono">🎤</button>
         <button class="primary" id="ai-go">Invia</button>
       </div>
       <p class="empty" id="no-context" hidden>Non ci sono ancora dati sufficienti per rispondere a domande sull'azienda: crea qualche cliente, fornitore o documento prima di usare l'assistente.</p>
     </div>
 
-    <!-- Punto 3 del piano di miglioramento IA: azioni autonome con anteprima
-         — porta di aiView()/aiResolve()/aiShowPlan()/aiExecute() dal
-         gestionale originale (index.html), riscritta sullo store asincrono
-         (store.saveDoc/nextNumber sono chiamate di rete, non un push in un
-         array in memoria). Azioni: segnare fatture pagate/da pagare, creare
-         un ordine cliente o un preventivo, e la cascata genera-DDT/fattura/
-         ordine-fornitore da un ordine (generate_ddt/generate_invoice/
-         generate_supplier_order — app/cascade.js, SaasCascade: la stessa
-         logica dei bottoni "📦 DDT"/"🧾 Fattura"/"🏭 Ord.forn." in
-         ordini.html/ddt.html, "headless" qui — nessuna pagina intermedia
-         da rivedere, l'anteprima del piano fa quel lavoro). -->
-    <div class="card ai-wrap" id="action-card">
-      <div class="page-head" style="margin-bottom:2px">
-        <h3 style="margin:0">Esegui un'azione</h3>
-      </div>
-      <div class="ai-examples">
-        <button type="button" class="ai-chip" data-action-fill>Segna pagate le fatture di [fornitore] di [mese]</button>
-        <button type="button" class="ai-chip" data-action-fill>Segna da pagare le fatture di [cliente] di questo mese</button>
-        <button type="button" class="ai-chip" data-action-fill>Crea un ordine per [cliente] con 5× [codice o descrizione prodotto]</button>
-        <button type="button" class="ai-chip" data-action-fill>Crea un preventivo per [cliente] con 10× [codice o descrizione prodotto]</button>
-        <button type="button" class="ai-chip" data-action-fill>Genera DDT e fattura dell'ordine [numero]</button>
-        <button type="button" class="ai-chip" data-action-fill>Ordina al fornitore quanto serve per l'ordine [numero]</button>
-      </div>
-      <div class="ai-inputrow" style="margin-top:10px">
-        <textarea id="action-q" rows="2" placeholder="Es. segna pagate le fatture di B.Braun di aprile"></textarea>
-        <button type="button" class="ai-mic-btn" id="action-mic" title="Detta con il microfono" aria-label="Detta con il microfono">🎤</button>
-        <button class="primary" id="action-go">Genera anteprima</button>
-      </div>
-      <div id="action-out"></div>
-    </div>
+    <!-- Un'unica casella per domande e azioni (ottobre 2026): prima c'erano
+         due riquadri, "domande" (sola lettura) ed "Esegui un'azione" (piano
+         con anteprima — porta di aiView()/aiResolve()/aiShowPlan()/
+         aiExecute() del gestionale originale), ognuno con la sua casella e
+         i suoi esempi. Ora si scrive in un posto solo: se il testo chiede di
+         fare qualcosa (segna pagate, crea un ordine, genera DDT/fattura,
+         ordina al fornitore…) parte il piano con anteprima e conferma,
+         dentro la conversazione; altrimenti è una domanda (vedi isAction). -->
   </main>
 </div>
 
@@ -534,14 +502,22 @@
       $('ai-q').focus();
     }
   }
-  $('ai-go').addEventListener('click', () => send($('ai-q').value));
+  // Domanda o azione? Un'azione comincia con un verbo di comando ("segna
+  // pagate…", "crea un ordine…", "genera DDT…", "ordina al fornitore…",
+  // "fattura l'ordine…") — senza spendere una chiamata IA in più per
+  // deciderlo. Se il piano poi non trova azioni, il testo diventa una
+  // domanda normale (actionRun).
+  const ACTION_RE = /^\s*(per favore\s+|puoi\s+|potresti\s+)?(segna|segnami|crea|creami|genera|generami|ordina|fattura|fatturami|consegna|spedisci|prepara|fai\s+(un|il|la|l')\s*(ordine|preventivo|ddt|fattura))\b/i;
+  function isAction(q){ return ACTION_RE.test(q); }
+  function submit(){
+    const q = ($('ai-q').value || '').trim();
+    if(!q) return;
+    if(isAction(q)) actionRun(q); else send(q);
+  }
+  $('ai-go').addEventListener('click', submit);
   $('ai-q').addEventListener('keydown', e => {
-    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send($('ai-q').value); }
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); submit(); }
   });
-  document.querySelectorAll('[data-fill]').forEach(btn => btn.addEventListener('click', () => {
-    $('ai-q').value = btn.textContent;
-    $('ai-q').focus();
-  }));
 
   // ---------------------------------------------------------------------------
   // Dettatura vocale (🎤): due implementazioni diverse a seconda di dove
@@ -608,7 +584,6 @@
     else dictateWeb(textarea, btn);
   }
   $('ai-mic').addEventListener('click', () => startDictation($('ai-q'), $('ai-mic')));
-  $('action-mic').addEventListener('click', () => startDictation($('action-q'), $('action-mic')));
 
   // ---------------------------------------------------------------------------
   // Punto 3 del piano di miglioramento IA: "Esegui un'azione" — un'istruzione
@@ -893,14 +868,29 @@ Regole:
 Data odierna: ${today()}.`;
   }
 
-  function actionSetOut(html){ $('action-out').innerHTML = html; }
+  // Il piano (anteprima, conferma, esito) è un riquadro dentro la
+  // conversazione; ce n'è uno attivo alla volta (ACTION_BOX).
+  let ACTION_BOX = null;
+  function actionSetOut(html){
+    if(!ACTION_BOX) return;
+    ACTION_BOX.innerHTML = html;
+    ACTION_BOX.scrollIntoView({ block:'end', behavior:'smooth' });
+  }
 
-  async function actionRun(){
-    const q = ($('action-q').value || '').trim();
+  async function actionRun(q){
+    q = (q || '').trim();
     if(!q) return;
-    if(!DB){ actionSetOut('<div class="ai-plan"><div class="ai-plan-expl">Sto ancora caricando i dati, riprova tra un istante.</div></div>'); return; }
     if(!AI_LIMIT.ok){ renderAiLimitBanner(); return; } // difesa in profondità: il bottone è già disabilitato, ma il tasto Invio lo aggirerebbe
-    $('action-go').disabled = true;
+    // Un solo piano in attesa di conferma: quello precedente perde i pulsanti.
+    if(ACTION_BOX){ const old = ACTION_BOX.querySelector('.ai-plan-actions'); if(old) old.remove(); }
+    addBubble('user', q);
+    $('ai-q').value = '';
+    ACTION_BOX = document.createElement('div');
+    ACTION_BOX.className = 'ai-action-box';
+    $('thread').appendChild(ACTION_BOX);
+    if(!DB){ actionSetOut('<div class="ai-plan"><div class="ai-plan-expl">Sto ancora caricando i dati, riprova tra un istante.</div></div>'); return; }
+    $('ai-go').disabled = true;
+    let handedOff = false;
     actionSetOut('<p class="ai-intro">Sto interpretando l\'istruzione…</p>');
     try{
       // Modello più capace apposta (come extractFromFile in ai-import.js):
@@ -920,7 +910,14 @@ Data odierna: ${today()}.`;
       const plan = window.SaasAiImport.parseAiJson(reply);
       const acts = (plan && plan.actions) || [];
       if(!acts.length){
-        actionSetOut(`<div class="ai-plan"><div class="ai-plan-expl">${esc((plan && plan.explanation) || 'Non ho individuato azioni eseguibili da questa istruzione.')}</div></div>`);
+        // Nessuna azione: era una domanda (o qualcosa che non so fare) —
+        // risponde la conversazione normale, che spiega anche i limiti.
+        ACTION_BOX.remove(); ACTION_BOX = null;
+        const bubbles = $('thread').querySelectorAll('.ai-bubble.user');
+        if(bubbles.length) bubbles[bubbles.length - 1].remove();
+        handedOff = true;
+        $('ai-go').disabled = false;
+        send(q);
         return;
       }
       ACTION_PLAN = await Promise.all(acts.map(resolveAction));
@@ -941,7 +938,7 @@ Data odierna: ${today()}.`;
     }catch(err){
       actionSetOut(`<div class="ai-plan"><div class="ai-plan-expl">Non sono riuscito a interpretare l'istruzione: ${esc(err.message || err)}</div></div>`);
     }finally{
-      $('action-go').disabled = false;
+      if(!handedOff) $('ai-go').disabled = false;
     }
   }
 
@@ -959,17 +956,7 @@ Data odierna: ${today()}.`;
     catch(e){ hasErrors = true; results.push('Aggiornamento dati non riuscito: ' + (e.message || e)); }
     actionSetOut(`<div class="ai-plan done"><div class="ai-plan-expl">${hasErrors ? 'Operazioni terminate con errori' : '✓ Operazione completata'}</div>
       <ul class="ai-plan-list">${results.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);
-    $('action-q').value = '';
   }
-
-  $('action-go').addEventListener('click', actionRun);
-  $('action-q').addEventListener('keydown', e => {
-    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); actionRun(); }
-  });
-  document.querySelectorAll('[data-action-fill]').forEach(btn => btn.addEventListener('click', () => {
-    $('action-q').value = btn.textContent;
-    $('action-q').focus();
-  }));
 
   async function doLogout(){
     await store.signOut();
@@ -1044,7 +1031,6 @@ Data odierna: ${today()}.`;
       banner.textContent = `Hai raggiunto il limite mensile di ${AI_LIMIT.limite} richieste IA del piano "${AI_LIMIT.piano}". Riprova dal mese prossimo, oppure passa a un piano superiore in Impostazioni → Abbonamento.`;
     }
     $('ai-go').disabled = !AI_LIMIT.ok;
-    $('action-go').disabled = !AI_LIMIT.ok;
   }
 
   async function init(){

@@ -65,7 +65,7 @@ const prompts = {
   consent: (to) =>
     buttons(
       to,
-      "Buongiorno, sono l'assistente di Casa Serena. Posso prenotare prestazioni a domicilio.\n\n" +
+      "Buongiorno, sono l'assistente di Ipsofarma. Posso prenotare prestazioni a domicilio.\n\n" +
         'Per prenotare devo raccogliere nome, indirizzo e il tipo di prestazione, anche dati sulla salute. ' +
         'Li uso solo per organizzare la visita. Acconsenti al trattamento?',
       [['yes', 'Accetto'], ['no', 'Non accetto']],

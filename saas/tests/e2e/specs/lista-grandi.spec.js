@@ -15,10 +15,9 @@
 const { test, expect } = require('../helpers/testCompany');
 const { saveAndSeeRow, gotoList } = require('../helpers/docHelpers');
 
-const RENDER_CAP = 300;
-const TOTALE_RIGHE = 2 * RENDER_CAP + 5;
+const TOTALE_RIGHE = 605;
 
-test('un elenco con più di 300 documenti li mostra tutti: 300 subito, gli altri scorrendo o con "Mostra tutte"', async ({ company }) => {
+test('un elenco con più di 300 documenti li mostra tutti subito', async ({ company }) => {
   const { page, companyId } = company;
 
   await gotoList(page, '/fornitori.html');
@@ -52,15 +51,7 @@ test('un elenco con più di 300 documenti li mostra tutti: 300 subito, gli altri
 
   await gotoList(page, '/ordini-fornitore.html');
   const rows = page.locator('#list-area tbody tr');
-  await expect(page.locator('.list-cap-notice')).toContainText(`Mostrate ${RENDER_CAP} righe su ${TOTALE_RIGHE}`);
-  await expect(rows).toHaveCount(RENDER_CAP);
-
-  // Scorrendo in fondo arrivano altre 300 righe da sole.
-  await rows.last().scrollIntoViewIfNeeded();
-  await expect(rows).toHaveCount(2 * RENDER_CAP);
-
-  // "Mostra tutte" disegna anche le ultime, e l'avviso sparisce.
-  await page.click('[data-list-cap-all]');
+  // Tutti i documenti subito, senza avviso né "Mostra tutte".
   await expect(rows).toHaveCount(TOTALE_RIGHE);
   await expect(page.locator('.list-cap-notice')).toHaveCount(0);
 

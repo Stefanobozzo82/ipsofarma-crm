@@ -61,38 +61,39 @@ const SERVICES = {
 };
 
 const URGENT = /(dolore (al )?petto|non respiro|fatica a respirare|svenut|ictus|emorragia|infarto)/i;
-const MSG_118 = 'Questa chat non è adatta alle urgenze. Se la situazione è grave chiama subito il 118.';
+const MSG_118 = '⚠️ Questa chat non è adatta alle urgenze.\nSe la situazione è grave, *chiama subito il 118*.';
 
 const prompts = {
   consent: (to, s) => {
-    const intro = s.greeted ? '' : "Buongiorno, sono l'assistente di Ipsofarma. Posso prenotare prestazioni a domicilio.\n\n";
+    const intro = s.greeted ? '' : "Buongiorno, sono l'assistente di *Ipsofarma*.\nPosso prenotare prestazioni a domicilio.\n\n";
     s.greeted = true;
     return buttons(
       to,
       intro +
-        'Per prenotare devo raccogliere nome, indirizzo e il tipo di prestazione, anche dati sulla salute. ' +
-        'Li uso solo per organizzare la visita. Acconsenti al trattamento?',
-      [['yes', 'Accetto'], ['no', 'Non accetto']],
+        'Per prenotare devo raccogliere nome, indirizzo e tipo di prestazione, anche dati sulla salute.\n' +
+        'Li uso solo per organizzare la visita.\n\n' +
+        '*Acconsenti al trattamento?*',
+      [['yes', '✅ Accetto'], ['no', 'Non accetto']],
     );
   },
   menu: (to, s) => {
     const body = s.greeted
-      ? 'Cosa ti serve?'
-      : "Buongiorno, sono l'assistente di Ipsofarma. Posso prenotare prestazioni a domicilio. Cosa ti serve?";
+      ? '*Cosa ti serve?*'
+      : "Buongiorno, sono l'assistente di *Ipsofarma*.\nPosso prenotare prestazioni a domicilio.\n\n*Cosa ti serve?*";
     s.greeted = true;
     return list(to, body, 'Scegli il servizio', [...Object.entries(SERVICES), ['op', 'Parlare con una persona']]);
   },
-  who: (to) => buttons(to, 'Per chi è la prestazione?', [['me', 'Per me'], ['fam', 'Per un familiare']]),
-  name: (to) => text(to, 'Come si chiama la persona che riceverà la visita?'),
+  who: (to) => buttons(to, '*Per chi è la prestazione?*', [['me', 'Per me'], ['fam', 'Per un familiare']]),
+  name: (to) => text(to, '*Come si chiama* la persona che riceverà la visita?'),
   slot: (to) =>
-    buttons(to, 'Quando preferisci?', [['am', 'Domani mattina'], ['pm', 'Domani pomeriggio'], ['other', 'Altro giorno']]),
-  slot_text: (to) => text(to, 'Scrivimi il giorno e la fascia oraria che preferisci.'),
-  addr: (to) => text(to, 'Mi scrivi l’indirizzo completo? (via, numero civico, città)'),
+    buttons(to, '*Quando preferisci?*', [['am', 'Domani mattina'], ['pm', 'Domani pomeriggio'], ['other', 'Altro giorno']]),
+  slot_text: (to) => text(to, 'Scrivimi *il giorno* e *la fascia oraria* che preferisci.'),
+  addr: (to) => text(to, 'Mi scrivi *l’indirizzo completo*?\n(via, numero civico, città)'),
   confirm: (to, s) =>
     buttons(
       to,
-      `Riepilogo:\n${s.data.service}\nPaziente: ${s.data.patient}\n${s.data.slot}\n${s.data.addr}\n\nConfermi?`,
-      [['yes', 'Confermo'], ['edit', 'Modifica']],
+      `*Riepilogo*\n\n*Servizio:* ${s.data.service}\n*Per:* ${s.data.patient}\n*Quando:* ${s.data.slot}\n*Dove:* ${s.data.addr}\n\n*Confermi?*`,
+      [['yes', '✅ Confermo'], ['edit', 'Modifica']],
     ),
 };
 
@@ -114,7 +115,7 @@ async function handle(from, input) {
   if (isText && URGENT.test(t)) return text(from, MSG_118);
 
   if (input.value === 'op' || (isText && /\boperatore\b/.test(t))) {
-    return text(from, 'Va bene, ti passo a una persona del team. Ti chiamiamo entro 15 minuti, in orario di servizio.');
+    return text(from, 'Va bene, ti passo a una persona del team.\nTi chiamiamo entro 15 minuti, in orario di servizio.');
   }
 
   // i pulsanti di avvio di WhatsApp arrivano come testo identico al nome del servizio
@@ -132,7 +133,7 @@ async function handle(from, input) {
   switch (s.step) {
     case 'consent':
       if (raw === 'yes') { s.consent = true; s.consentAt = new Date().toISOString(); return go(from, s, 'who'); }
-      if (raw === 'no') return text(from, 'Capito. Senza consenso non posso prenotare da qui. Puoi chiamarci al numero del servizio.');
+      if (raw === 'no') return text(from, 'Capito.\nSenza consenso non posso prenotare da qui.\nPuoi chiamarci al numero del servizio.');
       break;
     case 'menu':
       if (SERVICES[raw]) { s.data.service = SERVICES[raw]; return go(from, s, s.consent ? 'who' : 'consent'); }
@@ -165,8 +166,8 @@ async function handle(from, input) {
         s.data = {};
         return text(
           from,
-          'Prenotazione registrata. Ti scriviamo il giorno prima con un promemoria.\n\n' +
-            'Per una nuova richiesta scrivi "menu". Per sintomi urgenti chiama il 118.',
+          '✅ *Prenotazione registrata.*\nTi scriviamo il giorno prima con un promemoria.\n\n' +
+            'Per una nuova richiesta scrivi *menu*.\nPer sintomi urgenti chiama il *118*.',
         );
       }
       if (raw === 'edit') return go(from, s, 'slot');
@@ -174,7 +175,7 @@ async function handle(from, input) {
   }
 
   // risposta non prevista: ripeto la domanda
-  await text(from, 'Non ho capito, riproviamo.');
+  await text(from, 'Non ho capito, riproviamo.\nPuoi scrivere *menu* per ricominciare.');
   await go(from, s, s.step);
 }
 

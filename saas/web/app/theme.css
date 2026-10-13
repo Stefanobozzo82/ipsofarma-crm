@@ -1103,3 +1103,16 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
   .ev-o-tot{ font-weight:600; font-size:15px; font-variant-numeric:tabular-nums; }
   .ev-o-sub{ grid-column:1 / -1; font-size:13px; color:var(--muted); }
 }
+
+/* Sottomenu della barra in basso (nav.js, es. Fatture → vendite/acquisti). */
+.bottom-submenu{
+  position:fixed; z-index:42; bottom:calc(74px + env(safe-area-inset-bottom));
+  min-width:200px; padding:6px; display:flex; flex-direction:column; gap:2px;
+  background:var(--surface); border:1px solid var(--border2); border-radius:12px; box-shadow:var(--sh-lg);
+}
+.bottom-submenu a{
+  display:flex; align-items:center; min-height:48px; padding:0 14px; border-radius:8px;
+  color:var(--txt); text-decoration:none; font-size:15px; font-weight:600;
+}
+.bottom-submenu a.on{ color:var(--accent-d); background:var(--accent-soft); }
+.bottom-submenu a:active{ background:var(--surface2); }

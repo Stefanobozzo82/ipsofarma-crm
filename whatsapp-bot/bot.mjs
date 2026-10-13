@@ -9,6 +9,9 @@ const VERIFY_TOKEN = clean(process.env.VERIFY_TOKEN);
 const WA_TOKEN = clean(process.env.WA_TOKEN);
 const PHONE_ID = clean(process.env.PHONE_ID);
 const APP_SECRET = clean(process.env.APP_SECRET);
+// facoltativi: se mancano, le prenotazioni restano nel file bookings.jsonl
+const SUPABASE_URL = clean(process.env.SUPABASE_URL)?.replace(/\/+$/, '');
+const SUPABASE_KEY = clean(process.env.SUPABASE_SERVICE_KEY);
 const mancanti = Object.entries({ VERIFY_TOKEN, WA_TOKEN, PHONE_ID, APP_SECRET }).filter(([, v]) => !v).map(([k]) => k);
 if (mancanti.length) {
   console.error(`Mancano nel file .env: ${mancanti.join(', ')} (vedi env.example)`);
@@ -97,6 +100,40 @@ const prompts = {
     ),
 };
 
+// ---------- salvataggio prenotazioni ----------
+// Scrive su Supabase tramite la funzione public.bot_salva_prenotazione (solo chiave service_role).
+// Se Supabase non è configurato o non risponde, ripiega sul file locale: la prenotazione non si perde.
+// Nei log non finisce mai nulla di ciò che ha scritto l'utente.
+async function saveBooking({ phone, consentAt, service, patient, slot, addr }) {
+  if (SUPABASE_URL && SUPABASE_KEY) {
+    try {
+      const headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
+      if (SUPABASE_KEY.startsWith('eyJ')) headers.Authorization = `Bearer ${SUPABASE_KEY}`; // chiave vecchio tipo (JWT)
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bot_salva_prenotazione`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          p_telefono: phone,
+          p_consenso_il: consentAt ?? null,
+          p_servizio: service,
+          p_paziente: patient,
+          p_fascia: slot,
+          p_indirizzo: addr,
+        }),
+      });
+      if (res.ok) return 'database';
+      console.error('Salvataggio su Supabase non riuscito, stato', res.status);
+    } catch {
+      console.error('Salvataggio su Supabase non riuscito: errore di rete');
+    }
+  }
+  appendFileSync(
+    'bookings.jsonl',
+    JSON.stringify({ ts: new Date().toISOString(), phone, consentAt, service, patient, slot, addr }) + '\n',
+  );
+  return 'file';
+}
+
 // ---------- logica della conversazione ----------
 const sessions = new Map();
 
@@ -158,10 +195,7 @@ async function handle(from, input) {
       break;
     case 'confirm':
       if (raw === 'yes') {
-        appendFileSync(
-          'bookings.jsonl',
-          JSON.stringify({ ts: new Date().toISOString(), phone: from, consentAt: s.consentAt, ...s.data }) + '\n',
-        );
+        await saveBooking({ phone: from, consentAt: s.consentAt, ...s.data });
         s.step = 'menu';
         s.data = {};
         return text(
@@ -237,5 +271,6 @@ http
   .listen(PORT, () => {
     console.log(`Bot in ascolto su http://localhost:${PORT}/webhook`);
     const fp = createHash('sha256').update(WA_TOKEN).digest('hex').slice(0, 8);
+    console.log(`Prenotazioni salvate su: ${SUPABASE_URL && SUPABASE_KEY ? 'Supabase (con ripiego su file)' : 'file locale bookings.jsonl'}`);
     console.log(`Controllo config: WA_TOKEN ${WA_TOKEN.length} caratteri (impronta ${fp}), PHONE_ID ${PHONE_ID.length} cifre, finisce con ${PHONE_ID.slice(-4)}`);
   });

@@ -34,3 +34,21 @@ Consenso al trattamento dei dati, menu dei servizi, per chi è la prestazione, f
 - Fai scrivere informativa privacy e testo del consenso da chi si occupa di GDPR: sono dati sanitari.
 - Se vuoi inviare promemoria fuori dalle 24 ore, servono template approvati da Meta.
 - Le sessioni sono in memoria: al riavvio si perdono. Scadono da sole dopo 30 minuti senza messaggi (`SESSION_TTL_MINUTES`, massimo `SESSION_MAX` contemporanee): chi torna dopo riparte dal menu e riaccetta il consenso. Per più istanze usa un database.
+
+## Test automatico
+
+```
+npm test
+```
+
+(oppure `node --test test.mjs`). Non serve il file `.env`, internet né un account: il test avvia il bot vero in una cartella temporanea con un finto Meta, Supabase e Resend, e simula conversazioni intere. Dura circa 7 secondi. Controlla, tra l'altro:
+
+- la verifica del webhook e della firma di Meta (richieste non firmate scartate);
+- la prenotazione completa, con i dati salvati su Supabase e l'email all'operatore senza dati del paziente;
+- che nei registri del bot non finisca nulla di ciò che scrive l'utente;
+- il rimando al 118, i pulsanti di avvio, il consenso, "Parlare con una persona";
+- il ripiego sul file quando Supabase non risponde, e l'email che non parte;
+- la scadenza e il tetto delle sessioni;
+- i limiti di lunghezza di WhatsApp per pulsanti, voci e testi.
+
+Lancialo dopo ogni modifica a `bot.mjs`. Se un test fallisce, il messaggio dice cosa non va.

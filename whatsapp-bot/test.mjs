@@ -133,6 +133,9 @@ test('collegamento con Meta: verifica del webhook', async () => {
     const no = await fetch(`${b.url}?hub.mode=subscribe&hub.verify_token=sbagliato&hub.challenge=abc123`);
     assert.equal(no.status, 403);
     assert.equal((await fetch(b.url.replace('/webhook', '/altro'))).status, 404);
+    const salute = await fetch(b.url.replace('/webhook', '/health'));
+    assert.equal(salute.status, 200);
+    assert.equal(await salute.text(), 'ok');
   });
 });
 

@@ -172,7 +172,7 @@ function alertNewBooking(service, savedOn) {
   const dove =
     savedOn === 'database'
       ? 'database Supabase (tabella bot.prenotazioni)'
-      : 'ATTENZIONE: solo nel file bookings.jsonl del PC del bot (Supabase non ha risposto)';
+      : 'ATTENZIONE: solo nel file bookings.jsonl del server del bot (Supabase non ha risposto)';
   return alertOperator(
     `Nuova prenotazione: ${service}`,
     `Nuova prenotazione dal bot WhatsApp.\n\nServizio: ${service}\nRicevuta: ${quando()}\nSalvata su: ${dove}\n\n` +
@@ -318,6 +318,8 @@ function signatureOk(rawBody, header) {
 http
   .createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
+    // controllo "sei vivo?" per Render e per i servizi di monitoraggio: non risponde con nessun dato
+    if (url.pathname === '/health') { res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok'); return; }
     if (url.pathname !== '/webhook') { res.writeHead(404).end(); return; }
 
     if (req.method === 'GET') {

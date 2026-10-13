@@ -52,3 +52,9 @@ npm test
 - i limiti di lunghezza di WhatsApp per pulsanti, voci e testi.
 
 Lancialo dopo ogni modifica a `bot.mjs`. Se un test fallisce, il messaggio dice cosa non va.
+
+## Presentazione della chat (pulsanti di avvio e profilo)
+
+- `node --env-file=.env ice-breakers.mjs` imposta i 4 pulsanti che compaiono alla prima apertura della chat (non compaiono se la persona arriva da un link con testo già scritto).
+- `node --env-file=.env profile.mjs` imposta il profilo pubblico (frase di presentazione, descrizione, categoria Salute). I testi si cambiano in cima al file. Indirizzo, email e sito sono facoltativi (`PROFILE_ADDRESS`, `PROFILE_EMAIL`, `PROFILE_WEBSITE` nel `.env`) e **pubblici**. Con `leggi` in fondo si vede il profilo attuale.
+- WhatsApp non permette di scrivere per primi a chi non ha mai scritto: queste due funzioni sono il modo supportato per accogliere chi apre la chat.

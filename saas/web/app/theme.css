@@ -1080,3 +1080,26 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
    cliente aperte"…). Il testo resta nell'HTML: per rimetterli basta
    togliere questa regola. */
 .page-head .sub, .stat .sx{ display:none; }
+
+/* Prodotti da evadere (evadere.html): da computer la tabella delle righe;
+   su telefono, per ogni cliente, l'elenco dei suoi ordini con il totale da
+   evadere — un tocco apre l'ordine con il dettaglio. */
+.ev-ordini{ display:none; }
+@media (max-width:860px){
+  .ev-righe{ display:none; }
+  .ev-cli-h{ flex-wrap:nowrap; }
+  .ev-cli{ flex:1; min-width:0; }
+  .ev-cli-h .ev-nrighe{ display:none; }
+  .ev-ordini{ display:block; }
+  .ev-ordine{
+    display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline;
+    width:100%; padding:12px 16px; min-height:56px; text-align:left;
+    background:none; border:none; border-top:1px solid var(--border); color:var(--txt);
+    font-family:inherit; cursor:pointer;
+  }
+  .ev-ordine:first-child{ border-top:none; }
+  .ev-ordine:active{ background:var(--surface2); }
+  .ev-o-num{ font-weight:600; font-size:15px; color:var(--accent-d); }
+  .ev-o-tot{ font-weight:600; font-size:15px; font-variant-numeric:tabular-nums; }
+  .ev-o-sub{ grid-column:1 / -1; font-size:13px; color:var(--muted); }
+}

@@ -160,12 +160,28 @@
           <td class="num-col">${eur(r.val)}</td>
         </tr>`;
       }).join('');
+      // Su telefono (theme.css, .ev-ordini): invece di una scheda per ogni
+      // riga — alta e quasi vuota — un elenco degli ordini del cliente con
+      // il loro totale; il dettaglio delle righe si vede aprendo l'ordine.
+      const perOrdine = {};
+      sorted.forEach(r => {
+        const o = perOrdine[r.ocNum] = perOrdine[r.ocNum] || { num: r.ocNum, data: r.data, n: 0, val: 0, arr: false };
+        o.n++; o.val += r.val; if(r.qtyArr > 0) o.arr = true;
+      });
+      const ordini = Object.values(perOrdine).sort((a, b) => (b.data || '').localeCompare(a.data || '') || b.num.localeCompare(a.num, 'it', { numeric:true }));
+      const ordiniHtml = `<div class="ev-ordini">${ordini.map(o => `
+          <button type="button" class="ev-ordine" data-open-num="${esc(o.num)}">
+            <span class="ev-o-num">${esc(o.num)}</span>
+            <span class="ev-o-tot">${eur(o.val)}</span>
+            <span class="ev-o-sub">${o.data ? new Date(o.data).toLocaleDateString('it-IT') : '—'} · ${o.n} prodott${o.n === 1 ? 'o' : 'i'} da evadere${o.arr ? ' · 📦 in arrivo' : ''}</span>
+          </button>`).join('')}</div>`;
       return `<div class="panel" style="margin-bottom:14px">
-        <div class="panel-h">${esc(cli.nome)}
-          <span style="font-weight:400;color:var(--muted);margin-left:8px">${cli.rows.length} rig${cli.rows.length === 1 ? 'a' : 'he'}</span>
+        <div class="panel-h ev-cli-h"><span class="ev-cli">${esc(cli.nome)}</span>
+          <span class="ev-nrighe" style="font-weight:400;color:var(--muted);margin-left:8px">${cli.rows.length} rig${cli.rows.length === 1 ? 'a' : 'he'}</span>
           <span style="margin-left:auto;font-weight:700">${eur(cli.tot)}</span>
         </div>
-        <div class="table-scroll"><table class="elenco-table" style="margin:0"><thead><tr>
+        ${ordiniHtml}
+        <div class="table-scroll ev-righe"><table class="elenco-table" style="margin:0"><thead><tr>
           ${th('ordine','Ordine')}${th('data','Data')}${th('cod','Codice')}${th('descr','Descrizione')}<th>Ord.</th><th>Cons.</th>${th('res','Residuo')}${th('val','Totale IVA')}
         </tr></thead><tbody>${trs}</tbody></table></div>
       </div>`;

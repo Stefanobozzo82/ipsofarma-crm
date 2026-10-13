@@ -104,7 +104,19 @@ Deno.serve(async (req: Request) => {
     const upstream = await fetch(GEMINI_CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${geminiKey}` }, body: serialized, signal: controller.signal });
     const text = await boundedText(upstream.body, MAX_RESPONSE_BYTES);
     if (!await finish(upstream.ok ? 'succeeded' : 'failed', upstream.status)) return json({ error: 'esito IA non registrabile; il tentativo resta conteggiato' }, 503);
-    if (!upstream.ok) return json({ error: 'il provider IA non ha completato la richiesta; tentativo conteggiato' }, 502);
+    if (!upstream.ok) {
+      // Il motivo dato dal provider (es. "This model is currently experiencing
+      // high demand", chiave sospesa, quota esaurita): solo il messaggio
+      // d'errore, mai il testo della richiesta, nei log e a chi ha chiesto.
+      let reason = '';
+      try {
+        const parsed = JSON.parse(text);
+        const err = (Array.isArray(parsed) ? parsed[0] : parsed)?.error;
+        reason = String(err?.message || err?.status || '').replace(/\s+/g, ' ').slice(0, 300);
+      } catch { /* risposta non JSON: resta senza motivo */ }
+      console.error('ai-proxy provider error', upstream.status, model, reason);
+      return json({ error: `il provider IA non ha completato la richiesta (${upstream.status}${reason ? ': ' + reason : ''}); tentativo conteggiato` }, 502);
+    }
     return new Response(text, { status: upstream.status, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   } catch {
     await finish('unknown', null);

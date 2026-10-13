@@ -27,7 +27,7 @@ function fixture(options={}){
         }};return query;
     }};
   const window={crypto:{randomUUID:()=>`uuid-${++sequence}`},supabase:{createClient:()=>client},SUPABASE_URL:'https://unit.test'};
-  vm.runInNewContext(code,{window,fetch:async(url,init)=>{fetches.push([url,clone({...init,body:JSON.parse(init.body)})]);return {ok:true,json:async()=>({choices:[{message:{content:'answer'}}]})};}});
+  vm.runInNewContext(code,{window,fetch:async(url,init)=>{fetches.push([url,clone({...init,body:JSON.parse(init.body)})]);const st=(options.fetchStatuses||[]).shift();if(st)return {ok:false,status:st,json:async()=>({error:'provider error '+st})};return {ok:true,status:200,json:async()=>({choices:[{message:{content:'answer'}}]})};}});
   return {store:window.SaasStore,calls,fetches,pages,fail:e=>{error=e;},respond:r=>{response=r;}};
 }
 const rows=[{cod:'P',qty:2,source_order_index:0}];
@@ -115,6 +115,23 @@ test('AI requests forward explicit retry identity and allocate fresh identities 
   assert.notEqual(f.fetches[2][1].body.request_id,f.fetches[3][1].body.request_id);
   assert.equal(f.fetches[0][1].body.companyId,'company');assert.equal(f.fetches[0][1].body.reasoning_effort,'none');
   assert.equal(f.fetches[0][1].headers.Authorization,'Bearer test-token');
+});
+
+test('AI requests retry once with the other model when the provider fails, never when the caller fixed the request identity',async()=>{
+  const messages=[{role:'user',content:'Synthetic prompt'}];
+  let f=fixture({fetchStatuses:[502]});
+  assert.equal(await f.store.aiComplete(messages,{companyId:'company'}),'answer');
+  assert.deepEqual(f.fetches.map(x=>x[1].body.model),['gemini-2.5-flash','gemini-3.5-flash']);
+  assert.notEqual(f.fetches[0][1].body.request_id,f.fetches[1][1].body.request_id);
+  f=fixture({fetchStatuses:[502,502]});
+  await assert.rejects(f.store.aiComplete(messages,{companyId:'company'}),/provider error 502/);
+  assert.equal(f.fetches.length,2);
+  f=fixture({fetchStatuses:[502]});
+  await assert.rejects(f.store.aiComplete(messages,{companyId:'company',requestId:'fixed'}),/provider error 502/);
+  assert.equal(f.fetches.length,1);
+  f=fixture({fetchStatuses:[429]});
+  await assert.rejects(f.store.aiComplete(messages,{companyId:'company'}),/provider error 429/);
+  assert.equal(f.fetches.length,1);
 });
 
 function many(n,company='company'){return Array.from({length:n},(_,i)=>({id:String(i+1).padStart(8,'0'),company_id:company,num:'D-'+i,extra:{kept:i}}));}

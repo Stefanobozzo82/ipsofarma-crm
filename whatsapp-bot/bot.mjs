@@ -66,12 +66,17 @@ const prompts = {
   consent: (to) =>
     buttons(
       to,
-      "Buongiorno, sono l'assistente di Ipsofarma. Posso prenotare prestazioni a domicilio.\n\n" +
-        'Per prenotare devo raccogliere nome, indirizzo e il tipo di prestazione, anche dati sulla salute. ' +
+      'Per prenotare devo raccogliere nome, indirizzo e il tipo di prestazione, anche dati sulla salute. ' +
         'Li uso solo per organizzare la visita. Acconsenti al trattamento?',
       [['yes', 'Accetto'], ['no', 'Non accetto']],
     ),
-  menu: (to) => list(to, 'Cosa ti serve?', 'Scegli il servizio', [...Object.entries(SERVICES), ['op', 'Parlare con una persona']]),
+  menu: (to, s) => {
+    const body = s.greeted
+      ? 'Cosa ti serve?'
+      : "Buongiorno, sono l'assistente di Ipsofarma. Posso prenotare prestazioni a domicilio. Cosa ti serve?";
+    s.greeted = true;
+    return list(to, body, 'Scegli il servizio', [...Object.entries(SERVICES), ['op', 'Parlare con una persona']]);
+  },
   who: (to) => buttons(to, 'Per chi è la prestazione?', [['me', 'Per me'], ['fam', 'Per un familiare']]),
   name: (to) => text(to, 'Come si chiama la persona che riceverà la visita?'),
   slot: (to) =>
@@ -109,16 +114,16 @@ async function handle(from, input) {
 
   if (s.step === 'start' || (isText && /^(menu|ciao|salve|buongiorno|buonasera)$/.test(t))) {
     s.data = {};
-    return go(from, s, s.consent ? 'menu' : 'consent');
+    return go(from, s, 'menu');
   }
 
   switch (s.step) {
     case 'consent':
-      if (raw === 'yes') { s.consent = true; s.consentAt = new Date().toISOString(); return go(from, s, 'menu'); }
+      if (raw === 'yes') { s.consent = true; s.consentAt = new Date().toISOString(); return go(from, s, 'who'); }
       if (raw === 'no') return text(from, 'Capito. Senza consenso non posso prenotare da qui. Puoi chiamarci al numero del servizio.');
       break;
     case 'menu':
-      if (SERVICES[raw]) { s.data.service = SERVICES[raw]; return go(from, s, 'who'); }
+      if (SERVICES[raw]) { s.data.service = SERVICES[raw]; return go(from, s, s.consent ? 'who' : 'consent'); }
       break;
     case 'who':
       if (raw === 'me') { s.data.patient = 'Il richiedente'; return go(from, s, 'slot'); }

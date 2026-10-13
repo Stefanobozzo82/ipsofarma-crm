@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { appendFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 // toglie spazi e virgolette che si aggiungono facilmente incollando da telefono
 const clean = (v) => v?.trim().replace(/^["']|["']$/g, '').trim();
@@ -8,8 +8,9 @@ const PORT = clean(process.env.PORT) || 3000;
 const VERIFY_TOKEN = clean(process.env.VERIFY_TOKEN);
 const WA_TOKEN = clean(process.env.WA_TOKEN);
 const PHONE_ID = clean(process.env.PHONE_ID);
-if (!VERIFY_TOKEN || !WA_TOKEN || !PHONE_ID) {
-  console.error('Mancano variabili: VERIFY_TOKEN, WA_TOKEN, PHONE_ID (vedi env.example)');
+const APP_SECRET = clean(process.env.APP_SECRET);
+if (!VERIFY_TOKEN || !WA_TOKEN || !PHONE_ID || !APP_SECRET) {
+  console.error('Mancano variabili: VERIFY_TOKEN, WA_TOKEN, PHONE_ID, APP_SECRET (vedi env.example)');
   process.exit(1);
 }
 
@@ -161,12 +162,20 @@ async function handle(from, input) {
 }
 
 // ---------- server webhook ----------
+// legge il corpo come byte esatti: la firma di Meta si calcola su quelli
 const readBody = (req) =>
   new Promise((resolve) => {
-    let d = '';
-    req.on('data', (c) => (d += c));
-    req.on('end', () => resolve(d));
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
   });
+
+// Meta firma ogni richiesta con HMAC-SHA256 (chiave = App Secret) nell'header X-Hub-Signature-256
+function signatureOk(rawBody, header) {
+  const expected = Buffer.from('sha256=' + createHmac('sha256', APP_SECRET).update(rawBody).digest('hex'));
+  const received = Buffer.from(header ?? '');
+  return received.length === expected.length && timingSafeEqual(received, expected);
+}
 
 http
   .createServer(async (req, res) => {
@@ -181,9 +190,14 @@ http
 
     if (req.method === 'POST') {
       const raw = await readBody(req);
+      if (!signatureOk(raw, req.headers['x-hub-signature-256'])) {
+        console.warn('Richiesta scartata: firma non valida');
+        res.writeHead(401).end();
+        return;
+      }
       res.writeHead(200).end();
       try {
-        const msg = JSON.parse(raw).entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+        const msg = JSON.parse(raw.toString('utf8')).entry?.[0]?.changes?.[0]?.value?.messages?.[0];
         if (!msg) return;
         let input;
         if (msg.type === 'text') input = { kind: 'text', value: msg.text.body.trim() };

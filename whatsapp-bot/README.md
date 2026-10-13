@@ -10,7 +10,7 @@ Consenso al trattamento dei dati, menu dei servizi, per chi è la prestazione, f
 
 1. Vai su developers.facebook.com, crea un'app di tipo "Business" e aggiungi il prodotto **WhatsApp**.
 2. Nella sezione "API Setup" trovi un **numero di test** gratuito, il suo **Phone number ID** e un **token temporaneo** (dura 24 ore). Aggiungi il tuo numero personale tra i destinatari di test.
-3. Copia `env.example` in `.env` e compila i tre valori. `VERIFY_TOKEN` lo inventi tu (una parola qualsiasi).
+3. Copia `env.example` in `.env` e compila i quattro valori. `VERIFY_TOKEN` lo inventi tu (una parola qualsiasi). `APP_SECRET` è la "Chiave segreta" dell'app su Meta (Impostazioni app → Di base): serve a verificare che le richieste arrivino davvero da Meta.
 4. Avvia il bot:
 
    ```
@@ -28,7 +28,6 @@ Consenso al trattamento dei dati, menu dei servizi, per chi è la prestazione, f
 
 ## Prima di usarlo con clienti veri
 
-- Verifica la firma delle richieste (header `X-Hub-Signature-256`).
 - Passa a un token permanente (utente di sistema) e a un numero dedicato, dopo la verifica dell'azienda su Meta.
 - Sposta le prenotazioni dal file a un database (ad esempio Supabase) e avvisa l'operatore a ogni nuova richiesta.
 - Fai scrivere informativa privacy e testo del consenso da chi si occupa di GDPR: sono dati sanitari.

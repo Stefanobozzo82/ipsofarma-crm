@@ -63,13 +63,17 @@ const URGENT = /(dolore (al )?petto|non respiro|fatica a respirare|svenut|ictus|
 const MSG_118 = 'Questa chat non è adatta alle urgenze. Se la situazione è grave chiama subito il 118.';
 
 const prompts = {
-  consent: (to) =>
-    buttons(
+  consent: (to, s) => {
+    const intro = s.greeted ? '' : "Buongiorno, sono l'assistente di Ipsofarma. Posso prenotare prestazioni a domicilio.\n\n";
+    s.greeted = true;
+    return buttons(
       to,
-      'Per prenotare devo raccogliere nome, indirizzo e il tipo di prestazione, anche dati sulla salute. ' +
+      intro +
+        'Per prenotare devo raccogliere nome, indirizzo e il tipo di prestazione, anche dati sulla salute. ' +
         'Li uso solo per organizzare la visita. Acconsenti al trattamento?',
       [['yes', 'Accetto'], ['no', 'Non accetto']],
-    ),
+    );
+  },
   menu: (to, s) => {
     const body = s.greeted
       ? 'Cosa ti serve?'
@@ -112,7 +116,14 @@ async function handle(from, input) {
     return text(from, 'Va bene, ti passo a una persona del team. Ti chiamiamo entro 15 minuti, in orario di servizio.');
   }
 
-  if (s.step === 'start' || (isText && /^(menu|ciao|salve|buongiorno|buonasera)$/.test(t))) {
+  // i pulsanti di avvio di WhatsApp arrivano come testo identico al nome del servizio
+  const byTitle = isText && Object.values(SERVICES).find((v) => v.toLowerCase() === t);
+  if (byTitle && (s.step === 'start' || s.step === 'menu')) {
+    s.data = { service: byTitle };
+    return go(from, s, s.consent ? 'who' : 'consent');
+  }
+
+  if (s.step === 'start' || (isText && /^(menu|ciao|salve|buongiorno|buonasera|altri servizi)$/.test(t))) {
     s.data = {};
     return go(from, s, 'menu');
   }

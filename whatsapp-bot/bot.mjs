@@ -12,6 +12,11 @@ const APP_SECRET = clean(process.env.APP_SECRET);
 // facoltativi: se mancano, le prenotazioni restano nel file bookings.jsonl
 const SUPABASE_URL = clean(process.env.SUPABASE_URL)?.replace(/\/+$/, '');
 const SUPABASE_KEY = clean(process.env.SUPABASE_SERVICE_KEY);
+// facoltativi: avvisi via email all'operatore (servizio Resend). Se mancano, nessun avviso.
+const RESEND_API_KEY = clean(process.env.RESEND_API_KEY);
+const ALERT_EMAIL_TO = clean(process.env.ALERT_EMAIL_TO); // più indirizzi separati da virgola
+const ALERT_EMAIL_FROM = clean(process.env.ALERT_EMAIL_FROM) || 'Ipsofarma Bot <onboarding@resend.dev>';
+const ALERTS_ON = Boolean(RESEND_API_KEY && ALERT_EMAIL_TO);
 const mancanti = Object.entries({ VERIFY_TOKEN, WA_TOKEN, PHONE_ID, APP_SECRET }).filter(([, v]) => !v).map(([k]) => k);
 if (mancanti.length) {
   console.error(`Mancano nel file .env: ${mancanti.join(', ')} (vedi env.example)`);
@@ -138,6 +143,56 @@ async function saveBooking({ phone, consentAt, service, patient, slot, addr }) {
   return 'file';
 }
 
+// ---------- avvisi all'operatore (email) ----------
+// Non bloccano mai la conversazione: se l'email non parte, si scrive solo un messaggio nel log
+// (senza dati degli utenti). L'avviso per le prenotazioni non contiene nome, indirizzo né telefono.
+const quando = () => new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome', dateStyle: 'short', timeStyle: 'short' });
+
+async function alertOperator(subject, body) {
+  if (!ALERTS_ON) return;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: ALERT_EMAIL_FROM,
+        to: ALERT_EMAIL_TO.split(',').map((x) => x.trim()).filter(Boolean),
+        subject,
+        text: body,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) console.error('Avviso email non inviato, stato', res.status);
+  } catch {
+    console.error('Avviso email non inviato: errore di rete');
+  }
+}
+
+function alertNewBooking(service, savedOn) {
+  const dove =
+    savedOn === 'database'
+      ? 'database Supabase (tabella bot.prenotazioni)'
+      : 'ATTENZIONE: solo nel file bookings.jsonl del PC del bot (Supabase non ha risposto)';
+  return alertOperator(
+    `Nuova prenotazione: ${service}`,
+    `Nuova prenotazione dal bot WhatsApp.\n\nServizio: ${service}\nRicevuta: ${quando()}\nSalvata su: ${dove}\n\n` +
+      'Per la privacy, in questa email non ci sono nome, indirizzo né telefono: li trovi nel database.',
+  );
+}
+
+// una sola email ogni 10 minuti per ogni numero, anche se la persona insiste
+const lastCallbackAlert = new Map();
+function alertCallbackRequest(phone) {
+  const now = Date.now();
+  if (now - (lastCallbackAlert.get(phone) ?? 0) < 10 * 60_000) return;
+  lastCallbackAlert.set(phone, now);
+  return alertOperator(
+    'Richiesta di essere richiamati',
+    `Una persona ha chiesto di parlare con un operatore.\nIl bot le ha scritto che sarà richiamata entro 15 minuti, in orario di servizio.\n\n` +
+      `Numero da richiamare: +${phone}\nRicevuta: ${quando()}`,
+  );
+}
+
 // ---------- logica della conversazione ----------
 const sessions = new Map();
 
@@ -156,6 +211,7 @@ async function handle(from, input) {
   if (isText && URGENT.test(t)) return text(from, MSG_118);
 
   if (input.value === 'op' || (isText && /\boperatore\b/.test(t))) {
+    alertCallbackRequest(from);
     return text(from, 'Va bene, ti passo a una persona del team.\nTi chiamiamo entro 15 minuti, in orario di servizio.');
   }
 
@@ -199,7 +255,8 @@ async function handle(from, input) {
       break;
     case 'confirm':
       if (raw === 'yes') {
-        await saveBooking({ phone: from, consentAt: s.consentAt, ...s.data });
+        const savedOn = await saveBooking({ phone: from, consentAt: s.consentAt, ...s.data });
+        alertNewBooking(s.data.service, savedOn);
         s.step = 'menu';
         s.data = {};
         return text(
@@ -278,6 +335,7 @@ http
       console.error('ATTENZIONE: WA_TOKEN contiene caratteri strani (spazi, "=" o altre righe). Controlla il file .env: ogni variabile va su una riga a parte.');
     }
     const fp = createHash('sha256').update(WA_TOKEN).digest('hex').slice(0, 8);
+    console.log(`Avvisi all'operatore: ${ALERTS_ON ? 'email attive' : 'non attivi (mancano RESEND_API_KEY e ALERT_EMAIL_TO)'}`);
     console.log(`Prenotazioni salvate su: ${SUPABASE_URL && SUPABASE_KEY ? 'Supabase (con ripiego su file)' : 'file locale bookings.jsonl'}`);
     console.log(`Controllo config: WA_TOKEN ${WA_TOKEN.length} caratteri (impronta ${fp}), PHONE_ID ${PHONE_ID.length} cifre, finisce con ${PHONE_ID.slice(-4)}`);
   });

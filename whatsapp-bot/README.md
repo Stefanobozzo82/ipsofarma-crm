@@ -30,7 +30,7 @@ Consenso al trattamento dei dati, menu dei servizi, per chi è la prestazione, f
 
 - Passa a un token permanente (utente di sistema) e a un numero dedicato, dopo la verifica dell'azienda su Meta.
 - Le prenotazioni si salvano su Supabase se nel `.env` ci sono `SUPABASE_URL` e `SUPABASE_SERVICE_KEY` (funzione `public.bot_salva_prenotazione`, tabella `bot.prenotazioni`, schema non esposto all'API). Se mancano o Supabase non risponde, ripiegano sul file `bookings.jsonl`. La chiave service_role è un segreto: solo nel `.env`, mai nel codice. Per clienti veri usa un progetto Supabase dedicato al bot, non quello del gestionale.
-- Avvisa l'operatore a ogni nuova richiesta.
+- Avvisi email all'operatore (nuova prenotazione e richiesta di essere richiamati) con Resend: servono `RESEND_API_KEY` e `ALERT_EMAIL_TO` nel `.env`. L'email di prenotazione non contiene dati del paziente. Con il mittente di prova di Resend (`onboarding@resend.dev`) le email arrivano solo all'indirizzo con cui hai aperto l'account Resend: per altri destinatari verifica un dominio e imposta `ALERT_EMAIL_FROM`.
 - Fai scrivere informativa privacy e testo del consenso da chi si occupa di GDPR: sono dati sanitari.
 - Se vuoi inviare promemoria fuori dalle 24 ore, servono template approvati da Meta.
 - Le sessioni sono in memoria: al riavvio si perdono. Per più istanze usa un database.

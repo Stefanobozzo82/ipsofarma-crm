@@ -205,7 +205,7 @@ async function handle(from, input) {
         return text(
           from,
           '✅ *Prenotazione registrata.*\nTi scriviamo il giorno prima con un promemoria.\n\n' +
-            'Per una nuova richiesta scrivi *menu*.\nPer sintomi urgenti chiama il *118*.',
+            'Per una nuova richiesta scrivi *menu*.',
         );
       }
       if (raw === 'edit') return go(from, s, 'slot');

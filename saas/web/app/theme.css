@@ -1070,3 +1070,10 @@ button.primary:active:not(:disabled), button.ghost:active:not(:disabled),
 .empty.loading::after{ content:"Carico…"; display:block; margin-top:10px; text-align:center; font-size:13px; color:var(--faint); }
 @keyframes loadPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
 @media (prefers-reduced-motion: reduce){ .empty.loading::before{ animation:none; } }
+
+/* Senza sottotitoli (richiesta di ottobre 2026): niente frase descrittiva
+   sotto il titolo di ogni pagina, niente riga di dettaglio sotto le cifre
+   dei riquadri ("333 fatture – 2 note di credito dal …", "14 fatture
+   cliente aperte"…). Il testo resta nell'HTML: per rimetterli basta
+   togliere questa regola. */
+.page-head .sub, .stat .sx{ display:none; }

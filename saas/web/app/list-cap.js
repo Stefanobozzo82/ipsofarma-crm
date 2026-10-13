@@ -20,12 +20,16 @@
  * altre si aggiungono da sole a blocchi di 300 quando si scorre vicino al
  * fondo dell'elenco, e "Mostra tutte" le disegna tutte in una volta. Il
  * numero di righe già mostrate resta finché si resta sulla pagina.
+ *
+ * Ottobre 2026: su richiesta, di base si mostrano TUTTI i documenti, senza
+ * avviso né pulsante "Mostra tutte" (RENDER_CAP = Infinity). Il meccanismo
+ * resta qui: basta rimettere un numero per tornare al disegno a blocchi.
  * ============================================================================ */
 
 (function (global) {
   'use strict';
 
-  const RENDER_CAP = 300;
+  const RENDER_CAP = Infinity;
   let limit = RENDER_CAP;      // righe disegnate ora (cresce scorrendo)
   let rerender = null;         // renderResults() della pagina
   let observer = null;

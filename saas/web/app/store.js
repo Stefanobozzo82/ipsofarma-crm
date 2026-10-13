@@ -503,6 +503,16 @@
     // dentro): senza questo, qualunque errore del provider IA resta
     // sempre generico invece di spiegare cosa è successo davvero.
     const errBody = Array.isArray(data) ? (data[0] || {}) : data;
+    // 502 da ai-proxy = il provider ha risposto con un errore (di solito
+    // Gemini "503: modello sovraccarico", temporaneo — successo davvero il
+    // 13/10/2026 con gemini-2.5-flash). Un secondo tentativo, uno solo, con
+    // l'altro modello disponibile e una richiesta nuova (conta anche lui
+    // nella quota). Non se chi chiama ha fissato un requestId: lì vuole
+    // proprio che la stessa richiesta non parta due volte.
+    if (res.status === 502 && !opts.requestId && !opts._retried) {
+      const other = body.model === 'gemini-3.5-flash' ? 'gemini-2.5-flash' : 'gemini-3.5-flash';
+      return aiComplete(messages, Object.assign({}, opts, { model: other, _retried: true }));
+    }
     if (!res.ok) throw new Error((errBody.error && (errBody.error.message || errBody.error)) || ('errore HTTP ' + res.status));
     const reply = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     if (!reply) throw new Error('risposta vuota o inattesa dal provider IA');

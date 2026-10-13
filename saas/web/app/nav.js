@@ -93,10 +93,12 @@
   // dall'app installata sul telefono.
   const BOTTOM_ITEMS = [
     { id: 'dashboard', label: 'Home', href: 'dashboard.html', ic: 'dashboard' },
-    { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: 'order' },
-    // Fatture: un tocco apre un piccolo menu per scegliere tra vendite e
-    // acquisti (ensureMobileBottombar), invece di andare dritto alle
-    // fatture cliente.
+    { id: 'ordini', label: 'Ordini', href: 'ordini.html', ic: 'order',
+      sub: [{ id: 'ordini', label: 'Ordini clienti', href: 'ordini.html' },
+            { id: 'ordini-fornitore', label: 'Ordini fornitori', href: 'ordini-fornitore.html' }] },
+    // Ordini e Fatture: un tocco apre un piccolo menu per scegliere tra
+    // clienti/vendite e fornitori/acquisti (ensureMobileBottombar), invece
+    // di andare dritto a quelli dei clienti.
     { id: 'fatture', label: 'Fatture', href: 'fatture.html', ic: 'invoice',
       sub: [{ id: 'fatture', label: 'Fatture vendite', href: 'fatture.html' },
             { id: 'fatture-fornitore', label: 'Fatture acquisti', href: 'fatture-fornitore.html' }] },

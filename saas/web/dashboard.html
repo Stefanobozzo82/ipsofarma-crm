@@ -38,7 +38,7 @@
   <main class="app-main">
   <div class="page-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px">
       <div><h2 style="margin:0">Dashboard</h2><p class="sub">Quadro d'insieme di ordini, consegne e fatturato.</p></div>
-      <div class="dash-period" id="anni"></div>
+      <div id="anni"></div>
     </div>
 
     <section class="ledger" aria-label="Totali">
@@ -198,14 +198,18 @@
   function renderAnni(){
     // Ordine decrescente (2026, 2025, ... indietro): dopo "Tutti" si vuole
     // subito l'anno più recente, non doverci scorrere in fondo alla fila.
-    const anni = [...new Set([...DB.fattureCliente, ...DB.fattureFornitore].map(f => (f.data || '').slice(0, 4)).filter(Boolean))].sort().reverse();
-    $('anni').innerHTML = `<a class="${DASHY === '' ? 'on' : ''}" href="#" data-y="">Tutti</a>` +
-      anni.map(y => `<a class="${DASHY === y ? 'on' : ''}" href="#" data-y="${y}">${y}</a>`).join('');
-    $('anni').querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => {
-      e.preventDefault();
-      DASHY = a.dataset.y;
+    const anni = [...new Set([...DB.fattureCliente, ...DB.fattureFornitore].map(f => (f.data || '').slice(0, 4)).filter(Boolean).concat(DASHY ? [DASHY] : []))].sort().reverse();
+    // Un menu a tendina invece di una fila di pulsanti: con lo storico di
+    // Maestro gli anni sono quasi venti, tutti in vista occupavano una riga
+    // intera (e su telefono andavano scorsi di lato).
+    $('anni').innerHTML = `<label class="dash-year"><span>Anno</span><select id="anno-sel" aria-label="Anno">
+        <option value="" ${DASHY === '' ? 'selected' : ''}>Tutti</option>
+        ${anni.map(y => `<option value="${y}" ${DASHY === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select></label>`;
+    $('anno-sel').addEventListener('change', () => {
+      DASHY = $('anno-sel').value;
       renderDashboard();
-    }));
+    });
   }
 
   // Porta l'anno selezionato nella pagina di destinazione di uno "stat"

@@ -9,8 +9,9 @@ const VERIFY_TOKEN = clean(process.env.VERIFY_TOKEN);
 const WA_TOKEN = clean(process.env.WA_TOKEN);
 const PHONE_ID = clean(process.env.PHONE_ID);
 const APP_SECRET = clean(process.env.APP_SECRET);
-if (!VERIFY_TOKEN || !WA_TOKEN || !PHONE_ID || !APP_SECRET) {
-  console.error('Mancano variabili: VERIFY_TOKEN, WA_TOKEN, PHONE_ID, APP_SECRET (vedi env.example)');
+const mancanti = Object.entries({ VERIFY_TOKEN, WA_TOKEN, PHONE_ID, APP_SECRET }).filter(([, v]) => !v).map(([k]) => k);
+if (mancanti.length) {
+  console.error(`Mancano nel file .env: ${mancanti.join(', ')} (vedi env.example)`);
   process.exit(1);
 }
 

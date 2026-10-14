@@ -60,7 +60,6 @@
       </div>
     </div>
     <div id="f-dest-wrap"><label for="f-dest">Destinazione di consegna</label><select id="f-dest"></select></div>
-    <label class="check-line" style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:14px"><input type="checkbox" id="f-split" style="width:auto;margin:0"> Split payment — scissione dei pagamenti: l'IVA la versa l'ente (art. 17-ter), al cliente si incassa solo l'imponibile</label>
 
     <label>Righe</label>
     <div class="table-scroll"><table class="righe-table">
@@ -339,33 +338,18 @@
     })).filter(r => r.descr || r.cod);
   }
   // Stessa aritmetica dello sconto per tutte le pagine documento: vedi app/doc-page.js.
+  // Split payment: non si sceglie sulla fattura, viene dall'anagrafica del
+  // cliente ("Scissione pagamenti" = Sì) al momento del salvataggio — come
+  // fa già l'import da Maestro. La fattura ne conserva il valore (campo
+  // split): cambiare l'anagrafica tocca una fattura solo quando la si
+  // salva di nuovo.
+  function splitCliente(){ return (clientiById[$('f-cliente').value] || {}).split === 'si'; }
   function updateTotale(){
     const righe = readRighe();
-    $('righe-totale').textContent = $('f-split').checked
+    $('righe-totale').textContent = splitCliente()
       ? `${eur(impTot(righe))} (IVA ${eur(ivaTot(righe))} in split payment, versata dall'ente)`
       : eur(docTotale(righe));
   }
-  $('f-split').addEventListener('change', async () => {
-    updateTotale();
-    // Fattura collegata a un DDT: righe e dati restano bloccati, ma lo split
-    // payment è un'informazione sul pagamento — si salva subito da solo,
-    // partendo dalla fattura così com'è (il blocco lato database ammette i
-    // cambi di metadati, non di righe/numero/data/cliente).
-    if(!editingFattura || !editingFattura.ddtId) return;
-    const split = $('f-split').checked;
-    try{
-      const doc = Object.assign({}, editingFattura, { split });
-      await store.saveDoc('fattureCliente', doc, companyId);
-      editingFattura = doc;
-      renderPagamenti(editingFattura);
-      await renderList();
-      setMsg(split ? 'Split payment attivato: da incassare solo l\'imponibile.' : 'Split payment disattivato.', 'ok');
-    }catch(err){
-      $('f-split').checked = !split;
-      updateTotale();
-      setMsg('Errore nel salvare lo split payment: ' + (err.message || err), 'error');
-    }
-  });
   // Scroll sulla nuova riga al click manuale — vedi lo stesso commento in
   // ordini.html.
   $('add-riga').addEventListener('click', () => {
@@ -404,8 +388,7 @@
     updateTotale();
   }
   $('f-cliente').addEventListener('change', () => {
-    // Nuova fattura: lo split payment parte da quello del cliente.
-    if(!editingId) $('f-split').checked = (clientiById[$('f-cliente').value] || {}).split === 'si';
+    updateTotale();
     refreshLinkedOptions($('f-cliente').value);
     refreshDestOptions($('f-cliente').value);
     repriceForClient($('f-cliente').value);
@@ -454,7 +437,6 @@
       try{ numberPreview = await store.peekNumber(companyId, 'FT', Number($('f-data').value.slice(0, 4))); $('f-num').value = numberPreview; }
       catch(e){ /* l'anteprima non è essenziale: il campo resta vuoto, comunque modificabile a mano */ }
     }
-    $('f-split').checked = fattura ? fattura.split === true : (clientiById[$('f-cliente').value] || {}).split === 'si';
     $('righe-body').innerHTML = '';
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
     updateTotale();
@@ -609,7 +591,7 @@
     const destId = $('f-dest').value || null;
     const data = $('f-data').value;
     const righe = readRighe();
-    const split = $('f-split').checked;
+    const split = splitCliente();
     if(!clienteId){ setMsg('Seleziona un cliente.', 'error'); return; }
     if(!data){ setMsg('Inserisci una data.', 'error'); return; }
     if(righe.length === 0){ setMsg('Aggiungi almeno una riga con una descrizione.', 'error'); return; }

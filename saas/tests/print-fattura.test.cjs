@@ -71,3 +71,17 @@ test('the quality certification appears in the header when the company has one',
   assert.match(t,/UNI EN ISO 9001:2015 Cert\. n\. IQ-0526-02/);
   assert.doesNotMatch(text(print().buildInvoiceHTML('fattureCliente',{num:'FT/2026/0001',data:'2026-10-09',righe:[riga('A',1,10)]},party,company,{})),/Cert\. n\./);
 });
+
+test('DDT in the same layout: no prices, lot and expiry, order reference, transport and signature boxes', () => {
+  const p={...party,dest:[{id:'d1',nome:'Presidio',via:'Via Roma 10',cap:'89100',citta:'Reggio Calabria',prov:'RC'}]};
+  const html=print().buildInvoiceHTML('ddt',{num:'DDT/2026/0332',data:'2026-10-09',destId:'d1',colli:3,note:'ORDINE 8 DEL 02/10/2026',
+    righe:[{cod:'GA334',descr:'ACCULAN',qty:2,prezzo:8000,sconto:'40',iva:22,lotto:'L1',scad:'2031-06-29'}]},p,company,{ordine:{num:'OC/2026/0236',data:'2026-10-02'}});
+  const t=text(html);
+  assert.match(t,/DOC\. DI TRASPORTO/);
+  assert.match(t,/\*\*\* ORDINE N° 236 del 02\/10\/2026/);
+  assert.match(t,/GA334 ACCULAN PZ 2 L1 29\/06\/2031/);
+  assert.match(t,/Presidio - Via Roma 10 - 89100 Reggio Calabria - RC/);
+  assert.match(t,/Firma conducente/);
+  assert.match(t,/N\. colli 3/);
+  assert.doesNotMatch(t,/8\.000|Totale fattura|IBAN|17-ter/);
+});

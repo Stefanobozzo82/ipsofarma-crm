@@ -194,8 +194,8 @@
   // pagina, totali, riepilogo IVA e scadenze. Stessa pagina per la stampa e
   // per il PDF (che fotografa una pagina alla volta, vedi renderToJsPDF).
   // ---------------------------------------------------------------------------
-  const FX_COLLS = new Set(['fattureCliente', 'noteCredito']);
-  const FX_TITLE = { fattureCliente: 'FATTURA', noteCredito: 'NOTA DI CREDITO' };
+  const FX_COLLS = new Set(['fattureCliente', 'noteCredito', 'ddt']);
+  const FX_TITLE = { fattureCliente: 'FATTURA', noteCredito: 'NOTA DI CREDITO', ddt: 'DOC. DI TRASPORTO' };
   const FX_CSS = `.fx-page{width:210mm;height:297mm;box-sizing:border-box;padding:9mm 10mm 7mm;position:relative;overflow:hidden;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:9pt;line-height:1.25;page-break-after:always;break-after:page}
 .fx-page:last-child{page-break-after:auto;break-after:auto}
 .fx-top{display:flex;justify-content:space-between;align-items:flex-start;height:48mm}
@@ -265,13 +265,14 @@
   function fxUnits(r) { return Math.max(1, Math.ceil(String(r.descr || '').length / 42)); }
   // Divide le righe in pagine: quelle intermedie ne contengono di più (non
   // hanno i totali in fondo), l'ultima lascia il posto ai riquadri finali.
-  const FX_CAP = 33, FX_CAP_LAST = 24;
-  function fxPaginate(rows) {
+  const FX_CAP = 33, FX_CAP_LAST = 24, FX_CAP_LAST_DDT = 27;
+  function fxPaginate(rows, capLast) {
+    capLast = capLast || FX_CAP_LAST;
     const pages = [];
     let i = 0;
     const units = rows.map(r => r.units);
     const rest = from => units.slice(from).reduce((s, u) => s + u, 0);
-    while (rest(i) > FX_CAP_LAST) {
+    while (rest(i) > capLast) {
       const page = []; let used = 0;
       // Mai tutte quelle rimaste: almeno una riga accompagna i totali.
       while (i < rows.length - 1 && used + units[i] <= FX_CAP) { page.push(rows[i]); used += units[i]; i++; }
@@ -307,18 +308,26 @@
     const ind = az.indirizzo || {};
     const p = party || {};
     const righe = it.righe || [];
-    const split = coll === 'fattureCliente' ? it.split === true : p.split === 'si';
+    const split = coll === 'fattureCliente' ? it.split === true : (coll === 'noteCredito' && p.split === 'si');
     // Righe da stampare: in testa a quelle che vengono da un DDT, il
     // riferimento al DDT come nella fattura di Maestro.
+    // DDT: stesso layout, ma senza prezzi (un DDT non ne riporta, vedi
+    // buildPrintHTML) e con lotto e scadenza; in testa il riferimento
+    // all'ordine da cui viene.
+    const isDdt = coll === 'ddt';
     const rows = [];
     const ddt = ctx.ddt;
-    if (ddt && righe.some(r => Number.isInteger(r.source_ddt_index))) {
+    if (!isDdt && ddt && righe.some(r => Number.isInteger(r.source_ddt_index))) {
       rows.push({ ddt: true, units: 1, text: `*** DDT N° ${fxNum(ddt.num)} del ${fdate(ddt.data)}` });
     }
+    if (isDdt && ctx.ordine) rows.push({ ddt: true, units: 1, text: `*** ORDINE N° ${fxNum(ctx.ordine.num)} del ${fdate(ctx.ordine.data)}` });
     righe.forEach(r => rows.push({ r, units: fxUnits(r) }));
-    const pages = fxPaginate(rows);
+    const pages = fxPaginate(rows, isDdt ? FX_CAP_LAST_DDT : FX_CAP_LAST);
     const um = r => r.um || (ctx.um && ctx.um[r.cod]) || (r.cod ? 'PZ' : '');
-    const rowHtml = x => x.ddt
+    const rowHtml = x => isDdt
+      ? (x.ddt ? `<tr class="fx-ddt"><td></td><td>${esc(x.text)}</td><td></td><td></td><td></td><td></td></tr>`
+        : `<tr><td>${esc(x.r.cod)}</td><td>${esc(x.r.descr)}</td><td class="c">${esc(um(x.r))}</td><td class="n">${fxN(x.r.qty, Number.isInteger(Number(x.r.qty)) ? 0 : 2)}</td><td class="c">${esc(x.r.lotto || '')}</td><td class="c">${x.r.scad ? fdate(x.r.scad) : ''}</td></tr>`)
+      : x.ddt
       ? `<tr class="fx-ddt"><td></td><td>${esc(x.text)}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`
       : `<tr><td>${esc(x.r.cod)}</td><td>${esc(x.r.descr)}</td><td class="c">${esc(um(x.r))}</td><td class="n">${fxN(x.r.qty, Number.isInteger(Number(x.r.qty)) ? 0 : 2)}</td><td class="n">${fxN(x.r.prezzo, 4)}</td><td class="c">${scEff(x.r.sconto) > 0 ? esc(String(x.r.sconto).replace(/\s/g, '')) : ''}</td><td class="n">${fxN(Math.round(lineNet(x.r) * 100) / 100, 2)}</td><td class="c">${esc(x.r.iva ?? '')}</td></tr>`;
 
@@ -347,25 +356,37 @@
       <tr><td colspan="2" style="height:9mm"><span class="fx-v" style="text-align:right">${fxDue(it, p)}<br>${fxN(daPagare, 2)}</span></td><td></td><td colspan="2"></td><td></td><td></td><td class="fx-tot" style="border-top:none;vertical-align:bottom"><span class="fx-v fx-big">${fxN(totDoc, 2)}</span>${split ? `<span class="fx-l" style="text-align:right;text-transform:none;font-size:6.5pt">netto a pagare (split payment) ${fxN(totImp, 2)}</span>` : ''}</td></tr>
     </table></div>`;
 
+    // DDT: in fondo i dati del trasporto e le firme, al posto dei totali.
+    const bottomDdt = `<div class="fx-bottom"><table>
+      <colgroup><col style="width:25%"><col style="width:12%"><col style="width:13%"><col style="width:25%"><col style="width:25%"></colgroup>
+      <tr class="fx-tm"><td class="fx-tm"><span class="fx-l">Aspetto esteriore dei beni</span><span class="fx-v left">${esc(it.aspetto || '')}</span></td><td class="fx-tm"><span class="fx-l">N. colli</span><span class="fx-v">${esc(it.colli ?? '')}</span></td><td class="fx-tm"><span class="fx-l">Peso kg</span><span class="fx-v">${esc(it.peso ?? '')}</span></td><td class="fx-tm"><span class="fx-l">Data e ora inizio trasporto</span><span class="fx-v">${fdate(it.data)}</span></td><td class="fx-tm"><span class="fx-l">Porto</span><span class="fx-v">${esc(it.porto || 'Franco')}</span></td></tr>
+      <tr><td colspan="2" style="height:16mm"><span class="fx-l">Vettore</span><span class="fx-v left">${esc(it.vettore || '')}</span></td><td colspan="2"><span class="fx-l">Firma conducente</span></td><td><span class="fx-l">Firma destinatario</span></td></tr>
+    </table></div>`;
     const footA = [az.nome ? esc(az.nome) : '', az.piva ? 'P.IVA IT' + esc(az.piva) : '', az.cf ? 'C.F. ' + esc(az.cf) : '', set.rea ? 'REA ' + esc(set.rea) : '', [ind.via, ind.citta].filter(Boolean).map(esc).join(', ')].filter(Boolean).join(' - ');
     const foot = `<div class="fx-foot">${footA}<br><small>Contributo Conai assolto ove dovuto. I vostri dati indicati sono trattati nel rispetto della Legge sulla privacy DLGS n.196/2003</small></div>`;
     const loc = [p.cap, p.citta].filter(Boolean).map(esc).join('&nbsp;&nbsp; ');
     const note = [it.note, split ? 'Scissione dei pagamenti - art. 17-ter DPR 633/72' : ''].filter(Boolean).join(' - ');
+    const dst = (it.destId && p.dest) ? (p.dest.find(x => x.id === it.destId) || null) : null;
     const head = pageNo => `<div class="fx-top"><div class="fx-logo">${fxImageHtml(az, ctx)}</div>
         <div class="fx-dest"><span class="fx-l">Spett.le</span><div class="fx-dn">${esc(p.nome)}</div><div class="fx-da">${esc(p.via) || ''}<div class="fx-dc"><span>${loc}</span><span>${esc(p.prov) || ''}</span></div></div></div></div>
       <table class="fx-info"><colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:14%"><col style="width:27%"><col style="width:7%"></colgroup>
         <tr><td><span class="fx-l">Tipo documento</span><span class="fx-v">${FX_TITLE[coll]}</span></td><td><span class="fx-l">Numero</span><span class="fx-v">${esc(fxNum(it.num))}</span></td><td><span class="fx-l">Data</span><span class="fx-v">${fdate(it.data)}</span></td><td><span class="fx-l">Partita IVA</span><span class="fx-v">${esc(p.piva) || ''}</span></td><td><span class="fx-l">Codice fiscale</span><span class="fx-v">${esc(p.cf || p.piva) || ''}</span></td><td><span class="fx-l">Pag.</span><span class="fx-v" style="text-align:right">${pageNo}</span></td></tr></table>
-      <table class="fx-info fx-info2"><colgroup><col style="width:33%"><col style="width:34%"><col style="width:33%"></colgroup>
+      ${isDdt ? `<table class="fx-info fx-info2"><colgroup><col style="width:33%"><col style="width:34%"><col style="width:33%"></colgroup>
+        <tr><td><span class="fx-l">Causale del trasporto</span><span class="fx-v">${esc(it.causale || 'Vendita')}</span></td><td><span class="fx-l">Trasporto a cura del</span><span class="fx-v">${esc(it.trasporto || 'Mittente')}</span></td><td><span class="fx-l">Agente</span><span class="fx-v"></span></td></tr></table>
+      <table class="fx-info fx-info2"><colgroup><col style="width:50%"><col style="width:50%"></colgroup>
+        <tr><td><span class="fx-l">Luogo di destinazione</span><span class="fx-v left">${dst ? esc([dst.nome, dst.via, [dst.cap, dst.citta].filter(Boolean).join(' '), dst.prov].filter(Boolean).join(' - ')) : 'Idem'}</span></td><td><span class="fx-l">Annotazioni e variazioni</span><span class="fx-v left">${esc(note)}</span></td></tr>
+` : `<table class="fx-info fx-info2"><colgroup><col style="width:33%"><col style="width:34%"><col style="width:33%"></colgroup>
         <tr><td><span class="fx-l">Condizioni di pagamento</span><span class="fx-v">${esc(fxPag(p))}</span></td><td><span class="fx-l">Banca</span><span class="fx-v">${esc(set.banca) || ''}</span></td><td><span class="fx-l">IBAN</span><span class="fx-v">${esc(set.iban) || ''}</span></td></tr></table>
       <table class="fx-info fx-info2"><colgroup><col style="width:67%"><col style="width:33%"></colgroup>
-        <tr><td><span class="fx-l">Annotazioni e variazioni</span><span class="fx-v left">${esc(note)}</span></td><td><span class="fx-l">Agente</span><span class="fx-v"></span></td></tr>
+        <tr><td><span class="fx-l">Annotazioni e variazioni</span><span class="fx-v left">${esc(note)}</span></td><td><span class="fx-l">Agente</span><span class="fx-v"></span></td></tr>`}
       </table>`;
-    const thead = `<colgroup><col style="width:14%"><col style="width:40%"><col style="width:6%"><col style="width:7%"><col style="width:11%"><col style="width:7%"><col style="width:10%"><col style="width:5%"></colgroup>
+    const thead = isDdt ? `<colgroup><col style="width:15%"><col style="width:47%"><col style="width:7%"><col style="width:8%"><col style="width:12%"><col style="width:11%"></colgroup>
+      <thead><tr><th>Codice</th><th>Descrizione</th><th>U.M.</th><th>Q.tà</th><th>Lotto</th><th>Scadenza</th></tr></thead>` : `<colgroup><col style="width:14%"><col style="width:40%"><col style="width:6%"><col style="width:7%"><col style="width:11%"><col style="width:7%"><col style="width:10%"><col style="width:5%"></colgroup>
       <thead><tr><th>Codice</th><th>Descrizione</th><th>U.M.</th><th>Q.tà</th><th>Prezzo</th><th>Sco. %</th><th>Importo</th><th>C.Iva</th></tr></thead>`;
     const html = pages.map((pg, i) => {
       const last = i === pages.length - 1;
       return `<div class="fx-page">${head(i + 1)}<table class="fx-lines">${thead}<tbody>${pg.map(rowHtml).join('')}</tbody></table>
-        ${last ? bottom : '<div class="fx-segue">segue &#9658;</div>'}${foot}</div>`;
+        ${last ? (isDdt ? bottomDdt : bottom) : '<div class="fx-segue">segue &#9658;</div>'}${foot}</div>`;
     }).join('');
     return `<div class="fx-sheet">${html}</div>`;
   }
@@ -387,7 +408,7 @@
       return fxImgCache[path];
     } catch (e) { return null; }
   }
-  async function invoiceContext(it, company) {
+  async function invoiceContext(it, company, coll) {
     const store = global.SaasStore;
     const companyId = (company && company.id) || (global.localStorage && localStorage.getItem('saas_company_id'));
     const ctx = { um: {} };
@@ -395,7 +416,8 @@
     const jobs = [fxDataUrl(set.intestazione).then(x => { ctx.headerImg = x; }),
       fxDataUrl(set.certificazione && set.certificazione.logo).then(x => { ctx.certImg = x; })];
     if (store && companyId) {
-      if (it.ddtId && store.docsByIds) jobs.push(store.docsByIds('ddt', companyId, [it.ddtId]).then(d => { ctx.ddt = d[0] || null; }).catch(() => {}));
+      if (coll === 'ddt' && it.ocId && store.docsByIds) jobs.push(store.docsByIds('ordiniCliente', companyId, [it.ocId]).then(d => { ctx.ordine = d[0] || null; }).catch(() => {}));
+      if (coll !== 'ddt' && it.ddtId && store.docsByIds) jobs.push(store.docsByIds('ddt', companyId, [it.ddtId]).then(d => { ctx.ddt = d[0] || null; }).catch(() => {}));
       const cods = (it.righe || []).map(r => r.cod).filter(Boolean);
       if (cods.length && store.prodottiByCods) jobs.push(store.prodottiByCods(companyId, cods).then(ps => {
         // Il catalogo da Maestro ha in "unità" anche numeri di confezione
@@ -439,14 +461,14 @@
   async function openPrintWindow(coll, it, party, company) {
     const fx = FX_COLLS.has(coll);
     if (global.AndroidPrint) {
-      const ctx = fx ? await invoiceContext(it, company) : null;
+      const ctx = fx ? await invoiceContext(it, company, coll) : null;
       global.AndroidPrint.printHtml(buildStandaloneDoc(coll, it, party, company, ctx), String(it.num || 'Documento'));
       return;
     }
     const w = window.open('', '_blank');
     if (!w) { alert('Il browser ha bloccato la finestra di stampa. Consenti i popup per questo sito e riprova.'); return; }
     if (fx) w.document.write('<p style="font-family:sans-serif;padding:20px">Preparo la fattura…</p>');
-    const ctx = fx ? await invoiceContext(it, company) : null;
+    const ctx = fx ? await invoiceContext(it, company, coll) : null;
     w.document.open();
     w.document.write(buildStandaloneDoc(coll, it, party, company, ctx));
     w.document.close();
@@ -488,7 +510,7 @@
   async function renderInvoicePDF(coll, it, party, company) {
     const JsPDF = await loadJsPDF();
     await loadHtml2Canvas();
-    const ctx = await invoiceContext(it, company);
+    const ctx = await invoiceContext(it, company, coll);
     if (!document.getElementById('saas-fx-css')) {
       const st = document.createElement('style'); st.id = 'saas-fx-css'; st.textContent = FX_CSS; document.head.appendChild(st);
     }

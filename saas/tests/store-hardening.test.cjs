@@ -7,26 +7,27 @@ const code=fs.readFileSync(path.join(__dirname,'../web/app/store.js'),'utf8');
 const clone=v=>JSON.parse(JSON.stringify(v));
 function fixture(options={}){
   const calls=[],fetches=[],pages=[];let sequence=0,error=null,response=options.response;
-  const client={auth:{async getSession(){return {data:{session:{access_token:'test-token'}}};}},
+  const client={auth:{async getSession(){return {data:{session:{access_token:'test-token',...(options.userId?{user:{id:options.userId}}:{})}}};},async signOut(){}},
     async rpc(name,args){calls.push([name,clone(args)]);return {data:typeof response==='function'?response(name,args):response,error};},
     from(table){
       if(!options.tables)throw Error('Unexpected direct database access');
-      const q={table,filters:[],cursor:null,size:null};
-      const query={select(value){assert.equal(value,'*');return this;},eq(column,value){q.filters.push([column,value]);return this;},
+      const q={table,filters:[],cursor:null,size:null,lo:null,hi:null,since:null};
+      const query={select(value){assert.ok(value==='*'||value==='id');return this;},eq(column,value){q.filters.push([column,value]);return this;},
         order(column,value){assert.equal(column,'id');assert.equal(value.ascending,true);return this;},
         limit(size){q.size=size;return this;},gt(column,value){assert.equal(column,'id');q.cursor=value;return this;},
+        gte(column,value){if(column==='id')q.lo=value;else{assert.equal(column,'updated_at');q.since=value;}return this;},lt(column,value){assert.equal(column,'id');q.hi=value;return this;},
         range(){throw Error('Offset pagination is forbidden');},
         then(resolve,reject){
           try{
             pages.push(clone(q));
             if(options.pageError&&options.pageError(q,pages.length))return Promise.resolve({data:null,error:Error('page unavailable')}).then(resolve,reject);
-            const data=(options.tables[table]||[]).filter(r=>q.filters.every(([c,v])=>r[c]===v)&&(options.ignoreCursor||!q.cursor||r.id>q.cursor))
+            const data=(options.tables[table]||[]).filter(r=>q.filters.every(([c,v])=>r[c]===v)&&(!q.since||r.updated_at>=q.since)&&(options.ignoreCursor||!q.cursor||r.id>q.cursor)&&(!q.lo||r.id>=q.lo)&&(!q.hi||r.id<q.hi))
               .sort((a,b)=>a.id.localeCompare(b.id)).slice(0,Math.min(q.size,options.serverCap||q.size));
             return Promise.resolve({data,error:null}).then(resolve,reject);
           }catch(e){return Promise.reject(e).then(resolve,reject);}
         }};return query;
     }};
-  const window={crypto:{randomUUID:()=>`uuid-${++sequence}`},supabase:{createClient:()=>client},SUPABASE_URL:'https://unit.test'};
+  const window={crypto:{randomUUID:()=>`uuid-${++sequence}`},supabase:{createClient:()=>client},SUPABASE_URL:'https://unit.test',...(options.indexedDB?{indexedDB:options.indexedDB}:{})};
   vm.runInNewContext(code,{window,fetch:async(url,init)=>{fetches.push([url,clone({...init,body:JSON.parse(init.body)})]);const st=(options.fetchStatuses||[]).shift();if(st)return {ok:false,status:st,json:async()=>({error:'provider error '+st})};return {ok:true,status:200,json:async()=>({choices:[{message:{content:'answer'}}]})};}});
   return {store:window.SaasStore,calls,fetches,pages,fail:e=>{error=e;},respond:r=>{response=r;}};
 }
@@ -172,7 +173,10 @@ test('simultaneous identical payment calls share one RPC and invalid kind fails 
 test('collection keyset pagination loads over 1000 rows once each and isolates the tenant',async()=>{
   const f=fixture({tables:{ddt:[...many(2401),...many(17,'foreign')]}});const docs=await f.store.loadCollection('ddt','company');
   assert.equal(docs.length,2401);assert.equal(new Set(docs.map(d=>d.id)).size,2401);assert.equal(docs.at(-1).kept,2400);
-  assert.deepEqual(f.pages.map(p=>p.cursor),[null,'00001000','00002000','00002401']);
+  // Quattro fasce di id scaricate insieme, ognuna per cursore: questi id
+  // stanno tutti nella prima, le altre tornano vuote alla prima pagina.
+  assert.deepEqual(f.pages.filter(p=>!p.lo).map(p=>p.cursor),[null,'00001000','00002000','00002401']);
+  assert.equal(f.pages.length,7);
   assert.ok(f.pages.every(p=>p.size===1000&&p.filters[0][0]==='company_id'&&p.filters[0][1]==='company'));
 });
 
@@ -183,23 +187,64 @@ test('loadCompany paginates every mapped collection and preserves complete aggre
   const g=fixture({tables:fake});const company=await g.store.loadCompany('company');
   assert.equal(Object.keys(company).length,collectionTables.length);
   assert.ok(Object.values(company).every(rows=>rows.length===1001));
-  assert.equal(g.pages.length,collectionTables.length*3);
+  assert.equal(g.pages.length,collectionTables.length*6);
 });
 
 test('pagination failure rejects partial collections instead of returning truncated data',async()=>{
   const f=fixture({tables:{ddt:many(2001)},pageError:(_q,n)=>n===2});
-  await assert.rejects(f.store.loadCollection('ddt','company'),/page unavailable/);assert.equal(f.pages.length,2);
+  await assert.rejects(f.store.loadCollection('ddt','company'),/page unavailable/);
 });
 
 test('a lower server cap of 100 does not truncate a collection or skip any rows',async()=>{
   const f=fixture({tables:{ddt:many(1151)},serverCap:100});
   const rows=await f.store.loadCollection('ddt','company');
   assert.equal(rows.length,1151);assert.equal(new Set(rows.map(r=>r.id)).size,1151);
-  assert.equal(f.pages.length,13);assert.equal(f.pages.at(-1).cursor,'00001151');
+  const band0=f.pages.filter(p=>!p.lo);assert.equal(band0.length,13);assert.equal(band0.at(-1).cursor,'00001151');
 });
 
 test('a backend that ignores the keyset cursor fails instead of looping forever',async()=>{
   const f=fixture({tables:{ddt:many(101)},serverCap:100,ignoreCursor:true});
   await assert.rejects(f.store.loadCollection('ddt','company'),/cursore.*non avanza/);
-  assert.equal(f.pages.length,2);
+  assert.equal(f.pages.filter(p=>!p.lo).length,2);
+});
+
+// IndexedDB minimo in memoria, quanto basta a store.js.
+function fakeIndexedDB(){
+  const stores={};
+  const later=f=>setTimeout(f,0);
+  const db={createObjectStore(n){stores[n]=new Map();},transaction(n){const tx={objectStore(){return {
+      get(k){const r={};later(()=>{r.result=stores[n].get(k);r.onsuccess&&r.onsuccess();});return r;},
+      put(v,k){stores[n].set(k,JSON.parse(JSON.stringify(v)));later(()=>tx.oncomplete&&tx.oncomplete());},
+      clear(){stores[n].clear();later(()=>tx.oncomplete&&tx.oncomplete());}};}};return tx;}};
+  return {stores,open(){const req={};later(()=>{req.result=db;if(!stores.collections){req.onupgradeneeded&&req.onupgradeneeded();}req.onsuccess&&req.onsuccess();});return req;}};
+}
+
+test('the device copy is synced with only what changed: updates, additions and deletions all show up',async()=>{
+  const idb=fakeIndexedDB();
+  const t0='2026-10-01T10:00:00.000Z',t1='2026-10-14T10:00:00.000Z';
+  const ddt=many(1500).map(r=>({...r,updated_at:t0}));
+  const f=fixture({tables:{ddt},indexedDB:idb,userId:'u1'});
+  assert.equal((await f.store.loadCollection('ddt','company')).length,1500);
+  await new Promise(r=>setTimeout(r,5));
+  const fullPages=f.pages.length;
+  // Sul server: una riga modificata, una aggiunta, una cancellata.
+  ddt[10]={...ddt[10],extra:{kept:'modificata'},updated_at:t1};
+  ddt.push({id:'00009999',company_id:'company',num:'NEW',extra:{kept:'nuova'},updated_at:t1});
+  ddt.splice(20,1);
+  const docs=await f.store.loadCollection('ddt','company');
+  assert.equal(docs.length,1500);
+  assert.equal(docs.find(d=>d.id===ddt[10].id).kept,'modificata');
+  assert.ok(docs.some(d=>d.num==='NEW'));
+  assert.ok(!docs.some(d=>d.id==='00000021'));
+  // Il secondo giro chiede solo le righe recenti (più l'elenco degli id).
+  const second=f.pages.slice(fullPages);
+  const since=second.filter(p=>p.since).map(p=>p.since);
+  assert.ok(since.length>0);
+  // Dall'ultima modifica vista, meno 5 minuti di margine.
+  assert.ok(since.every(x=>x==='2026-10-01T09:55:00.000Z'));
+  // Nessuna riga intera riscaricata se non quelle recenti: solo id o righe "since".
+  assert.ok(second.every(p=>p.since||p.table==='ddt'));
+  // All'uscita la copia sul dispositivo si cancella.
+  await f.store.signOut();
+  assert.equal(idb.stores.collections.size,0);
 });

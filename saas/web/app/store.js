@@ -137,7 +137,7 @@
   // ---------------------------------------------------------------------------
   async function signUp(email, password) { return client().auth.signUp({ email, password }); }
   async function signIn(email, password) { return client().auth.signInWithPassword({ email, password }); }
-  async function signOut() { return client().auth.signOut(); }
+  async function signOut() { await cacheClear(); return client().auth.signOut(); }
   async function getSession() { const { data } = await client().auth.getSession(); return data.session; }
 
   async function myMemberships() {
@@ -545,26 +545,153 @@
   // vedrebbe solo una fetta arbitraria della collection: documenti mancanti
   // nell'elenco, e nextNumber() che propone un numero in realtà già
   // presente in una riga rimasta fuori dalla pagina.
-  async function loadCollection(collName, companyId) {
-    const def = COLLECTIONS[collName];
-    if (!def) throw new Error('collection sconosciuta: ' + collName);
-    const pageSize = 1000;
-    let all = [];
-    let lastId = null;
+  // ---------------------------------------------------------------------------
+  // Caricamento delle collezioni, veloce (ottobre 2026: ogni schermata
+  // impiegava 4-5 secondi perché scaricava per intero lo storico — 3.669
+  // fatture, quasi 3.000 DDT, 2.764 ordini fornitore — a blocchi da 1000
+  // uno dopo l'altro).
+  //
+  // 1. Copia sul dispositivo (IndexedDB), per utente/azienda/collezione:
+  //    alle aperture successive si chiedono al server solo le righe con
+  //    updated_at recente (ogni tabella qui sotto ha il trigger che lo
+  //    aggiorna a ogni modifica, default now() all'inserimento) più l'elenco
+  //    degli id esistenti, per togliere le righe eliminate. Il risultato è
+  //    sempre quello del server, non una copia vecchia.
+  //    Margine di 5 minuti su updated_at: now() è l'ora d'INIZIO della
+  //    transazione, una riga può diventare visibile qualche istante dopo
+  //    la sua data (le transazioni durano al massimo 120 s).
+  // 2. Prima volta (o copia assente): le pagine da 1000 righe partono
+  //    tutte insieme invece che una dopo l'altra.
+  // 3. Due richieste uguali nello stesso momento (es. la pagina e il badge
+  //    del menu) ne fanno una sola.
+  // ---------------------------------------------------------------------------
+  const CACHED_TABLES = new Set(['clienti', 'fornitori', 'preventivi', 'ordini_cliente', 'ordini_fornitore', 'ddt', 'ddt_fornitore',
+    'fatture_cliente', 'fatture_fornitore', 'note_credito', 'note_credito_fornitore']);
+  const PAGE = 1000;
+  const SYNC_MARGIN_MS = 5 * 60 * 1000;
+  const inflight = new Map();
+
+  let idbPromise = null;
+  function idb() {
+    if (idbPromise) return idbPromise;
+    idbPromise = new Promise(resolve => {
+      try {
+        if (!global.indexedDB) return resolve(null);
+        const req = global.indexedDB.open('saas-cache', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('collections');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+        req.onblocked = () => resolve(null);
+      } catch (e) { resolve(null); }
+    });
+    return idbPromise;
+  }
+  async function cacheGet(key) {
+    const db = await idb(); if (!db) return null;
+    return new Promise(resolve => {
+      try { const r = db.transaction('collections').objectStore('collections').get(key); r.onsuccess = () => resolve(r.result || null); r.onerror = () => resolve(null); }
+      catch (e) { resolve(null); }
+    });
+  }
+  async function cachePut(key, value) {
+    const db = await idb(); if (!db) return;
+    return new Promise(resolve => {
+      try { const tx = db.transaction('collections', 'readwrite'); tx.objectStore('collections').put(value, key); tx.oncomplete = tx.onerror = tx.onabort = () => resolve(); }
+      catch (e) { resolve(); }
+    });
+  }
+  // All'uscita (o cambiando utente) la copia sul dispositivo si cancella.
+  async function cacheClear() {
+    const db = await idb(); if (!db) return;
+    return new Promise(resolve => {
+      try { const tx = db.transaction('collections', 'readwrite'); tx.objectStore('collections').clear(); tx.oncomplete = tx.onerror = tx.onabort = () => resolve(); }
+      catch (e) { resolve(); }
+    });
+  }
+
+  // Tutte le righe di una query, per cursore sull'id (mai per posizione:
+  // un documento aggiunto o tolto durante lo scaricamento farebbe saltare
+  // o ripetere righe). Per andare in parallelo gli id (uuid, distribuiti
+  // a caso) si dividono in quattro fasce, scaricate insieme, ognuna a
+  // pagine una dopo l'altra. Il server può restituire meno righe di quante
+  // chieste (limite "max rows"): si va avanti finché una pagina torna vuota.
+  const ID_BANDS = [null, '40000000-0000-0000-0000-000000000000', '80000000-0000-0000-0000-000000000000', 'c0000000-0000-0000-0000-000000000000', null];
+  async function fetchBand(build, lo, hi) {
+    let all = [], cursor = null;
     while (true) {
-      let query = client().from(def.table).select('*').eq('company_id', companyId).order('id', { ascending: true }).limit(pageSize);
-      if (lastId) query = query.gt('id', lastId);
-      const { data, error } = await query;
+      let q = build().order('id', { ascending: true }).limit(PAGE);
+      if (lo) q = q.gte('id', lo);
+      if (hi) q = q.lt('id', hi);
+      if (cursor) q = q.gt('id', cursor);
+      const { data, error } = await q;
       if (error) throw error;
-      if (data.length === 0) break;
-      const nextId = data[data.length - 1].id;
-      if (typeof nextId !== 'string' || !nextId || (lastId !== null && nextId <= lastId)) {
+      if (!data || data.length === 0) break;
+      const next = data[data.length - 1].id;
+      if (typeof next !== 'string' || !next || (cursor !== null && next <= cursor)) {
         throw new Error('Paginazione interrotta: il cursore dei documenti non avanza.');
       }
       all = all.concat(data);
-      lastId = nextId;
+      cursor = next;
     }
-    return all.map(row => rowToDoc(collName, row));
+    return all;
+  }
+  async function fetchAllPages(build) {
+    const bands = [];
+    for (let i = 0; i < ID_BANDS.length - 1; i++) bands.push(fetchBand(build, ID_BANDS[i], ID_BANDS[i + 1]));
+    // Ogni riga una volta sola, anche se un server ignorasse i limiti di
+    // fascia e restituisse le stesse righe a più fasce.
+    const seen = new Map();
+    (await Promise.all(bands)).flat().forEach(r => { if (!seen.has(r.id)) seen.set(r.id, r); });
+    return [...seen.values()];
+  }
+
+  async function fetchRows(table, companyId) {
+    const rows = await fetchAllPages(() => client().from(table).select('*').eq('company_id', companyId));
+    if (!CACHED_TABLES.has(table)) return rows;
+    const session = await getSession().catch(() => null);
+    const userId = session && session.user && session.user.id;
+    if (userId) cachePut(userId + '|' + companyId + '|' + table, { rows, maxUpd: maxUpdated(rows) });
+    return rows;
+  }
+  function maxUpdated(rows) {
+    let m = '';
+    rows.forEach(r => { if (r.updated_at && r.updated_at > m) m = r.updated_at; });
+    return m;
+  }
+
+  async function syncRows(table, companyId) {
+    if (!CACHED_TABLES.has(table)) return fetchRows(table, companyId);
+    const session = await getSession().catch(() => null);
+    const userId = session && session.user && session.user.id;
+    if (!userId) return fetchRows(table, companyId);
+    const key = userId + '|' + companyId + '|' + table;
+    const cached = await cacheGet(key);
+    if (!cached || !Array.isArray(cached.rows) || !cached.maxUpd) return fetchRows(table, companyId);
+    const since = new Date(Date.parse(cached.maxUpd) - SYNC_MARGIN_MS).toISOString();
+    const [changed, ids] = await Promise.all([
+      fetchAllPages(() => client().from(table).select('*').eq('company_id', companyId).gte('updated_at', since)),
+      fetchAllPages(() => client().from(table).select('id').eq('company_id', companyId)),
+    ]);
+    const byId = new Map(cached.rows.map(r => [r.id, r]));
+    changed.forEach(r => byId.set(r.id, r));
+    const alive = new Set(ids.map(r => r.id));
+    // Un id esistente sul server ma assente dalla copia e dalle modifiche
+    // recenti non dovrebbe esserci mai: in quel caso si riscarica tutto.
+    if (ids.some(r => !byId.has(r.id))) return fetchRows(table, companyId);
+    const rows = [...byId.values()].filter(r => alive.has(r.id)).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    cachePut(key, { rows, maxUpd: maxUpdated(rows) || cached.maxUpd });
+    return rows;
+  }
+
+  async function loadCollection(collName, companyId) {
+    const def = COLLECTIONS[collName];
+    if (!def) throw new Error('collection sconosciuta: ' + collName);
+    const k = collName + '|' + companyId;
+    if (!inflight.has(k)) {
+      inflight.set(k, syncRows(def.table, companyId).finally(() => inflight.delete(k)));
+    }
+    const rows = await inflight.get(k);
+    return rows.map(row => rowToDoc(collName, row));
   }
 
   // Catalogo prodotti: filtrato e limitato lato server, mai scaricato per

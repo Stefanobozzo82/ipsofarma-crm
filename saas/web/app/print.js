@@ -202,7 +202,7 @@
 .fx-logo{width:92mm;position:relative;height:46mm}
 .fx-cert{position:absolute;right:0;bottom:1mm;width:24mm;text-align:center;font-size:5.8pt;line-height:1.25;font-weight:700;color:#1b2531}
 .fx-cert img{width:17mm!important;display:block;margin:0 auto 1mm}
-.fx-logo img{width:92mm;display:block}
+.fx-logo img{width:92mm;height:46.2mm;display:block}
 .fx-az{font-size:15pt;font-weight:700;color:#1f4e8c}
 .fx-azl{font-size:8.5pt;margin-top:2mm;line-height:1.45}
 .fx-dest{border:1px solid #000;width:88mm;height:42mm;margin-top:2mm;box-sizing:border-box;padding:2mm 4mm;position:relative}
@@ -525,9 +525,17 @@
       const doc = new JsPDF({ unit: 'mm', format: 'a4' });
       const pages = [...wrap.querySelectorAll('.fx-page')];
       for (let i = 0; i < pages.length; i++) {
-        const canvas = await global.html2canvas(pages[i], { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+        const canvas = await global.html2canvas(pages[i], { backgroundColor: '#ffffff', scale: 3, useCORS: true });
         if (i > 0) doc.addPage('a4');
-        doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+        doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+        // L'intestazione (logo e contatti) si rimette sopra alla sua
+        // risoluzione piena: nella "fotografia" della pagina perderebbe
+        // nitidezza.
+        const pr = pages[i].getBoundingClientRect(), mm = 210 / pr.width;
+        pages[i].querySelectorAll('.fx-logo > img').forEach(im => {
+          const r = im.getBoundingClientRect();
+          doc.addImage(im.src, 'PNG', (r.left - pr.left) * mm, (r.top - pr.top) * mm, r.width * mm, r.height * mm, 'intestazione', 'NONE');
+        });
       }
       return doc;
     } finally {

@@ -157,7 +157,7 @@
       if (splitDoc) note += '<div class="pa-note">Operazione soggetta a scissione dei pagamenti — art. 17‑ter DPR 633/72. IVA versata dall\'ente acquirente.</div>';
       if (coll === 'noteCredito' && it.fatturaId) note += `<div class="pa-note">A storno (parziale) della fattura collegata.</div>`;
       if (coll === 'fattureCliente') {
-        const term = p.term ? `Pagamento: ${esc(p.pag || 'Bonifico')} a ${esc(p.term)} gg` : '';
+        const term = (p.pag || p.term) ? `Pagamento: ${esc(payLabel(p))}` : '';
         const iban = set.iban ? ` · IBAN ${esc(set.iban)}` : '';
         if (term || iban) note += `<div class="pa-note">${term}${iban}</div>`;
       }
@@ -248,13 +248,25 @@
     const [int, frac] = Math.abs(n).toFixed(dec).split('.');
     return (n < 0 && Number(Math.abs(n).toFixed(dec)) !== 0 ? '-' : '') + int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (frac ? ',' + frac : '');
   }
-  function fxPag(p) {
-    if (p.pag) return p.pag;
+  // Condizioni di pagamento come in Maestro ("Bonifico Bancario 60 gg"):
+  // il tipo dall'anagrafica (pag) e i giorni (term, oppure scritti nel
+  // testo stesso, come arrivano da Maestro: "Bonifico Bancario 30 gg").
+  function payDays(p) {
     const t = parseInt(p.term, 10);
-    return t > 0 ? `Bonifico bancario ${t} gg d.f.` : 'Rimessa Diretta';
+    if (t > 0) return t;
+    const m = String(p.pag || '').match(/(\d+)\s*(gg|giorni|gg\.|d\.?f\.?)/i);
+    return m ? parseInt(m[1], 10) : 0;
   }
+  function payLabel(p) {
+    const base = String(p.pag || '').trim();
+    const days = payDays(p);
+    if (!base) return days > 0 ? `Bonifico Bancario ${days} gg` : 'Rimessa Diretta';
+    if (days > 0 && !/\d+\s*(gg|giorni)/i.test(base)) return `${base} ${days} gg`;
+    return base;
+  }
+  function fxPag(p) { return payLabel(p); }
   function fxDue(it, p) {
-    const t = parseInt(p.term, 10);
+    const t = payDays(p);
     if (!it.data) return '';
     const d = new Date(it.data + 'T00:00:00');
     if (t > 0) d.setDate(d.getDate() + t);

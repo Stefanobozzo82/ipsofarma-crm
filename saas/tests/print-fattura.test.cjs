@@ -85,3 +85,14 @@ test('DDT in the same layout: no prices, lot and expiry, order reference, transp
   assert.match(t,/N\. colli 3/);
   assert.doesNotMatch(t,/8\.000|Totale fattura|IBAN|17-ter/);
 });
+
+test('payment terms show the days and the due date uses them', () => {
+  const doc={num:'FT/2026/0002',data:'2026-10-01',righe:[{cod:'A',descr:'a',qty:1,prezzo:100,iva:22}]};
+  let t=text(print().buildInvoiceHTML('fattureCliente',doc,{...party,pag:'Bonifico',term:'60'},company,{}));
+  assert.match(t,/Bonifico 60 gg/);
+  assert.match(t,/30\/11\/2026 122,00/);
+  t=text(print().buildInvoiceHTML('fattureCliente',doc,{...party,pag:'Bonifico Bancario 30 gg',term:null},company,{}));
+  assert.match(t,/Bonifico Bancario 30 gg/);
+  assert.doesNotMatch(t,/30 gg 30 gg/);
+  assert.match(t,/31\/10\/2026 122,00/);
+});

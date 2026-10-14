@@ -220,7 +220,11 @@
     $('f-cap').value = cliente ? (cliente.cap || '') : '';
     $('f-citta').value = cliente ? (cliente.citta || '') : '';
     $('f-prov').value = cliente ? (cliente.prov || '') : '';
-    $('f-pag').value = cliente ? (cliente.pag || 'Bonifico') : 'Bonifico';
+    const pag = cliente ? (cliente.pag || 'Bonifico') : 'Bonifico';
+    // Modalità importate da Maestro (es. "Bonifico Bancario 30 gg"): la si
+    // aggiunge alla tendina così un salvataggio non la cancella.
+    if (![...$('f-pag').options].some(o => o.value === pag)) $('f-pag').add(new Option(pag, pag));
+    $('f-pag').value = pag;
     $('f-iban').value = cliente ? (cliente.iban || '') : '';
     $('f-term').value = cliente ? (cliente.term || '') : '60';
     $('f-ref').value = cliente ? (cliente.ref || '') : '';

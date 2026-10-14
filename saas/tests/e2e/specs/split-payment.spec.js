@@ -1,8 +1,9 @@
 /* ============================================================================
  * split-payment.spec.js — fatture in split payment (scissione dei pagamenti,
  * extra.split = true): nell'elenco il "Totale" e il "Totale fatturato" sono
- * l'imponibile (l'IVA la versa l'ente), aprendo la fattura la casella
- * "Split payment" è spuntata e gli incassi si misurano sull'imponibile.
+ * l'imponibile (l'IVA la versa l'ente), aprendo la fattura il totale lo
+ * dice (lo split viene dall'anagrafica del cliente) e gli incassi si
+ * misurano sull'imponibile.
  *
  * Come esporta-selezionati.spec.js le fatture NON vengono scritte nel
  * database: le risposte di PostgREST per l'elenco sono righe finte.
@@ -42,7 +43,6 @@ test('fattura in split payment: totale da incassare = imponibile', async ({ comp
   await expect(page.locator(`tr[data-id="${uuid(72)}"] td`).nth(6)).toContainText(/1\.?220,00/);
 
   await split.locator('td').nth(1).click();
-  await expect(page.locator('#f-split')).toBeChecked();
   await expect(page.locator('#righe-totale')).toContainText('in split payment');
   await expect(page.locator('#f-pagamenti')).toContainText(/1\.?000,00/);
   await expect(page.locator('#f-pagamenti')).not.toContainText(/1\.?220,00/);

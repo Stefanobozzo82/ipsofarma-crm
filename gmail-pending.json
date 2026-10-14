@@ -1828,6 +1828,77 @@
         "totale": 46359.95119999999
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-14T14:51:42.324Z",
+      "msgId": "1a13a99d39aa3786",
+      "file": "5718118202.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718118202",
+        "date": "2026-10-13",
+        "order_ref": "Rif.cliente Vs.ord. 240",
+        "lines": [
+          {
+            "cod": "C0068417",
+            "descr": "NOVOSYN VIOLA 1 (4) 70CM FR26",
+            "qty": 5,
+            "prezzo": 1.92,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726226",
+            "scad": "2031-05-30"
+          },
+          {
+            "cod": "C0068956N1",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 90CM HR3",
+            "qty": 5,
+            "prezzo": 1.68,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "362929",
+            "scad": "2031-07-17"
+          },
+          {
+            "cod": "C3090042",
+            "descr": "OPTILENE 2/0 (3) 75CM HR26 CV",
+            "qty": 5,
+            "prezzo": 2.5,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626137",
+            "scad": "2031-03-29"
+          },
+          {
+            "cod": "C0762610",
+            "descr": "SILKAM NERO 1 (4) 75CM D$39",
+            "qty": 5,
+            "prezzo": 0.93,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626293",
+            "scad": "2031-07-15"
+          },
+          {
+            "cod": "C0762601",
+            "descr": "SILKAM NERO 0 (3,5) 75CM DS39",
+            "qty": 5,
+            "prezzo": 0.84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626245",
+            "scad": "2031-06-12"
+          }
+        ],
+        "totale": 48.007000000000005
+      },
+      "src": "Gmail"
     }
   ]
 }

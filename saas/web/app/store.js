@@ -596,6 +596,28 @@
     return data.map(row => rowToDoc('prodotti', row));
   }
 
+  // Documenti di una collezione per id (pochi, mai l'intera collezione):
+  // la stampa della fattura ci legge numero e data dei DDT da cui vengono
+  // le righe ("*** DDT N° 332 del 09/10/2026").
+  async function docsByIds(collName, companyId, ids) {
+    const def = COLLECTIONS[collName];
+    if (!def) throw new Error('collection sconosciuta: ' + collName);
+    ids = [...new Set((ids || []).filter(Boolean))];
+    if (ids.length === 0) return [];
+    const { data, error } = await client().from(def.table).select('*').eq('company_id', companyId).in('id', ids);
+    if (error) throw error;
+    return data.map(row => rowToDoc(collName, row));
+  }
+
+  // Prodotti dal catalogo per codice (unità di misura nella stampa).
+  async function prodottiByCods(companyId, cods) {
+    cods = [...new Set((cods || []).filter(Boolean))];
+    if (cods.length === 0) return [];
+    const { data, error } = await client().from('prodotti').select('*').eq('company_id', companyId).in('cod', cods);
+    if (error) throw error;
+    return data.map(row => rowToDoc('prodotti', row));
+  }
+
   // ---------------------------------------------------------------------------
   // Import massivo listino — porta di listinoImport() in index.html: la
   // pagina (prodotti.html) legge il file e mappa le colonne, qui arrivano già
@@ -917,7 +939,7 @@
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, createCustomerInvoice,
     createSupplierDdt, createStandaloneSupplierDdt, changeSupplierDdt, createSupplierInvoice, mutateInvoicePayment, saveCreditNote, cancelCreditNote,
-    getCompany, loadPlans, startCheckout, openBillingPortal, searchProdotti, prodottiByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
+    getCompany, loadPlans, startCheckout, openBillingPortal, searchProdotti, prodottiByIds, prodottiByCods, docsByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     createMaestroSyncKey, maestroSyncStatus, listMaestroSyncRuns, listMaestroImportIssues,
     listMembers, listInvites, createInvite, revokeInvite, updateMemberRole, removeMember, sendEmail,
     listDepositi, ensureDefaultDeposito, createDeposito, renameDeposito, removeDeposito,

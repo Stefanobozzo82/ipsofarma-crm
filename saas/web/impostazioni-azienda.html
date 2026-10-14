@@ -113,6 +113,10 @@
           <div><label for="f-web">Sito web</label><input id="f-web" type="text"></div>
           <div><label for="f-iban">IBAN</label><input id="f-iban" type="text"></div>
         </div>
+        <div class="grid2">
+          <div><label for="f-banca">Banca <span class="hint">come appare in fattura</span></label><input id="f-banca" type="text" placeholder="es. Intesa Sanpaolo Corso Mazzini (CS)"></div>
+          <div><label for="f-rea">Numero REA</label><input id="f-rea" type="text"></div>
+        </div>
 
         <div class="form-sec">Solleciti automatici</div>
         <p class="ai-intro" style="margin:0 0 12px">Manda da solo un promemoria di pagamento ai clienti con fatture scadute, senza bisogno di aprire lo Scadenziario e cliccare "Invia sollecito" ogni volta. Un controllo gira una volta al giorno; ogni fattura riceve al massimo un sollecito automatico (puoi sempre mandarne uno a mano in più da Scadenziario).</p>
@@ -264,6 +268,7 @@
     }
   });
 
+  let loadedCompany = null; // per non perdere, salvando, le impostazioni senza un campo nel modulo
   function fillForm(company){
     const ind = company.indirizzo || {};
     const set = company.settings || {};
@@ -280,6 +285,8 @@
     $('f-email').value = set.email || '';
     $('f-web').value = set.web || '';
     $('f-iban').value = set.iban || '';
+    $('f-banca').value = set.banca || '';
+    $('f-rea').value = set.rea || '';
     $('f-sol-auto').checked = !!set.solleciti_auto;
     $('f-sol-giorni').value = set.solleciti_giorni || 7;
   }
@@ -299,9 +306,13 @@
       },
       // "settings" tiene solo dati non sensibili (mai chiavi API: quelle,
       // dalla Fase 3, vivono lato server) — vedi commento in store.js.
+      // Partendo dalle impostazioni già salvate: quelle che non hanno un
+      // campo qui (es. l'immagine d'intestazione delle fatture) restano.
       settings: {
+        ...((loadedCompany && loadedCompany.settings) || {}),
         tel: $('f-tel').value.trim(), email: $('f-email').value.trim(),
         web: $('f-web').value.trim(), iban: $('f-iban').value.trim(),
+        banca: $('f-banca').value.trim(), rea: $('f-rea').value.trim(),
         solleciti_auto: $('f-sol-auto').checked,
         solleciti_giorni: Math.max(1, parseInt($('f-sol-giorni').value, 10) || 7),
       },
@@ -315,6 +326,7 @@
     try{
       await store.saveCompany(companyId, patch);
       localStorage.setItem('saas_company_nome', nome);
+      loadedCompany = Object.assign({}, loadedCompany, patch);
       setMsg('Salvato.', 'ok');
     }catch(err){
       setMsg(err.message || 'Errore imprevisto durante il salvataggio.', 'error');
@@ -404,6 +416,7 @@
         store.myMemberships(),
       ]);
       isAdmin = memberships.some(m => m.company_id === companyId && m.role === 'admin');
+      loadedCompany = company;
       fillForm(company);
       $('loading-msg').hidden = true;
       $('form-body').hidden = false;

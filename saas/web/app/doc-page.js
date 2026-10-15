@@ -239,6 +239,23 @@
     select.innerHTML = '<option value="">Sede legale</option>' +
       destSorted.map(d => `<option value="${d.id}">${esc(d.nome || d.citta || 'Sede')}</option>`).join('');
   }
+  // Su un documento già salvato la destinazione si salva subito alla scelta:
+  // DDT fatturati/storici e fatture collegate hanno il resto bloccato.
+  function bindDestChange(select, store, getCompanyId, collName, getDoc, setMsg){
+    select.addEventListener('change', async () => {
+      const doc = getDoc();
+      if(!doc || !doc.id) return;
+      const prev = doc.destId || '';
+      select.disabled = true;
+      try{
+        doc.destId = await store.setDocDestination(getCompanyId(), collName, doc.id, select.value);
+        setMsg('Destinazione di consegna aggiornata.', 'ok');
+      }catch(err){
+        select.value = prev;
+        setMsg('Destinazione non aggiornata: ' + err.message, 'error');
+      }finally{ select.disabled = false; }
+    });
+  }
   // Sottotitolo "📍 destinazione" sotto il nome del cliente in elenco,
   // quando il documento indica una destinazione diversa dalla sede legale.
   function destSubHtml(cliente, doc){
@@ -399,7 +416,7 @@
     showMsg,
     bindRowDrag, markLastBadge, clearLastBadge, evasioneCellsHtml, renderEvasioneSummary,
     lastLinePrice, linePriceHistory, repriceRows,
-    fillDestOptions, destSubHtml,
+    fillDestOptions, bindDestChange, destSubHtml,
     firstDigits, lastDigits, findOrdineByRiferimento,
     loadList, bindElenco,
     bindPrintActions, renderLineagePanel, openPendingFromLineage,

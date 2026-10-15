@@ -274,6 +274,7 @@
   }
   // Destinazione di consegna tra quelle registrate sul cliente (clienti.html).
   function refreshDestOptions(clienteId){ window.SaasDocPage.fillDestOptions($('f-dest'), $('f-dest-wrap'), clientiById[clienteId]); }
+  window.SaasDocPage.bindDestChange($('f-dest'), store, () => companyId, 'ddt', () => editingDdt, setMsg);
   // Ultimo prezzo VENDUTO A QUESTO CLIENTE per un prodotto (e lo storico
   // per il tooltip di app/prodpicker.js) — vedi app/doc-page.js.
   const STORICO_COLLS = ['fattureCliente', 'ddt', 'ordiniCliente'];

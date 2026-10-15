@@ -367,6 +367,7 @@
   }
   // Destinazione di consegna tra quelle registrate sul cliente (clienti.html).
   function refreshDestOptions(clienteId){ window.SaasDocPage.fillDestOptions($('f-dest'), $('f-dest-wrap'), clientiById[clienteId]); }
+  window.SaasDocPage.bindDestChange($('f-dest'), store, () => companyId, 'fattureCliente', () => editingFattura, setMsg);
   // Ultimo prezzo VENDUTO A QUESTO CLIENTE per un prodotto (e lo storico
   // per il tooltip di app/prodpicker.js) — vedi app/doc-page.js.
   const STORICO_COLLS = ['fattureCliente', 'ddt', 'ordiniCliente'];
@@ -428,6 +429,7 @@
     $('f-ordine').value = fattura ? (fattura.ocId || '') : '';
     $('f-ddt').value = fattura ? (fattura.ddtId || '') : '';
     $('f-dest').value = fattura ? (fattura.destId || '') : '';
+    $('f-dest').disabled = false;
     $('f-data').value = fattura ? fattura.data : today();
     numberPreview = '';
     if(fattura){
@@ -441,7 +443,7 @@
     (fattura ? fattura.righe : [null]).forEach(addRigaRow);
     updateTotale();
     const linkedInvoice = !!(fattura && fattura.ddtId);
-    ['f-cliente','f-ordine','f-ddt','f-dest','f-data','f-num','add-riga'].forEach(id => { $(id).disabled = linkedInvoice; });
+    ['f-cliente','f-ordine','f-ddt','f-data','f-num','add-riga'].forEach(id => { $(id).disabled = linkedInvoice; });
     $('righe-body').querySelectorAll('input, button').forEach(el => { el.disabled = linkedInvoice; });
     $('f-save').hidden = linkedInvoice;
     renderLineage(fattura);

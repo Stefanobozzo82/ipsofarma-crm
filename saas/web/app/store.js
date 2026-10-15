@@ -938,6 +938,16 @@
     if (error) throw error;
     return { ddt: rowToDoc('ddt', data.ddt), ordine: data.ordine ? rowToDoc('ordiniCliente', data.ordine) : null };
   }
+  // Solo la destinazione di consegna: ammessa anche su DDT fatturati o
+  // storici e su fatture collegate, e passa al documento collegato.
+  async function setDocDestination(companyId, collName, id, destId) {
+    const table = { ddt:'ddt', fattureCliente:'fatture_cliente' }[collName];
+    if (!table) throw new Error('documento non valido');
+    const { data, error } = await client().rpc('set_document_destination', {
+      p_company_id: companyId, p_table: table, p_id: id, p_dest_id: destId || null });
+    if (error) throw error;
+    return data && data.dest_id || null;
+  }
   async function createCustomerInvoice(companyId, ddt, doc, requestId) {
     const payload = {
       p_company_id: companyId, p_ddt_id: ddt.id,
@@ -1064,7 +1074,7 @@
     completeOrderManually,
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
-    peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, createCustomerInvoice,
+    peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, setDocDestination, createCustomerInvoice,
     createSupplierDdt, createStandaloneSupplierDdt, changeSupplierDdt, createSupplierInvoice, mutateInvoicePayment, saveCreditNote, cancelCreditNote,
     getCompany, loadPlans, startCheckout, openBillingPortal, searchProdotti, prodottiByIds, prodottiByCods, docsByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     createMaestroSyncKey, maestroSyncStatus, listMaestroSyncRuns, listMaestroImportIssues,

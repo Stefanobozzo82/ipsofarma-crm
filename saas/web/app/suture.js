@@ -124,7 +124,8 @@
     codici.forEach(c => {
       if (!perMarca[c.marca] || (c.marca === src.marca && c.codice === src.codice)) return;
       const r = confronta(src, c);
-      if (r) perMarca[c.marca].push(Object.assign({ codice: c }, r));
+      // Sotto il 20% non è un equivalente utile: non si mostra.
+      if (r && r.punti >= 20) perMarca[c.marca].push(Object.assign({ codice: c }, r));
     });
     Object.keys(perMarca).forEach(k => {
       perMarca[k].sort((x, y) => y.punti - x.punti || String(x.codice.codice).localeCompare(String(y.codice.codice), 'it', { numeric: true }));

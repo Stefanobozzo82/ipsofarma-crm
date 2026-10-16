@@ -30,7 +30,7 @@
   ].map((e, i) => Object.assign({ ethicon: null, bbraun: null, assut: null, ergon: null, corza: null, ordine: i + 1 }, e));
 
   // Pesi del punteggio (100 = identico).
-  const PESI = { uspStep: 35, curvatura: 15, punta: 15, agoMm: 2, lungCm: 0.3 };
+  const PESI = { uspStep: 35, curvatura: 15, punta: 15, agoMm: 2, lungCm: 0.3, senzaAgo: 45 };
 
   function fold(s) {
     return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -98,6 +98,14 @@
     if (!a.tipo || !b.tipo || fold(a.tipo) !== fold(b.tipo)) return null;
     let punti = 100;
     const diff = {};
+    // Con ago / senza ago (bobine, fili liberi): tra un codice e l'altro
+    // conta come una differenza forte. Nella ricerca per caratteristiche
+    // (a senza codice) solo se l'ago è stato indicato.
+    const conAgo = x => x.agoMm != null || !!x.curvatura || !!x.punta;
+    if ((a.codice || conAgo(a)) && conAgo(a) !== conAgo(b)) {
+      punti -= PESI.senzaAgo;
+      diff.curvatura = diff.punta = diff.agoMm = true;
+    }
     const ra = uspRank(a.usp), rb = uspRank(b.usp);
     if (ra != null && rb != null && ra !== rb) { punti -= PESI.uspStep * Math.abs(ra - rb); diff.usp = true; }
     if (a.curvatura && b.curvatura && a.curvatura !== b.curvatura) { punti -= PESI.curvatura; diff.curvatura = true; }

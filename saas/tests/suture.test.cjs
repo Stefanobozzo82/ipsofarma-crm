@@ -68,3 +68,13 @@ test('a code read from a file is normalised and its problems are listed', () => 
   assert.deepEqual(J(S.normalizzaCodice({marca:'boh',usp:'zz'}).problemi),['marca non riconosciuta','codice mancante','tipo di filo mancante','USP "zz" non riconosciuto']);
   assert.equal(S.chiave({marca:'ergon',codice:'DH 395-LR'}),S.chiave({marca:'ergon',codice:'dh395lr'}));
 });
+
+test('a code without needle is far from one with a needle', () => {
+  const filo=cand('ergon','P',{curvatura:null,punta:null,agoMm:null});
+  const r=S.confronta(src,filo);
+  assert.ok(r.punti<=55);
+  assert.ok(r.diff.agoMm && r.diff.curvatura);
+  // Ricerca per caratteristiche senza ago indicato: nessuna penalità.
+  assert.equal(S.confronta({tipo:'PGLA intrecciato',usp:'2-0'},filo).punti,100);
+  assert.equal(S.confronta({tipo:'PGLA intrecciato',usp:'2-0'},cand('bbraun','X')).punti,100);
+});

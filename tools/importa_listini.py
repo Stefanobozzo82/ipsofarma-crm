@@ -18,7 +18,8 @@ Requisiti: pip install pymupdf openpyxl xlrd
 Il repository è pubblico: listini, JSON e report restano fuori da git
 (vedi .gitignore), perché contengono prezzi.
 
-Marche gestite: Ergon Sutramed (listino suture PDF). Le altre marche si
+Marche gestite: Ergon Sutramed (listino suture PDF), B. Braun (listino
+Excel "AE 50 FILI DI SUTURA"). Le altre marche si
 aggiungono scrivendo un parser e registrandolo in PARSER.
 """
 import argparse
@@ -232,9 +233,122 @@ def fmt(n):
     return ('%g' % n).replace('.', ',')
 
 
+# ---- B. Braun: listino "AE 50 FILI DI SUTURA" (Excel) ---------------------------
+# Prodotto (inizio descrizione) → famiglia; il più specifico prima.
+BBRAUN_FAMIGLIE = [
+    ('NOVOSYN QUICK', 'Rapido intrecciato'), ('NOVOSYN', 'PGLA intrecciato'),
+    ('SAFIL QUICK', 'Rapido intrecciato'), ('SAFIL', 'PGA intrecciato'),
+    ('MONOSYN QUICK', 'Monofilamento rapido (poliglecaprone)'), ('MONOSYN', 'Monofilamento medio (poliglecaprone)'),
+    ('MONOPLUS', 'PDO'), ('MONOP ', 'PDO'), ('MONOMAX', 'Monofilamento lunghissimo (P4HB)'),
+    ('OPTILENE', 'Polipropilene'), ('PREMILENE', 'Polipropilene'),
+    ('PREMICRON', 'Poliestere'), ('PREMICRN', 'Poliestere'), ('DAGROFIL', 'Poliestere'),
+    ('SILKAM', 'Seta'), ('DAFILON', 'Nylon'), ('SUPRAMID', 'Nylon'),
+    ('STEELEX', 'Acciaio'), ('STEEL', 'Acciaio'), ('STEE', 'Acciaio'),
+    ('SYMMCORA', 'Barbato'), ('SYMMC', 'Barbato'),
+    # Set per episiorrafia con Novosyn Quick.
+    ('EPISET NOVO', 'Rapido intrecciato'), ('EPI NOVOQU', 'Rapido intrecciato'),
+]
+# Nomenclatura aghi B. Braun (catalogo "Chiusura delle ferite", pag. 19):
+# curvatura + corpo + punta + lunghezza mm + spessore. Es. HR26 = 1/2 cerchio,
+# cilindrico, 26 mm; DS24 = 3/8, tagliente (punta esterna = tagliente inversa).
+BBRAUN_CURV = {'V': '1/4', 'D': '3/8', 'H': '1/2', 'F': '5/8', 'G': 'Retto', 'J': 'J'}
+BBRAUN_AGO = re.compile(r'(?:(\d)X)?(SK|[SVDHFGJP])(R|S|L|G)([A-Z]*?)(\d+(?:[.,]\d+)?)')
+
+
+def _bbraun_ago(sigla):
+    m = BBRAUN_AGO.fullmatch(sigla) or BBRAUN_AGO.match(sigla)
+    if not m:
+        return None
+    n_aghi, cur, corpo, mods, mm = m.groups()
+    if corpo == 'S':
+        punta = 'Tagliente inversa'
+    elif corpo == 'G':
+        punta = 'Tagliente'   # Dermaslide (DGMP): tagliente con micro-punta
+    elif corpo == 'L':
+        punta = 'Spatolata'
+    elif 'N' in mods:
+        punta = 'Smussa'
+    elif re.search(r'[CTS]', mods):
+        punta = 'Taper-cut'   # punta tagliente corta, trocar o sternale su corpo cilindrico
+    else:
+        punta = 'Cilindrica'
+    return {'curvatura': BBRAUN_CURV.get(cur), 'punta': punta, 'agoMm': num(mm.replace('.', ',')),
+            'doppio': n_aghi == '2', 'sigla': m.group(0)}
+
+
+def parse_bbraun(path, report):
+    if path.suffix.lower() == '.xls':
+        import xlrd
+        sh = xlrd.open_workbook(str(path)).sheet_by_index(0)
+        rows = [sh.row_values(r) for r in range(sh.nrows)]
+    else:
+        import openpyxl
+        rows = [list(r) for r in openpyxl.load_workbook(str(path), read_only=True, data_only=True).active.iter_rows(values_only=True)]
+    head = next((i for i, r in enumerate(rows) if r and str(r[0]).strip().lower() == 'articolo'), None)
+    if head is None:
+        report.append([path.name, '', '', '', 'intestazione "Articolo" non trovata'])
+        return []
+    out = []
+    for i, r in enumerate(rows[head + 1:], start=head + 2):
+        codice = str(r[0] or '').strip()
+        descr = re.sub(r'\s+', ' ', str(r[1] or '')).strip()
+        if not codice or not descr:
+            continue
+        D = descr.upper()
+        compatto = D.replace(' ', '')
+        famiglia = next((f for k, f in BBRAUN_FAMIGLIE if (D.startswith(k) if k.endswith(' ') else compatto.startswith(k.replace(' ', '')))), None)
+        if not famiglia:
+            report.append([path.name, i, codice, descr, 'prodotto non gestito (non è un filo delle famiglie)'])
+            continue
+        problemi = []
+        # USP: "2/0 (3)" con l'EP tra parentesi, "2/0 8X75" o "3/0 15CM" senza.
+        m = (re.search(r'(?<![\d/,X])(\d{1,2}/0)(?![\d])', D) or re.search(r'(?<![\d/,.X])(\d)\s*\(\s*[\d,.]+\s*\)', D)
+             or re.search(r'(?<![\d/,.X])(\d)(?=\s+(?:\d+X)?\d{1,3}\s*CM)', D))
+        usp = norm_usp(m.group(1)) if m else None
+        if not usp:
+            problemi.append('USP non trovato')
+        # Lunghezza subito dopo USP/EP: "70CM", "70 CM", "4X45", "3X45C", "150".
+        resto = D[m.end():] if m else D
+        resto = re.sub(r'^\s*\(\s*[\d,.]+\s*\)', '', resto)
+        m = re.match(r'\s*(?:(\d+)X)?(\d{1,3})(?:\s*CM?\b|\s*C(?=\s)|(?=\s|$))', resto) or re.search(r'(?:(\d+)X)?(\d{1,3})\s*CM', resto)
+        cm = num(m.group(2)) if m else None
+        fili = int(m.group(1)) if m and m.group(1) else 1
+        if cm is None:
+            problemi.append('lunghezza non trovata')
+        D = resto
+        dopo = re.sub(r'(\d)X\s+', r'\1X', D[m.end():] if m else '')
+        ago = None
+        for tok in re.findall(r'(?:\dX)?(?:SK|[SVDHFGJP])[RSLG][A-Z]*\d+(?:[.,]\d+)?', dopo):
+            ago = _bbraun_ago(tok)
+            if ago:
+                break
+        senza_ago = ago is None and not re.search(r'\d', re.sub(r'\b(DDP|RCP|LP|LOCK?|UDIR|BDIR|CV\d?|\(M\))\b', '', dopo))
+        if ago is None and not senza_ago:
+            problemi.append('sigla ago non riconosciuta in "' + dopo.strip() + '"')
+        if ago and ago['curvatura'] is None:
+            problemi.append('curvatura a slitta/progressiva/1-8 non prevista (sigla ' + ago['sigla'] + ')')
+        pezzi = num(r[5]) if len(r) > 5 else None
+        prezzo_conf = num(r[2]) if not isinstance(r[2], (int, float)) else float(r[2])
+        prezzo = round(prezzo_conf / pezzi, 2) if prezzo_conf and pezzi else None
+        extra = []
+        if ago and ago['doppio']:
+            extra.append('2 aghi')
+        if fili > 1:
+            extra.append(f'{fili} fili')
+        out.append({'marca': 'bbraun', 'codice': codice, 'tipo': famiglia, 'usp': usp,
+                    'curvatura': ago['curvatura'] if ago else None, 'punta': ago['punta'] if ago else None,
+                    'agoMm': ago['agoMm'] if ago else None, 'lungCm': cm,
+                    'siglaAgo': ago['sigla'] if ago else None,
+                    'descr': descr + (' - ' + ', '.join(extra) if extra else ''), 'prezzo': prezzo})
+        if problemi:
+            report.append([path.name, i, codice, descr, '; '.join(problemi)])
+    return out
+
+
 # Riconoscimento del listino dal nome del file → parser.
 PARSER = [
     (re.compile(r'ergon|sutramed', re.I), re.compile(r'listino.*sutur', re.I), parse_ergon),
+    (re.compile(r'braun|\bae\s*50\b', re.I), re.compile(r'fili di sutura', re.I), parse_bbraun),
 ]
 
 

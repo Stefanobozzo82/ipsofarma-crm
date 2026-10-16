@@ -938,6 +938,64 @@
     if (error) throw error;
     return { ddt: rowToDoc('ddt', data.ddt), ordine: data.ordine ? rowToDoc('ordiniCliente', data.ordine) : null };
   }
+  // ---- Convertitore suture (0054_suture.sql) ----------------------------------
+  // Righe del database ↔ oggetti della pagina: ago_mm/lung_cm ↔ agoMm/lungCm.
+  function sutCodiceFromRow(r) {
+    return { id: r.id, marca: r.marca, codice: r.codice, tipo: r.tipo, usp: r.usp, curvatura: r.curvatura,
+      punta: r.punta, agoMm: r.ago_mm == null ? null : Number(r.ago_mm), lungCm: r.lung_cm == null ? null : Number(r.lung_cm),
+      siglaAgo: r.sigla_ago, descr: r.descr, prezzo: r.prezzo == null ? null : Number(r.prezzo) };
+  }
+  function sutCodiceToRow(companyId, c) {
+    const n = v => (v == null || v === '' ? null : Number(v));
+    return { company_id: companyId, marca: c.marca, codice: String(c.codice).trim(), tipo: c.tipo || null, usp: c.usp || null,
+      curvatura: c.curvatura || null, punta: c.punta || null, ago_mm: n(c.agoMm), lung_cm: n(c.lungCm),
+      sigla_ago: c.siglaAgo || null, descr: c.descr || null, prezzo: n(c.prezzo) };
+  }
+  const SUT_EQ_FIELDS = ['famiglia', 'ethicon', 'bbraun', 'assut', 'ergon', 'corza', 'ordine'];
+  async function loadSutureEquivalenze(companyId) {
+    const { data, error } = await client().from('suture_equivalenze').select('*').eq('company_id', companyId).order('ordine').order('famiglia');
+    if (error) throw error;
+    return data;
+  }
+  async function saveSutureEquivalenze(companyId, list) {
+    const rows = list.map(e => {
+      const r = { company_id: companyId };
+      SUT_EQ_FIELDS.forEach(k => { r[k] = e[k] === '' || e[k] === undefined ? null : e[k]; });
+      r.famiglia = String(e.famiglia || '').trim(); r.ordine = Number(e.ordine) || 0;
+      return r;
+    });
+    const { data, error } = await client().from('suture_equivalenze').upsert(rows, { onConflict: 'company_id,famiglia' }).select();
+    if (error) throw error;
+    return data;
+  }
+  async function deleteSutureEquivalenza(companyId, id) {
+    const { error } = await client().from('suture_equivalenze').delete().eq('company_id', companyId).eq('id', id);
+    if (error) throw error;
+  }
+  async function loadSutureCodici(companyId) {
+    const rows = await fetchAllPages(() => client().from('suture_codici').select('*').eq('company_id', companyId));
+    return rows.map(sutCodiceFromRow);
+  }
+  // Inserisce o aggiorna per marca + codice (mai doppioni), a blocchi.
+  async function saveSutureCodici(companyId, list) {
+    const out = [];
+    for (let i = 0; i < list.length; i += 500) {
+      const rows = list.slice(i, i + 500).map(c => sutCodiceToRow(companyId, c));
+      const { data, error } = await client().from('suture_codici').upsert(rows, { onConflict: 'company_id,marca,codice' }).select();
+      if (error) throw error;
+      out.push(...data.map(sutCodiceFromRow));
+    }
+    return out;
+  }
+  async function deleteSutureCodice(companyId, id) {
+    const { error } = await client().from('suture_codici').delete().eq('company_id', companyId).eq('id', id);
+    if (error) throw error;
+  }
+  async function myRole(companyId) {
+    const m = (await myMemberships()).find(x => x.company_id === companyId);
+    return m ? m.role : null;
+  }
+
   // Solo la destinazione di consegna: ammessa anche su DDT fatturati o
   // storici e su fatture collegate, e passa al documento collegato.
   async function setDocDestination(companyId, collName, id, destId) {
@@ -1075,6 +1133,7 @@
     COLLECTIONS, signUp, signIn, signOut, getSession,
     myMemberships, registerCompany, loadCompany, loadCollection, saveDoc, removeDoc, nextNumber,
     peekNumber, bumpCounterPast, createCustomerDdt, saveCustomerOrder, saveSupplierOrder, changeCustomerDdt, setDocDestination, createCustomerInvoice,
+    loadSutureEquivalenze, saveSutureEquivalenze, deleteSutureEquivalenza, loadSutureCodici, saveSutureCodici, deleteSutureCodice, myRole,
     createSupplierDdt, createStandaloneSupplierDdt, changeSupplierDdt, createSupplierInvoice, mutateInvoicePayment, saveCreditNote, cancelCreditNote,
     getCompany, loadPlans, startCheckout, openBillingPortal, searchProdotti, prodottiByIds, prodottiByCods, docsByIds, importListino, saveCompany, aiComplete, checkDocLimit, checkAiLimit,
     createMaestroSyncKey, maestroSyncStatus, listMaestroSyncRuns, listMaestroImportIssues,

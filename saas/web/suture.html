@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convertitore suture — Gestionale</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ea371">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<!--
+  Convertitore suture: trova l'equivalente di un filo tra Ethicon, B. Braun,
+  Assut, Ergon Sutramed e Corza Medical.
+  - Ricerca unica: un codice dell'archivio mostra, per ogni altra marca, i 3
+    codici più simili (app/suture.js, confronta/migliori); un nome
+    commerciale o un materiale mostra la famiglia con i nomi delle marche.
+  - Ricerca per caratteristiche, per i capitolati che non citano una marca.
+  - Tabella equivalenze per famiglia, modificabile solo dall'admin
+    (suture_equivalenze, 0054_suture.sql).
+-->
+<script>(function(){try{var t=localStorage.getItem('saas_theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<link rel="stylesheet" href="app/theme.css">
+<style>
+  .sut-search{ display:flex; gap:8px; flex-wrap:wrap; }
+  .sut-search input{ flex:1; min-width:200px; }
+  .sut-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px 12px; }
+  .sut-grid label{ display:block; font-size:12px; color:var(--muted); margin-bottom:3px; }
+  .sut-grid input, .sut-grid select{ width:100%; }
+  .sut-src{ border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin:14px 0 6px; background:var(--surface2, var(--surface)); }
+  .sut-src .cod{ font-weight:700; font-size:15px; }
+  .sut-brand{ margin-top:16px; }
+  .sut-brand h4{ margin:0 0 6px; font-size:13.5px; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+  .sut-brand h4 small{ color:var(--muted); font-weight:400; }
+  .sut-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:8px 0; border-top:1px solid var(--border); }
+  .sut-row .cod{ font-weight:600; min-width:90px; }
+  .sut-row .descr{ flex:1 1 220px; font-size:13px; }
+  .sut-chips{ display:flex; gap:4px; flex-wrap:wrap; }
+  .sut-chip{ font-size:11.5px; padding:2px 7px; border-radius:6px; background:var(--gray-s); color:var(--txt); white-space:nowrap; }
+  .sut-chip.diff{ background:var(--amber-s); color:var(--amber); font-weight:600; }
+  .sut-score{ font-size:12px; font-weight:700; padding:2px 8px; border-radius:20px; min-width:44px; text-align:center; font-variant-numeric:tabular-nums; }
+  .sut-score.hi{ background:var(--accent-soft); color:var(--accent-d); }
+  .sut-score.mid{ background:var(--amber-s); color:var(--amber); }
+  .sut-score.lo{ background:var(--gray-s); color:var(--gray); }
+  .sut-none{ font-size:12.5px; color:var(--muted); padding:6px 0; }
+  .sut-eq td input{ width:100%; min-width:110px; }
+  .sut-eq td:first-child{ font-weight:600; }
+  .sut-hint{ font-size:12.5px; color:var(--muted); margin:8px 0 0; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="app-main">
+    <div class="page-head">
+      <h2>Convertitore suture</h2>
+    </div>
+
+    <div class="card">
+      <form class="sut-search" id="q-form">
+        <input id="q" type="search" placeholder="Codice, nome commerciale o materiale (es. Vicryl, PDO, W9114)" autocomplete="off" aria-label="Cerca">
+        <button type="submit" class="primary">Cerca</button>
+      </form>
+      <div id="q-out"></div>
+    </div>
+
+    <div class="card">
+      <div class="form-sec" style="margin-top:0">Ricerca per caratteristiche</div>
+      <form id="c-form">
+        <div class="sut-grid">
+          <div><label for="c-tipo">Tipo di filo</label><select id="c-tipo"></select></div>
+          <div><label for="c-usp">USP</label><input id="c-usp" type="text" placeholder="es. 2-0"></div>
+          <div><label for="c-curv">Curvatura</label><select id="c-curv"></select></div>
+          <div><label for="c-punta">Punta</label><select id="c-punta"></select></div>
+          <div><label for="c-ago">Ago mm</label><input id="c-ago" type="text" inputmode="decimal"></div>
+          <div><label for="c-lung">Lunghezza cm</label><input id="c-lung" type="text" inputmode="decimal"></div>
+        </div>
+        <div class="form-actions" style="margin-top:12px"><button type="submit" class="primary">Trova i codici</button></div>
+      </form>
+      <div id="c-out"></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar" style="margin-bottom:8px">
+        <div class="form-sec" style="margin:0">Equivalenze per famiglia</div>
+        <div class="toolbar-right" id="eq-actions"></div>
+      </div>
+      <div class="table-scroll"><table class="sut-eq" id="eq-table"></table></div>
+      <div class="msg" id="eq-msg" hidden></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  window.SUPABASE_URL = 'https://rixvgmzedwdzgavjewbm.supabase.co';
+  window.SUPABASE_ANON_KEY = 'sb_publishable_DFLcrBd6aiyyNGnCq41RQg_XrP0VR47';
+</script>
+<script src="app/store.js"></script>
+<script src="app/theme-mode.js"></script>
+<script src="app/nav.js"></script>
+<script src="app/biometric-lock.js"></script>
+<script src="app/pwa.js"></script>
+<script src="app/suture.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const store = window.SaasStore;
+  const S = window.SaasSuture;
+  let companyId = null;
+  let isAdmin = false;
+  let EQ = [];          // equivalenze per famiglia
+  let CODICI = [];      // archivio codici di tutte le marche
+  let EDIT_EQ = false;  // tabella equivalenze in modifica
+  let SHOWN = [];       // codici mostrati, per "Copia per offerta"
+  let EQ_BACKUP = [], EQ_DELETED = [];
+
+  function esc(s){ return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function nomeMarca(id){ const m = S.MARCHE.find(x => x.id === id); return m ? m.nome : id; }
+  function fmtNum(n){ return n == null ? '' : String(n).replace('.', ','); }
+  function famigliaDi(tipo){ return EQ.find(e => S.fold(e.famiglia) === S.fold(tipo)); }
+
+  // ---- caratteristiche di un codice, con le differenze evidenziate ---------
+  function chipsHtml(c, diff){
+    diff = diff || {};
+    const ch = [];
+    const add = (key, txt) => { if(txt) ch.push('<span class="sut-chip' + (diff[key] ? ' diff' : '') + '">' + esc(txt) + '</span>'); };
+    add('usp', c.usp ? 'USP ' + c.usp : '');
+    add('curvatura', c.curvatura);
+    add('punta', c.punta);
+    add('agoMm', c.agoMm != null ? 'ago ' + fmtNum(c.agoMm) + ' mm' : '');
+    add('lungCm', c.lungCm != null ? fmtNum(c.lungCm) + ' cm' : '');
+    add('sigla', c.siglaAgo);
+    return '<span class="sut-chips">' + ch.join('') + '</span>';
+  }
+  function scoreHtml(p){
+    const k = p >= 85 ? 'hi' : p >= 60 ? 'mid' : 'lo';
+    return '<span class="sut-score ' + k + '" title="Punteggio di corrispondenza">' + p + '%</span>';
+  }
+  function copyBtn(c){
+    SHOWN.push(c);
+    return '<button type="button" class="ghost" data-copy="' + (SHOWN.length - 1) + '">Copia per offerta</button>';
+  }
+  function rowHtml(c, r){
+    return '<div class="sut-row">' + (r ? scoreHtml(r.punti) : '') +
+      '<span class="cod">' + esc(c.codice) + '</span>' +
+      '<span class="descr">' + esc(c.descr || '') + ' ' + chipsHtml(c, r && r.diff) + '</span>' +
+      copyBtn(c) + '</div>';
+  }
+
+  // Per ogni altra marca i 3 codici più simili a src.
+  function equivalentiHtml(src){
+    const best = S.migliori(src, CODICI, 3);
+    const fam = famigliaDi(src.tipo);
+    return Object.keys(best).map(m => {
+      const nomeComm = fam && fam[m] ? ' <small>' + esc(fam[m]) + '</small>' : '';
+      const righe = best[m].length ? best[m].map(r => rowHtml(r.codice, r)).join('')
+        : '<div class="sut-none">Nessun codice ' + esc(src.tipo || '') + ' in archivio per questa marca.</div>';
+      return '<div class="sut-brand"><h4>' + esc(nomeMarca(m)) + nomeComm + '</h4>' + righe + '</div>';
+    }).join('');
+  }
+
+  function codiceHtml(c){
+    return '<div class="sut-src"><div class="sut-row" style="border:none;padding:0">' +
+      '<span class="cod">' + esc(nomeMarca(c.marca)) + ' ' + esc(c.codice) + '</span>' +
+      '<span class="descr">' + esc(c.tipo || 'tipo non indicato') + (c.descr ? ' — ' + esc(c.descr) : '') + ' ' + chipsHtml(c) + '</span>' +
+      copyBtn(c) + '</div></div>' + (c.tipo ? equivalentiHtml(c) : '<div class="sut-none">Senza tipo di filo non si possono cercare equivalenti: completa il codice nell\'archivio.</div>');
+  }
+
+  function famigliaHtml(e){
+    const righe = S.MARCHE.map(m => {
+      const n = CODICI.filter(c => c.marca === m.id && S.fold(c.tipo) === S.fold(e.famiglia)).length;
+      return '<tr><td>' + esc(m.nome) + '</td><td>' + (e[m.id] ? esc(e[m.id]) : '<span class="sut-none">—</span>') + '</td><td class="num">' + (n ? n + (n === 1 ? ' codice' : ' codici') : '') + '</td></tr>';
+    }).join('');
+    return '<div class="sut-brand"><h4>' + esc(e.famiglia) + '</h4><div class="table-scroll"><table><tbody>' + righe + '</tbody></table></div></div>';
+  }
+
+  // ---- ricerca unica ----------------------------------------------------------
+  function cerca(q){
+    SHOWN = [];
+    const out = $('q-out');
+    q = String(q || '').trim();
+    if(!q){ out.innerHTML = ''; return; }
+    const nq = S.normCodice(q);
+    const esatti = CODICI.filter(c => S.normCodice(c.codice) === nq);
+    if(esatti.length){ out.innerHTML = esatti.map(codiceHtml).join(''); return; }
+    const fam = S.famiglieDa(q, EQ);
+    if(fam.length){
+      out.innerHTML = fam.map(famigliaHtml).join('') + '<p class="sut-hint">Cerca un codice per vedere i 3 equivalenti più simili di ogni marca.</p>';
+      return;
+    }
+    const words = S.fold(q).split(/\s+/).filter(Boolean);
+    const simili = CODICI.filter(c => {
+      const t = S.fold([c.codice, c.descr, c.tipo, c.siglaAgo].join(' '));
+      return (nq.length >= 3 && S.normCodice(c.codice).startsWith(nq)) || words.every(w => t.includes(w));
+    }).slice(0, 50);
+    if(simili.length){
+      out.innerHTML = '<p class="sut-hint">Codici trovati: tocca un codice per gli equivalenti.</p>' +
+        simili.map(c => '<div class="sut-row"><button type="button" class="ghost" data-open="' + esc(c.id) + '">' + esc(nomeMarca(c.marca)) + ' ' + esc(c.codice) + '</button><span class="descr">' + esc(c.descr || c.tipo || '') + ' ' + chipsHtml(c) + '</span></div>').join('');
+      return;
+    }
+    out.innerHTML = '<p class="sut-none" style="margin-top:12px">Nessun risultato per "' + esc(q) + '".' +
+      (CODICI.length ? '' : ' L\'archivio codici è ancora vuoto: per ora si trovano solo i nomi commerciali delle equivalenze.') + '</p>';
+  }
+
+  // ---- ricerca per caratteristiche --------------------------------------------
+  function cercaCaratteristiche(){
+    SHOWN = [];
+    const src = { marca: null, tipo: $('c-tipo').value, usp: S.normUsp($('c-usp').value) || null,
+      curvatura: $('c-curv').value || null, punta: $('c-punta').value || null,
+      agoMm: S.num($('c-ago').value), lungCm: S.num($('c-lung').value) };
+    const out = $('c-out');
+    if(!src.tipo){ out.innerHTML = '<p class="sut-none" style="margin-top:10px">Scegli il tipo di filo.</p>'; return; }
+    if($('c-usp').value.trim() && !src.usp){ out.innerHTML = '<p class="sut-none" style="margin-top:10px">USP non riconosciuto: scrivilo come 2-0, 3-0, 0, 1…</p>'; return; }
+    out.innerHTML = equivalentiHtml(src);
+  }
+
+  // ---- tabella equivalenze -----------------------------------------------------
+  function renderEq(){
+    const cols = S.MARCHE.map(m => '<th>' + esc(m.nome) + '</th>').join('');
+    const body = EQ.map((e, i) => {
+      if(EDIT_EQ){
+        const cell = (k) => '<td><input data-eq="' + i + '" data-k="' + k + '" value="' + esc(e[k] || '') + '"></td>';
+        return '<tr>' + cell('famiglia') + S.MARCHE.map(m => cell(m.id)).join('') +
+          '<td><button type="button" class="ghost" data-deleq="' + i + '" title="Elimina famiglia">✕</button></td></tr>';
+      }
+      return '<tr><td>' + esc(e.famiglia) + '</td>' + S.MARCHE.map(m => '<td>' + esc(e[m.id] || '') + '</td>').join('') + '</tr>';
+    }).join('');
+    $('eq-table').innerHTML = '<thead><tr><th>Famiglia</th>' + cols + (EDIT_EQ ? '<th></th>' : '') + '</tr></thead><tbody>' + body + '</tbody>';
+    $('eq-actions').innerHTML = !isAdmin ? '' : EDIT_EQ
+      ? '<button type="button" class="ghost" id="eq-add">+ Famiglia</button><button type="button" class="ghost" id="eq-cancel">Annulla</button><button type="button" class="primary" id="eq-save">Salva</button>'
+      : '<button type="button" class="ghost" id="eq-edit">Modifica</button>';
+    fillTipi();
+  }
+  function fillTipi(){
+    const cur = $('c-tipo').value;
+    $('c-tipo').innerHTML = '<option value="">—</option>' + EQ.map(e => '<option>' + esc(e.famiglia) + '</option>').join('');
+    $('c-tipo').value = cur;
+  }
+  function eqMsg(t, k){ const el = $('eq-msg'); if(!t){ el.hidden = true; return; } el.textContent = t; el.className = 'msg ' + k; el.hidden = false; }
+
+  document.addEventListener('click', async ev => {
+    const t = ev.target.closest('button');
+    if(!t) return;
+    if(t.dataset.copy != null){ copia(SHOWN[Number(t.dataset.copy)], t); return; }
+    if(t.dataset.open){ const c = CODICI.find(x => x.id === t.dataset.open); if(c){ SHOWN = []; $('q-out').innerHTML = codiceHtml(c); } return; }
+    if(!isAdmin) return;
+    if(t.id === 'eq-edit'){ EDIT_EQ = true; EQ_DELETED = []; EQ_BACKUP = EQ.map(e => Object.assign({}, e)); eqMsg(''); renderEq(); }
+    else if(t.id === 'eq-cancel'){ EDIT_EQ = false; EQ = EQ_BACKUP; renderEq(); }
+    else if(t.id === 'eq-add'){ EQ.push({ famiglia: '', ordine: EQ.length + 1 }); renderEq(); }
+    else if(t.dataset.deleq != null){ const e = EQ.splice(Number(t.dataset.deleq), 1)[0]; if(e && e.id) EQ_DELETED.push(e.id); renderEq(); }
+    else if(t.id === 'eq-save'){ salvaEq(t); }
+  });
+  document.addEventListener('input', ev => {
+    const el = ev.target;
+    if(el.dataset && el.dataset.eq != null) EQ[Number(el.dataset.eq)][el.dataset.k] = el.value;
+  });
+  async function salvaEq(btn){
+    const nomi = EQ.map(e => String(e.famiglia || '').trim());
+    if(nomi.some(n => !n)){ eqMsg('Ogni famiglia deve avere un nome.', 'error'); return; }
+    if(new Set(nomi.map(S.fold)).size !== nomi.length){ eqMsg('Due famiglie hanno lo stesso nome.', 'error'); return; }
+    btn.disabled = true;
+    try{
+      for(const id of EQ_DELETED) await store.deleteSutureEquivalenza(companyId, id);
+      EQ.forEach((e, i) => { e.ordine = i + 1; });
+      // Una famiglia rinominata: la vecchia riga si cancella e si riscrive.
+      const rinominate = EQ.filter(e => e.id && EQ_BACKUP.some(b => b.id === e.id && b.famiglia !== e.famiglia));
+      for(const e of rinominate){ await store.deleteSutureEquivalenza(companyId, e.id); delete e.id; }
+      await store.saveSutureEquivalenze(companyId, EQ);
+      EQ = await store.loadSutureEquivalenze(companyId);
+      EDIT_EQ = false; renderEq(); eqMsg('Equivalenze salvate.', 'ok');
+    }catch(err){ eqMsg('Equivalenze non salvate: ' + err.message, 'error'); }
+    finally{ btn.disabled = false; }
+  }
+
+  async function copia(c, btn){
+    const txt = S.testoOfferta(c);
+    try{ await navigator.clipboard.writeText(txt); }
+    catch(e){
+      const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }catch(e2){} ta.remove();
+    }
+    const old = btn.textContent; btn.textContent = '✓ Copiato'; setTimeout(() => { btn.textContent = old; }, 1500);
+  }
+
+  $('q-form').addEventListener('submit', ev => { ev.preventDefault(); cerca($('q').value); });
+  $('c-form').addEventListener('submit', ev => { ev.preventDefault(); cercaCaratteristiche(); });
+
+  async function doLogout(){
+    await store.signOut();
+    localStorage.removeItem('saas_company_id');
+    localStorage.removeItem('saas_company_nome');
+    location.href = 'index.html';
+  }
+
+  async function init(){
+    const session = await store.getSession();
+    if(!session){ location.href = 'index.html'; return; }
+    companyId = localStorage.getItem('saas_company_id');
+    if(!companyId){ location.href = 'index.html'; return; }
+    window.SaasNav.render('suture', {
+      companyName: localStorage.getItem('saas_company_nome') || 'Azienda',
+      email: session.user.email,
+      onLogout: doLogout,
+    });
+    $('c-curv').innerHTML = '<option value="">—</option>' + S.CURVATURE.map(v => '<option>' + esc(v) + '</option>').join('');
+    $('c-punta').innerHTML = '<option value="">—</option>' + S.PUNTE.map(v => '<option>' + esc(v) + '</option>').join('');
+    try{
+      [EQ, CODICI, isAdmin] = await Promise.all([
+        store.loadSutureEquivalenze(companyId),
+        store.loadSutureCodici(companyId),
+        store.myRole(companyId).then(r => r === 'admin'),
+      ]);
+      // Prima apertura da admin: si parte dai valori di partenza.
+      if(!EQ.length && isAdmin) EQ = await store.saveSutureEquivalenze(companyId, S.EQUIVALENZE_INIZIALI);
+      EQ.sort((a, b) => (a.ordine || 0) - (b.ordine || 0));
+    }catch(err){
+      $('q-out').innerHTML = '<p class="empty">Errore nel caricamento: ' + esc(err.message) + '</p>';
+      return;
+    }
+    renderEq();
+    const q = new URLSearchParams(location.search).get('q');
+    if(q){ $('q').value = q; cerca(q); }
+  }
+  init();
+</script>
+</body>
+</html>

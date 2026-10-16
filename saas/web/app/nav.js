@@ -38,6 +38,7 @@
     'settings': '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
     'renew': '<path d="M19.5 12a7.5 7.5 0 0 1-13 5.1"/><path d="M4.5 12a7.5 7.5 0 0 1 13-5.1"/><path d="M17.5 3.5v3.4h-3.4M6.5 20.5v-3.4h3.4"/>',
     'more': '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    'needle': '<path d="M5 19c3-1 5-4 7-7l6-8"/><circle cx="18.5" cy="4.5" r="1.2"/><path d="M4 14c2 0 3 1 3 3"/>',
   };
   function icon(name) {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -75,6 +76,7 @@
     { label: 'Catalogo', items: [
       { id: 'prodotti', label: 'Prodotti', href: 'prodotti.html', ic: 'grid' },
       { id: 'magazzino', label: 'Magazzino', href: 'magazzino.html', ic: 'warehouse' },
+      { id: 'suture', label: 'Convertitore suture', href: 'suture.html', ic: 'needle' },
     ] },
     { label: 'Azienda', items: [
       { id: 'impostazioni-azienda', label: 'Impostazioni', href: 'impostazioni-azienda.html', ic: 'settings' },

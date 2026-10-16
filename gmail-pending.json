@@ -1899,6 +1899,210 @@
         "totale": 48.007000000000005
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-16T08:07:12.368Z",
+      "msgId": "1a143b7ae56af908",
+      "file": "5718117871.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718117871",
+        "date": "2026-10-12",
+        "order_ref": "Rif.cliente Vs.ord. 243",
+        "lines": [
+          {
+            "cod": "PL569T",
+            "descr": "CLIP M/L 12 BLISTER = 96 PZ.",
+            "qty": 4,
+            "prezzo": 270.65,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "53098385",
+            "scad": "2031-09-06"
+          }
+        ],
+        "totale": 1320.772
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-16T08:07:12.368Z",
+      "msgId": "1a143aed7a27625d",
+      "file": "5718118555.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718118555",
+        "date": "2026-10-15",
+        "order_ref": "Rif.cliente Vs.ord. 246",
+        "lines": [
+          {
+            "cod": "G0058720",
+            "descr": "NOVOSYN VIOLA 2 (5) 250CM ARO",
+            "qty": 3,
+            "prezzo": 3.11,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126264",
+            "scad": "2031-06-25"
+          }
+        ],
+        "totale": 11.3826
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-16T08:07:12.368Z",
+      "msgId": "1a143aea3490e8c3",
+      "file": "5718118554.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718118554",
+        "date": "2026-10-15",
+        "order_ref": "Rif.cliente Vs.ord. 245",
+        "lines": [
+          {
+            "cod": "C0764132",
+            "descr": "SILKAM NERO 4/0 (1,5) 75CM DS1",
+            "qty": 1,
+            "prezzo": 46.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626193",
+            "scad": "2031-05-06"
+          },
+          {
+            "cod": "C0762075",
+            "descr": "SILKAM NERO 5/0 (1) 45CM DS12",
+            "qty": 1,
+            "prezzo": 58.68,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626335",
+            "scad": "2031-08-14"
+          },
+          {
+            "cod": "C0932060",
+            "descr": "DAFILON BLU 6/0 (0.7) 45CM D$1",
+            "qty": 1,
+            "prezzo": 64.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626093",
+            "scad": "2031-02-25"
+          },
+          {
+            "cod": "C2023405",
+            "descr": "MONOSYN UNDYED 3/0 (2) 70CM DS",
+            "qty": 1,
+            "prezzo": 72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3624MM",
+            "scad": "2031-06-12"
+          },
+          {
+            "cod": "C0069213",
+            "descr": "NOVOSYN INCOLORE 4/0(1,5) 45CM",
+            "qty": 1,
+            "prezzo": 50.76,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726172",
+            "scad": "2031-04-21"
+          },
+          {
+            "cod": "C0069214",
+            "descr": "NOVOSYN INCOLORE 3/0 (2) 45CM",
+            "qty": 1,
+            "prezzo": 47.52,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726171",
+            "scad": "2031-04-20"
+          },
+          {
+            "cod": "C0069207",
+            "descr": "NOVOSYN INCOLORE 5/0 (1) 45CM",
+            "qty": 1,
+            "prezzo": 72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "725292",
+            "scad": "2030-07-15"
+          },
+          {
+            "cod": "C3046221",
+            "descr": "NOVOSYN QUICK INC 3/0 (2) 45CM D",
+            "qty": 1,
+            "prezzo": 81.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126275",
+            "scad": "2031-07-03"
+          }
+        ],
+        "totale": 603.0215999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-16T08:07:12.368Z",
+      "msgId": "1a143ae7cb163b9d",
+      "file": "5718118553.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718118553",
+        "date": "2026-10-15",
+        "order_ref": "Rif.cliente Vs.ord. 240",
+        "lines": [
+          {
+            "cod": "C3090152",
+            "descr": "OPTILENE 0 (3,5) 75CM HR37S",
+            "qty": 4,
+            "prezzo": 118.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626211",
+            "scad": "2031-05-18"
+          },
+          {
+            "cod": "C3090152",
+            "descr": "OPTILENE 0 (3,5) 75CM HR37S",
+            "qty": 1,
+            "prezzo": 118.8,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "626211",
+            "scad": "2031-05-18"
+          }
+        ],
+        "totale": 724.6800000000001
+      },
+      "src": "Gmail"
     }
   ]
 }

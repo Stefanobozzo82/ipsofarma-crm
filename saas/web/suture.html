@@ -223,6 +223,10 @@
     const nq = S.normCodice(q);
     const esatti = CODICI.filter(c => S.normCodice(c.codice) === nq);
     if(esatti.length){ out.innerHTML = esatti.map(codiceHtml).join(''); return; }
+    // Codice incompleto o senza suffisso ("C0068420" per "C0068420N1"):
+    // se un solo codice inizia così, si apre direttamente.
+    const inizio = nq.length >= 5 ? CODICI.filter(c => S.normCodice(c.codice).startsWith(nq)) : [];
+    if(inizio.length === 1){ out.innerHTML = codiceHtml(inizio[0]); return; }
     const fam = S.famiglieDa(q, EQ);
     if(fam.length){
       out.innerHTML = fam.map(famigliaHtml).join('') + '<p class="sut-hint">Cerca un codice per vedere i 3 equivalenti più simili di ogni marca.</p>';
@@ -239,7 +243,7 @@
       return;
     }
     out.innerHTML = '<p class="sut-none" style="margin-top:12px">Nessun risultato per "' + esc(q) + '".' +
-      (CODICI.length ? '' : ' L\'archivio codici è ancora vuoto: per ora si trovano solo i nomi commerciali delle equivalenze.') + '</p>';
+      (CODICI.length ? '' : ' L\'archivio codici è vuoto: ' + (isAdmin ? 'caricalo con "Importa JSON" nella sezione Archivio codici.' : 'deve caricarlo un amministratore.')) + '</p>';
   }
 
   // ---- ricerca per caratteristiche --------------------------------------------

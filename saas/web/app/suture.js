@@ -147,6 +147,37 @@
     return (esatti.length ? esatti : scored).map(s => s.e);
   }
 
+  // Un codice letto da un file (suture-codici.json, prodotto dallo script dei
+  // listini, o esportato da qui): campi normalizzati e problemi trovati.
+  // Accetta sia agoMm/lungCm/siglaAgo sia ago_mm/lung_cm/sigla_ago.
+  function normalizzaCodice(raw) {
+    const r = raw || {};
+    const pick = (...k) => { for (const x of k) if (r[x] != null && r[x] !== '') return r[x]; return null; };
+    // "B. Braun", "bbraun", "Braun", "Ergon" → id della marca.
+    const k = fold(pick('marca')).replace(/[^a-z]/g, '');
+    const lettere = m => fold(m.nome).replace(/[^a-z]/g, '');
+    const marca = k ? ((MARCHE.find(m => m.id === k || lettere(m) === k) || (k.length >= 4 && MARCHE.find(m => lettere(m).includes(k))) || {}).id || null) : null;
+    const problemi = [];
+    const usp0 = pick('usp'), curv0 = pick('curvatura'), punta0 = pick('punta');
+    const c = {
+      marca, codice: pick('codice') == null ? null : String(pick('codice')).trim(),
+      tipo: pick('tipo') == null ? null : String(pick('tipo')).trim(),
+      usp: usp0 == null ? null : normUsp(usp0),
+      curvatura: curv0 == null ? null : (CURVATURE.includes(curv0) ? curv0 : normCurvatura(curv0)),
+      punta: punta0 == null ? null : (PUNTE.includes(punta0) ? punta0 : normPunta(punta0)),
+      agoMm: num(pick('agoMm', 'ago_mm')), lungCm: num(pick('lungCm', 'lung_cm')),
+      siglaAgo: pick('siglaAgo', 'sigla_ago'), descr: pick('descr', 'descrizione'), prezzo: num(pick('prezzo')),
+    };
+    if (!c.marca) problemi.push('marca non riconosciuta');
+    if (!c.codice) problemi.push('codice mancante');
+    if (!c.tipo) problemi.push('tipo di filo mancante');
+    if (usp0 != null && !c.usp) problemi.push('USP "' + usp0 + '" non riconosciuto');
+    if (curv0 != null && !c.curvatura) problemi.push('curvatura "' + curv0 + '" non riconosciuta');
+    if (punta0 != null && !c.punta) problemi.push('punta "' + punta0 + '" non riconosciuta');
+    return { codice: c, problemi };
+  }
+  function chiave(c) { return c.marca + '|' + normCodice(c.codice); }
+
   function testoOfferta(c) {
     return [c.codice, c.descr].filter(Boolean).join(' - ');
   }
@@ -154,6 +185,6 @@
   window.SaasSuture = {
     MARCHE, CURVATURE, PUNTE, EQUIVALENZE_INIZIALI, PESI,
     fold, normCodice, normUsp, uspRank, normCurvatura, normPunta, num,
-    confronta, migliori, famiglieDa, testoOfferta,
+    confronta, migliori, famiglieDa, testoOfferta, normalizzaCodice, chiave,
   };
 })(window);

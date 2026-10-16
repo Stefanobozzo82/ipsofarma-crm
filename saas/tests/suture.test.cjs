@@ -59,3 +59,12 @@ test('a trade name or material finds its family', () => {
   assert.equal(S.famiglieDa('xyz',eq).length,0);
   assert.equal(S.testoOfferta({codice:'C0068',descr:'Novosyn 2-0'}),'C0068 - Novosyn 2-0');
 });
+
+test('a code read from a file is normalised and its problems are listed', () => {
+  const a=S.normalizzaCodice({marca:'Ergon Sutramed',codice:' DH395LR ',tipo:'PGLA intrecciato',usp:'2 - 0',curvatura:'1/2 C.',punta:'Cilindrico',ago_mm:'25,9',lung_cm:75,prezzo:'13,40'});
+  assert.deepEqual(J(a),{codice:{marca:'ergon',codice:'DH395LR',tipo:'PGLA intrecciato',usp:'2-0',curvatura:'1/2',punta:'Cilindrica',agoMm:25.9,lungCm:75,siglaAgo:null,descr:null,prezzo:13.4},problemi:[]});
+  assert.equal(S.normalizzaCodice({marca:'B. Braun',codice:'1'}).codice.marca,'bbraun');
+  assert.equal(S.normalizzaCodice({marca:'braun',codice:'1'}).codice.marca,'bbraun');
+  assert.deepEqual(J(S.normalizzaCodice({marca:'boh',usp:'zz'}).problemi),['marca non riconosciuta','codice mancante','tipo di filo mancante','USP "zz" non riconosciuto']);
+  assert.equal(S.chiave({marca:'ergon',codice:'DH 395-LR'}),S.chiave({marca:'ergon',codice:'dh395lr'}));
+});

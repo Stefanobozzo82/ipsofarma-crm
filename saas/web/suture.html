@@ -44,6 +44,9 @@
   .sut-none{ font-size:12.5px; color:var(--muted); padding:6px 0; }
   .sut-eq td input{ width:100%; min-width:110px; }
   .sut-eq td:first-child{ font-weight:600; }
+  .sut-counts{ display:flex; gap:6px; flex-wrap:wrap; }
+  .sut-search select{ flex:0 1 200px; width:auto; min-width:150px; }
+  .sut-row .ed{ margin-left:auto; }
   .sut-hint{ font-size:12.5px; color:var(--muted); margin:8px 0 0; }
 </style>
 </head>
@@ -77,6 +80,44 @@
         <div class="form-actions" style="margin-top:12px"><button type="submit" class="primary">Trova i codici</button></div>
       </form>
       <div id="c-out"></div>
+    </div>
+
+    <div class="card" id="arch-card">
+      <div class="toolbar" style="margin-bottom:8px">
+        <div class="form-sec" style="margin:0">Archivio codici</div>
+        <div class="toolbar-right" id="arch-actions">
+          <button type="button" class="ghost" id="arch-export">Esporta JSON</button>
+        </div>
+      </div>
+      <div class="sut-counts" id="arch-counts"></div>
+      <div class="sut-search" style="margin-top:10px">
+        <select id="arch-marca" aria-label="Marca"></select>
+        <input id="arch-q" type="search" placeholder="Filtra per codice o descrizione" autocomplete="off" aria-label="Filtra l'archivio">
+      </div>
+      <form id="arch-form" hidden style="margin-top:14px">
+        <div class="form-sec" id="arch-form-title" style="margin-top:0">Nuovo codice</div>
+        <div class="sut-grid">
+          <div><label for="a-marca">Marca *</label><select id="a-marca"></select></div>
+          <div><label for="a-codice">Codice *</label><input id="a-codice" type="text" autocomplete="off"></div>
+          <div><label for="a-tipo">Tipo di filo *</label><select id="a-tipo"></select></div>
+          <div><label for="a-usp">USP</label><input id="a-usp" type="text" placeholder="es. 2-0"></div>
+          <div><label for="a-curv">Curvatura ago</label><select id="a-curv"></select></div>
+          <div><label for="a-punta">Punta</label><select id="a-punta"></select></div>
+          <div><label for="a-ago">Ago mm</label><input id="a-ago" type="text" inputmode="decimal"></div>
+          <div><label for="a-lung">Lunghezza cm</label><input id="a-lung" type="text" inputmode="decimal"></div>
+          <div><label for="a-sigla">Sigla ago</label><input id="a-sigla" type="text"></div>
+          <div><label for="a-prezzo">Prezzo €</label><input id="a-prezzo" type="text" inputmode="decimal"></div>
+        </div>
+        <div style="margin-top:10px"><label for="a-descr" style="display:block;font-size:12px;color:var(--muted);margin-bottom:3px">Descrizione</label><input id="a-descr" type="text" style="width:100%"></div>
+        <div class="form-actions" style="margin-top:12px">
+          <button type="button" class="ghost" id="a-cancel">Annulla</button>
+          <button type="button" class="ghost danger" id="a-del" hidden>Elimina</button>
+          <button type="submit" class="primary" id="a-save">Salva</button>
+        </div>
+      </form>
+      <div class="msg" id="arch-msg" hidden></div>
+      <div id="arch-list"></div>
+      <input type="file" id="arch-file" accept=".json,application/json" hidden>
     </div>
 
     <div class="card">
@@ -162,7 +203,7 @@
     return '<div class="sut-src"><div class="sut-row" style="border:none;padding:0">' +
       '<span class="cod">' + esc(nomeMarca(c.marca)) + ' ' + esc(c.codice) + '</span>' +
       '<span class="descr">' + esc(c.tipo || 'tipo non indicato') + (c.descr ? ' — ' + esc(c.descr) : '') + ' ' + chipsHtml(c) + '</span>' +
-      copyBtn(c) + '</div></div>' + (c.tipo ? equivalentiHtml(c) : '<div class="sut-none">Senza tipo di filo non si possono cercare equivalenti: completa il codice nell\'archivio.</div>');
+      copyBtn(c) + (isAdmin ? '<button type="button" class="ghost" data-edit="' + esc(c.id) + '">Modifica</button>' : '') + '</div></div>' + (c.tipo ? equivalentiHtml(c) : '<div class="sut-none">Senza tipo di filo non si possono cercare equivalenti: completa il codice nell\'archivio.</div>');
   }
 
   function famigliaHtml(e){
@@ -243,6 +284,9 @@
     if(t.dataset.copy != null){ copia(SHOWN[Number(t.dataset.copy)], t); return; }
     if(t.dataset.open){ const c = CODICI.find(x => x.id === t.dataset.open); if(c){ SHOWN = []; $('q-out').innerHTML = codiceHtml(c); } return; }
     if(!isAdmin) return;
+    if(t.dataset.edit){ const c = CODICI.find(x => x.id === t.dataset.edit); if(c) openCodForm(c); return; }
+    if(t.id === 'arch-new'){ openCodForm(null); return; }
+    if(t.id === 'arch-import'){ $('arch-file').click(); return; }
     if(t.id === 'eq-edit'){ EDIT_EQ = true; EQ_DELETED = []; EQ_BACKUP = EQ.map(e => Object.assign({}, e)); eqMsg(''); renderEq(); }
     else if(t.id === 'eq-cancel'){ EDIT_EQ = false; EQ = EQ_BACKUP; renderEq(); }
     else if(t.id === 'eq-add'){ EQ.push({ famiglia: '', ordine: EQ.length + 1 }); renderEq(); }
@@ -263,13 +307,164 @@
       EQ.forEach((e, i) => { e.ordine = i + 1; });
       // Una famiglia rinominata: la vecchia riga si cancella e si riscrive.
       const rinominate = EQ.filter(e => e.id && EQ_BACKUP.some(b => b.id === e.id && b.famiglia !== e.famiglia));
-      for(const e of rinominate){ await store.deleteSutureEquivalenza(companyId, e.id); delete e.id; }
+      const ritipati = [];
+      for(const e of rinominate){
+        const vecchio = EQ_BACKUP.find(b => b.id === e.id).famiglia;
+        await store.deleteSutureEquivalenza(companyId, e.id); delete e.id;
+        // I codici di quella famiglia seguono il nuovo nome.
+        CODICI.filter(c => S.fold(c.tipo) === S.fold(vecchio)).forEach(c => { c.tipo = e.famiglia; ritipati.push(c); });
+      }
+      if(ritipati.length) await store.saveSutureCodici(companyId, ritipati);
       await store.saveSutureEquivalenze(companyId, EQ);
       EQ = await store.loadSutureEquivalenze(companyId);
       EDIT_EQ = false; renderEq(); eqMsg('Equivalenze salvate.', 'ok');
     }catch(err){ eqMsg('Equivalenze non salvate: ' + err.message, 'error'); }
     finally{ btn.disabled = false; }
   }
+
+  // ---- archivio codici -----------------------------------------------------------
+  const ARCH_MAX = 100;   // righe mostrate nell'elenco filtrato
+  let EDIT_COD = null;    // codice in modifica (null = nuovo)
+  function archMsg(t, k){ const el = $('arch-msg'); if(!t){ el.hidden = true; return; } el.textContent = t; el.className = 'msg ' + k; el.hidden = false; }
+  function renderArch(){
+    const per = {};
+    CODICI.forEach(c => { per[c.marca] = (per[c.marca] || 0) + 1; });
+    $('arch-counts').innerHTML = '<span class="badge">' + CODICI.length + (CODICI.length === 1 ? ' codice' : ' codici') + '</span>' +
+      S.MARCHE.map(m => '<span class="badge' + (per[m.id] ? ' info' : '') + '">' + esc(m.nome) + ' ' + (per[m.id] || 0) + '</span>').join('');
+    const marca = $('arch-marca').value;
+    const words = S.fold($('arch-q').value).split(/\s+/).filter(Boolean);
+    const lista = CODICI.filter(c => (!marca || c.marca === marca) &&
+      words.every(w => S.fold([c.codice, c.descr, c.tipo].join(' ')).includes(w)));
+    lista.sort((a, b) => a.marca.localeCompare(b.marca) || String(a.codice).localeCompare(String(b.codice), 'it', { numeric:true }));
+    if(!lista.length){ $('arch-list').innerHTML = '<p class="sut-none" style="margin-top:10px">' + (CODICI.length ? 'Nessun codice corrisponde al filtro.' : 'Archivio vuoto.' + (isAdmin ? ' Aggiungi un codice o importa un file JSON.' : '')) + '</p>'; return; }
+    $('arch-list').innerHTML = lista.slice(0, ARCH_MAX).map(c =>
+      '<div class="sut-row"><button type="button" class="ghost" data-open="' + esc(c.id) + '">' + esc(nomeMarca(c.marca)) + ' ' + esc(c.codice) + '</button>' +
+      '<span class="descr">' + esc(c.tipo || '') + (c.descr ? ' — ' + esc(c.descr) : '') + ' ' + chipsHtml(c) + '</span>' +
+      (isAdmin ? '<button type="button" class="ghost ed" data-edit="' + esc(c.id) + '">Modifica</button>' : '') + '</div>').join('') +
+      (lista.length > ARCH_MAX ? '<p class="sut-hint">Mostrati i primi ' + ARCH_MAX + ' di ' + lista.length + ': restringi il filtro.</p>' : '');
+  }
+  function fillArchSelects(){
+    const opts = (arr, vuoto) => (vuoto ? '<option value="">' + vuoto + '</option>' : '') + arr.map(v => '<option value="' + esc(v[0]) + '">' + esc(v[1]) + '</option>').join('');
+    const marche = S.MARCHE.map(m => [m.id, m.nome]);
+    $('arch-marca').innerHTML = opts(marche, 'Tutte le marche');
+    $('a-marca').innerHTML = opts(marche);
+    $('a-curv').innerHTML = opts(S.CURVATURE.map(v => [v, v]), '—');
+    $('a-punta').innerHTML = opts(S.PUNTE.map(v => [v, v]), '—');
+  }
+  function fillTipoCodice(cur){
+    const tipi = EQ.map(e => e.famiglia);
+    if(cur && !tipi.some(t => S.fold(t) === S.fold(cur))) tipi.push(cur);
+    $('a-tipo').innerHTML = '<option value="">—</option>' + tipi.map(t => '<option>' + esc(t) + '</option>').join('');
+    $('a-tipo').value = cur || '';
+  }
+  function openCodForm(c){
+    EDIT_COD = c || null;
+    $('arch-form-title').textContent = c ? 'Modifica ' + nomeMarca(c.marca) + ' ' + c.codice : 'Nuovo codice';
+    c = c || {};
+    $('a-marca').value = c.marca || S.MARCHE[0].id;
+    $('a-codice').value = c.codice || '';
+    fillTipoCodice(c.tipo);
+    $('a-usp').value = c.usp || '';
+    $('a-curv').value = c.curvatura || '';
+    $('a-punta').value = c.punta || '';
+    $('a-ago').value = fmtNum(c.agoMm);
+    $('a-lung').value = fmtNum(c.lungCm);
+    $('a-sigla').value = c.siglaAgo || '';
+    $('a-prezzo').value = fmtNum(c.prezzo);
+    $('a-descr').value = c.descr || '';
+    $('a-del').hidden = !EDIT_COD;
+    $('arch-form').hidden = false; archMsg('');
+    $('arch-card').scrollIntoView({ behavior:'smooth', block:'start' });
+    $('a-codice').focus();
+  }
+  function closeCodForm(){ $('arch-form').hidden = true; EDIT_COD = null; }
+  async function salvaCodice(){
+    if(!isAdmin) return;
+    const c = { marca: $('a-marca').value, codice: $('a-codice').value.trim(), tipo: $('a-tipo').value,
+      usp: $('a-usp').value.trim() ? S.normUsp($('a-usp').value) : null, curvatura: $('a-curv').value || null, punta: $('a-punta').value || null,
+      agoMm: S.num($('a-ago').value), lungCm: S.num($('a-lung').value), siglaAgo: $('a-sigla').value.trim() || null,
+      prezzo: S.num($('a-prezzo').value), descr: $('a-descr').value.trim() || null };
+    if(!c.codice){ archMsg('Inserisci il codice.', 'error'); return; }
+    if(!c.tipo){ archMsg('Scegli il tipo di filo: serve per trovare gli equivalenti.', 'error'); return; }
+    if($('a-usp').value.trim() && !c.usp){ archMsg('USP non riconosciuto: scrivilo come 2-0, 3-0, 0, 1…', 'error'); return; }
+    const dup = CODICI.find(x => S.chiave(x) === S.chiave(c) && (!EDIT_COD || x.id !== EDIT_COD.id));
+    if(dup){ archMsg('Il codice ' + c.codice + ' di ' + nomeMarca(c.marca) + ' è già in archivio.', 'error'); return; }
+    $('a-save').disabled = true;
+    try{
+      // Marca o codice cambiati: la vecchia riga si elimina (la chiave è marca + codice).
+      if(EDIT_COD && S.chiave(EDIT_COD) !== S.chiave(c)) await store.deleteSutureCodice(companyId, EDIT_COD.id);
+      const [saved] = await store.saveSutureCodici(companyId, [c]);
+      CODICI = CODICI.filter(x => x.id !== saved.id && !(EDIT_COD && x.id === EDIT_COD.id)).concat(saved);
+      closeCodForm(); renderArch(); archMsg('Codice ' + saved.codice + ' salvato.', 'ok');
+    }catch(err){ archMsg('Codice non salvato: ' + err.message, 'error'); }
+    finally{ $('a-save').disabled = false; }
+  }
+  async function eliminaCodice(){
+    if(!isAdmin || !EDIT_COD) return;
+    if(!confirm('Eliminare ' + nomeMarca(EDIT_COD.marca) + ' ' + EDIT_COD.codice + ' dall\'archivio?')) return;
+    try{
+      await store.deleteSutureCodice(companyId, EDIT_COD.id);
+      const cod = EDIT_COD.codice;
+      CODICI = CODICI.filter(x => x.id !== EDIT_COD.id);
+      closeCodForm(); renderArch(); archMsg('Codice ' + cod + ' eliminato.', 'ok');
+    }catch(err){ archMsg('Codice non eliminato: ' + err.message, 'error'); }
+  }
+  // Importazione di suture-codici.json: [{...}] oppure {codici:[...]}.
+  // Inserisce o aggiorna per marca + codice, mai doppioni.
+  async function importaFile(file){
+    let dati;
+    try{ dati = JSON.parse(await file.text()); }
+    catch(e){ archMsg('Il file non è un JSON valido.', 'error'); return; }
+    const righe = Array.isArray(dati) ? dati : (dati && Array.isArray(dati.codici) ? dati.codici : null);
+    if(!righe){ archMsg('Nel file non c\'è un elenco di codici.', 'error'); return; }
+    const buoni = new Map(); const scartati = []; let avvisi = 0;
+    righe.forEach((r, i) => {
+      const { codice, problemi } = S.normalizzaCodice(r);
+      if(!codice.marca || !codice.codice){ scartati.push('riga ' + (i + 1) + ': ' + problemi.join(', ')); return; }
+      if(problemi.length) avvisi++;
+      buoni.set(S.chiave(codice), codice);
+    });
+    // Su un codice già in archivio si aggiornano solo i campi presenti nel
+    // file: un listino senza prezzo non cancella il prezzo già inserito.
+    const esistenti = new Map(CODICI.map(c => [S.chiave(c), c]));
+    const nuovi = [...buoni.keys()].filter(k => !esistenti.has(k)).length;
+    buoni.forEach((c, k) => {
+      const old = esistenti.get(k);
+      if(!old) return;
+      const merged = Object.assign({}, old);
+      Object.keys(c).forEach(f => { if(c[f] != null && c[f] !== '') merged[f] = c[f]; });
+      merged.codice = old.codice;
+      delete merged.id;
+      buoni.set(k, merged);
+    });
+    const testo = 'Importare ' + buoni.size + ' codici? ' + nuovi + ' nuovi, ' + (buoni.size - nuovi) + ' già in archivio (verranno aggiornati).' +
+      (scartati.length ? '\n' + scartati.length + (scartati.length === 1 ? ' riga scartata' : ' righe scartate') + ' (marca o codice mancanti).' : '') +
+      (avvisi ? '\n' + avvisi + (avvisi === 1 ? ' codice' : ' codici') + ' con valori non riconosciuti (resteranno vuoti).' : '');
+    if(!buoni.size){ archMsg('Nessun codice importabile. ' + scartati.slice(0, 3).join('; '), 'error'); return; }
+    if(!confirm(testo)) return;
+    archMsg('Importo ' + buoni.size + ' codici…', 'ok');
+    try{
+      await store.saveSutureCodici(companyId, [...buoni.values()]);
+      CODICI = await store.loadSutureCodici(companyId);
+      renderArch();
+      archMsg('Importati ' + buoni.size + ' codici (' + nuovi + ' nuovi).' + (scartati.length ? ' Scartate ' + scartati.length + ' righe: ' + scartati.slice(0, 3).join('; ') + (scartati.length > 3 ? '…' : '') : ''), 'ok');
+    }catch(err){ archMsg('Importazione non riuscita: ' + err.message, 'error'); }
+  }
+  function esporta(){
+    const out = { versione: 1, esportato: new Date().toISOString(),
+      codici: CODICI.map(c => { const o = Object.assign({}, c); delete o.id; return o; }) };
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type:'application/json' }));
+    a.download = 'suture-codici.json'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  $('arch-marca').addEventListener('change', renderArch);
+  $('arch-q').addEventListener('input', renderArch);
+  $('arch-form').addEventListener('submit', ev => { ev.preventDefault(); salvaCodice(); });
+  $('a-cancel').addEventListener('click', closeCodForm);
+  $('a-del').addEventListener('click', eliminaCodice);
+  $('arch-export').addEventListener('click', esporta);
+  $('arch-file').addEventListener('change', ev => { const f = ev.target.files[0]; ev.target.value = ''; if(f && isAdmin) importaFile(f); });
 
   async function copia(c, btn){
     const txt = S.testoOfferta(c);
@@ -317,6 +512,9 @@
       return;
     }
     renderEq();
+    fillArchSelects();
+    if(isAdmin) $('arch-actions').insertAdjacentHTML('afterbegin', '<button type="button" class="ghost" id="arch-import">Importa JSON</button><button type="button" class="primary" id="arch-new">+ Codice</button>');
+    renderArch();
     const q = new URLSearchParams(location.search).get('q');
     if(q){ $('q').value = q; cerca(q); }
   }

@@ -2134,6 +2134,37 @@
         "totale": 52.2648
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-21T14:51:43.062Z",
+      "msgId": "1a15ed3361f48cda",
+      "file": "5718118901.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718118901",
+        "date": "2026-10-16",
+        "order_ref": "245",
+        "lines": [
+          {
+            "cod": "C0935131",
+            "descr": "DAFILON BLU 4/0 (1.5) 75CM DS1",
+            "qty": 1,
+            "prezzo": 42.84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626371",
+            "scad": "2031-09-07"
+          }
+        ],
+        "totale": 52.2648
+      },
+      "src": "Gmail"
     }
   ]
 }

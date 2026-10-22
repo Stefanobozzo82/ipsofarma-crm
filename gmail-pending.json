@@ -2165,6 +2165,47 @@
         "totale": 52.2648
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-22T08:37:58.057Z",
+      "msgId": "1a16298a36ab94e7",
+      "file": "5718119523.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718119523",
+        "date": "2026-10-20",
+        "order_ref": "Rif.cliente Vs.ord. 248",
+        "lines": [
+          {
+            "cod": "C0068221N1",
+            "descr": "NOVOSYN VIOLA 3/0 (2) 45CM DS1",
+            "qty": 1,
+            "prezzo": 58.85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36342X",
+            "scad": "2031-08-19"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 1,
+            "prezzo": 52.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3626UT",
+            "scad": "2031-06-27"
+          }
+        ],
+        "totale": 135.481
+      },
+      "src": "Gmail"
     }
   ]
 }

@@ -2206,6 +2206,129 @@
         "totale": 135.481
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-22T09:06:50.868Z",
+      "msgId": "1a162a8c80274263",
+      "file": "5718119823.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718119823",
+        "date": "2026-10-21",
+        "order_ref": "Rif.cliente Vs.ord. 244",
+        "lines": [
+          {
+            "cod": "PL579T",
+            "descr": "CHALLENGER TI-P CLIP LIGAT.ML",
+            "qty": 3,
+            "prezzo": 297.02,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "53095337",
+            "scad": "2031-09-02"
+          }
+        ],
+        "totale": 1087.0931999999998
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-22T09:06:50.869Z",
+      "msgId": "1a162990831b6196",
+      "file": "5718119525.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718119525",
+        "date": "2026-10-20",
+        "order_ref": "Rif.cliente Vs.ord. 251",
+        "lines": [
+          {
+            "cod": "C0068425",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM FR3",
+            "qty": 2,
+            "prezzo": 1.93,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "725426",
+            "scad": "2030-10-18"
+          },
+          {
+            "cod": "C0068051N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR3",
+            "qty": 1,
+            "prezzo": 1.65,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3637BV",
+            "scad": "2031-09-11"
+          },
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 1,
+            "prezzo": 2.83,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126232",
+            "scad": "2031-06-02"
+          },
+          {
+            "cod": "C0068426",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 70CM FR3",
+            "qty": 2,
+            "prezzo": 1.92,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726205",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 14.8596
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-22T09:06:50.869Z",
+      "msgId": "1a16298d3777cd4f",
+      "file": "5718119524.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718119524",
+        "date": "2026-10-20",
+        "order_ref": "Rif.cliente Vs.ord. 249",
+        "lines": [
+          {
+            "cod": "C0068051N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR3",
+            "qty": 6,
+            "prezzo": 59.4,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3637BV",
+            "scad": "2031-09-11"
+          }
+        ],
+        "totale": 434.80799999999994
+      },
+      "src": "Gmail"
     }
   ]
 }

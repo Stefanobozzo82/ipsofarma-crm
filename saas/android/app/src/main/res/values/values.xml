@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#0ea371</color>
+    <color name="white">#ffffff</color>
+    <color name="splash">#f4f6f8</color>
+    <string name="asset_statements">[{ \"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": { \"namespace\": \"web\", \"site\": \"https://ipsofarma-crm.stefanobozzo82.workers.dev\" } }]</string>
+</resources>

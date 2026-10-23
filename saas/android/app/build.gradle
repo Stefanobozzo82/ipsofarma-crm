@@ -1,0 +1,37 @@
+// App Android del gestionale: una Trusted Web Activity che apre
+// https://ipsofarma-crm.stefanobozzo82.workers.dev a schermo intero.
+// La firma (keystore) NON sta nel repository, che è pubblico: si passa con
+// le variabili TWA_KEYSTORE, TWA_STORE_PASSWORD, TWA_KEY_ALIAS, TWA_KEY_PASSWORD.
+plugins { id 'com.android.application' }
+
+def host = 'ipsofarma-crm.stefanobozzo82.workers.dev'
+
+android {
+    namespace 'it.ipsofarma.gestionale'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'it.ipsofarma.gestionale'
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+        manifestPlaceholders = [host: host, launchUrl: 'https://' + host + '/index.html']
+        resValue 'string', 'app_name', 'Gestionale'
+    }
+    signingConfigs {
+        release {
+            storeFile System.getenv('TWA_KEYSTORE') ? file(System.getenv('TWA_KEYSTORE')) : null
+            storePassword System.getenv('TWA_STORE_PASSWORD')
+            keyAlias System.getenv('TWA_KEY_ALIAS')
+            keyPassword System.getenv('TWA_KEY_PASSWORD')
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.release }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

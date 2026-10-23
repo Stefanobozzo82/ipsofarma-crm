@@ -183,6 +183,17 @@
     el.textContent = text; el.className = 'msg ' + kind; el.hidden = false;
   }
   function inviteUrl(token){ return new URL('index.html?invite=' + token, location.href).href; }
+  // Email d'invito con il link di accesso (send-email → Resend). Se l'invio
+  // non riesce il link resta da copiare e mandare a mano.
+  async function sendInviteEmail(email, role, token){
+    const url = inviteUrl(token);
+    const nome = (loadedCompany && loadedCompany.nome) || localStorage.getItem('saas_company_nome') || 'il gestionale';
+    const html = '<p>Ciao,</p><p>sei stato invitato a usare il gestionale di <b>' + esc(nome) + '</b> come <b>' + esc(roleLabel(role)) + '</b>.</p>' +
+      '<p><a href="' + esc(url) + '" style="display:inline-block;padding:10px 18px;background:#0e7a5a;color:#fff;border-radius:6px;text-decoration:none">Accetta l\'invito</a></p>' +
+      '<p>Se il pulsante non funziona, apri questo indirizzo:<br>' + esc(url) + '</p>' +
+      '<p>Al primo accesso crea la password con questo stesso indirizzo email (' + esc(email) + '). L\'invito scade tra 7 giorni.</p>';
+    await store.sendEmail({ to: email, subject: 'Invito al gestionale di ' + nome, html }, companyId);
+  }
 
   async function renderTeam(){
     let members, invites;
@@ -232,6 +243,7 @@
       <div class="dest-card">
         <div class="dest-head" style="justify-content:space-between">
           <span>${esc(i.email)} <span class="hint">(${roleLabel(i.role)}, in attesa)</span></span>
+          <button type="button" class="linklike" data-mail="${esc(i.token)}" data-email="${esc(i.email)}" data-role="${esc(i.role)}">Invia email</button>
           <button type="button" class="linklike" data-copy="${esc(i.token)}">Copia link</button>
           <button type="button" class="le-del" data-revoke="${i.id}" title="Revoca invito">×</button>
         </div>
@@ -240,6 +252,12 @@
       const url = inviteUrl(btn.dataset.copy);
       try{ await navigator.clipboard.writeText(url); inviteMsg('Link copiato: ' + url, 'ok'); }
       catch(e){ inviteMsg('Copia questo link: ' + url, 'ok'); }
+    }));
+    $('pending-area').querySelectorAll('[data-mail]').forEach(btn => btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try{ await sendInviteEmail(btn.dataset.email, btn.dataset.role, btn.dataset.mail); inviteMsg('Email d\'invito inviata a ' + btn.dataset.email + '.', 'ok'); }
+      catch(err){ inviteMsg('Email non inviata (' + err.message + '). Usa "Copia link" e mandalo tu.', 'error'); }
+      finally{ btn.disabled = false; }
     }));
     $('pending-area').querySelectorAll('[data-revoke]').forEach(btn => btn.addEventListener('click', async () => {
       if(!confirm('Revocare questo invito?')) return;
@@ -259,8 +277,13 @@
       $('inv-email').value = '';
       const url = inviteUrl(invite.token);
       await renderTeam();
-      try{ await navigator.clipboard.writeText(url); inviteMsg(`Invito creato e link copiato negli appunti: ${url}`, 'ok'); }
-      catch(e){ inviteMsg(`Invito creato. Copia questo link e mandalo a ${email}: ${url}`, 'ok'); }
+      try{
+        await sendInviteEmail(email, role, invite.token);
+        inviteMsg(`Invito creato e inviato per email a ${email}.`, 'ok');
+      }catch(mailErr){
+        try{ await navigator.clipboard.writeText(url); }catch(e){}
+        inviteMsg(`Invito creato, ma l'email non è partita (${mailErr.message}). Manda tu questo link a ${email}: ${url}`, 'error');
+      }
     }catch(err){
       inviteMsg(err.message || 'Errore imprevisto.', 'error');
     }finally{

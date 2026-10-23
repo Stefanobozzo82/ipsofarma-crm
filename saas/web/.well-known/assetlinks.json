@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "it.ipsofarma.gestionale",
+    "sha256_cert_fingerprints": ["6A:C7:86:D3:03:FB:AE:E9:85:5C:13:EC:46:5B:8F:C0:6C:D5:84:1B:61:C0:F1:2F:FF:36:DA:EA:60:60:EA:EA"]
+  }
+}]

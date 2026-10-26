@@ -56,6 +56,12 @@
     });
   }
 
+  function base64ToBlob(b64, mime) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
   async function saveBlob(blob, filename, mime) {
     if (global.AndroidDownload) {
       global.AndroidDownload.saveFile(await blobToBase64(blob), filename, mime);
@@ -90,6 +96,13 @@
   }
 
   async function exportPdf(o, docs, progress) {
+    // Un solo documento: direttamente il PDF, senza ZIP.
+    if (docs.length === 1) {
+      progress('PDF…');
+      const b64 = await global.SaasPrint.pdfBase64(o.coll, docs[0], o.partyOf(docs[0]), o.getCompany());
+      await saveBlob(base64ToBlob(b64, 'application/pdf'), uniqueNames(docs, o, '.pdf')[0], 'application/pdf');
+      return;
+    }
     const JSZip = await loadJSZip();
     const zip = new JSZip();
     const names = uniqueNames(docs, o, '.pdf');
@@ -104,6 +117,13 @@
   }
 
   async function exportXml(o, docs, progress) {
+    // Una sola fattura: direttamente il file XML FatturaPA, senza ZIP.
+    if (docs.length === 1) {
+      const r = o.xmlFile(docs[0]);
+      if (!r || r.error) { alert(`${docs[0].num}: ${r ? r.error : 'non generabile'}`); return; }
+      await saveBlob(new Blob([r.xml], { type: 'application/xml' }), r.filename, 'application/xml');
+      return;
+    }
     const JSZip = await loadJSZip();
     const zip = new JSZip();
     const skipped = [];
@@ -186,9 +206,9 @@
     menu.className = 'dl-menu';
     menu.innerHTML = `<button type="button" data-bx-open>⬇ Esporta (${docs.length})</button>
       <div class="dl-list" hidden data-bx-list>
-        <button type="button" data-bx="pdf">📄 PDF (un file ZIP)</button>
+        <button type="button" data-bx="pdf">📄 PDF${docs.length > 1 ? ' (un file ZIP)' : ''}</button>
         <button type="button" data-bx="excel">📊 Excel riepilogativo</button>
-        ${o.xmlFile ? '<button type="button" data-bx="xml">🧾 XML FatturaPA (un file ZIP)</button>' : ''}
+        ${o.xmlFile ? '<button type="button" data-bx="xml">🧾 XML FatturaPA' + (docs.length > 1 ? ' (un file ZIP)' : '') + '</button>' : ''}
       </div>`;
     const status = document.createElement('span');
     status.className = 'bulk-export-status';

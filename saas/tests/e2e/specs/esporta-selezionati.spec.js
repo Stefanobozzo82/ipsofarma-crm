@@ -85,3 +85,25 @@ test('fatture spuntate: ZIP di XML FatturaPA, saltando quelle senza dati del cli
   await page.unroute('**/rest/v1/clienti?*');
   await page.unroute('**/rest/v1/fatture_cliente?*');
 });
+
+test('una sola fattura spuntata: direttamente il file XML (e il PDF), senza ZIP', async ({ company }) => {
+  const { page, companyId } = company;
+  const clienti = [{ id: uuid(810), company_id: companyId, nome: 'Clinica Singola SRL', piva: '01234567890', sdi: 'ABC1234', via: 'Via Roma 1', cap: '87100', citta: 'Cosenza', prov: 'CS', dest: [] }];
+  const fatture = [{ id: uuid(30), company_id: companyId, num: `FT/${anno}/8101`, data: `${anno}-04-01`, cliente_id: uuid(810),
+    righe: [{ cod: 'X', descr: 'riga', qty: 1, prezzo: 100, sconto: '', iva: 22 }], paid: false, pagamenti: [], extra: {} }];
+  await page.route('**/rest/v1/clienti?*', fakeRoute(clienti));
+  await page.route('**/rest/v1/fatture_cliente?*', fakeRoute(fatture));
+
+  await gotoList(page, '/fatture.html');
+  await expect(page.locator('#list-area tbody tr')).toHaveCount(1);
+  await page.click('#check-all');
+  const xml = await exportAs(page, 'xml');
+  expect(xml.name).toMatch(new RegExp(`_FT${anno}8101\\.xml$`));
+  expect(xml.buf.toString('utf8')).toContain('<FatturaElettronica');
+  const pdf = await exportAs(page, 'pdf');
+  expect(pdf.name).toBe(`FT-${anno}-8101.pdf`);
+  expect(pdf.buf.subarray(0, 4).toString()).toBe('%PDF');
+
+  await page.unroute('**/rest/v1/clienti?*');
+  await page.unroute('**/rest/v1/fatture_cliente?*');
+});

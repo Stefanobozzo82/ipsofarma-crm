@@ -16,8 +16,9 @@ const BASE_URL = process.env.TEST_BASE_URL || `http://localhost:${PORT}`;
 // questa cartella semplicemente non esiste: si torna al comportamento
 // normale di Playwright.
 const fs = require('fs');
-const localChromium = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const executablePath = fs.existsSync(localChromium) ? localChromium : undefined;
+const localChromium = ['/opt/pw-browsers/chromium', '/opt/pw-browsers/chromium-1194/chrome-linux/chrome']
+  .find(p => fs.existsSync(p) && fs.statSync(p).isFile());
+const executablePath = localChromium || undefined;
 
 module.exports = defineConfig({
   testDir: './specs',

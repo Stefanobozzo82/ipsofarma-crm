@@ -2329,6 +2329,78 @@
         "totale": 434.80799999999994
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-26T09:36:32.878Z",
+      "msgId": "1a17776e8f9f4d69",
+      "file": "5718120286.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718120286",
+        "date": "2026-10-23",
+        "order_ref": "252",
+        "lines": [
+          {
+            "cod": "8700036SP",
+            "descr": "SET INFUSOMAT SP/FM",
+            "qty": 1,
+            "prezzo": 250,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26K03E8ST2",
+            "scad": "2031-09-01"
+          }
+        ],
+        "totale": 305
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-26T09:36:32.878Z",
+      "msgId": "1a17776bd7de8752",
+      "file": "5718120285.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718120285",
+        "date": "2026-10-23",
+        "order_ref": "Rif.cliente Vs.ord. 250",
+        "lines": [
+          {
+            "cod": "8713110D",
+            "descr": "ALIMENTATORE SPACE III",
+            "qty": 1,
+            "prezzo": 63.6,
+            "sconto": "0",
+            "iva": 5,
+            "lotto": "020526V",
+            "scad": ""
+          },
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 1,
+            "prezzo": 3.4,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F16H8B02",
+            "scad": "2031-06-01"
+          }
+        ],
+        "totale": 70.928
+      },
+      "src": "Gmail"
     }
   ]
 }

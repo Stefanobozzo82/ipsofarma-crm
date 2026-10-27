@@ -123,7 +123,8 @@
     if (oc) {
       // Figli dell'OC trovati per scansione all'indietro (chi ha oc come
       // genitore), non tramite gli array ofIds/ddtIds del vecchio schema.
-      const ofList = docs.ordiniFornitore.filter(of => of.ocId === oc.num);
+      // ocIds: un ordine fornitore può riunire più ordini cliente.
+      const ofList = docs.ordiniFornitore.filter(of => of.ocId === oc.num || (Array.isArray(of.ocIds) && of.ocIds.includes(oc.num)));
       const ddtList = docs.ddt.filter(d => d.ocId === oc.id);
       const ofRows = ofList.length ? ofList.map((of, i) => `<div class="flow-row">${node('Ordine fornitore' + (ofList.length > 1 ? ' ' + (i + 1) : ''), of, 'ordiniFornitore')}${arrow}${ofChainHtml(of)}</div>`).join('') : `<div class="flow-row">${ghost('Ordine fornitore')}${arrow}${ghost('Fattura fornitore')}</div>`;
       const ddtRows = ddtList.length ? ddtList.map((d, i) => {

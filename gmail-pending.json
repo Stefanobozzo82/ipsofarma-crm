@@ -2401,6 +2401,47 @@
         "totale": 70.928
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-27T10:06:30.935Z",
+      "msgId": "1a17cb11e5847168",
+      "file": "5718120631.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718120631",
+        "date": "2026-10-26",
+        "order_ref": "Rif.cliente Vs.ord. 253",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 3,
+            "prezzo": 2.83,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126252",
+            "scad": "2031-06-16"
+          },
+          {
+            "cod": "C3046221",
+            "descr": "NOVOSYN QUICK INC 3/0 (2) 45CM D",
+            "qty": 3,
+            "prezzo": 2.27,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126294",
+            "scad": "2031-07-16"
+          }
+        ],
+        "totale": 18.666
+      },
+      "src": "Gmail"
     }
   ]
 }

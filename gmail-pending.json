@@ -2442,6 +2442,37 @@
         "totale": 18.666
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-28T09:21:32.991Z",
+      "msgId": "1a181c51b7eed0fb",
+      "file": "5718120992.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718120992",
+        "date": "2026-10-27",
+        "order_ref": "Rif.cliente Vs.ord. 253",
+        "lines": [
+          {
+            "cod": "783100",
+            "descr": "MANIPLER AZ - 35W SKINSTAPLER",
+            "qty": 20,
+            "prezzo": 28.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "U269014300",
+            "scad": "2031-03-31"
+          }
+        ],
+        "totale": 702.72
+      },
+      "src": "Gmail"
     }
   ]
 }

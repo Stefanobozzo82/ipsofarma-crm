@@ -2473,6 +2473,230 @@
         "totale": 702.72
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-29T09:07:52.471Z",
+      "msgId": "1a186d6f4c78b38d",
+      "file": "5718121203.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718121203",
+        "date": "2026-10-28",
+        "order_ref": "Rif.cliente Vs.ord. 259",
+        "lines": [
+          {
+            "cod": "PL579T",
+            "descr": "CHALLENGER TI-P CLIP LIGAT.ML",
+            "qty": 5,
+            "prezzo": 24.75167,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "53101630",
+            "scad": "2031-09-16"
+          },
+          {
+            "cod": "PL579T",
+            "descr": "CHALLENGER TI-P CLIP LIGAT.ML",
+            "qty": 1,
+            "prezzo": 61.87917,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "53101630",
+            "scad": "2031-09-16"
+          }
+        ],
+        "totale": 226.4777744
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-29T09:07:52.472Z",
+      "msgId": "1a186d6c2e7430bd",
+      "file": "5718121202.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718121202",
+        "date": "2026-10-28",
+        "order_ref": "Rif.cliente Vs.ord. 257",
+        "lines": [
+          {
+            "cod": "C3046213",
+            "descr": "NOVOSYN QUICK INC 4/0 (1,5)70CM",
+            "qty": 1,
+            "prezzo": 94.68,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126363",
+            "scad": "2031-09-02"
+          }
+        ],
+        "totale": 115.5096
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-29T09:07:52.472Z",
+      "msgId": "1a186d695ea2dd24",
+      "file": "5718121201.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718121201",
+        "date": "2026-10-28",
+        "order_ref": "Rif.cliente Vs.ord. 256",
+        "lines": [
+          {
+            "cod": "B0026223",
+            "descr": "PREMICRON VERDE 5 (7)75CM",
+            "qty": 2,
+            "prezzo": 84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "624453, 626241",
+            "scad": "2029-11-06, 2031-06-08"
+          },
+          {
+            "cod": "C2023215",
+            "descr": "MONOSYN UNDYED 3/0 (2) 70CM",
+            "qty": 2,
+            "prezzo": 70.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3627VS",
+            "scad": "2031-07-03"
+          },
+          {
+            "cod": "C0762431",
+            "descr": "SILKAM NERO 0 (3,5) 75CM",
+            "qty": 2,
+            "prezzo": 43.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626261",
+            "scad": "2031-06-22"
+          },
+          {
+            "cod": "C0762970",
+            "descr": "SILKAM NERO 1 (4) 75CM",
+            "qty": 2,
+            "prezzo": 136.7,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "626333",
+            "scad": "2031-08-12"
+          }
+        ],
+        "totale": 815.204
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-29T09:07:52.472Z",
+      "msgId": "1a186d64857bf595",
+      "file": "5718121200.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718121200",
+        "date": "2026-10-28",
+        "order_ref": "Rif.cliente Vs.ord. 257",
+        "lines": [
+          {
+            "cod": "C0765112",
+            "descr": "SILKAM NERO 2/0 (3) 45CM DS24",
+            "qty": 36,
+            "prezzo": 0.77,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626275",
+            "scad": "2031-07-03"
+          },
+          {
+            "cod": "C0762067",
+            "descr": "SILKAM NERO 6/0 (0,7) 45CM D$1",
+            "qty": 36,
+            "prezzo": 1.78,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626326",
+            "scad": "2031-08-08"
+          },
+          {
+            "cod": "C0023250",
+            "descr": "MONOSYN INCOLORE 2/0 (3) 70CM",
+            "qty": 36,
+            "prezzo": 2.19,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126272",
+            "scad": "2031-06-30"
+          },
+          {
+            "cod": "C2023413",
+            "descr": "MONOSYN UNDYED 5/0 (1) 70CM DS",
+            "qty": 36,
+            "prezzo": 2.7,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "162966",
+            "scad": "2031-07-16"
+          },
+          {
+            "cod": "C0069221N1",
+            "descr": "NOVOSYN INCOLORE 3/0 (2) 45CM",
+            "qty": 36,
+            "prezzo": 1.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36357A",
+            "scad": "2031-08-28"
+          },
+          {
+            "cod": "C0068447N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 90CM HR3",
+            "qty": 36,
+            "prezzo": 2.29,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "362925",
+            "scad": "2031-07-17"
+          },
+          {
+            "cod": "C0069330",
+            "descr": "NOVOSYN INCOLORE 6/0(0,7) 70CM",
+            "qty": 36,
+            "prezzo": 2.34,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726173",
+            "scad": "2031-04-22"
+          }
+        ],
+        "totale": 595.116
+      },
+      "src": "Gmail"
     }
   ]
 }

@@ -2697,6 +2697,129 @@
         "totale": 595.116
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-30T13:06:57.577Z",
+      "msgId": "1a18ce0ccd5c020e",
+      "file": "5718121507.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718121507",
+        "date": "2026-10-29",
+        "order_ref": "Rif.cliente Vs.ord. 256",
+        "lines": [
+          {
+            "cod": "C3046241",
+            "descr": "NOVOSYN QUICK INC 0(3,5)90CM H",
+            "qty": 1,
+            "prezzo": 98.28,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126202",
+            "scad": "2031-05-12"
+          },
+          {
+            "cod": "C3046241",
+            "descr": "NOVOSYN QUICK INC 0(3,5)90CM H",
+            "qty": 1,
+            "prezzo": 98.28,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126381",
+            "scad": "2031-09-14"
+          }
+        ],
+        "totale": 239.8032
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-30T13:06:57.577Z",
+      "msgId": "1a18ce0a0dc696a5",
+      "file": "5718121506.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718121506",
+        "date": "2026-10-29",
+        "order_ref": "Rif.cliente Vs.ord. 255",
+        "lines": [
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 2,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F16H8B02",
+            "scad": "2031-06-01"
+          }
+        ],
+        "totale": 207.4
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-10-30T13:06:57.577Z",
+      "msgId": "1a18ce0803f12744",
+      "file": "5718121505.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718121505",
+        "date": "2026-10-29",
+        "order_ref": "Rif.cliente Vs.ord. 255",
+        "lines": [
+          {
+            "cod": "BN104R",
+            "descr": "SONDA BOTTONUTA D:1/145MM",
+            "qty": 5,
+            "prezzo": 7.21,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BN114R",
+            "descr": "SONDA BOTTONUTA D:1,5/145MM",
+            "qty": 5,
+            "prezzo": 7.21,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BN134R",
+            "descr": "SONDA BOTTONUTA D:2/145MM",
+            "qty": 5,
+            "prezzo": 7.21,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 131.94299999999998
+      },
+      "src": "Gmail"
     }
   ]
 }

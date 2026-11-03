@@ -2820,6 +2820,37 @@
         "totale": 131.94299999999998
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-03T15:21:33.059Z",
+      "msgId": "1a1a1f1c01df251e",
+      "file": "5718122239.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718122239",
+        "date": "2026-11-02",
+        "order_ref": "Rif.cliente Vs.ord. 258",
+        "lines": [
+          {
+            "cod": "4502043-13",
+            "descr": "PENCAN 25GX3 1/2\" (0.5X88MM)",
+            "qty": 1,
+            "prezzo": 85,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26F16H8B02",
+            "scad": "2031-06-01"
+          }
+        ],
+        "totale": 103.7
+      },
+      "src": "Gmail"
     }
   ]
 }

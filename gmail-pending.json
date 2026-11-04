@@ -2851,6 +2851,57 @@
         "totale": 103.7
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-04T10:07:00.249Z",
+      "msgId": "1a1a5e245047c445",
+      "file": "5718122524.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718122524",
+        "date": "2026-11-03",
+        "order_ref": "Rif.cliente Vs.ord. 260",
+        "lines": [
+          {
+            "cod": "C0068013",
+            "descr": "NOVOSYN VIOLA 4/0 (1,5) 70CM H",
+            "qty": 6,
+            "prezzo": 62.28,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726277",
+            "scad": "2031-07-05"
+          },
+          {
+            "cod": "C0068054",
+            "descr": "NOVOSYN VIOLA 2 (5) 70CM HR37",
+            "qty": 6,
+            "prezzo": 78.84,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726116",
+            "scad": "2031-03-14"
+          },
+          {
+            "cod": "C0068417",
+            "descr": "NOVOSYN VIOLA 1 (4) 70CM FR26",
+            "qty": 6,
+            "prezzo": 69.12,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726226",
+            "scad": "2031-05-30"
+          }
+        ],
+        "totale": 1538.9568
+      },
+      "src": "Gmail"
     }
   ]
 }

@@ -2902,6 +2902,201 @@
         "totale": 1538.9568
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-05T10:07:06.324Z",
+      "msgId": "1a1ab143ee13b24b",
+      "file": "5718122846.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718122846",
+        "date": "2026-11-04",
+        "order_ref": "Rif.cliente Vs.ord. 261",
+        "lines": [
+          {
+            "cod": "PL770SU",
+            "descr": "CAIMAN MARYLAND NON ARTICOLATO",
+            "qty": 1,
+            "prezzo": 1680,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "53100591",
+            "scad": "2028-09-21"
+          },
+          {
+            "cod": "PL730SU",
+            "descr": "CAIMAN STRUM.MONOUSO ARTICOL.D",
+            "qty": 2,
+            "prezzo": 840,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "B1445",
+            "scad": "2028-07-27"
+          }
+        ],
+        "totale": 4099.2
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-05T10:07:06.324Z",
+      "msgId": "1a1ab141f775ea77",
+      "file": "5718122845.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718122845",
+        "date": "2026-11-04",
+        "order_ref": "Rif.cliente Vs.ord. 263",
+        "lines": [
+          {
+            "cod": "2080536",
+            "descr": "CELLISTYPT® 5 CM X 35 CM (ORIG",
+            "qty": 2,
+            "prezzo": 12.39,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "051-26",
+            "scad": "2027-12-28"
+          }
+        ],
+        "totale": 30.2316
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-05T10:07:06.324Z",
+      "msgId": "1a1ab13f6ce29924",
+      "file": "5718122844.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718122844",
+        "date": "2026-11-04",
+        "order_ref": "Rif.cliente Vs.ord. 263",
+        "lines": [
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 3,
+            "prezzo": 52.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36301K",
+            "scad": "2031-07-23"
+          },
+          {
+            "cod": "C0068956N1",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 90CM HR3",
+            "qty": 8,
+            "prezzo": 60.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36368Z",
+            "scad": "2031-09-04"
+          },
+          {
+            "cod": "C0762601",
+            "descr": "SILKAM NERO 0 (3,5) 75CM DS39",
+            "qty": 3,
+            "prezzo": 30.24,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626305",
+            "scad": "2031-07-24"
+          }
+        ],
+        "totale": 892.0151999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-05T10:07:06.324Z",
+      "msgId": "1a1ab13d187ad576",
+      "file": "5718122843.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718122843",
+        "date": "2026-11-04",
+        "order_ref": "Rif.cliente Vs.ord. 263",
+        "lines": [
+          {
+            "cod": "4161319-07",
+            "descr": "CERTOFIX DUO V 730 EU/SA",
+            "qty": 1,
+            "prezzo": 18.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26D27A8551",
+            "scad": "2031-04-01"
+          },
+          {
+            "cod": "4166159-07",
+            "descr": "CERTOFIX DUO V 715",
+            "qty": 2,
+            "prezzo": 18.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26H20A8551",
+            "scad": "2031-08-01"
+          }
+        ],
+        "totale": 66.612
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-05T10:07:06.324Z",
+      "msgId": "1a1ab139fa992da8",
+      "file": "5718122842.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718122842",
+        "date": "2026-11-04",
+        "order_ref": "Rif.cliente Vs.ord. 263",
+        "lines": [
+          {
+            "cod": "EA843R",
+            "descr": "ANOSCOPIO MATHIEU CON 3 VALVE",
+            "qty": 1,
+            "prezzo": 1041.55,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 1270.6909999999998
+      },
+      "src": "Gmail"
     }
   ]
 }

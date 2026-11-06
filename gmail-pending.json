@@ -3097,6 +3097,37 @@
         "totale": 1270.6909999999998
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-06T10:36:26.783Z",
+      "msgId": "1a1b03dbaddca47d",
+      "file": "5718123220.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718123220",
+        "date": "2026-11-05",
+        "order_ref": "Rif.cliente Vs.ord. 257",
+        "lines": [
+          {
+            "cod": "C2023424",
+            "descr": "MONOSYN INC 4/0 (1,5)70CM DS16",
+            "qty": 1,
+            "prezzo": 79.2,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "1638C8",
+            "scad": "2031-09-16"
+          }
+        ],
+        "totale": 96.624
+      },
+      "src": "Gmail"
     }
   ]
 }

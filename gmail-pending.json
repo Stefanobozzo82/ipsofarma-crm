@@ -3128,6 +3128,189 @@
         "totale": 96.624
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-09T09:22:05.930Z",
+      "msgId": "1a1bf66dcda76267",
+      "file": "5718123401.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718123401",
+        "date": "2026-11-06",
+        "order_ref": "Rif.cliente Vs.ord. 265",
+        "lines": [
+          {
+            "cod": "C0068090N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 2,
+            "prezzo": 65.32,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3625RZ",
+            "scad": "2031-06-20"
+          },
+          {
+            "cod": "C0068815",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM 2XF",
+            "qty": 1,
+            "prezzo": 114.12,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "725424",
+            "scad": "2030-10-16"
+          },
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 2,
+            "prezzo": 101.88,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126105",
+            "scad": "2031-03-06"
+          }
+        ],
+        "totale": 547.1944000000001
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-09T09:22:05.931Z",
+      "msgId": "1a1bf66ba6c05118",
+      "file": "5718123400.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718123400",
+        "date": "2026-11-06",
+        "order_ref": "Rif.cliente Vs.ord. 151",
+        "lines": [
+          {
+            "cod": "PURPLE-PS9HCS33-34",
+            "descr": "STAPL CIRCOLARE EMORROIDI 33-3",
+            "qty": 6,
+            "prezzo": 180,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "2506124",
+            "scad": "2030-07-09"
+          }
+        ],
+        "totale": 1317.6
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-09T09:22:05.931Z",
+      "msgId": "1a1bf668eef102bf",
+      "file": "5718123399.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718123399",
+        "date": "2026-11-06",
+        "order_ref": "Rif.cliente Vs.ord. 262",
+        "lines": [
+          {
+            "cod": "B0088798",
+            "descr": "NOVOSYN VIOLA 2 (5)4X45CM",
+            "qty": 1,
+            "prezzo": 455.6,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "726135",
+            "scad": "2031-03-27"
+          },
+          {
+            "cod": "C1088770",
+            "descr": "NOVOSYN CHD VIOL 2/0(3)4×45CM",
+            "qty": 1,
+            "prezzo": 511.1,
+            "sconto": "70",
+            "iva": 22,
+            "lotto": "125213",
+            "scad": "2030-05-21"
+          },
+          {
+            "cod": "B0088796",
+            "descr": "NOVOSYN VIO 0 (3,5) 4X45CM",
+            "qty": 1,
+            "prezzo": 113.28,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726202",
+            "scad": "2031-05-12"
+          },
+          {
+            "cod": "B0088797",
+            "descr": "NOVOSYN VIOLA 1 (4)4X45CM",
+            "qty": 1,
+            "prezzo": 118.8,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726193",
+            "scad": "2031-05-06"
+          },
+          {
+            "cod": "C0762601",
+            "descr": "SILKAM NERO 0 (3,5) 75CM",
+            "qty": 1,
+            "prezzo": 30.24,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626305",
+            "scad": "2031-07-24"
+          },
+          {
+            "cod": "C0762610",
+            "descr": "SILKAM NERO 1 (4) 75CM",
+            "qty": 1,
+            "prezzo": 33.48,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626344",
+            "scad": "2031-08-20"
+          },
+          {
+            "cod": "C0762369",
+            "descr": "SILKAM NERO 2/0 (3) 75CM",
+            "qty": 1,
+            "prezzo": 32.04,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626341",
+            "scad": "2031-08-17"
+          },
+          {
+            "cod": "C0762148",
+            "descr": "SILKAM NERO 3/0 (2) 45CM",
+            "qty": 1,
+            "prezzo": 33.69,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626274",
+            "scad": "2031-07-02"
+          }
+        ],
+        "totale": 1620.4406000000001
+      },
+      "src": "Gmail"
     }
   ]
 }

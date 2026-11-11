@@ -3311,6 +3311,47 @@
         "totale": 1620.4406000000001
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-11T09:21:33.082Z",
+      "msgId": "1a1c9b5265abdd02",
+      "file": "5718123905.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718123905",
+        "date": "2026-11-10",
+        "order_ref": "Rif.cliente Vs.ord. 264",
+        "lines": [
+          {
+            "cod": "BM017R",
+            "descr": "DUROGRIP PORTAGHI CRILE-WOOD",
+            "qty": 1,
+            "prezzo": 124.29,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          },
+          {
+            "cod": "BM022R",
+            "descr": "DUROGRIP PORTAGHI HEGAR-MAYO-S",
+            "qty": 1,
+            "prezzo": 121.79,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 300.2176
+      },
+      "src": "Gmail"
     }
   ]
 }

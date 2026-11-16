@@ -3352,6 +3352,375 @@
         "totale": 300.2176
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.490Z",
+      "msgId": "1a1e4148f72900be",
+      "file": "5718124700.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124700",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 267",
+        "lines": [
+          {
+            "cod": "C0068093",
+            "descr": "NOVOSYN VIOLA 2 (5) 70CM HR26S",
+            "qty": 6,
+            "prezzo": 70.92,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726202",
+            "scad": "2031-05-12"
+          }
+        ],
+        "totale": 519.1343999999999
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e414672cd869f",
+      "file": "5718124699.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124699",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 270",
+        "lines": [
+          {
+            "cod": "C0068591N1",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 90CM HR2",
+            "qty": 6,
+            "prezzo": 72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "363435",
+            "scad": "2031-08-19"
+          }
+        ],
+        "totale": 527.04
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e4143da342d88",
+      "file": "5718124698.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124698",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 271",
+        "lines": [
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HH2",
+            "qty": 2,
+            "prezzo": 52.33,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36120A",
+            "scad": "2031-03-21"
+          }
+        ],
+        "totale": 127.6852
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e41411b92d304",
+      "file": "5718124697.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124697",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 267",
+        "lines": [
+          {
+            "cod": "C0068765N1",
+            "descr": "NOVOSYN VIOLA 4/0 (1,5) 70CM H",
+            "qty": 4,
+            "prezzo": 1.45556,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3630ZY",
+            "scad": "2031-07-22"
+          },
+          {
+            "cod": "C0068416",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 70CM FR2",
+            "qty": 4,
+            "prezzo": 2.115,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "725503",
+            "scad": "2030-12-10"
+          },
+          {
+            "cod": "C0068041N1",
+            "descr": "NOVOSYN VIOLA 3/0 (2) 70CM HR2",
+            "qty": 2,
+            "prezzo": 1.45361,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36357M",
+            "scad": "2031-08-29"
+          },
+          {
+            "cod": "G0058715",
+            "descr": "NOVOSYN VIOLA 3/0 (2) 250CM AR",
+            "qty": 10,
+            "prezzo": 1.98,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126351",
+            "scad": "2031-08-24"
+          },
+          {
+            "cod": "G0058716",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 250CM AR",
+            "qty": 10,
+            "prezzo": 1.98,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126111",
+            "scad": "2031-03-09"
+          },
+          {
+            "cod": "C0762482",
+            "descr": "SILKAM NERO 0 (3,5) 75CM DS30",
+            "qty": 8,
+            "prezzo": 0.81,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626313",
+            "scad": "2031-07-29"
+          },
+          {
+            "cod": "C3090152",
+            "descr": "OPTILENE 0 (3,5) 75CM HR37S M",
+            "qty": 1,
+            "prezzo": 3.16417,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "626234",
+            "scad": "2031-06-04"
+          },
+          {
+            "cod": "C3090043",
+            "descr": "OPTILENE 0 (3,5) 75CM HR26 CV",
+            "qty": 1,
+            "prezzo": 2.1125,
+            "sconto": "100",
+            "iva": 22,
+            "lotto": "626193",
+            "scad": "2031-05-06"
+          }
+        ],
+        "totale": 83.6262786
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e413e6ed0d244",
+      "file": "5718124696.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124696",
+        "date": "2026-11-13",
+        "order_ref": "269",
+        "lines": [
+          {
+            "cod": "G0058716",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 250CM AR",
+            "qty": 6,
+            "prezzo": 23.76,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126111",
+            "scad": "2031-03-09"
+          },
+          {
+            "cod": "C0765112",
+            "descr": "SILKAM NERO 2/0 (3) 45CM DS24",
+            "qty": 6,
+            "prezzo": 27.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626275",
+            "scad": "2031-07-03"
+          },
+          {
+            "cod": "C0932213",
+            "descr": "DAFILON BLU 3/0 (2) 45CM DS19",
+            "qty": 6,
+            "prezzo": 29.16,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626305",
+            "scad": "2031-07-24"
+          }
+        ],
+        "totale": 590.2848
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e413c3691ed00",
+      "file": "5718124695.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A.",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124695",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 268",
+        "lines": [
+          {
+            "cod": "G1118765",
+            "descr": "DAFILON NERO 10/0 (0.2) 30CM 2",
+            "qty": 9,
+            "prezzo": 162.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626205",
+            "scad": "2031-05-15"
+          }
+        ],
+        "totale": 1786.6656
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e4139d1da3ce9",
+      "file": "5718124694.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124694",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 271",
+        "lines": [
+          {
+            "cod": "BB073R",
+            "descr": "MANICO P.BISTURI NO.3 125MM",
+            "qty": 2,
+            "prezzo": 8.65,
+            "sconto": "55+15",
+            "iva": 22,
+            "lotto": "",
+            "scad": ""
+          }
+        ],
+        "totale": 21.106
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e413793a571cf",
+      "file": "5718124693.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124693",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 266",
+        "lines": [
+          {
+            "cod": "C2022026",
+            "descr": "MONOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 2,
+            "prezzo": 56.16,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "3640KK",
+            "scad": "2031-10-03"
+          }
+        ],
+        "totale": 137.0304
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-16T12:22:51.492Z",
+      "msgId": "1a1e40b45b2e0e7d",
+      "file": "5718124983.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718124983",
+        "date": "2026-11-13",
+        "order_ref": "Rif.cliente Vs.ord. 269",
+        "lines": [
+          {
+            "cod": "8722960",
+            "descr": "SET PERFUSOR PVC 150 CM",
+            "qty": 3,
+            "prezzo": 82,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "26K11E8SB5",
+            "scad": "2031-09-01"
+          }
+        ],
+        "totale": 300.12
+      },
+      "src": "Gmail"
     }
   ]
 }

@@ -3721,6 +3721,37 @@
         "totale": 300.12
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-19T09:51:28.822Z",
+      "msgId": "1a1f318ee096ad7e",
+      "file": "5718125613.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718125613",
+        "date": "2026-11-18",
+        "order_ref": "Rif.cliente Vs.ord. 274",
+        "lines": [
+          {
+            "cod": "JG600",
+            "descr": "STERILIT I SPRAY OLIO",
+            "qty": 2,
+            "prezzo": 14.185,
+            "sconto": "55",
+            "iva": 22,
+            "lotto": "710156711",
+            "scad": "2031-10-15"
+          }
+        ],
+        "totale": 34.6114
+      },
+      "src": "Gmail"
     }
   ]
 }

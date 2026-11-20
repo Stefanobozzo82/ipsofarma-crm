@@ -3824,6 +3824,47 @@
         "totale": 63.8426
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-20T10:36:27.475Z",
+      "msgId": "1a1f8516fe9e1503",
+      "file": "5718125875.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718125875",
+        "date": "2026-11-19",
+        "order_ref": "Rif.cliente Vs.ord. 278",
+        "lines": [
+          {
+            "cod": "C0932132",
+            "descr": "DAFILON BLU 4/0 (1.5) 45CM DS1",
+            "qty": 2,
+            "prezzo": 36.72,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "626332",
+            "scad": "2031-08-11"
+          },
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 1,
+            "prezzo": 52.33,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36367X",
+            "scad": "2031-08-31"
+          }
+        ],
+        "totale": 153.4394
+      },
+      "src": "Gmail"
     }
   ]
 }

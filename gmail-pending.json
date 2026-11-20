@@ -3752,6 +3752,78 @@
         "totale": 34.6114
       },
       "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-20T09:51:33.373Z",
+      "msgId": "1a1f851588d50e14",
+      "file": "5718125874.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A. a Socio Unico",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718125874",
+        "date": "2026-11-19",
+        "order_ref": "Rif.cliente Vs.ord. 273",
+        "lines": [
+          {
+            "cod": "C3046236",
+            "descr": "NOVOSYN QUICK INC 2/0 (3) 70CM D",
+            "qty": 2,
+            "prezzo": 2.83,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "126311",
+            "scad": "2031-07-27"
+          },
+          {
+            "cod": "C0068426",
+            "descr": "NOVOSYN VIOLA 0 (3,5) 70CM FR3",
+            "qty": 1,
+            "prezzo": 1.92,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "726232",
+            "scad": "2031-06-02"
+          }
+        ],
+        "totale": 9.2476
+      },
+      "src": "Gmail"
+    },
+    {
+      "addedAt": "2026-11-20T09:51:33.373Z",
+      "msgId": "1a1f8512c1b8f2b4",
+      "file": "5718125873.pdf",
+      "p": {
+        "dir": "acquisto",
+        "ced": {
+          "nome": "B. Braun Milano S.p.A.",
+          "piva": "",
+          "cf": ""
+        },
+        "ces": {},
+        "number": "5718125873",
+        "date": "2026-11-19",
+        "order_ref": "Rif.cliente Vs.ord. 274",
+        "lines": [
+          {
+            "cod": "C0068042N1",
+            "descr": "NOVOSYN VIOLA 2/0 (3) 70CM HR2",
+            "qty": 1,
+            "prezzo": 52.33,
+            "sconto": "0",
+            "iva": 22,
+            "lotto": "36367X",
+            "scad": "2031-08-31"
+          }
+        ],
+        "totale": 63.8426
+      },
+      "src": "Gmail"
     }
   ]
 }
